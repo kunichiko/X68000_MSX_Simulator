@@ -6,41 +6,42 @@
 *				1995.10.19		by Kuni.
 *
 
-		.include	iocscall.mac
-		.include	doscall.mac
+	.include	iocscall.mac
+	.include	doscall.mac
 
 
-		.xref	PSG2OPM_tbl
+	.xref	PSG2OPM_tbl
 
-		.xdef	r_port_A0		* アドレスセット
-		.xdef	r_port_A2		* レジスタリード
+	.xdef	r_port_A0		* アドレスセット
+	.xdef	r_port_A2		* レジスタリード
 
-		.xdef	w_port_A0
-		.xdef	w_port_A1
+	.xdef	w_port_A0
+	.xdef	w_port_A1
 
-		.xdef	_PSG_INIT
-		.xdef	OPM_INT			* OPM割り込みルーチン
+	.xdef	_PSG_INIT
 
-OPM_regset	equ	$e90001			* ＯＰＭアクセスレジスタ設定ポート
-OPM_port	equ	$e90003			* ＯＰＭアクセスポート
+OPM_regset	equ	$e90001		* ＯＰＭアクセスレジスタ設定ポート
+OPM_port	equ	$e90003		* ＯＰＭアクセスポート
 
 portA_8255	equ	$e9a001
 portB_8255	equ	$e9a003
 cont_8255	equ	$e9a007
 
-		.68000
+	.68000
 
-w_OPM		macro	sorce,num
-@@:		tst.b	OPM_port		* ウェイト
-		bmi	@b
-		move.b	num,OPM_regset
-@@:		tst.b	OPM_port		* ウェイト
-		bmi	@b
-		move.b	sorce,OPM_port
-		endm
+w_OPM	macro	sorce,num
 
-		.text
-		.even
+@@:	tst.b	OPM_port		* ウェイト
+	bmi	@b
+	move.b	num,OPM_regset
+@@:	tst.b	OPM_port		* ウェイト
+	bmi	@b
+	move.b	sorce,OPM_port
+
+	endm
+
+	.text
+	.even
 
 ***************************************************************
 *
@@ -53,22 +54,20 @@ w_OPM		macro	sorce,num
 *		０以外・・・異状終了
 *
 ***************************************************************
-_PSG_INIT:	movem.l	d3-d7,-(sp)
+_PSG_INIT:
+*	レジスタ初期化
+	w_OPM	#%00000010,#$01
 
-*		レジスタ初期化
-		w_OPM	#%00000010,#$01
+	w_OPM	#%00000000,#$08
+	w_OPM	#%00000001,#$08
+	w_OPM	#%00000010,#$08
+	w_OPM	#%00000011,#$08
+	w_OPM	#%00000100,#$08
+	w_OPM	#%00000101,#$08
+	w_OPM	#%00000110,#$08
+	w_OPM	#%00000111,#$08
 
-		w_OPM	#%00000000,#$08
-		w_OPM	#%00000001,#$08
-		w_OPM	#%00000010,#$08
-		w_OPM	#%00000011,#$08
-		w_OPM	#%00000100,#$08
-		w_OPM	#%00000101,#$08
-		w_OPM	#%00000110,#$08
-		w_OPM	#%00000111,#$08
-
-		w_OPM	#%00000000,#$0f
-
+	w_OPM	#%00000000,#$0f
 *
 *	ＰＳＧトーン周波数 －＞ ノート番号 変換テーブルの作成
 *
@@ -82,75 +81,74 @@ _PSG_INIT:	movem.l	d3-d7,-(sp)
 *	６８はＯＰＭのマニュアルと192.27セント（約１音）ずれている。よってノート番号で
 *	-200セント(半音)調整し、キーフラクションで+7.8125セント調整する。
 *
+	move.l	#$10D7*2,-(sp)			* 本当は $1000*2でよくも出来るけど
+	DOS	__MALLOC				* 手抜きのため。
+	lea.l	4(sp),sp
 
-		move.l	#$10D7*2,-(sp)			* 本当は $1000*2でよくも出来るけど
-		DOS	__MALLOC				* 手抜きのため。
-		lea.l	4(sp),sp
+	tst.l	d0
+	bmi	err_PSG_INIT
+	move.l	d0,PSG2OPM_tbl
+	movea.l	d0,a0
 
-		tst.l	d0
-		bmi	err_PSG_INIT
-		move.l	d0,PSG2OPM_tbl
-		movea.l	d0,a0
+	move.w	#$17-1,d0
+@@:	move.w	#%01111110_11111100,(a0)+	* ＯＰＭで出せる最高音
+	dbra	d0,@b
 
-		move.w	#$17-1,d0
-@@:		move.w	#%01111110_11111100,(a0)+	* ＯＰＭで出せる最高音
-		dbra	d0,@b
+	move.w	#%01111110_10010100,(a0)+	* D と D#の中間音
+	move.w	#%01111110_00010100,(a0)+	* D の中
 
-		move.w	#%01111110_10010100,(a0)+	* D と D#の中間音
-		move.w	#%01111110_00010100,(a0)+	* D の中
+	lea.l	tone_tbl_end-2,a1
+	lea.l	note_tbl,a2
+	move.b	#%01111011,d0			* キーコード初期値
+	move.b	#%00010100,d1			* キーフラクション初期値（7.8125セント）
+	move.w	#(tone_tbl_end-tone_tbl)/2-1,d2	* ループカウンタ
+1:
+	move.w	-(a1),d3
+	sub.w	2(a1),d3			* d3 = (x-y)	ループの回数
+	clr.w	d4
+2:
+	addq.w	#1,d4
+	clr.l	d5
+	move.w	d4,d5
+	lsl.w	#8,d5				* d5 = 64*d4*4
+	divu.w	d3,d5				* d5 = 64*d4*4/(x-y)
 
-		lea.l	tone_tbl_end-2,a1
-		lea.l	note_tbl,a2
-		move.b	#%01111011,d0			* キーコード初期値
-		move.b	#%00010100,d1			* キーフラクション初期値（7.8125セント）
-		move.w	#(tone_tbl_end-tone_tbl)/2-1,d2	* ループカウンタ
+	move.b	d0,d6				* キーコードを一時読み込み
+	move.b	d1,d7				* キーフラクションを一時読み込み
+	sub.b	d5,d7				* キーフラクションを設定
+	bcs	3f				* キーフラクションが負になったか
+	tst.b	d5				* d5.w は２５６か？
+	bne	@f
+3:	subq.b	#1,d6				* キーコードを－１
+	move.b	d6,d5
+	andi.b	#%00001111,d5
+	cmpi.b	#%00001111,d5
+	bne	@f
+	subq.b	#4,d6 
+@@:
+	move.b	d6,-(sp)
+	move.b	d6,d5				* キーコードセット
+	andi.w	#$0f,d5
+	andi.b	#$f0,d6
+	or.b	0(a2,d5.w),d6
+	move.b	d6,(a0)+
+	move.b	d7,(a0)+			* キーフラクションセット
+	move.b	(sp)+,d6
 
-1:		move.w	-(a1),d3
-		sub.w	2(a1),d3			* d3 = (x-y)	ループの回数
-		clr.w	d4
+	cmp.w	d4,d3
+	bne	2b
 
-2:		addq.w	#1,d4
-		clr.l	d5
-		move.w	d4,d5
-		lsl.w	#8,d5			* d5 = 64*d4*4
-		divu.w	d3,d5			* d5 = 64*d4*4/(x-y)
+	move.b	d6,d0				* 新しいキーコードをセット
+	move.b	#%00010100,d1			* 新しいキーフラクションをセット
 
-		move.b	d0,d6			* キーコードを一時読み込み
-		move.b	d1,d7			* キーフラクションを一時読み込み
-		sub.b	d5,d7			* キーフラクションを設定
-		bcs	3f			* キーフラクションが負になったか
-		tst.b	d5			* d5.w は２５６か？
-		bne	@f
-3:		subq.b	#1,d6			* キーコードを－１
-		move.b	d6,d5
-		andi.b	#%00001111,d5
-		cmpi.b	#%00001111,d5
-		bne	@f
-		subq.b	#4,d6 
-
-@@:		move.b	d6,-(sp)
-		move.b	d6,d5			* キーコードセット
-		andi.w	#$0f,d5
-		andi.b	#$f0,d6
-		or.b	0(a2,d5.w),d6
-		move.b	d6,(a0)+
-		move.b	d7,(a0)+		* キーフラクションセット
-		move.b	(sp)+,d6
-
-		cmp.w	d4,d3
-		bne	2b
-
-		move.b	d6,d0			* 新しいキーコードをセット
-		move.b	#%00010100,d1		* 新しいキーフラクションをセット
-
-		dbra	d2,1b
+	dbra	d2,1b
 
 
 *	ＰＳＧ音色設定
-		move.w	#$40,d1
-		move.w	#3-1,d3			* ３パートにＰＳＧ音色をセット
+	move.w	#$40,d1
+	move.w	#3-1,d3				* ３パートにＰＳＧ音色をセット
 
-@@:		lea.l	PSG_data,a0
+@@:	lea.l	PSG_data,a0
 
 	bsr	SLOT_set			* M1 セット
 
@@ -190,58 +188,51 @@ _PSG_INIT:	movem.l	d3-d7,-(sp)
 	w_OPM	#$00,#$3a			*	  ch.3
 
 *	すべてキーオン
-		w_OPM	#%01111000,#$08
-		w_OPM	#%01111001,#$08
-		w_OPM	#%01111010,#$08
-
-
-		clr.l	d0
-
-		movem.l	(sp)+,d3-d7
-		rts
-
+	w_OPM	#%01111000,#$08
+	w_OPM	#%01111001,#$08
+	w_OPM	#%01111010,#$08
 
 *	割り込みの設定
-		lea.l	OPM_INT,a1
-		IOCS	__OPMINTST
-		tst.l	d0
-		beq	@f
+	lea.l	OPM_int,a1
+	IOCS	__OPMINTST
+	tst.l	d0
+	beq	@f
 
-		pea.l	errms_OPM_int			* 既に使用中のとき
-		DOS	__PRINT
-		lea.l	4(sp),sp
-		move.w	sr,d0
-		move.w	d0,-(sp)
-		or.w	#%00000111_00000000,d0		* 割り込み禁止
-		move.w	d0,sr
-		clr.l	a1
-		IOCS	__OPMINTST
-		move.w	(sp)+,sr			* 割り込み復帰
-		lea.l	OPM_INT,a1
-		IOCS	__OPMINTST
+	pea.l	errms_OPM_int			* 既に使用中のとき
+	DOS	__PRINT
+	lea.l	4(sp),sp
+	move.w	sr,d0
+	move.w	d0,-(sp)
+	or.w	#%00000111_00000000,d0		* 割り込み禁止
+	move.w	d0,sr
+	clr.l	a1
+	IOCS	__OPMINTST
+	move.w	(sp)+,sr			* 割り込み復帰
+	lea.l	OPM_int,a1
+	IOCS	__OPMINTST
 
-@@:		w_OPM	#$dc,#$10			* CLKA = 881
-		w_OPM	#$01,#$11			* 143*16μｓごとに割り込み
+@@:	w_OPM	#$dc,#$10			* CLKA = 881
+	w_OPM	#$01,#$11			* 143*16μｓごとに割り込み
 
-		w_OPM	#%00000101,#$14			* 割り込み開始
+	w_OPM	#%00000101,#$14			* 割り込み開始
 
-		clr.l	d0
+	clr.l	d0
 
-		movem.l	(sp)+,d3-d7
-		rts
+	rts
 
-err_PSG_INIT:	moveq.l	#-1,d0
-		movem.l	(sp)+,d3-d7
-		rts
+err_PSG_INIT:
+	moveq.l	#-1,d0
+	rts
 
-OPM_INT:	btst.b	#1,OPM_port
-		bne	@f
-		rte
+OPM_int:
+	btst.b	#1,OPM_port
+	bne	@f
+	rte
 @@:						* タイマＡの割り込みだ
-*		w_OPM	#%00010101,#$14		* タイマＡオーバーフローフラグの
+*	w_OPM	#%00010101,#$14			* タイマＡオーバーフローフラグの
 						* リセット
 
-		rte
+	rte
 
 *	スロットに音色データを出力
 *
@@ -325,9 +316,9 @@ r_psg_reg_jpt:
 	.dc.l	r_PSG_R14
 	.dc.l	r_PSG_R15
 
-r_PSG_R00:	move.w	PSG_R00,d0	* チャンネルＡ音程分周比 下位８ビット
-		rts
-
+r_PSG_R00:				* チャンネルＡ音程分周比 下位８ビット
+	move.w	PSG_R00,d0
+	rts
 r_PSG_R01:				* チャンネルＡ音程分周比 上位４ビット
 	move.w	PSG_R00,d0
 	lsr.w	#8,d0

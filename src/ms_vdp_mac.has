@@ -1516,7 +1516,7 @@ w_p_gene_tx1:
 *	d1.b ・・・ キャラクタコード 0 ～ 255
 *
 * (返り値)
-*	d1,d2,a0 ・・・ 破壊
+*	d1,d2,d3,a0 ・・・ 破壊
 *	a1 ・・・・ 次に表示するＧＲＡＭアドレス
 *
 w_p_name_tx1:
@@ -1583,10 +1583,7 @@ loop1_put_char:
 	bne	@f
 	adda.l	#1024*15+64,a1
 @@:	move.l	a1,gram_add
-
 	move.l	(sp)+,d4
-	move.w	#$3fff,d3
-
 	rts
 
 w_TEXT2:
@@ -1705,9 +1702,7 @@ w_p_name_tx2:
 	bne	@f
 	adda.l	#1024*15+64,a1
 @@:	move.l	a1,gram_add
-
 	move.l	(sp)+,d4
-	move.w	#$3fff,d3
 	rts
 
 w_MULTICOLOR:
@@ -1862,9 +1857,7 @@ w_p_name_GR1:
 	bne	@f
 	adda.l	#1024*15,a1
 @@:	move.l	a1,gram_add
-
 	move.l	(sp)+,d4
-	move.w	#$3fff,d3
 	rts
 
 
@@ -2026,7 +2019,6 @@ w_p_name_GR2:
 @@:	move.l	a1,gram_add
 
 	move.l	(sp)+,d4
-	move.w	#$3fff,d3
 	rts
 
 w_GRAPHIC3:
@@ -2178,7 +2170,6 @@ w_p_name_GR3:
 @@:	move.l	a1,gram_add
 
 	move.l	(sp)+,d4
-	move.w	#$3fff,d3
 	rts
 
 w_GRAPHIC4:
@@ -2447,7 +2438,7 @@ SRCH_G5:
 *	Ｌｉｎｅ	適当バージョン
 *
 LINE_G5:
-	movem.l	d3-d6,-(sp)
+	movem.l	d4-d6,-(sp)
 
 	andi.w	#%00000000_00001111,d1
 
@@ -2495,11 +2486,12 @@ LINE_G5:
 	adda.l	d1,a0
 @@:	dbra	d3,1b
 
-	movem.l	(sp)+,d3-d6
+	movem.l	(sp)+,d4-d6
+
 	rts
 
 9:
-	movem.l	(sp)+,d3-d6
+	movem.l	(sp)+,d4-d6
 	rts
 
 *
@@ -2563,7 +2555,7 @@ LMCM_G5:
 *	ＬＭＭＣ
 *
 LMMC_G5:
-	movem.l	d3-d6,-(sp)
+	movem.l	d4-d6,-(sp)
 
 	andi.w	#%00000000_00001111,d1	* d1 = ロジカルオペレーション
 
@@ -2613,7 +2605,8 @@ LMMC_G5:
 	move.w	NEXT_DY(pc),DY
 	move.l	#w_CLR,MC_add
 
-	movem.l	(sp)+,d3-d6
+	movem.l	(sp)+,d4-d6
+
 	rts
 
 @@:	move.w	d5,loop_y
@@ -2624,7 +2617,7 @@ LMMC_G5:
 
 	move.l	#DO_LMMC_G5,MC_add
 
-	movem.l	(sp)+,d3-d6
+	movem.l	(sp)+,d4-d6
 
 	rts
 

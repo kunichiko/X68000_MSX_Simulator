@@ -6,47 +6,47 @@
 *				1995.9.15		by Kuni.
 *
 
-		.include	iocscall.equ
-		.include	doscall.equ
+	.include	iocscall.equ
+	.include	doscall.equ
 
-		.xdef	r_port_90
-		.xdef	r_port_A8
-		.xdef	r_port_A9
-		.xdef	r_port_AA
-		.xdef	r_port_AB
-		.xdef	r_port_B4
-		.xdef	r_port_B5
-		.xdef	r_port_FC
-		.xdef	r_port_FD
-		.xdef	r_port_FE
-		.xdef	r_port_FF
+	.xdef	r_port_90
+	.xdef	r_port_A8
+	.xdef	r_port_A9
+	.xdef	r_port_AA
+	.xdef	r_port_AB
+	.xdef	r_port_B4
+	.xdef	r_port_B5
+	.xdef	r_port_FC
+	.xdef	r_port_FD
+	.xdef	r_port_FE
+	.xdef	r_port_FF
 
-		.xdef	w_port_90
-		.xdef	w_port_91
-		.xdef	w_port_AA
-		.xdef	w_port_AB
-		.xdef	w_port_B4
-		.xdef	w_port_B5
+	.xdef	w_port_90
+	.xdef	w_port_91
+	.xdef	w_port_AA
+	.xdef	w_port_AB
+	.xdef	w_port_B4
+	.xdef	w_port_B5
 
-		.xdef	p_FC
-		.xdef	p_FD
-		.xdef	p_FE
-		.xdef	p_FF
+	.xdef	p_FC
+	.xdef	p_FD
+	.xdef	p_FE
+	.xdef	p_FF
 
-		.xref	slot_reg
-		.xref	_ms_exit
+	.xref	slot_reg
+	.xref	_ms_exit
 
-		.xdef	KEY_INT
-		.xdef	TOUROKU_int
+	.xdef	KEY_INT
+	.xdef	TOUROKU_int
 
-		.68000
+	.68000
 
 USART_data	equ	$e8802f		* USART データポート
 
-		.text
-		.even
+	.text
+	.even
 
-RTC68		equ	$e8a001
+RTC68	equ	$e8a001
 
 ********************************************************************
 *
@@ -54,94 +54,105 @@ RTC68		equ	$e8a001
 *		d0.b に読み込んだ値を入れて rts
 *
 ********************************************************************
-r_port_90:					* プリンタ ＢＵＳＹ検出
-		move.b	$E9C001,d0		* Inside p375
-		andi.b	#%00100000,d0
-		lsr.b	#4,d0
-		rts
+r_port_90:				* プリンタ ＢＵＳＹ検出
+	move.b	$E9C001,d0		* Inside p375
+	andi.b	#%00100000,d0
+	lsr.b	#4,d0
+	rts
 
-r_port_A8:					* スロット選択レジスタの値
-		move.b	slot_reg,d0
-		rts
+r_port_A8:				* スロット選択レジスタの値
+	move.b	slot_reg,d0
+	rts
 
 
 r_port_A9:
-		move.b	p_AA,d0
-		andi.w	#$000f,d0
-		move.b	KEYSNS_tbl(pc,d0.w),d0
-		rts
+	move.b	p_AA,d0
+	andi.w	#$000f,d0
+	move.b	KEYSNS_tbl(pc,d0.w),d0
+	rts
 
 KEYSNS_tbl:
-		.dc.b	$ff,$ff,$ff,$ff,$ff,$ff,$ff,$ff,$ff,$ff,$ff,$ff,$ff,$ff,$ff,$ff
+	.dc.b	$ff,$ff,$ff,$ff,$ff,$ff,$ff,$ff,$ff,$ff,$ff,$ff,$ff,$ff,$ff,$ff
 
 
-r_port_AA:	move.b	p_AA,d0
-		rts
+r_port_AA:
+	move.b	p_AA,d0
+	rts
 
 r_port_AB:				* PPI Control Register
-		move.b	p_AB,d0
-		rts
+	move.b	p_AB,d0
+	rts
 
 *
 *	Ｒｅａｌ Ｔｉｍｅ Ｃｌｏｃｋ
 *
-r_port_B4:	move.b	p_B4,d0
-		rts
+r_port_B4:
+	move.b	p_B4,d0
+	rts
 
 r_port_B5:				* Real Time Clock
-		move.b	p_B4,d0			* d0 = register number
-		cmpi.b	#13,d0
-		beq	read_RTC_mode
-		bmi	read_RTC_reg
-		cmpi.b	#15,d0
-		beq	@f
-		move.b	RTCR_14,d0
-		rts
-@@:		move.b	RTC68+15*2,d0
-		rts
+	move.b	p_B4,d0			* d0 = register number
+	cmpi.b	#13,d0
+	beq	read_RTC_mode
+	bmi	read_RTC_reg
+	cmpi.b	#15,d0
+	beq	@f
+	move.b	RTCR_14,d0
+	rts
+@@:	move.b	RTC68+15*2,d0
+	rts
 
-read_RTC_mode:	move.b	RTC68+13*2,d0
-		andi.b	#%1000,d0
-		move.b	RTCR_13,d1
-		andi.b	#%0111,d1
-		or.b	d1,d0
-		rts
+read_RTC_mode:
+	move.b	RTC68+13*2,d0
+	andi.b	#%1000,d0
+	move.b	RTCR_13,d1
+	andi.b	#%0111,d1
+	or.b	d1,d0
+	rts
 
-read_RTC_reg:	andi.w	#$000f,d0		* 上位バイトをクリア
-		move.b	RTCR_13,d2
-		andi.w	#%00000011,d2
-		beq	r_block0
-		bclr.l	#1,d2
-		bne	r_block2or3
+read_RTC_reg:
+	andi.w	#$000f,d0		* 上位バイトをクリア
+	move.b	RTCR_13,d3
+	andi.w	#%00000011,d3
+	beq	r_block0
+	bclr.l	#1,d3
+	bne	r_block2or3
 
-		lea.l	RTC1,a0			* ブロック１の時
-		add.w	d0,d0
-		move.b	0(a0,d0.w),d0
-		rts
+	lea.l	RTC1,a0			* ブロック１の時
+	add.w	d0,d0
+	move.b	0(a0,d0.w),d0
+	rts
 
-r_block0:	lea.l	RTC68,a0
-		add.w	d0,d0
-		move.b	0(a0,d0.w),d0
-		rts
+r_block0:
+	lea.l	RTC68,a0
+	add.w	d0,d0
+	move.b	0(a0,d0.w),d0
+	rts
 
-r_block2or3:	move.w	d2,d2
-		bne	block3
-		lea.l	RTC2,a0
-		move.b	0(a0,d0.w),d0
-		rts
-block3:		lea.l	RTC3,a0
-		move.b	0(a0,d0.w),d0
-		rts
+r_block2or3:
+	move.w	d3,d3
+	bne	block3
+	lea.l	RTC2,a0
+	move.b	0(a0,d0.w),d0
+	rts
+block3:
+	lea.l	RTC3,a0
+	move.b	0(a0,d0.w),d0
+	rts
 
 
-r_port_FC:	move.b	p_FC,d0
-		rts
-r_port_FD:	move.b	p_FD,d0
-		rts
-r_port_FE:	move.b	p_FE,d0
-		rts
-r_port_FF:	move.b	p_FF,d0
-		rts
+r_port_FC:
+	move.b	p_FC,d0
+	rts
+r_port_FD:
+	move.b	p_FD,d0
+	rts
+r_port_FE:
+	move.b	p_FE,d0
+	rts
+r_port_FF:
+	move.b	p_FF,d0
+	rts
 
 
 ****************************************************************************
@@ -149,32 +160,32 @@ r_port_FF:	move.b	p_FF,d0
 *	ＯＵＴＰＵＴ
 *		d1.b に書き込む値が入ってくる
 *
-*	d0～d2 を使ってよい
+*	d0～d3 を使ってよい
 *
 ****************************************************************************
-w_port_90:	eori.b	#1,d1			* プリンタポート
-		move.b	d1,$E8C003		* プリンタ STROBE	(Inside p373)
-		rts
-w_port_91:					* プリンタポート
-		move.b	d1,$E8C001		* プリンタ DATA		(Inside p373）	
-		rts
+w_port_90:				* プリンタポート
+	eori.b	#1,d1
+	move.b	d1,$E8C003		* プリンタ STROBE	(Inside p373)
+	rts
+w_port_91:				* プリンタポート
+	move.b	d1,$E8C001		* プリンタ DATA		(Inside p373）	
+	rts
 
-w_port_AA:	move.b	d1,p_AA
+w_port_AA:
+	move.b	d1,p_AA
 
-		btst.l	#6,d1			* ビット６は CAPS ランプの制御
-		beq	1f			* 	0 ・・ on   1 ・・ off
-		moveq.l	#3,d1			* CAPS
-		clr.b	d2			* 消灯
-		IOCS	_LEDMOD
-		bra	@f
-
-1:		moveq.l	#3,d1			* CAPS
-		moveq.l	#1,d2			* 点灯
-		IOCS	_LEDMOD
-
+	btst.l	#6,d1			* ビット６は CAPS ランプの制御
+	beq	1f			* 	0 ・・ on   1 ・・ off
+	moveq.l	#3,d1			* CAPS
+	clr.b	d2			* 消灯
+	IOCS	_LEDMOD
+	bra	@f
+1:
+	moveq.l	#3,d1			* CAPS
+	moveq.l	#1,d2			* 点灯
+	IOCS	_LEDMOD
 @@:
-
-		rts
+	rts
 
 *
 *	port AB 解析結果
@@ -189,217 +200,223 @@ w_port_AA:	move.b	d1,p_AA
 *		奇数の時：port AA の指定されたビットを１にする。ビットの指定はビット
 *			  1,2,3 の組み合わせによる。
 *
-w_port_AB:	move.b	d1,d0
-		bpl	@f
-		move.b	d0,p_AB
-		rts
-@@:		move.b	p_AA,d1
-		andi.b	#%00001111,d0
-		lsr.b	#1,d0
-		bcc	@f
-		bset.l	d0,d1			* 奇数の時
-		bra	w_port_AA
-@@:		bclr.l	d0,d1			* 偶数の時
-		bra	w_port_AA
+w_port_AB:
+	move.b	d1,d0
+	bpl	@f
+	move.b	d0,p_AB
+	rts
+@@:	move.b	p_AA,d1
+	andi.b	#%00001111,d0
+	lsr.b	#1,d0
+	bcc	@f
+	bset.l	d0,d1			* 奇数の時
+	bra	w_port_AA
+@@:	bclr.l	d0,d1			* 偶数の時
+	bra	w_port_AA
 
 
 *
 *	Ｒｅａｌ Ｔｉｍｅ Ｃｌｏｃｋ
 *
 w_port_B4:
-		andi.b	#%00001111,d1
-		move.b	d1,p_B4
-		rts
+	andi.b	#%00001111,d1
+	move.b	d1,p_B4
+	rts
 
 w_port_B5:
-		move.b	p_B4,d0
-		cmpi.b	#13,d0
-		beq	set_RTC_mode
-		bmi	write_RTC_reg
-		cmpi.b	#15,d0
-		beq	@f
-		move.b	d1,RTCR_14
-		rts
-@@:		move.b	d1,RTC68+15*2
-		rts
+	move.b	p_B4,d0
+	cmpi.b	#13,d0
+	beq	set_RTC_mode
+	bmi	write_RTC_reg
+	cmpi.b	#15,d0
+	beq	@f
+	move.b	d1,RTCR_14
+	rts
+@@:	move.b	d1,RTC68+15*2
+	rts
 
 set_RTC_mode:
-		move.b	d1,RTCR_13
-		move.b	RTC68+13*2,d0		* 68 の RTC13 を読み込み
-		andi.b	#%0100,d0
-		andi.b	#%1001,d1
-		or.b	d1,d0
-		move.b	d0,RTC68+13*2
-		rts	
+	move.b	d1,RTCR_13
+	move.b	RTC68+13*2,d0		* 68 の RTC13 を読み込み
+	andi.b	#%0100,d0
+	andi.b	#%1001,d1
+	or.b	d1,d0
+	move.b	d0,RTC68+13*2
+	rts	
 
 write_RTC_reg:
-		andi.w	#$000f,d0		* 上位バイトをクリア
-		move.b	RTCR_13,d2
-		andi.w	#%00000011,d2
-		beq	w_block0
-		bclr.l	#1,d2
-		bne	w_block2or3
+	andi.w	#$000f,d0		* 上位バイトをクリア
+	move.b	RTCR_13,d3
+	andi.w	#%00000011,d3
+	beq	w_block0
+	bclr.l	#1,d3
+	bne	w_block2or3
 
-		lea.l	RTC1mask,a0		* ブロック１の時
-		and.b	0(a0,d0.w),d1
-		lea.l	RTC1,a0
-		add.w	d0,d0
-		move.b	d1,0(a0,d0.w)
-		rts
+	lea.l	RTC1mask,a0		* ブロック１の時
+	and.b	0(a0,d0.w),d1
+	lea.l	RTC1,a0
+	add.w	d0,d0
+	move.b	d1,0(a0,d0.w)
+	rts
 
 w_block0:
-		lea.l	RTC68,a0
-		move.b	13*2(a0),d2		* ６８のＲＴＣモードが変わってるかもしれない
-		andi.b	#%1100,d2		* から、設定し直す
-		move.b	d2,13*2(a0)
-		add.w	d0,d0
-		move.b	d1,0(a0,d0.w)
-		rts
+	lea.l	RTC68,a0
+	move.b	13*2(a0),d2		* ６８のＲＴＣモードが変わってるかもしれない
+	andi.b	#%1100,d2		* から、設定し直す
+	move.b	d2,13*2(a0)
+	add.w	d0,d0
+	move.b	d1,0(a0,d0.w)
+	rts
 
 w_block2or3:
-		move.w	d2,d2
-		bne	w_block3	
-		lea.l	RTC2,a0
-		move.b	d1,0(a0,d0.w)
-		rts
+	move.w	d3,d3
+	bne	w_block3	
+	lea.l	RTC2,a0
+	move.b	d1,0(a0,d0.w)
+	rts
 
-w_block3:	lea.l	RTC3,a0
-		move.b	d1,0(a0,d0.w)
-		rts
+w_block3:
+	lea.l	RTC3,a0
+	move.b	d1,0(a0,d0.w)
+	rts
 
-RTC1:		.dc.b	0		* 0
-		.dc.b	0
-		.dc.b	0
-		.dc.b	0
-		.dc.b	0
-		.dc.b	0
-		.dc.b	0
-		.dc.b	0
-		.dc.b	0
-		.dc.b	0
-		.dc.b	0
-		.dc.b	0
-		.dc.b	0		* 12
+RTC1:	.dc.b	0		* 0
+	.dc.b	0
+	.dc.b	0
+	.dc.b	0
+	.dc.b	0
+	.dc.b	0
+	.dc.b	0
+	.dc.b	0
+	.dc.b	0
+	.dc.b	0
+	.dc.b	0
+	.dc.b	0
+	.dc.b	0		* 12
 
-RTC2:		.dc.b	0x0a		* 0
-		.dc.b	0
-		.dc.b	0
-		.dc.b	1
-		.dc.b	0
-		.dc.b	2
-		.dc.b	15
-		.dc.b	4
-		.dc.b	7
-		.dc.b	1
-		.dc.b	0
-		.dc.b	0
-		.dc.b	0		* 12
+RTC2:	.dc.b	0x0a		* 0
+	.dc.b	0
+	.dc.b	0
+	.dc.b	1
+	.dc.b	0
+	.dc.b	2
+	.dc.b	15
+	.dc.b	4
+	.dc.b	7
+	.dc.b	1
+	.dc.b	0
+	.dc.b	0
+	.dc.b	0		* 12
 
-RTC3:		.dc.b	0		* 0
-		.dc.b	0
-		.dc.b	0
-		.dc.b	0
-		.dc.b	0
-		.dc.b	0
-		.dc.b	0
-		.dc.b	0
-		.dc.b	0
-		.dc.b	0
-		.dc.b	0
-		.dc.b	0
-		.dc.b	0		* 12
+RTC3:	.dc.b	0		* 0
+	.dc.b	0
+	.dc.b	0
+	.dc.b	0
+	.dc.b	0
+	.dc.b	0
+	.dc.b	0
+	.dc.b	0
+	.dc.b	0
+	.dc.b	0
+	.dc.b	0
+	.dc.b	0
+	.dc.b	0		* 12
 
 RTCR_13:
-		.dc.b	%1000
+	.dc.b	%1000
 RTCR_14:
-		.dc.b	%0000
+	.dc.b	%0000
 
-RTC1mask:	.dc.b	0
-		.dc.b	0
-		.dc.b	15
-		.dc.b	7
-		.dc.b	15
-		.dc.b	3
-		.dc.b	7
-		.dc.b	15
-		.dc.b	3
-		.dc.b	0
-		.dc.b	1
-		.dc.b	3
-		.dc.b	0
+RTC1mask:
+	.dc.b	0
+	.dc.b	0
+	.dc.b	15
+	.dc.b	7
+	.dc.b	15
+	.dc.b	3
+	.dc.b	7
+	.dc.b	15
+	.dc.b	3
+	.dc.b	0
+	.dc.b	1
+	.dc.b	3
+	.dc.b	0
 
-KEY_INT:	movem.l	d0-d1/a0,-(sp)
-		move.b	USART_data,d0
+KEY_INT:
+	movem.l	d0-d1/a0,-(sp)
+	move.b	USART_data,d0
 
-		lea.l	KEYSNS_tbl,a0
-		add.w	d0,d0
-		btst.l	#8,d0
-		bne	OFF
+	lea.l	KEYSNS_tbl,a0
+	add.w	d0,d0
+	btst.l	#8,d0
+	bne	OFF
 
-ON:		andi.w	#$00ff,d0
-		move.w	TABLE(pc,d0.w),d0
-		bmi	INT			* 特殊 キーが押された
-		move.w	d0,d1
-		lsr.w	#8,d0
-		not.b	d1
-		and.b	d1,0(a0,d0.w)
+ON:	andi.w	#$00ff,d0
+	move.w	TABLE(pc,d0.w),d0
+	bmi	INT			* 特殊 キーが押された
+	move.w	d0,d1
+	lsr.w	#8,d0
+	not.b	d1
+	and.b	d1,0(a0,d0.w)
 
-		movem.l	(sp)+,d0-d1/a0
-		rte
+	movem.l	(sp)+,d0-d1/a0
+	rte
 
-OFF:		andi.w	#$00ff,d0
-		move.w	TABLE(pc,d0.w),d0
-		move.w	d0,d1
-		lsr	#8,d0
-		or.b	d1,0(a0,d0.w)
+OFF:	andi.w	#$00ff,d0
+	move.w	TABLE(pc,d0.w),d0
+	move.w	d0,d1
+	lsr	#8,d0
+	or.b	d1,0(a0,d0.w)
 
-		movem.l	(sp)+,d0-d1/a0
-		rte
+	movem.l	(sp)+,d0-d1/a0
+	rte
 
-INT:		cmpi.b	#1,d0
+INT:	cmpi.b	#1,d0
 
-		beq	TOUROKU
+	beq	TOUROKU
 
-HELP:		movem.l	(sp)+,d0-d1/a0		* HELP キーが押された
-		move.l	#_ms_exit,2(sp)
-		rte
+HELP:	movem.l	(sp)+,d0-d1/a0		* HELP キーが押された
+	move.l	#_ms_exit,2(sp)
+	rte
 
 TOUROKU:				* 登録 キーが押された
-		movea.l	TOUROKU_int,a0
-		jmp	(a0)
+	movea.l	TOUROKU_int,a0
+	jmp	(a0)
 
 
 *	とりあえず記号入力をSELECTに割り当てた
-TABLE:		.dc.w	$0000,$0704,$0002,$0004,$0008,$0010,$0020,$0040	* 0
-		.dc.w	$0080,$0101,$0102,$0001,$0104,$0108,$0110,$0720
-		.dc.w	$0708,$0440,$0510,$0304,$0480,$0502,$0540,$0504	* 1
-		.dc.w	$0340,$0410,$0420,$0120,$0140,$0780,$0240,$0501
-		.dc.w	$0302,$0308,$0310,$0320,$0380,$0401,$0402,$0180	* 2
-		.dc.w	$0201,$0202,$0580,$0520,$0301,$0508,$0280,$0408
-		.dc.w	$0404,$0204,$0208,$0210,$0220,$0801,$0802,$0808	* 3
-		.dc.w	$0000,$0000,$0000,$0810,$0820,$0880,$0840,$0802
-		.dc.w	$0902,$0904,$0a20,$0a04,$0a08,$0a10,$0901,$0980	* 4
-		.dc.w	$0a01,$0a02,$0104,$0910,$0920,$0940,$0780,$0908
-		.dc.w	$0a40,$0a80,$0740,$8001,$8000,$0604,$0604,$0604	* 5
-		.dc.w	$0604,$0604,$0610,$0611,$0000,$0608,$0804,$0610
-		.dc.w	$0000,$0710,$0000,$0620,$0640,$0680,$0701,$0702	* 6
-		.dc.w	$0621,$0641,$0681,$0000,$0000,$0000,$0000,$0000
-		.dc.w	$0601,$0602,$0000,$0000,$0000,$0000,$0000,$0000	* 7
-		.dc.w	$0000,$0000,$0000,$0000,$0000,$0000,$0000,$0000
+TABLE:
+	.dc.w	$0000,$0704,$0002,$0004,$0008,$0010,$0020,$0040	* 0
+	.dc.w	$0080,$0101,$0102,$0001,$0104,$0108,$0110,$0720
+	.dc.w	$0708,$0440,$0510,$0304,$0480,$0502,$0540,$0504	* 1
+	.dc.w	$0340,$0410,$0420,$0120,$0140,$0780,$0240,$0501
+	.dc.w	$0302,$0308,$0310,$0320,$0380,$0401,$0402,$0180	* 2
+	.dc.w	$0201,$0202,$0580,$0520,$0301,$0508,$0280,$0408
+	.dc.w	$0404,$0204,$0208,$0210,$0220,$0801,$0802,$0808	* 3
+	.dc.w	$0000,$0000,$0000,$0810,$0820,$0880,$0840,$0802
+	.dc.w	$0902,$0904,$0a20,$0a04,$0a08,$0a10,$0901,$0980	* 4
+	.dc.w	$0a01,$0a02,$0104,$0910,$0920,$0940,$0780,$0908
+	.dc.w	$0a40,$0a80,$0740,$8001,$8000,$0604,$0604,$0604	* 5
+	.dc.w	$0604,$0604,$0610,$0611,$0000,$0608,$0804,$0610
+	.dc.w	$0000,$0710,$0000,$0620,$0640,$0680,$0701,$0702	* 6
+	.dc.w	$0621,$0641,$0681,$0000,$0000,$0000,$0000,$0000
+	.dc.w	$0601,$0602,$0000,$0000,$0000,$0000,$0000,$0000	* 7
+	.dc.w	$0000,$0000,$0000,$0000,$0000,$0000,$0000,$0000
 
 
-		.data
+	.data
 
-*		Ｉ／Ｏポートの値保存場所
-p_AA:		.dc.b	0
-p_AB:		.dc.b	0			* PPI Control Register
+*	Ｉ／Ｏポートの値保存場所
+p_AA:	.dc.b	0
+p_AB:	.dc.b	0			* PPI Control Register
 
-p_B4:		.dc.b	0			* RTC Register
+p_B4:	.dc.b	0			* RTC Register
 
-p_FC:		.dc.b	3			* マッパースロット選択レジスター
-p_FD:		.dc.b	2			* 初期値に意味はない。何となく。
-p_FE:		.dc.b	1
-p_FF:		.dc.b	0
+p_FC:	.dc.b	3			* マッパースロット選択レジスター
+p_FD:	.dc.b	2			* 初期値に意味はない。何となく。
+p_FE:	.dc.b	1
+p_FF:	.dc.b	0
 
 
-TOUROKU_int:	.dc.l	_ms_exit
+TOUROKU_int:
+	.dc.l	_ms_exit
