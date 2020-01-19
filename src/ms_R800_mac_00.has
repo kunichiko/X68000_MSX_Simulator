@@ -7205,15 +7205,15 @@ input_table:
 *	.d0.b	ポート番号
 *	.d1.b	書き込む値
 *
-*	d1 破壊
+*	d1,d2,d3 破壊
 *
 *****************************************************************	
 output:
-	clr.w	d1
-	move.b	d0,d1
-	move.b	I_O_table(pc,d1.w),d1
-	lsl.w	#2,d1				* d1 = d1 *4
-	movea.l	output_table(pc,d1.w),a0
+	clr.w	d2
+	move.b	d0,d2
+	move.b	I_O_table(pc,d2.w),d2
+	lsl.w	#2,d2				* d2 = d2 *4
+	movea.l	output_table(pc,d2.w),a0
 	jmp	(a0)				* rts を省略するためジャンプにしてある
 
 no_port_OUT:

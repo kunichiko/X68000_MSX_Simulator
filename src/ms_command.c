@@ -185,8 +185,8 @@ void chkdsk() {
 
 
 void exit() {
-/*	_iocs_b_super( ssp);			*/
-	_iocs_b_consol(0, 0, 64,32);
+/*	_iocs_b_super( ssp);			
+	_iocs_b_consol(0, 0, 64,32);	*/
 	_dos_exit();
 }
 
@@ -257,8 +257,7 @@ int i,a;
 				}
 			}
 			if ((_iocs_bitsns( 0) & 2) == 2)	/* Ｅｓｃキーが押されていたら終了		*/
-				/* exit();*/
-				goto end;
+				exit();
 		}
 
 	next:
@@ -266,7 +265,4 @@ int i,a;
 		print("\n");						/* 改行							*/
 		do_command( command);
 	}
-end:
-	_iocs_b_super( ssp);
-	_iocs_b_consol(0, 0, 64,32);
 }

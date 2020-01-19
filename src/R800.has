@@ -64,6 +64,8 @@
 	.xref	page2
 	.xref	page3
 
+	.xref	base
+
 	.xdef	MS_JPT			* ６８ネイティブルーチンのジャンプテーブル
 	.xdef	VDP			* VDP処理ルーチンのアドレス
 
