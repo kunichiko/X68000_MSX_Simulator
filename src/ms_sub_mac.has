@@ -1,0 +1,517 @@
+*
+*	Ｍｓｘ Ｓｉｍｕｌａｔｅｒ
+*		[[ ｓｕｂ Ｒｏｕｔｉｎｅ ]]
+*				1993.10.		by Kuni.
+*
+
+		.include	iocscall.mac
+		.include	doscall.mac
+		.include	himemcall.mac
+
+		.xref	VideoRAM
+		.xref	slot_0_0
+		.xref	slot_3_0
+		.xref	slot_3_1
+		.xref	slot_3_2
+		.xref	slot_3_3
+
+		.xref	slot_3_ex
+
+		.xref	S_0
+
+		.xref	interrupt_status
+
+		.xref	active_page
+
+		.xref	KEY_INT
+		.xref	OPM_INT
+
+		.xdef	KEY_vector
+		.xdef	NMI_vector
+
+		.xdef	_initialize
+		.xdef	_ms_exit
+		.xdef	_MMemSet
+		.xdef	_VDPSet
+
+		.xdef	_SetROM
+
+		.xdef	_set_cartridge
+
+		.xdef	_new_malloc
+		.xdef	_new_read
+
+headerlength	equ	8
+
+MFP_GPIP_4	equ	$000118		* 垂直割り込みのベクタアドレス
+MFP_GPIP_6	equ	$000138		* 水平割り込みのベクタアドレス
+MFP_MPSC_EMP	equ	$000130		* キー入力ベクタアドレス
+IERA		equ	$e88007
+IERB		equ	$e88009
+ISRA		equ	$e8800F
+ISRB		equ	$e88011
+IMRA		equ	$e88013
+IMRB		equ	$e88015
+VR		equ	$e88017		* ベクタレジスタ
+
+GPAGE0		equ	$c00000		* ＧＲＡＭの先頭アドレス
+
+CRTR_9		equ	$e80012		* ＣＲＴＣレジスタ９
+CRTR_21		equ	$e8002a
+CRTR_23		equ	$e8002e
+pla0		equ	$e00000
+
+VCRR_1		equ	$e82500		* ビデオコントロールレジスタ１
+VCRR_2		equ	$e82600		* ビデオコントロールレジスタ２
+
+
+* ------ メッセージ表示マクロ ------------------
+print:		macro	msg
+		pea	msg
+		DOS	__PRINT
+		add.l	#4,sp
+		endm
+
+		.text
+		.even
+
+*
+*		システムの設定
+*
+		movea.l	#0,a1	
+		IOCS	__VDISPST
+
+*		void initialize();
+*
+_initialize:	link	a6,#0
+		move.l	a0,-(sp)
+
+@@:		move.w	#1,d1			* 毎回割り込み
+		lea.l	interrupt,a1
+		IOCS	__VDISPST
+		move.l	d0,d0
+		beq	@f
+		pea	errms_int
+		DOS	__PRINT
+		lea.l	4(sp),sp
+		clr.l	a1	
+		IOCS	__VDISPST
+		bra	@b
+
+@@:		andi.b	#%11011111,IERA		* VDP R#1 の IE が１になるまで割り込み禁止
+		bclr.b	#0,interrupt_status	
+
+		andi.b	#%00001110,$e9c001	* プリンタの割り込みを禁止
+
+		move.w	#$4c,d1
+		lea.l	KEY_INT,a1
+		IOCS	__B_INTVCS
+		move.l	d0,KEY_vector	* 元のアドレスを保存
+
+		move.w	#$1f,d1
+		lea.l	NMI_INT,a1
+		IOCS	__B_INTVCS
+		move.l	d0,NMI_vector	* 元のアドレスを保存
+
+		move.l	(sp)+,a0
+		unlk	a6
+
+		rts
+
+NMI_INT:	movem.l	d0-d7/a0-a6,registers	* レジスタ保存
+
+		clr.l	a1	
+		IOCS	__VDISPST
+
+		move.w	#$4c,d1
+		movea.l	KEY_vector,a1
+		IOCS	__B_INTVCS
+
+		move.w	#$1f,d1			*
+		movea.l	NMI_vector,a1
+		IOCS	__B_INTVCS
+
+		clr.l	a1
+		IOCS	__OPMINTST
+
+		move.l	2(sp),break_addr	* 割り込みの起きた次の命令のアドレス
+		move.l	#NMI_NEXT,2(sp)
+
+		movem.l	registers,d0-d7/a0-a6
+		move.l	NMI_vector,a0
+		jmp	(a0)			* もとのNMIルーチンへ
+
+registers:	.dc.l	0,0,0,0,0,0,0,0
+		.dc.l	0,0,0,0,0,0,0,0
+break_addr:	.dc.l	0
+
+NMI_NEXT:	move.w	#$1f,d1
+		lea.l	NMI_INT,a1
+		IOCS	__B_INTVCS
+
+		move.w	#$4c,d1			* NMIルーチンが処理を復帰すると
+		lea.l	KEY_INT,a1		* ここにくる
+		IOCS	__B_INTVCS
+
+		move.w	#1,d1			* 毎回割り込み
+		lea.l	interrupt,a1
+		IOCS	__VDISPST
+
+		lea.l	OPM_INT,a1
+
+		IOCS	__OPMINTST
+
+		movem.l	registers(pc),d0-d7/a0-a6
+		move.l	break_addr(pc),-(sp)
+		rts
+
+_ms_exit:	clr.l	a1	
+		IOCS	__VDISPST
+
+		move.w	#$4c,d1
+		movea.l	KEY_vector,a1
+		IOCS	__B_INTVCS
+
+		move.w	#$1f,d1
+		movea.l	NMI_vector,a1
+		IOCS	__B_INTVCS
+
+		move.w	sr,d0
+		move.w	d0,-(sp)
+		or.w	#%00000111_00000000,d0		* 割り込み禁止
+		move.w	d0,sr
+		clr.l	a1
+		IOCS	__OPMINTST
+		move.w	(sp)+,sr			* 割り込み復帰
+
+		DOS	__EXIT
+
+interrupt:
+	subq.b	#1,int_cnt
+	beq	@f
+	rte
+@@:	move.b	#2,int_cnt
+	bset.b	#0,interrupt_status	* 割り込みをかける	
+	btst.b	#7,interrupt_status
+	bne	@f
+	bset.b	#7,S_0
+@@:	rte
+
+	.data
+int_cnt:
+	.dc.b	2,0
+	.text
+
+*
+*	メインメモリ設定ルーチン
+*
+*	void MMemSet( void *MMem, int number_of_segments);
+*
+_MMemSet:
+	link	a6,#0
+
+	move.l	 8(a6),a0
+	move.l	12(a6),d0
+
+	subq.w	#1,d0
+	clr.w	d1
+@@:
+	move.b	#1,(a0)+		* スロットタイプ = マッパＲＡＭ
+	move.b	d0,(a0)+		* 総セグメント数 - 1
+	move.b	d1,(a0)+		* 自分のセグメント番号
+	adda.l	#1024*16+8-3,a0
+
+	addq.w	#1,d1
+	cmp.w	d0,d1
+	bls	@b			* d1 ≦ d0 の時ループ 
+
+	move.l	8(a6),d0
+	add.l	#8,d0
+	move.l	d0,slot_3_0+12		* とりあえず ページ３ - セグメント０
+	add.l	#1024*16+8,d0		*	     ページ２ - セグメント１
+	move.l	d0,slot_3_0+8		*	     ページ１ - セグメント２
+	add.l	#1024*16+8,d0		*	     ページ０ - セグメント３
+	move.l	d0,slot_3_0+4		* としてあるが実際はＲＯＭの初期化ルーチンで
+	add.l	#1024*16+8,d0		* セットされるので、ページごとの番号がぶつか
+	move.l	d0,slot_3_0+0		* ってなければよい。（ＭＳＸ１のＲＯＭを使っ
+					* た時に、番号がぶつかってるとまずい）
+	move.b	#1,slot_3_ex		* スロット３は拡張されている
+	unlk	a6
+	rts	
+
+*
+*	ＶＤＰ設定ルーチン
+*
+*	void VDPSet( *VideoRAM);
+*
+_VDPSet:
+	link	a6,#0
+
+	move.l	 8(a6),VideoRAM		* Sysvalue にセット
+
+	move.l	 8(a6),a0		* ＶＲＡＭのクリア
+	move.w	#$7fff,d0		* ＶＲＡＭ１２８Ｋは前提
+@@:	clr.l	(a0)+
+	dbra	d0,@b
+
+	move.b	#4,d1
+	IOCS	__CRTMOD
+
+	IOCS	__G_CLR_ON
+
+	IOCS	__SP_INIT
+	IOCS	__SP_ON
+	move.l	#0,d1
+	move.l	#0,d2
+	move.l	#1,d3
+	IOCS	__BGCTRLST
+
+	move.w	VCRR_2,d0
+	ori.w	#%00000000_01100001,d0
+	move.w	d0,VCRR_2			* 最もプライオリティの高いＧ画面のみ表示
+	move.w	d0,active_page			*
+
+	lea.l	$EB8000,a0			* バックドロップ用のＢＧを設定
+
+	move.l	#$11111111,d1			* パターンの定義
+	move.w	#32-1,d0
+@@:	move.l	d1,(a0)+
+	dbra	d0,@b
+
+	lea.l	$EBC000,a0			* ＢＧの定義
+	move.w	#%00000001_00000000,d1
+	move.w	#4096-1,d0
+@@:	move.w	d1,(a0)+
+	dbra	d0,@b
+
+	ori.w	#%1001,$EB0808			* ＢＧのＯＮ
+
+	move.w	#0,$E82222
+
+	move.w	#%001000011_1100100,VCRR_1	* プライオリティの設定
+
+	unlk	a6
+	rts
+
+
+*
+*	ＲＯＭ読み込みルーチン
+*
+*	int SetROM( (void *)address, (char *)filename, (int)kind, (int)slot, (int)page);
+*
+*	slot %0000ssxx
+*		  ||++--拡張スロット番号
+*		  ++----基本スロット番号
+*
+_SetROM:
+	link	a6,#0
+
+	movea.l	8(a6),a0
+	move.b	16+3(a6),(a0)		* ROM の種類をセット
+	lea.l	headerlength(a0),a0
+	move.l	a0,-(sp)
+
+	move.w	#0,-(sp)
+	move.l	12(a6),-(sp)		* ファイル名をセット
+	DOS	__OPEN
+	lea.l	6(sp),sp
+	move.w	d0,f_handle
+
+	lea.l	slot_0_0,a0
+	move.l	20(a6),d0		* スロット番号
+	lsl.w	#4,d0			* d0 = d0 * 16
+	move.l	24(a6),d1		* ページ番号
+	lsl.w	#2,d1			* d1 = d1 * 4
+	add.w	d1,d0
+	move.l	(sp)+,d1		* 読み込むアドレスを得る
+	move.l	d1,0(a0,d0.w)
+
+	move.l	#$4000,-(sp)		* 16K バイト読み込み
+	move.l	d1,-(sp)		* アドレスセット
+	move.w	f_handle,-(sp)		* ファイルハンドル
+	bsr	_new_read
+	DOS	__CLOSE			* 前にセットしたファイルハンドルを流用
+	lea	10(sp),sp
+
+	unlk	a6
+	rts
+
+*
+*	カートリッジ設定ルーチン
+*
+*	（機能）
+*		カートリッジファイルを実際にシステムに組み込む
+*
+*	int set_cartridge( crtridge_buff, location, page, kind);
+*
+*	location %0000ssxx
+*		      ||++--拡張スロット番号
+*		      ++----基本スロット番号
+*
+*
+_set_cartridge:
+	link	a6,#0
+
+*	まだやってない
+
+	movea.l	8(a6),a0		* カートリッジバッファのアドレス
+	move.b	20+3(a6),(a0)		* ROM の種類をセット
+	lea.l	headerlength(a0),a0
+	move.l	a0,-(sp)
+
+	lea.l	slot_0_0,a0
+	move.l	12(a6),d0		* スロット番号
+	lsl.w	#4,d0			* d0 = d0 * 16
+	move.l	16(a6),d1		* ページ番号
+	lsl.w	#2,d1			* d1 = d1 * 4
+	add.w	d1,d0
+	move.l	(sp)+,0(a0,d0.w)
+
+	unlk	a6
+	rts
+
+*
+*
+*	メモリ確保ルーチン
+*
+*
+_new_malloc:
+	link	a6,#0
+
+	move.l	8(a6),-(sp)
+	DOS	__MALLOC
+	lea.l	4(sp),sp
+
+	unlk	a6
+	rts
+
+	clr.l	-(sp)			; himem.sys の常駐確認
+	DOS	__SUPER
+	addq.l	#4,sp
+
+	move.l	d0,d7
+	move.l	#himem_iocs,d1
+	lsl.l	#2,d1
+	add.l	#$400,d1
+	move.l	d1,a0
+	move.l	(a0),a0
+	lea	-6(a0),a0
+	move.l	(a0)+,d0
+	cmp.l	#'HIME',d0
+	bne	not_himem
+
+	move.w	(a0)+,d0
+	cmp.w	#'M'*256,d0
+	bne	not_himem
+
+	move.l	d7,-(sp)
+	DOS	__SUPER
+	addq.l	#4,sp
+
+	link	a6,#0
+	move.l	8(a6),d2
+
+	HMEM	__h_alloc
+
+	tst.l	d0
+	bmi	@f
+
+	move.l	a1,d0
+
+	unlk	a6
+	rts		
+
+@@:
+	unlk	a6
+***	bra	not_himem
+not_himem:
+	link	a6,#0
+
+	move.l	8(a6),-(sp)
+	DOS	__MALLOC
+	lea.l	4(sp),sp
+
+	unlk	a6
+	rts
+
+*
+*	ファイル読み込みルーチン
+*
+*
+*	int new_read( short filedes, char *buff, unsigned int n);
+*
+_new_read:
+	link	a6,#0
+
+	cmpi.l	#$01000000,12(a6)
+
+	bpl	_new_read_200
+
+	move.l	14(a6),-(sp)
+	move.l	10(a6),-(sp)
+	move.w	 8(a6),-(sp)
+
+	DOS	__READ
+
+	lea.l	10(sp),sp
+
+	unlk	a6
+
+	rts
+
+_new_read_200:
+	move.l	14(a6),-(sp)
+	DOS	__MALLOC
+	lea.l	4(sp),sp
+
+	tst.l	d0
+	bmi	_new_read_210
+
+	move.l	14(a6),-(sp)
+	movea.l	d0,a2
+	move.l	d0,-(sp)
+	move.w	 8(a6),-(sp)
+	DOS	__READ
+	lea.l	10(sp),sp
+
+	move.l	14(a6),d0
+	movea.l	10(a6),a1
+	movea.l	a2,a0
+@@:	move.b	(a2)+,(a1)+
+	subq.l	#1,d0
+	bne	@b
+
+	move.l	a0,-(sp)
+	DOS	__MFREE
+	lea.l	4(sp),sp	
+
+	unlk	a6
+
+	rts
+
+_new_read_210:
+	print	msg00(pc)
+
+	DOS	__EXIT
+
+	.data
+original:
+	.dc.l	0
+f_handle:
+	.dc.w	0
+
+errms_int:
+	.dc.b	'タイマＡは使用中です',0,0
+
+msg00:	.dc.b	'メモリが足りません。',0,0
+
+	.even
+
+*	割り込みベクタ保存領域
+NMI_vector:
+	.dc.l	0
+KEY_vector:
+	.dc.l	0
+
+	.end
+

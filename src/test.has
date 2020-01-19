@@ -1,0 +1,14 @@
+	.include	doscall.equ
+	.include	iocscall.equ
+
+	lea.l	data,a0
+	move.b	1(a0),-(sp)
+	move.b	0(a0),1(sp)
+	move.w	(sp)+,d0
+
+	DOS	_EXIT
+
+data:
+	.dc.b	1,2
+
+	.end

@@ -1,0 +1,12 @@
+himem_iocs	equ	$f8
+
+__h_alloc	equ	1
+__h_free	equ	2
+__h_getsize	equ	3
+
+HMEM		macro		number
+		moveq.l		#himem_iocs,d0
+		moveq.l		#number,d1
+		trap		#15
+		endm
+

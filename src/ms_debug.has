@@ -1,0 +1,1180 @@
+*
+*	Ｍｓｘ Ｓｉｍｕｌａｔｅｒ
+*		[[ デバッガ ]]
+*					1995.9.21	Kuni.
+*
+
+*	 31     16 15       0
+*	｜        ｜   ｜ A ｜  d4	Ａレジスタ
+*	｜        ｜   ｜HC1｜  d5	フラグ
+*	｜        ｜ F ｜ SZ｜  d6	フラグ
+*	｜ PC page｜PC(16k) ｜	d7
+*	｜     registers    ｜	a3	a3 = レジスターの格納されているアドレス
+*	｜    PC Base ADD   ｜	a4
+*
+*	PC Base ADD + PC(16k) = 実アドレス
+*
+*	PC page は PC(R800) の上位２ビットの値が入っている
+*	PC(16k) は PC(R800) の下位14ビットの値
+*
+*		PC(R800)  $8100  =   %10___000001_00000000 
+*
+*		=> d7 %00000000_00000010_00000001_00000000
+*
+*
+*	flag = 00000000
+*		   | |+--Cy
+*		   | +---N
+*		   +-----HC のモード。0の時通常モード。1の時 ADC,SBC モード。
+*
+*	registers:
+*	a:	.dc.b	0		* Ａレジスタは d4 に入ってるから使わない
+*	f:	.dc.b	0
+*	b:	.dc.b	0
+*	c:	.dc.b	0
+*	d:	.dc.b	0
+*	e:	.dc.b	0
+*	h:	.dc.b	0
+*	l:	.dc.b	0
+*
+*	ix_h:	.dc.b	0
+*	ix_l:	.dc.b	0
+*	iy_h:	.dc.b	0
+*	iy_l:	.dc.b	0
+*
+*	s:	.dc.b	0
+*	p:	.dc.b	0
+*
+*	    7  6  5  4  3  2  1  0
+*	F:| s| z|  | H|  |PV| N|CY|
+*
+*		H と P/V は、その 0,1 を判定するための値をそれぞれ
+*		HC1,HC2 と PV に保存し、必用な時に計算する。
+*
+*		S と Z は、その 0,1 を判断するための値を SZ に保存
+*		し、必用な時に計算する。
+*
+
+	.cpu 68030
+
+	.include	iocscall.mac
+	.include	doscall.mac
+
+	.text
+	.even
+
+	.xref	_emulater_ini
+	.xref	_emulate
+	.xref	main
+	.xref	base
+
+	.xref	f
+	.xref	PV
+	.xref	HC2
+
+	.xref	page0
+	.xref	page1
+	.xref	page2
+	.xref	page3
+
+	.xref	rd8_sub_add_p0
+	.xref	rd8_sub_add_p1
+	.xref	rd8_sub_add_p2
+	.xref	rd8_sub_add_p3
+
+	.xref	wt8_sub_add_p0
+	.xref	wt8_sub_add_p1
+	.xref	wt8_sub_add_p2
+	.xref	wt8_sub_add_p3
+
+	.xref	wt16_sub_add_p0
+	.xref	rd16_sub_add_p0
+
+	.xref	exslotreg_read
+	.xref	exslotreg_write
+
+	.xref	slot_reg
+	.xref	slot_0_ex
+
+	.xref	interrupt_status
+
+	.xref	KEY_vector
+	.xref	NMI_vector
+
+	.xref	TOUROKU_int
+
+	.xdef	_debugger
+*
+*	void debugger();
+*
+_debugger:
+	jsr	_emulater_ini
+	movem.l	d4-d7/a3-a4,-(sp)
+
+	move.w	#$4c,d1
+	movea.l	KEY_vector,a1
+	IOCS	__B_INTVCS
+	move.l	d0,key
+
+*	move.w	#$1f,d1			* NMI のフック
+*	lea.l	db_int,a1
+*	IOCS	__B_INTVCS
+*	move.l	d0,NMI_vector
+
+*	move.l	#db_int,TOUROKU_int	* 登録キーで、デバッガに制御がわたるようにする
+
+loop:
+	pea.l	prompt
+	DOS	__PRINT
+	lea.l	4(sp),sp
+
+	pea.l	input_buf
+	DOS	__GETS
+	lea.l	4(sp),sp
+
+	pea.l	ret_code
+	DOS	__PRINT
+	lea.l	4(sp),sp
+
+	move.b	input_buf+2,d0			* 最初の１文字を得る
+
+	cmpi.b	#'X',d0
+	beq	command_X
+	cmpi.b	#'x',d0
+	beq	command_X
+
+	cmpi.b	#'Q',d0
+	beq	command_Q
+	cmpi.b	#'q',d0
+	beq	command_Q
+
+	cmpi.b	#'G',d0
+	beq	command_G
+	cmpi.b	#'g',d0
+	beq	command_G
+
+	cmpi.b	#'B',d0
+	beq	command_B
+	cmpi.b	#'b',d0
+	beq	command_B
+
+	cmpi.b	#'W',d0
+	beq	command_W
+	cmpi.b	#'w',d0
+	beq	command_W
+
+	cmpi.b	#'D',d0
+	beq	command_D
+	cmpi.b	#'d',d0
+	beq	command_D
+
+*	cmpi.b	#'S',d0
+*	beq	command_S
+*	cmpi.b	#'s',d0
+*	beq	command_S
+
+	bra	loop
+
+*
+*	レジスタの内容を表示
+*
+command_X:
+	pea.l	program_counter
+	DOS	__PRINT
+	lea.l	4(sp),sp
+
+	movem.l	(sp)+,d4-d7/a3-a4
+	movem.l	d4-d7/a3-a4,-(sp)
+
+	move.l	d7,d0
+	clr.w	d7
+	lsr.l	#2,d7
+	or.w	d7,d0
+	bsr	print_word
+
+	pea.l	ret_code
+	DOS	__PRINT
+	lea.l	4(sp),sp
+
+
+	lea.l	registers+3,a0
+	lea.l	base,a1
+	clr.l	d0
+
+	move.w	#7-1,d2
+1:
+	move.w	(a1)+,d0
+
+	move.w	#4-1,d1
+2:
+	lsl.l	#4,d0
+	swap	d0
+	move.b	HEX2(pc,d0.w),(a0)
+	addq.l	#1,a0
+	clr.w	d0
+	swap	d0
+	dbra	d1,2b
+
+	addq.l	#4,a0
+	dbra	d2,1b
+
+	pea.l	registers
+	DOS	__PRINT
+	lea.l	4(sp),sp
+
+	bra	loop
+
+HEX2:	.dc.b	'0123456789ABCDEF'
+*
+*	ＱＵＩＴ
+*
+command_Q:
+	movem.l	(sp)+,d4-d7/a3-a4
+
+	clr.l	a1	
+	IOCS	__VDISPST
+
+	DOS	__EXIT
+
+*
+*	ＧＯ
+*
+command_G:
+	movem.l	(sp)+,d4-d7/a3-a4
+*	bclr.b	#0,interrupt_status
+
+	move.w	#$4c,d1
+	movea.l	key,a1
+	IOCS	__B_INTVCS
+	move.l	d0,KEY_vector	* 元のアドレスを保存
+
+	jsr	main
+
+	move.w	#$4c,d1
+	movea.l	KEY_vector,a1
+	IOCS	__B_INTVCS
+	move.l	d0,key
+
+	move.l	d7,d0
+	move.l	d7,d1
+	swap	d0		* d0 = 00000000_000000pp
+	ror.w	#2,d0		* d0 = pp000000_00000000
+	or.w	d1,d0		* d0 = PC (R800)
+	subq.l	#2,d0		* ＳＴＯＰ命令のあった場所をもう一度実行するため
+
+	clr.l	d7		* d7 の上位ワードを０にする。符号拡張ではだめ
+	move.w	d0,d7
+	andi.w	#%00111111_11111111,d0
+	lsl.l	#2,d7
+	move.w	d0,d7
+	swap	d7
+	lea.l	base,a3
+	movea.l	page0-base(a3,d7.w*4),a4
+	swap	d7
+	movem.l	d4-d7/a3-a4,-(sp)
+
+	move.b	PV(a3),d0
+	ori.w	#%00000100_00000000,d6	* P/V フラグをセット
+	move.w	#8-1,d1
+@@:	lsr.b	#1,d0
+	bcc	not_1
+	eori.w	#%00000100_00000000,d6	* P/V フラグを反転
+not_1:	dbra	d1,@b
+
+	andi.w	#%10101111_11111111,d6	* SZH フラグをリセット
+	move.w	d6,d0			* ハーフキャリーフラグを調べる
+	andi.w	#%00001000_00000000,d0	* HC mode を調べる
+	rol.w	#5,d0
+	move.b	HC2(a3),d1		
+	andi.w	#$000f,d5		* HC1 HC2 を４ビットのみ有効にする
+	andi.w	#$000f,d1
+	add.w	d0,d1
+	cmp.w	d1,d5			* HC1-(HC2 + HC mode)
+	bcc	not_HC_1
+	ori.w	#%00010000_00000000,d6	* H フラグをセット
+not_HC_1:
+	bclr.l	#15,d6			* SZ mode をテスト
+	bne	@f
+	tst.b	d6
+	bmi	minus
+	bne	next_pushAF
+	ori.w	#%01000000_00000000,d6	* Z フラグをセット
+	bra	next_pushAF
+
+minus:	ori.w	#%10000000_00000000,d6	* S フラグをセット
+	bra	next_pushAF
+
+@@:	ori.w	#%11000000_00000000,d6
+
+next_pushAF:
+	move.b	d4,d1
+	lsl.w	#8,d1			* A レジスタをロード
+	move.w	d6,-(sp)
+	move.b	(sp)+,d1		* フラグのロード
+	andi.b	#%11010111,d1		* フラグと関係無い部分の削除
+	move.b	f(a3),d0
+	andi.b	#%00101000,d0		* フラグと関係無い部分のロード
+	or.b	d0,d1
+
+	move.w	d1,base
+
+	move.w	break_point+0,d2
+	move.w	d2,d0				* セットしたアドレス
+	move.b	break_point+2,d1
+	jsr	write_mem
+	move.w	d2,d0				* セットするアドレス
+	addq.w	#1,d0
+	move.b	break_point+3,d1
+	jsr	write_mem
+
+	bra	command_X
+
+*
+*	ＳＥＴ ＢｒｅａｋＰｏｉｎｔ
+*
+command_B:
+	lea.l	input_buf+3,a0
+@@:	move.b	(a0)+,d0
+	beq	loop
+	cmpi.b	#' ',d0
+	beq	@b
+
+	bsr	char_hex
+	move.w	d0,d2
+	lsl.w	#8,d2
+	lsl.w	#4,d2
+
+	move.b	(a0)+,d0
+	bsr	char_hex
+	lsl.w	#8,d0
+	or.w	d0,d2
+
+	move.b	(a0)+,d0
+	bsr	char_hex
+	lsl.w	#4,d0
+	or.w	d0,d2
+
+	move.b	(a0)+,d0
+	bsr	char_hex
+	or.w	d0,d2
+
+	move.w	d2,break_point+0
+	move.w	d2,d0				* セットするアドレス
+	jsr	read_mem
+	move.b	d0,break_point+2
+	move.w	d2,d0				* セットするアドレス
+	addq.w	#1,d0
+	jsr	read_mem
+	move.b	d0,break_point+3
+
+	move.w	d2,d0				* セットするアドレス
+	move.w	#$DD,d1
+	jsr	write_mem
+	move.w	d2,d0				* セットするアドレス
+	addq.w	#1,d0
+	move.w	#$FE,d1
+	jsr	write_mem
+
+	bra	loop
+
+char_hex:
+	lea.l	HEX(pc),a1
+	move.w	#16-1,d1
+@@:	cmp.b	(a1)+,d0	
+	beq	@f
+	dbra	d1,@b
+	lea.l	4(sp),sp
+	bra	1f				* 数字じゃないとき
+@@:	move.w	#15,d0
+	sub.w	d1,d0
+	rts
+
+1:	pea.l	errms_ch
+	DOS	__PRINT
+	lea.l	4(sp),sp
+	bra	loop
+
+errms_ch:
+	.dc.b	'数値エラー  (注)英字は大文字で',$0D,$0A,$00
+
+	.even
+
+*
+*	Ｓｔｅｐ ＧＯ
+*
+command_S:
+	movem.l	(sp)+,d4-d7/a3-a4
+	movem.l	d4-d7/a3-a4,-(sp)
+
+	move.l	d7,d2
+	clr.w	d7
+	lsr.l	#2,d7
+	or.w	d7,d2
+
+*	次の命令の位置を割り出す処理が必用
+
+	move.w	d2,break_point+0
+	move.w	d2,d0				* セットするアドレス
+	jsr	read_mem
+	move.b	d0,break_point+2
+	move.w	d2,d0				* セットするアドレス
+	addq.w	#1,d0
+	jsr	read_mem
+	move.b	d0,break_point+3
+
+	move.w	d2,d0				* セットするアドレス
+	move.w	#$DD,d1
+	jsr	write_mem
+	move.w	d2,d0				* セットするアドレス
+	addq.w	#1,d0
+	move.w	#$FE,d1
+	jsr	write_mem
+
+	movem.l	(sp)+,d4-d7/a3-a4
+	jsr	main
+
+	move.l	d7,d0
+	move.l	d7,d1
+	swap	d0		* d0 = 00000000_000000pp
+	ror.w	#2,d0		* d0 = pp000000_00000000
+	or.w	d1,d0		* d0 = PC (R800)
+	subq.l	#2,d0		* ＳＴＯＰ命令のあった場所をもう一度実行するため
+
+	clr.l	d7		* d7 の上位ワードを０にする。符号拡張ではだめ
+	move.w	d0,d7
+	andi.w	#%00111111_11111111,d0
+	lsl.l	#2,d7
+	move.w	d0,d7
+	swap	d7
+	lea.l	base,a3
+	movea.l	page0-base(a3,d7.w*4),a4
+	swap	d7
+	movem.l	d4-d7/a3-a4,-(sp)
+
+	move.b	d4,base
+
+	move.w	break_point+0,d2
+	move.w	d2,d0				* セットしたアドレス
+	move.b	break_point+2,d1
+	jsr	write_mem
+	move.w	d2,d0				* セットするアドレス
+	addq.w	#1,d0
+	move.b	break_point+3,d1
+	jsr	write_mem
+
+	bra	command_X
+
+
+*******************************************************************
+*
+*	メモリから 8ビットのデータを読み込むサブルーチン。
+*（引数）
+*	d0.w ・・・ アドレス
+*（動作）
+*	d0.b にメモリから読み込んだ値が入る
+*
+*******************************************************************
+read_mem:
+	bclr.l	#15,d0
+	bne	page_2or3_r8
+	bclr.l	#14,d0
+	bne	page_1_r8
+page_0_r8:
+	movea.l	page0,a0
+	movea.l	rd8_sub_add_p0,a1
+	jmp	(a1)				* rts を省略するために jmp にしてある
+page_1_r8:
+	movea.l	page1,a0
+	movea.l	rd8_sub_add_p1,a1
+	jmp	(a1)				* rts を省略するために jmp にしてある
+page_2or3_r8:
+	bclr.l	#14,d0
+	bne	page_3_r8
+page_2_r8:
+	movea.l	page2,a0
+	movea.l	rd8_sub_add_p2,a1
+	jmp	(a1)				* rts を省略するために jmp にしてある
+page_3_r8:
+	movea.l	page3,a0
+	movea.l	rd8_sub_add_p3,a1
+	cmp.w	#$3fff,d0
+	beq	next_r8
+	jmp	(a1)				* rts を省略するために jmp にしてある
+next_r8:
+	jmp	exslotreg_read			* rts を省略するために jmp にしてある
+
+
+*******************************************************************
+*
+*	メモリへ 8ビットのデータを書き込むサブルーチン。
+*（引数）
+*	d0.w ・・・ アドレス
+*	d1.b ・・・ 書き込む値
+*（動作）
+*	d0.w のアドレスに d1の値を書き込む。  
+*
+*	d2 破壊可能性あり
+*
+*******************************************************************
+write_mem:
+	bclr.l	#15,d0
+	bne	page_2or3_w8
+	bclr.l	#14,d0
+	bne	page_1_w8
+page_0_w8:
+	movea.l	page0,a0
+	bra	@f
+page_1_w8:
+	movea.l	page1,a0
+	bra	@f
+page_2or3_w8:
+	bclr.l	#14,d0
+	bne	page_3_w8
+page_2_w8:
+	movea.l	page2,a0
+	bra	@f
+page_3_w8:
+	movea.l	page3,a0
+	movea.l	wt8_sub_add_p3,a1
+	cmp.w	#$3fff,d0
+	beq	next_w8
+	bra	@f
+next_w8:
+	jmp	exslotreg_write			* rts を省略するために jmp にしてある
+
+@@:	move.b	d1,0(a0,d0.w)
+	rts
+
+
+*
+*	システム情報の表示
+*
+command_W:
+	lea.l	input_buf+3,a0
+@@:	move.b	(a0)+,d0
+	beq	no_param
+	cmpi.b	#' ',d0
+	beq	@b
+
+	lea.l	sys_value1,a0
+	lea.l	base,a3
+
+	bsr	char_hex
+	beq	show_page0
+
+	cmpi.w	#2,d0
+	beq	show_page2
+	bpl	show_page3
+	bra	show_page1
+
+no_param:
+	lea.l	sys_value1,a0
+	lea.l	base,a3
+	bra	show_page0
+
+show_page1:
+	move.b	#'1',8(a0)			* page 1
+
+	pea.l	(a0)
+	DOS	__PRINT
+	lea.l	4(sp),sp
+
+	lea.l	15(a0),a0
+	pea.l	(a0)
+	DOS	__PRINT
+	lea.l	4(sp),sp
+
+	move.b	slot_reg,d0			* port A8 の値
+	andi.w	#%00001100,d0
+	lsr.w	#2,d0
+	addi.w	#'0',d0
+	move.w	d0,-(sp)
+	DOS	__PUTCHAR
+	lea.l	2(sp),sp
+
+	pea.l	ret_code
+	DOS	__PRINT
+	lea.l	4(sp),sp
+
+
+	lea.l	22(a0),a0
+	pea.l	(a0)
+	DOS	__PRINT
+	lea.l	4(sp),sp
+
+	move.b	slot_reg,d0			* port A8 の値
+	andi.w	#%00001100,d0
+	lsr.w	#2,d0
+	move.b	slot_0_ex-base(a3,d0.w),d0	* ページ１のスロットは拡張されているか
+	beq	@f
+	pea.l	yes
+	DOS	__PRINT
+	lea.l	4(sp),sp
+	bra	1f
+
+@@:	pea.l	no
+	DOS	__PRINT
+	lea.l	4(sp),sp
+
+1:	lea.l	22(a0),a0		* slot type
+	pea.l	(a0)
+	DOS	__PRINT
+	lea.l	4(sp),sp
+	
+	movea.l	page0+4,a1
+	move.b	-8(a1),d0
+
+	ext.w	d0
+	lsl.w	#4,d0
+	lea.l	slot_type,a2
+	pea.l	0(a2,d0.w)
+	DOS	__PRINT
+	lea.l	4(sp),sp
+
+	lea.l	22(a0),a0		* slot base pointer
+	pea.l	(a0)
+	DOS	__PRINT
+	lea.l	4(sp),sp
+
+	move.l	a1,d0
+	bsr	print_address
+
+
+	lea.l	22(a0),a0		* wt8 routin address
+	pea.l	(a0)
+	DOS	__PRINT
+	lea.l	4(sp),sp
+	move.l	wt8_sub_add_p0+4,d0
+	bsr	print_address
+
+	lea.l	22(a0),a0		* rd8 routin address
+	pea.l	(a0)
+	DOS	__PRINT
+	lea.l	4(sp),sp
+	move.l	rd8_sub_add_p0+4,d0
+	bsr	print_address
+
+	lea.l	22(a0),a0		* wt16 routin address
+	pea.l	(a0)
+	DOS	__PRINT
+	lea.l	4(sp),sp
+	move.l	wt16_sub_add_p0+4,d0
+	bsr	print_address
+
+	lea.l	22(a0),a0		* rd16 routin address
+	pea.l	(a0)
+	DOS	__PRINT
+	lea.l	4(sp),sp
+	move.l	rd16_sub_add_p0+4,d0
+	bsr	print_address
+
+	bra	loop
+
+
+show_page0:
+	move.b	#'0',8(a0)			* page 0
+
+	pea.l	(a0)
+	DOS	__PRINT
+	lea.l	4(sp),sp
+
+	lea.l	15(a0),a0
+	pea.l	(a0)
+	DOS	__PRINT
+	lea.l	4(sp),sp
+
+	move.b	slot_reg,d0			* port A8 の値
+	andi.w	#%00000011,d0
+	addi.w	#'0',d0
+	move.w	d0,-(sp)
+	DOS	__PUTCHAR
+	lea.l	2(sp),sp
+
+	pea.l	ret_code
+	DOS	__PRINT
+	lea.l	4(sp),sp
+
+
+	lea.l	22(a0),a0
+	pea.l	(a0)
+	DOS	__PRINT
+	lea.l	4(sp),sp
+
+	move.b	slot_reg,d0			* port A8 の値
+	andi.w	#%00000011,d0
+	move.b	slot_0_ex-base(a3,d0.w),d0	* ページ０のスロットは拡張されているか
+	beq	@f
+	pea.l	yes
+	DOS	__PRINT
+	lea.l	4(sp),sp
+	bra	1f
+
+@@:	pea.l	no
+	DOS	__PRINT
+	lea.l	4(sp),sp
+
+1:	lea.l	22(a0),a0		* slot type
+	pea.l	(a0)
+	DOS	__PRINT
+	lea.l	4(sp),sp
+	
+	movea.l	page0,a1
+	move.b	-8(a1),d0
+
+	ext.w	d0
+	lsl.w	#4,d0
+	lea.l	slot_type,a2
+	pea.l	0(a2,d0.w)
+	DOS	__PRINT
+	lea.l	4(sp),sp
+
+	lea.l	22(a0),a0		* slot base pointer
+	pea.l	(a0)
+	DOS	__PRINT
+	lea.l	4(sp),sp
+
+	move.l	a1,d0
+	bsr	print_address
+
+
+	lea.l	22(a0),a0		* wt8 routin address
+	pea.l	(a0)
+	DOS	__PRINT
+	lea.l	4(sp),sp
+	move.l	wt8_sub_add_p0,d0
+	bsr	print_address
+
+	lea.l	22(a0),a0		* rd8 routin address
+	pea.l	(a0)
+	DOS	__PRINT
+	lea.l	4(sp),sp
+	move.l	rd8_sub_add_p0,d0
+	bsr	print_address
+
+	lea.l	22(a0),a0		* wt16 routin address
+	pea.l	(a0)
+	DOS	__PRINT
+	lea.l	4(sp),sp
+	move.l	wt16_sub_add_p0,d0
+	bsr	print_address
+
+	lea.l	22(a0),a0		* rd16 routin address
+	pea.l	(a0)
+	DOS	__PRINT
+	lea.l	4(sp),sp
+	move.l	rd16_sub_add_p0,d0
+	bsr	print_address
+
+	bra	loop
+	
+show_page2:
+	move.b	#'2',8(a0)			* page 2
+
+	pea.l	(a0)
+	DOS	__PRINT
+	lea.l	4(sp),sp
+
+	lea.l	15(a0),a0
+	pea.l	(a0)
+	DOS	__PRINT
+	lea.l	4(sp),sp
+
+	move.b	slot_reg,d0			* port A8 の値
+	andi.w	#%00110000,d0
+	lsr.w	#4,d0
+	addi.w	#'0',d0
+	move.w	d0,-(sp)
+	DOS	__PUTCHAR
+	lea.l	2(sp),sp
+
+	pea.l	ret_code
+	DOS	__PRINT
+	lea.l	4(sp),sp
+
+
+	lea.l	22(a0),a0
+	pea.l	(a0)
+	DOS	__PRINT
+	lea.l	4(sp),sp
+
+	move.b	slot_reg,d0			* port A8 の値
+	andi.w	#%00110000,d0
+	lsr.w	#4,d0
+	move.b	slot_0_ex-base(a3,d0.w),d0	* ページ２のスロットは拡張されているか
+	beq	@f
+	pea.l	yes
+	DOS	__PRINT
+	lea.l	4(sp),sp
+	bra	1f
+
+@@:	pea.l	no
+	DOS	__PRINT
+	lea.l	4(sp),sp
+
+1:	lea.l	22(a0),a0		* slot type
+	pea.l	(a0)
+	DOS	__PRINT
+	lea.l	4(sp),sp
+	
+	movea.l	page0+8,a1
+	move.b	-8(a1),d0
+
+	ext.w	d0
+	lsl.w	#4,d0
+	lea.l	slot_type,a2
+	pea.l	0(a2,d0.w)
+	DOS	__PRINT
+	lea.l	4(sp),sp
+
+	lea.l	22(a0),a0		* slot base pointer
+	pea.l	(a0)
+	DOS	__PRINT
+	lea.l	4(sp),sp
+
+	move.l	a1,d0
+	bsr	print_address
+
+
+	lea.l	22(a0),a0		* wt8 routin address
+	pea.l	(a0)
+	DOS	__PRINT
+	lea.l	4(sp),sp
+	move.l	wt8_sub_add_p0+8,d0
+	bsr	print_address
+
+	lea.l	22(a0),a0		* rd8 routin address
+	pea.l	(a0)
+	DOS	__PRINT
+	lea.l	4(sp),sp
+	move.l	rd8_sub_add_p0+8,d0
+	bsr	print_address
+
+	lea.l	22(a0),a0		* wt16 routin address
+	pea.l	(a0)
+	DOS	__PRINT
+	lea.l	4(sp),sp
+	move.l	wt16_sub_add_p0+8,d0
+	bsr	print_address
+
+	lea.l	22(a0),a0		* rd16 routin address
+	pea.l	(a0)
+	DOS	__PRINT
+	lea.l	4(sp),sp
+	move.l	rd16_sub_add_p0+8,d0
+	bsr	print_address
+
+	bra	loop
+
+show_page3:
+	move.b	#'3',8(a0)			* page 3
+
+	pea.l	(a0)
+	DOS	__PRINT
+	lea.l	4(sp),sp
+
+	lea.l	15(a0),a0
+	pea.l	(a0)
+	DOS	__PRINT
+	lea.l	4(sp),sp
+
+	move.b	slot_reg,d0			* port A8 の値
+	andi.w	#%11000000,d0
+	lsr.w	#6,d0
+	addi.w	#'0',d0
+	move.w	d0,-(sp)
+	DOS	__PUTCHAR
+	lea.l	2(sp),sp
+
+	pea.l	ret_code
+	DOS	__PRINT
+	lea.l	4(sp),sp
+
+
+	lea.l	22(a0),a0
+	pea.l	(a0)
+	DOS	__PRINT
+	lea.l	4(sp),sp
+
+	move.b	slot_reg,d0			* port A8 の値
+	andi.w	#%11000000,d0
+	lsr.w	#6,d0
+	move.b	slot_0_ex-base(a3,d0.w),d0	* ページ３のスロットは拡張されているか
+	beq	@f
+	pea.l	yes
+	DOS	__PRINT
+	lea.l	4(sp),sp
+	bra	1f
+
+@@:	pea.l	no
+	DOS	__PRINT
+	lea.l	4(sp),sp
+
+1:	lea.l	22(a0),a0		* slot type
+	pea.l	(a0)
+	DOS	__PRINT
+	lea.l	4(sp),sp
+	
+	movea.l	page0+12,a1
+	move.b	-8(a1),d0
+
+	ext.w	d0
+	lsl.w	#4,d0
+	lea.l	slot_type,a2
+	pea.l	0(a2,d0.w)
+	DOS	__PRINT
+	lea.l	4(sp),sp
+
+	lea.l	22(a0),a0		* slot base pointer
+	pea.l	(a0)
+	DOS	__PRINT
+	lea.l	4(sp),sp
+
+	move.l	a1,d0
+	bsr	print_address
+
+
+	lea.l	22(a0),a0		* wt8 routin address
+	pea.l	(a0)
+	DOS	__PRINT
+	lea.l	4(sp),sp
+	move.l	wt8_sub_add_p0+12,d0
+	bsr	print_address
+
+	lea.l	22(a0),a0		* rd8 routin address
+	pea.l	(a0)
+	DOS	__PRINT
+	lea.l	4(sp),sp
+	move.l	rd8_sub_add_p0+12,d0
+	bsr	print_address
+
+	lea.l	22(a0),a0		* wt16 routin address
+	pea.l	(a0)
+	DOS	__PRINT
+	lea.l	4(sp),sp
+	move.l	wt16_sub_add_p0+12,d0
+	bsr	print_address
+
+	lea.l	22(a0),a0		* rd16 routin address
+	pea.l	(a0)
+	DOS	__PRINT
+	lea.l	4(sp),sp
+	move.l	rd16_sub_add_p0+12,d0
+	bsr	print_address
+
+	bra	loop
+
+
+print_address:
+	lea.l	HEX,a2
+	clr.w	-(sp)
+	move.l	d0,d1
+	move.w	#8-1,d2
+@@:	rol.l	#4,d1
+	move.w	d1,d0
+	andi.w	#%00001111,d0
+	move.b	0(a2,d0.w),1(sp)
+	DOS	__PUTCHAR
+	dbra	d2,@b
+	lea.l	2(sp),sp
+
+	pea	ret_code
+	DOS	__PRINT
+	lea.l	4(sp),sp
+	rts
+
+*
+*	ＤＵＭＰ
+*
+command_D:
+	lea.l	HEX,a2
+
+	lea.l	input_buf+3,a0
+@@:	move.b	(a0)+,d0
+	beq	no_param_D
+	cmpi.b	#' ',d0
+	beq	@b
+
+	bsr	char_hex
+	move.w	d0,d2
+	lsl.w	#8,d2
+	lsl.w	#4,d2
+
+	move.b	(a0)+,d0
+	bsr	char_hex
+	lsl.w	#8,d0
+	or.w	d0,d2
+
+	move.b	(a0)+,d0
+	bsr	char_hex
+	lsl.w	#4,d0
+	or.w	d0,d2
+
+	move.b	(a0)+,d0
+	bsr	char_hex
+	or.w	d0,d2
+	bra	@f
+
+no_param_D:
+	move.w	current_dump_add,d2
+@@:
+	move.w	#8-1,d4
+1:
+	move.w	d2,d0
+	bsr	print_word
+
+	move.w	#':',-(sp)
+	DOS	__PUTCHAR
+	lea.l	2(sp),sp
+
+	move.w	#8,d3
+@@:
+	move.w	d2,d0
+	move.w	d2,-(sp)
+	bsr	read_mem
+	move.w	(sp)+,d2
+	bsr	print_byte
+	addq.w	#1,d2	
+	subq.w	#1,d3
+	beq	@f
+	move.w	#' ',-(sp)
+	DOS	__PUTCHAR
+	lea.l	2(sp),sp
+	bra	@b
+
+@@:	move.w	#'-',-(sp)
+	DOS	__PUTCHAR
+	lea.l	2(sp),sp
+
+	move.w	#8,d3
+@@:
+	move.w	d2,d0
+	move.w	d2,-(sp)
+	bsr	read_mem
+	move.w	(sp)+,d2
+	bsr	print_byte
+	addq.w	#1,d2	
+	subq.w	#1,d3
+	beq	@f
+	move.w	#' ',-(sp)
+	DOS	__PUTCHAR
+	lea.l	2(sp),sp
+	bra	@b
+
+@@:	pea	ret_code
+	DOS	__PRINT
+	lea.l	4(sp),sp
+
+	dbra	d4,1b
+
+	move.w	d2,current_dump_add
+
+	bra	loop
+
+print_word:
+	move.w	d2,-(sp)
+	lea.l	HEX,a2
+	clr.w	-(sp)
+	move.w	d0,d1
+	move.w	#4-1,d2
+@@:	rol.w	#4,d1
+	move.w	d1,d0
+	andi.w	#%00001111,d0
+	move.b	0(a2,d0.w),1(sp)
+	DOS	__PUTCHAR
+	dbra	d2,@b
+	lea.l	2(sp),sp
+	move.w	(sp)+,d2
+	rts
+
+print_byte:
+	move.w	d2,-(sp)
+
+	lea.l	HEX,a2
+	clr.w	-(sp)
+	move.b	d0,d1
+	move.w	#2-1,d2
+@@:	rol.b	#4,d1
+	move.b	d1,d0
+	andi.w	#%00001111,d0
+	move.b	0(a2,d0.w),1(sp)
+	DOS	__PUTCHAR
+	dbra	d2,@b
+	lea.l	2(sp),sp
+
+	move.w	(sp)+,d2
+
+	rts
+
+	.data
+
+current_dump_add:
+	.dc.w	0
+
+ret_code:
+	.dc.b	0x0d,0x0a,0x00
+
+prompt:
+	.dc.b	'=',0
+
+input_buf:
+	.dc.b	255
+	.dc.b	0
+	.ds.b	256
+
+program_counter:
+	.dc.b	'PC:',0
+
+registers:
+	.dc.b	'AF:0000 '
+	.dc.b	'BC:0000 '
+	.dc.b	'DE:0000 '
+	.dc.b	'HL:0000 '
+	.dc.b	'IX:0000 '
+	.dc.b	'IY:0000 '
+	.dc.b	'SP:0000 '
+	.dc.b	$0d,$0a,$00
+
+HEX:
+	.dc.b	'0123456789ABCDEF'
+
+	.even
+break_point:
+	.dc.w	0
+	.dc.b	0
+	.dc.b	0
+
+
+sys_value1:
+	.dc.b	'== page 0 ==',$0d,$0a,$00
+	.dc.b	'   slot number      :',0
+	.dc.b	'   slot extend      :',0
+	.dc.b	'   slot type        :',0
+	.dc.b	'   slot base pointer:',0
+	.dc.b	'   w8 routin address:',0
+	.dc.b	'   r8 routin address:',0
+	.dc.b	'   w16routin address:',0
+	.dc.b	'   r16routin address:',0
+
+no:
+	.dc.b	'no ',$0d,$0a,$00
+yes:
+	.dc.b	'yes',$0d,$0a,$00
+
+slot_type:
+	.dc.b	'nothing      ',$0d,$0a,0
+	.dc.b	'mapper RAM   ',$0d,$0a,0
+	.dc.b	'normal ROM   ',$0d,$0a,0
+	.dc.b	'MEGA-ROM    8',$0d,$0a,0
+	.dc.b	'MEGA-ROM   16',$0d,$0a,0
+	.dc.b	'MEGA-ROM  SCC',$0d,$0a,0
+	.dc.b	'sound cartrig',$0d,$0a,0
+	.dc.b	'MEGA-ROM pana',$0d,$0a,0
+	.dc.b	'DOS ROM      ',$0d,$0a,0
+	.dc.b	'PAC          ',$0d,$0a,0
+
+	.even
+
+key:	.dc.l	0
+
+	.end
+

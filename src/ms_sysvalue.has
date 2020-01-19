@@ -1,0 +1,22 @@
+*
+*	Ｍｓｘ Ｓｉｍｕｌａｔｅｒ
+*		[[ Ｓｙｓｔｅｍ　Ｖａｌｕｅ ]]
+*				1995.3.			by Kuni.
+*
+
+	.xdef	VideoRAM
+	.xdef	PSG2OPM_tbl
+	.xdef	native_jpt_add
+
+*
+*	ＭＳ に必用な値は、ここに格納される			値をセットする関数名
+*
+VideoRAM:
+	.dc.l	0	* 確保されたＶＲＡＭの先頭アドレス	VDPSet
+
+PSG2OPM_tbl:
+	.dc.l	0	* ＰＳＧ－＞ＯＰＭ変換テーブルの先頭
+
+native_jpt_add:		* ネイティブルーチンジャンプテーブルのあるアドレス
+	.dc.l	0						initialize
+

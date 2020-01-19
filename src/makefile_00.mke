@@ -1,0 +1,17 @@
+ms_00.x: ms.o ms_R800_mac_00.o ms_vdp_mac.o ms_sysvalue.o ms_sub_mac.o ms_IO_port.o ms_PSG_mac.o
+	gcc -ldos -liocs -oms_00.x ms.o ms_R800_mac_00.o ms_vdp_mac.o ms_sysvalue.o ms_sub_mac.o ms_IO_port.o ms_PSG_mac.o
+ms.o: ms.c
+	gcc -c -O -g ms.c
+ms_R800_mac_00.o: ms_R800_mac_00.has
+	has ms_R800_mac_00.has
+ms_vdp_mac.o: ms_vdp_mac.has
+	has ms_vdp_mac_00.has
+ms_sysvalue.o: ms_sysvalue.has
+	has ms_sysvalue.has
+ms_sub_mac.o: ms_sub_mac.has
+	has ms_sub_mac.has
+ms_IO_port.o: ms_IO_port.has
+	has ms_IO_port.has
+ms_PSG_mac.o: ms_PSG_mac.has
+	has ms_PSG_mac.has
+

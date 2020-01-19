@@ -1,0 +1,19 @@
+ms_game_00.x: ms_game.o ms_R800_mac_00.o ms_vdp_mac.o ms_sysvalue.o ms_sub_mac.o ms_IO_port.o ms_debug.o ms_PSG_mac.o
+	gcc -ldos -liocs -oms_game_oo.x ms_game.o ms_R800_mac_00.o ms_vdp_mac.o ms_sysvalue.o ms_sub_mac.o ms_IO_port.o ms_debug.o ms_PSG_mac.o
+	copy ms_game_oo.x 実行ディレクトリ
+ms_game.o: ms_game.c
+	gcc -c -O -g ms_game.c
+ms_R800_mac_00.o: ms_R800_mac_00.has
+	has ms_R800_mac_00.has
+ms_vdp_mac.o: ms_vdp_mac.has
+	has ms_vdp_mac.has
+ms_sysvalue.o: ms_sysvalue.has
+	has ms_sysvalue.has
+ms_sub_mac.o: ms_sub_mac.has
+	has ms_sub_mac.has
+ms_IO_port.o: ms_IO_port.has
+	has ms_IO_port.has
+ms_debug.o: ms_debug.has
+	has ms_debug.has
+ms_PSG_mac.o: ms_PSG_mac.has
+	has ms_PSG_mac.has

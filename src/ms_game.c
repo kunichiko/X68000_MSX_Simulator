@@ -16,12 +16,13 @@
 
 #define	segments	4
 
+int	com;
+
 void main() {
-void *MMem,*VideoRAM,*MainROM1,*MainROM2,*SUBROM;
+void *MMem,*VideoRAM,*MainROM1,*MainROM2,*SUBROM,*ROM;
 int a,i;
 
-	if ( _iocs_b_super( 0) < 0)
-		;
+dum:	_iocs_b_super( 0);
 
 	initialize();								/* ƒVƒXƒeƒ€‚Ì‰Šú‰»				*/
 
@@ -60,11 +61,25 @@ int a,i;
 		ms_exit();
 	}
 	SetROM( SUBROM,"SUBROM.ROM", (int)2, (int)0x0d, (int)0 );
+
+	ROM = new_malloc( 16*1024+8);			/* ƒQ[ƒ€i‘O”¼j‚P‚U‚j					*/
+	if( ROM > (void *)0x81000000 ) {
+ 		printf("ƒƒ‚ƒŠ‚ªŠm•Û‚Å‚«‚Ü‚¹‚ñ\n");
+		ms_exit();
+	}
+	SetROM( ROM,"GAME1.ROM", (int)2, (int)0x04, (int)1 );
+
+	ROM = new_malloc( 16*1024+8);			/* ƒQ[ƒ€iŒã”¼j‚P‚U‚j					*/
+	if( ROM > (void *)0x81000000 ) {
+ 		printf("ƒƒ‚ƒŠ‚ªŠm•Û‚Å‚«‚Ü‚¹‚ñ\n");
+		ms_exit();
+	}
+	SetROM( ROM,"GAME2.ROM", (int)2, (int)0x04, (int)2 );
+
 											
-											
-	if( PSG_INIT() != 0)
+	if( PSG_INIT() != 0 )
 		printf("‚o‚r‚f‚Ì‰Šú‰»‚É¸”s‚µ‚Ü‚µ‚½\n");
 
-	emulate();
+	debugger();
 	
 }

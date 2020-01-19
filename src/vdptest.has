@@ -1,0 +1,102 @@
+*
+*	ＶＤＰ	動作試験プログラム
+*
+
+	.68000
+
+	.include	iocscall.equ
+	.include	doscall.equ
+
+	.text
+	.even
+
+	.xref	write_vdp_0
+	.xref	write_vdp_1
+
+	.xref	read_vdp_0
+	.xref	read_vdp_1
+	.xref	read_vdp_2
+	.xref	read_vdp_3
+
+	.xdef	VideoRAM
+start:
+	lea.l	$10(a0),a0
+	suba.l	a0,a1
+	move.l	a1,-(sp)
+	move.l	a0,-(sp)
+	DOS	_SETBLOCK
+	addq.l	#8,sp
+
+	move.l	#$10000,-(sp)
+	DOS	_MALLOC
+	addq.l	#4,sp
+
+	move.l	d0,VideoRAM
+
+	move.w	#4,d1
+	IOCS	_CRTMOD
+
+	IOCS	_G_CLR_ON
+
+	movea.l	#0,a1
+	IOCS	_B_SUPER
+
+	move.b	#$d3,d1			* R#7 * 0xd0 に設定
+	jsr	write_vdp_1
+	move.b	#$80+7,d1
+	jsr	write_vdp_1
+
+	move.b	#$00,d1			* 0x800 にアクセス
+	jsr	write_vdp_1
+	move.b	#$48,d1
+	jsr	write_vdp_1
+
+	move.b	#$f0,d1
+	jsr	write_vdp_0
+	move.b	#$0f,d1
+	jsr	write_vdp_0
+	move.b	#$f0,d1
+	jsr	write_vdp_0
+	move.b	#$0f,d1
+	jsr	write_vdp_0
+	move.b	#$f0,d1
+	jsr	write_vdp_0
+	move.b	#$0f,d1
+	jsr	write_vdp_0
+	move.b	#$f0,d1
+	jsr	write_vdp_0
+	move.b	#$0f,d1
+	jsr	write_vdp_0
+
+	move.b	#$00,d1			* 0x000 にアクセス
+	jsr	write_vdp_1
+	move.b	#$40,d1
+	jsr	write_vdp_1
+
+	move.b	#0,d1
+	jsr	write_vdp_0
+	move.b	#1,d1
+	jsr	write_vdp_0
+	move.b	#2,d1
+	jsr	write_vdp_0
+	move.b	#3,d1
+	jsr	write_vdp_0
+	move.b	#4,d1
+	jsr	write_vdp_0
+	move.b	#5,d1
+	jsr	write_vdp_0
+	move.b	#0,d1
+	jsr	write_vdp_0
+	move.b	#0,d1
+	jsr	write_vdp_0
+	move.b	#0,d1
+	jsr	write_vdp_0
+
+	DOS	_EXIT	
+
+	.data
+VideoRAM:
+	.dc.l	0
+
+	.end
+

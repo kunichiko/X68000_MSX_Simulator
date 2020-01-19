@@ -16,8 +16,10 @@
 
 #define	segments	4
 
+int	com;
+
 void main() {
-void *MMem,*VideoRAM,*MainROM1,*MainROM2,*SUBROM;
+void *MMem,*VideoRAM,*MainROM1,*MainROM2,*SUBROM,*FDCROM,*ROM;
 int a,i;
 
 	if ( _iocs_b_super( 0) < 0)
@@ -60,11 +62,17 @@ int a,i;
 		ms_exit();
 	}
 	SetROM( SUBROM,"SUBROM.ROM", (int)2, (int)0x0d, (int)0 );
-											
-											
+
+	FDCROM = new_malloc( 16*1024+8);		/* ‚e‚c‚b‚q‚n‚l ‚P‚U‚j 					*/
+	if( FDCROM > (void *)0x81000000 ) {
+ 		printf("ƒƒ‚ƒŠ‚ªŠm•Û‚Å‚«‚Ü‚¹‚ñ\n");
+		ms_exit();
+	}
+	SetROM( FDCROM,"FDC.ROM", (int)2, (int)0x0e, (int)1 );
+
 	if( PSG_INIT() != 0)
 		printf("‚o‚r‚f‚Ì‰Šú‰»‚É¸”s‚µ‚Ü‚µ‚½\n");
 
-	emulate();
+	debugger();
 	
 }

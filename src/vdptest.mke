@@ -1,0 +1,7 @@
+vdptest.x: vdptest.o ms_VDP_mac.o
+	hlk vdptest.o ms_VDP_mac.o
+vdptest.o: vdptest.has
+	has vdptest.has
+ms_VDP_mac.o: ms_VDP_mac.has
+	has ms_VDP_mac.has
+

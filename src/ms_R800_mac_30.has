@@ -4,7 +4,7 @@
 *		[[[ Ｒ８００ Ｓｉｍｕｌａｔｅｒ ]]]		
 *			ＭＣ６８０３０以降専用バージョン
 *
-*				1995.9.24		by Kuni.
+*				1996.6.13		by Kuni.
 *
 
 
@@ -12,6 +12,7 @@
 
 
 *	 31     16 15       0
+*	｜        ｜ 3F   FF｜  d3	定数
 *	｜        ｜   ｜ A ｜  d4	Ａレジスタ
 *	｜        ｜   ｜HC1｜  d5	フラグ
 *	｜        ｜ F ｜ SZ｜  d6	フラグ
@@ -63,15 +64,14 @@
 *		し、必用な時に計算する。
 *
 
-	.cpu 68000
+	.cpu 68030
 
-	.include	iocscall.equ
-	.include	doscall.equ
+	.include	iocscall.mac
+	.include	doscall.mac
 
 	.text
 	.even
 
-	.xref	native_jpt_add		* ６８ネイティブルーチンのジャンプテーブル
 
 	.xref	write_vdp_0
 	.xref	write_vdp_1
@@ -107,6 +107,12 @@
 	.xref	p_FD
 	.xref	p_FE
 	.xref	p_FF
+
+	.xref	native_jpt_add		* ６８ネイティブルーチンのジャンプテーブル
+
+	.xdef	f
+	.xdef	HC2
+	.xdef	PV
 
 	.xdef	_emulater_ini
 	.xdef	_emulate
@@ -200,6 +206,26 @@ PV_d	equ	PV_d_-base
 d6_d	equ	d6_d_-base
 
 
+PC_page_inc	macro
+		swap	d7
+		addq.w	#1,d7
+		andi.w	#3,d7
+		movea.l	page0-base(a3,d7.w*4),a4
+		swap	d7
+		endm
+
+PC_page_set	macro			* JP命令等で PCが変わった時の処理
+		move.w	d7,d0
+		clr.l	d7		* d7 の上位ワードを０にする。符号拡張ではだめ
+		move.w	d0,d7
+		andi.w	#%00111111_11111111,d0
+		lsl.l	#2,d7
+		move.w	d0,d7
+		swap	d7
+		movea.l	page0-base(a3,d7.w*4),a4
+		swap	d7
+		endm
+
 *
 *	int emulater_ini();
 *
@@ -210,7 +236,7 @@ _emulater_ini:
 	bsr	w_port_A8		* スロットを０で初期化
 
 	clr.w	d7			* pc = 0
-	bsr	PC_page_set
+	PC_page_set
 	clr.w	sp_(a3)			* sp = 0
 	move.b	#$80,interrupt_status	* DI に
 	clr.w	interrupt_mode		* IM を０に
@@ -226,55 +252,22 @@ _emulate:
 	clr.w	d1
 	bsr	w_port_A8		* スロットを０で初期化
 
+	move.w	#$3fff,d3		* 定数ロード
+
 	clr.w	d7			* pc = 0
-	bsr	PC_page_set
+	PC_page_set
 	clr.w	sp_(a3)			* sp = 0
 	move.b	#$80,interrupt_status	* DI に
 	clr.w	interrupt_mode		* IM を０に
 main:
 	move.b	interrupt_status-base(a3),d0
 	bgt	INT			* 割り込みがかかった時
-	clr.l	d0			* d0 の上位ビットを０にクリア
+	clr.w	d0			* d0 の上位ビットを０にクリア
 	move.b	0(a4,d7.w),d0		* 命令を読み込む
-	addq.w	#1,d7			* PC += 1
-	andi.w	#$3fff,d7		* PC がページ境界をまたいだか？
-	bne	@f
-	bsr	PC_page_CHG
-@@:	add.w	d0,d0
-	add.w	d0,d0
-	movea.l	instructions(pc,d0.w),a0
+	movea.l	instructions(pc,d0.w*4),a0
 	jmp	(a0)
 
-
-PC_page_CHG:
-	swap	d7
-	addq.w	#1,d7
-	andi.w	#3,d7
-	move.w	d7,-(sp)
-	add.w	d7,d7
-	add.w	d7,d7
-	movea.l	page0-base(a3,d7.w),a4
-	move.w	(sp)+,d7
-	swap	d7
-	rts	
-
-PC_page_set:				* JP命令等で PCが変わった時の処理
-	move.w	d7,d0
-	clr.l	d7			* d7 の上位ワードを０にする。符号拡張ではだめ
-	move.w	d0,d7
-	andi.w	#%00111111_11111111,d0
-	lsl.l	#2,d7
-	move.w	d0,d7
-	swap	d7
-	move.w	d7,-(sp)
-	add.w	d7,d7
-	add.w	d7,d7
-	movea.l	page0-base(a3,d7.w),a4
-	move.w	(sp)+,d7
-	swap	d7
-	rts	
-
-end:	DOS	_EXIT
+end:	DOS	__EXIT
 
 instructions:
 	.dc.l	nop				* $00
@@ -564,7 +557,7 @@ mode1:	move.l	d7,d1
 	bsr	write_mem_16
 
 	move.w	#$0038,d7
-	bsr	PC_page_set
+	PC_page_set
 	bra	main
 
 mode2:	move.l	d7,d1
@@ -580,622 +573,764 @@ mode2:	move.l	d7,d1
 
 	bsr	read_mem_16
 	move.w	d0,d7
-	bsr	PC_page_set
+	PC_page_set
 	bra	main
 
-*	------ ＮＯＰ ------
-nop:	bra	main
+
+nop:	addq.w	#1,d7			* PC += 1
+	and.w	d3,d7			* PC がページ境界をまたいだか？
+	bne	main
+	PC_page_inc
+	bra	main
 
 *
 *	-------- ＬＤ --------
 *
 *	------ ＬＤ Ａ,？ ------
 LD_A_A:
+	addq.w	#1,d7			* PC += 1
+	and.w	d3,d7			* PC がページ境界をまたいだか？
+	bne	main
+	PC_page_inc
 	bra	main
 LD_A_B:
 	move.b	b(a3),d4
+	addq.w	#1,d7			* PC += 1
+	and.w	d3,d7			* PC がページ境界をまたいだか？
+	bne	main
+	PC_page_inc
 	bra	main
 LD_A_C:
 	move.b	c(a3),d4
+	addq.w	#1,d7			* PC += 1
+	and.w	d3,d7		* PC がページ境界をまたいだか？
+	bne	main
+	PC_page_inc
 	bra	main
 LD_A_D:
 	move.b	d(a3),d4
+	addq.w	#1,d7			* PC += 1
+	and.w	d3,d7		* PC がページ境界をまたいだか？
+	bne	main
+	PC_page_inc
 	bra	main
 LD_A_E:
 	move.b	e(a3),d4
+	addq.w	#1,d7			* PC += 1
+	and.w	d3,d7		* PC がページ境界をまたいだか？
+	bne	main
+	PC_page_inc
 	bra	main
 LD_A_H:
 	move.b	h(a3),d4
+	addq.w	#1,d7			* PC += 1
+	and.w	d3,d7		* PC がページ境界をまたいだか？
+	bne	main
+	PC_page_inc
 	bra	main
 LD_A_L:
 	move.b	l(a3),d4
+	addq.w	#1,d7			* PC += 1
+	and.w	d3,d7		* PC がページ境界をまたいだか？
+	bne	main
+	PC_page_inc
 	bra	main
 LD_A_lHLl:
 	move.w	hl(a3),d0
 	bsr	read_mem		*メモリから 8ビットのデータを d0に読み込む。
 	move.b	d0,d4
+	addq.w	#1,d7			* PC += 1
+	and.w	d3,d7		* PC がページ境界をまたいだか？
+	bne	main
+	PC_page_inc
 	bra	main
 LD_A_lBCl:
 	move.w	bc(a3),d0
 	bsr	read_mem		*メモリから 8ビットのデータを d0に読み込む。
 	move.b	d0,d4
+	addq.w	#1,d7			* PC += 1
+	and.w	d3,d7		* PC がページ境界をまたいだか？
+	bne	main
+	PC_page_inc
 	bra	main
 LD_A_lDEl:
 	move.w	de(a3),d0
 	bsr	read_mem		*メモリから 8ビットのデータを d0に読み込む。
 	move.b	d0,d4
+	addq.w	#1,d7			* PC += 1
+	and.w	d3,d7		* PC がページ境界をまたいだか？
+	bne	main
+	PC_page_inc
 	bra	main
 LD_A_lnnl:
-	move.b	1(a4,d7.w),d0		* nn の上位８ビットを読む 
+	move.b	2(a4,d7.w),d0		* nn の上位８ビットを読む 
 	lsl.w	#8,d0
-	move.b	0(a4,d7.w),d0		* nn の下位８ビットを読む 
-	addq.w	#2,d7
+	move.b	1(a4,d7.w),d0		* nn の下位８ビットを読む 
+	addq.w	#3,d7
 	btst.l	#14,d7
 	bne	1f
 	bsr	read_mem		*メモリから 8ビットのデータを d0に読み込む。
 	move.b	d0,d4
 	bra	main
-1:	andi.w	#$3fff,d7		* 命令がページ境界をまたぐ時
+1:	PC_page_inc
+	and.w	d3,d7		* 命令がページ境界をまたぐ時
 	bne	2f
-	bsr	PC_page_CHG		* d7 = 0 の時
-	bsr	read_mem		*メモリから 8ビットのデータを d0に読み込む。
+	bsr	read_mem		* d7 = 0 の時
 	move.b	d0,d4
 	bra	main
-2:	move.b	d0,d2			* d7 = 1 の時
-	bsr	PC_page_CHG
+2:	cmpi.w	#2,d7			* d7 = 2 の時
+	beq	3f
+	move.b	d0,d2			* d7 = 1 の時
 	move.b	(a4),d0			* nn の上位８ビットを読む
 	lsl.w	#8,d0
 	move.b	d2,d0
 	bsr	read_mem		*メモリから 8ビットのデータを d0に読み込む。
 	move.b	d0,d4
 	bra	main
+3:	move.b	1(a4),d0		* nn の上位８ビットを読む 
+	lsl.w	#8,d0
+	move.b	 (a4),d0		* nn の下位８ビットを読む 
+	bsr	read_mem		*メモリから 8ビットのデータを d0に読み込む。
+	move.b	d0,d4
+	bra	main
 
-LD_A_n:	move.b	0(a4,d7.w),d4
-	addq.w	#1,d7			* PC += 1
-	andi.w	#$3fff,d7		* PC がページ境界をまたいだか？
-	bne	main
-	bsr	PC_page_CHG
+LD_A_n:	move.b	1(a4,d7.w),d4
+	addq.w	#2,d7			* PC += 2
+	btst.l	#14,d7			* PC がページ境界をまたいだか？
+	beq	main
+	PC_page_inc
+	and.w	d3,d7		* 命令がページ境界をまたぐ時
+	beq	main			* d7 = 0 の時
+	move.b	(a4),d4			* d7 = 1 の時
 	bra	main
 
 *	------ ＬＤ Ｂ,？ ------
 LD_B_A:	move.b	d4,b(a3)
+	addq.w	#1,d7			* PC += 1
+	and.w	d3,d7		* PC がページ境界をまたいだか？
+	bne	main
+	PC_page_inc
 	bra	main
-
-LD_B_B:	bra	main
-
+LD_B_B:	addq.w	#1,d7			* PC += 1
+	and.w	d3,d7		* PC がページ境界をまたいだか？
+	bne	main
+	PC_page_inc
+	bra	main
 LD_B_C:	move.b	c(a3),b(a3)
+	addq.w	#1,d7			* PC += 1
+	and.w	d3,d7		* PC がページ境界をまたいだか？
+	bne	main
+	PC_page_inc
 	bra	main
-
 LD_B_D:	move.b	d(a3),b(a3)
+	addq.w	#1,d7			* PC += 1
+	and.w	d3,d7		* PC がページ境界をまたいだか？
+	bne	main
+	PC_page_inc
 	bra	main
-
 LD_B_E:	move.b	e(a3),b(a3)
+	addq.w	#1,d7			* PC += 1
+	and.w	d3,d7		* PC がページ境界をまたいだか？
+	bne	main
+	PC_page_inc
 	bra	main
-
 LD_B_H:	move.b	h(a3),b(a3)
+	addq.w	#1,d7			* PC += 1
+	and.w	d3,d7		* PC がページ境界をまたいだか？
+	bne	main
+	PC_page_inc
 	bra	main
-
 LD_B_L:	move.b	l(a3),b(a3)
+	addq.w	#1,d7			* PC += 1
+	and.w	d3,d7		* PC がページ境界をまたいだか？
+	bne	main
+	PC_page_inc
 	bra	main
-
 LD_B_lHLl:
 	move.w	hl(a3),d0
 	bsr	read_mem		*メモリから 8ビットのデータを d0に読み込む。
 	move.b	d0,b(a3)
-	bra	main
-
-LD_B_n:	move.b	0(a4,d7.w),b(a3)
 	addq.w	#1,d7			* PC += 1
-	andi.w	#$3fff,d7		* PC がページ境界をまたいだか？
+	and.w	d3,d7		* PC がページ境界をまたいだか？
 	bne	main
-	bsr	PC_page_CHG
+	PC_page_inc
+	bra	main
+LD_B_n:	move.b	1(a4,d7.w),b(a3)
+	addq.w	#2,d7			* PC += 2
+	btst.l	#14,d7			* PC がページ境界をまたいだか？
+	beq	main
+	PC_page_inc
+	and.w	d3,d7		* 命令がページ境界をまたぐ時
+	beq	main			* d7 = 0 の時
+	move.b	(a4),b(a3)		* d7 = 1 の時
 	bra	main
 
 *	------ ＬＤ Ｃ,？ ------
 LD_C_A:	move.b	d4,c(a3)
+	addq.w	#1,d7			* PC += 1
+	and.w	d3,d7		* PC がページ境界をまたいだか？
+	bne	main
+	PC_page_inc
 	bra	main
-
 LD_C_B:	move.b	b(a3),c(a3)
+	addq.w	#1,d7			* PC += 1
+	and.w	d3,d7		* PC がページ境界をまたいだか？
+	bne	main
+	PC_page_inc
 	bra	main
-
-LD_C_C:	bra	main
-
+LD_C_C:	addq.w	#1,d7			* PC += 1
+	and.w	d3,d7		* PC がページ境界をまたいだか？
+	bne	main
+	PC_page_inc
+	bra	main
 LD_C_D:	move.b	d(a3),c(a3)
+	addq.w	#1,d7			* PC += 1
+	and.w	d3,d7		* PC がページ境界をまたいだか？
+	bne	main
+	PC_page_inc
 	bra	main
-
 LD_C_E:	move.b	e(a3),c(a3)
+	addq.w	#1,d7			* PC += 1
+	and.w	d3,d7		* PC がページ境界をまたいだか？
+	bne	main
+	PC_page_inc
 	bra	main
-
 LD_C_H:	move.b	h(a3),c(a3)
+	addq.w	#1,d7			* PC += 1
+	and.w	d3,d7		* PC がページ境界をまたいだか？
+	bne	main
+	PC_page_inc
 	bra	main
-
 LD_C_L:	move.b	l(a3),c(a3)
+	addq.w	#1,d7			* PC += 1
+	and.w	d3,d7		* PC がページ境界をまたいだか？
+	bne	main
+	PC_page_inc
 	bra	main
-
 LD_C_lHLl:
 	move.w	hl(a3),d0
 	bsr	read_mem		*メモリから 8ビットのデータを d0に読み込む。
 	move.b	d0,c(a3)
-	bra	main
-
-LD_C_n:	move.b	0(a4,d7.w),c(a3)
 	addq.w	#1,d7			* PC += 1
-	andi.w	#$3fff,d7		* PC がページ境界をまたいだか？
+	and.w	d3,d7		* PC がページ境界をまたいだか？
 	bne	main
-	bsr	PC_page_CHG
+	PC_page_inc
+	bra	main
+LD_C_n:	move.b	1(a4,d7.w),c(a3)
+	addq.w	#2,d7			* PC += 2
+	btst.l	#14,d7			* PC がページ境界をまたいだか？
+	beq	main
+	PC_page_inc
+	and.w	d3,d7		* 命令がページ境界をまたぐ時
+	beq	main			* d7 = 0 の時
+	move.b	(a4),c(a3)		* d7 = 1 の時
 	bra	main
 
 *	------ ＬＤ Ｄ,？ ------
 LD_D_A:	move.b	d4,d(a3)
+	addq.w	#1,d7			* PC += 1
+	and.w	d3,d7		* PC がページ境界をまたいだか？
+	bne	main
+	PC_page_inc
 	bra	main
-
 LD_D_B:	move.b	b(a3),d(a3)
+	addq.w	#1,d7			* PC += 1
+	and.w	d3,d7		* PC がページ境界をまたいだか？
+	bne	main
+	PC_page_inc
 	bra	main
-
 LD_D_C:	move.b	c(a3),d(a3)
+	addq.w	#1,d7			* PC += 1
+	and.w	d3,d7		* PC がページ境界をまたいだか？
+	bne	main
+	PC_page_inc
 	bra	main
-
-LD_D_D:	bra	main
-
+LD_D_D:	addq.w	#1,d7			* PC += 1
+	and.w	d3,d7		* PC がページ境界をまたいだか？
+	bne	main
+	PC_page_inc
+	bra	main
 LD_D_E:	move.b	e(a3),d(a3)
+	addq.w	#1,d7			* PC += 1
+	and.w	d3,d7		* PC がページ境界をまたいだか？
+	bne	main
+	PC_page_inc
 	bra	main
-
 LD_D_H:	move.b	h(a3),d(a3)
+	addq.w	#1,d7			* PC += 1
+	and.w	d3,d7		* PC がページ境界をまたいだか？
+	bne	main
+	PC_page_inc
 	bra	main
-
 LD_D_L:	move.b	l(a3),d(a3)
+	addq.w	#1,d7			* PC += 1
+	and.w	d3,d7		* PC がページ境界をまたいだか？
+	bne	main
+	PC_page_inc
 	bra	main
-
 LD_D_lHLl:
 	move.w	hl(a3),d0
 	bsr	read_mem		*メモリから 8ビットのデータを d0に読み込む。
 	move.b	d0,d(a3)
-	bra	main
-
-LD_D_n:	move.b	0(a4,d7.w),d(a3)
 	addq.w	#1,d7			* PC += 1
-	andi.w	#$3fff,d7		* PC がページ境界をまたいだか？
+	and.w	d3,d7		* PC がページ境界をまたいだか？
 	bne	main
-	bsr	PC_page_CHG
+	PC_page_inc
+	bra	main
+LD_D_n:	move.b	1(a4,d7.w),d(a3)
+	addq.w	#2,d7			* PC += 2
+	btst.l	#14,d7			* PC がページ境界をまたいだか？
+	beq	main
+	PC_page_inc
+	and.w	d3,d7		* 命令がページ境界をまたぐ時
+	beq	main			* d7 = 0 の時
+	move.b	(a4),d(a3)		* d7 = 1 の時
 	bra	main
 
 *	------ ＬＤ Ｅ,？ ------
 LD_E_A:	move.b	d4,e(a3)
+	addq.w	#1,d7			* PC += 1
+	and.w	d3,d7		* PC がページ境界をまたいだか？
+	bne	main
+	PC_page_inc
 	bra	main
-
 LD_E_B:	move.b	b(a3),e(a3)
+	addq.w	#1,d7			* PC += 1
+	and.w	d3,d7		* PC がページ境界をまたいだか？
+	bne	main
+	PC_page_inc
 	bra	main
-
 LD_E_C:	move.b	c(a3),e(a3)
+	addq.w	#1,d7			* PC += 1
+	and.w	d3,d7		* PC がページ境界をまたいだか？
+	bne	main
+	PC_page_inc
 	bra	main
-
 LD_E_D:	move.b	d(a3),e(a3)
+	addq.w	#1,d7			* PC += 1
+	and.w	d3,d7		* PC がページ境界をまたいだか？
+	bne	main
+	PC_page_inc
 	bra	main
-
-LD_E_E:	bra	main
-
+LD_E_E:	addq.w	#1,d7			* PC += 1
+	and.w	d3,d7		* PC がページ境界をまたいだか？
+	bne	main
+	PC_page_inc
+	bra	main
 LD_E_H:	move.b	h(a3),e(a3)
+	addq.w	#1,d7			* PC += 1
+	and.w	d3,d7		* PC がページ境界をまたいだか？
+	bne	main
+	PC_page_inc
 	bra	main
-
 LD_E_L:	move.b	l(a3),e(a3)
+	addq.w	#1,d7			* PC += 1
+	and.w	d3,d7		* PC がページ境界をまたいだか？
+	bne	main
+	PC_page_inc
 	bra	main
-
 LD_E_lHLl:
 	move.w	hl(a3),d0
 	bsr	read_mem		*メモリから 8ビットのデータを d0に読み込む。
 	move.b	d0,e(a3)
-	bra	main
-
-LD_E_n:	move.b	0(a4,d7.w),e(a3)
 	addq.w	#1,d7			* PC += 1
-	andi.w	#$3fff,d7			* PC がページ境界をまたいだか？
+	and.w	d3,d7		* PC がページ境界をまたいだか？
 	bne	main
-	bsr	PC_page_CHG
+	PC_page_inc
+	bra	main
+LD_E_n:	move.b	1(a4,d7.w),e(a3)
+	addq.w	#2,d7			* PC += 2
+	btst.l	#14,d7			* PC がページ境界をまたいだか？
+	beq	main
+	PC_page_inc
+	and.w	d3,d7		* 命令がページ境界をまたぐ時
+	beq	main			* d7 = 0 の時
+	move.b	(a4),e(a3)		* d7 = 1 の時
 	bra	main
 
 *	------ ＬＤ Ｈ,？ ------
 LD_H_A:	move.b	d4,h(a3)
+	addq.w	#1,d7			* PC += 1
+	and.w	d3,d7		* PC がページ境界をまたいだか？
+	bne	main
+	PC_page_inc
 	bra	main
-
 LD_H_B:	move.b	b(a3),h(a3)
+	addq.w	#1,d7			* PC += 1
+	and.w	d3,d7		* PC がページ境界をまたいだか？
+	bne	main
+	PC_page_inc
 	bra	main
-
 LD_H_C:	move.b	c(a3),h(a3)
+	addq.w	#1,d7			* PC += 1
+	and.w	d3,d7		* PC がページ境界をまたいだか？
+	bne	main
+	PC_page_inc
 	bra	main
-
 LD_H_D:	move.b	d(a3),h(a3)
+	addq.w	#1,d7			* PC += 1
+	and.w	d3,d7		* PC がページ境界をまたいだか？
+	bne	main
+	PC_page_inc
 	bra	main
-
 LD_H_E:	move.b	e(a3),h(a3)
+	addq.w	#1,d7			* PC += 1
+	and.w	d3,d7		* PC がページ境界をまたいだか？
+	bne	main
+	PC_page_inc
 	bra	main
-
-LD_H_H:	bra	main
-
+LD_H_H:	addq.w	#1,d7			* PC += 1
+	and.w	d3,d7		* PC がページ境界をまたいだか？
+	bne	main
+	PC_page_inc
+	bra	main
 LD_H_L:	move.b	l(a3),h(a3)
+	addq.w	#1,d7			* PC += 1
+	and.w	d3,d7		* PC がページ境界をまたいだか？
+	bne	main
+	PC_page_inc
 	bra	main
-
 LD_H_lHLl:
 	move.w	hl(a3),d0
 	bsr	read_mem		*メモリから 8ビットのデータを d0に読み込む。
 	move.b	d0,h(a3)
-	bra	main
-
-LD_H_n:	move.b	0(a4,d7.w),h(a3)
 	addq.w	#1,d7			* PC += 1
-	andi.w	#$3fff,d7			* PC がページ境界をまたいだか？
+	and.w	d3,d7		* PC がページ境界をまたいだか？
 	bne	main
-	bsr	PC_page_CHG
+	PC_page_inc
+	bra	main
+LD_H_n:	move.b	1(a4,d7.w),h(a3)
+	addq.w	#2,d7			* PC += 2
+	btst.l	#14,d7			* PC がページ境界をまたいだか？
+	beq	main
+	PC_page_inc
+	and.w	d3,d7		* 命令がページ境界をまたぐ時
+	beq	main			* d7 = 0 の時
+	move.b	(a4),h(a3)		* d7 = 1 の時
 	bra	main
 
 *	------ ＬＤ Ｌ,？ ------
 LD_L_A:	move.b	d4,l(a3)
+	addq.w	#1,d7			* PC += 1
+	and.w	d3,d7		* PC がページ境界をまたいだか？
+	bne	main
+	PC_page_inc
 	bra	main
-
 LD_L_B:	move.b	b(a3),l(a3)
+	addq.w	#1,d7			* PC += 1
+	and.w	d3,d7		* PC がページ境界をまたいだか？
+	bne	main
+	PC_page_inc
 	bra	main
-
 LD_L_C:	move.b	c(a3),l(a3)
+	addq.w	#1,d7			* PC += 1
+	and.w	d3,d7		* PC がページ境界をまたいだか？
+	bne	main
+	PC_page_inc
 	bra	main
-
 LD_L_D:	move.b	d(a3),l(a3)
+	addq.w	#1,d7			* PC += 1
+	and.w	d3,d7		* PC がページ境界をまたいだか？
+	bne	main
+	PC_page_inc
 	bra	main
-
 LD_L_E:	move.b	e(a3),l(a3)
+	addq.w	#1,d7			* PC += 1
+	and.w	d3,d7		* PC がページ境界をまたいだか？
+	bne	main
+	PC_page_inc
 	bra	main
-
 LD_L_H:	move.b	h(a3),l(a3)
+	addq.w	#1,d7			* PC += 1
+	and.w	d3,d7		* PC がページ境界をまたいだか？
+	bne	main
+	PC_page_inc
 	bra	main
-
-LD_L_L:	bra	main
-
+LD_L_L:	addq.w	#1,d7			* PC += 1
+	and.w	d3,d7		* PC がページ境界をまたいだか？
+	bne	main
+	PC_page_inc
+	bra	main
 LD_L_lHLl:
 	move.w	hl(a3),d0
 	bsr	read_mem		*メモリから 8ビットのデータを d0に読み込む。
 	move.b	d0,l(a3)
+	addq.w	#1,d7			* PC += 1
+	and.w	d3,d7		* PC がページ境界をまたいだか？
+	bne	main
+	PC_page_inc
+	bra	main
+LD_L_n:	move.b	1(a4,d7.w),l(a3)
+	addq.w	#2,d7			* PC += 2
+	btst.l	#14,d7			* PC がページ境界をまたいだか？
+	beq	main
+	PC_page_inc
+	and.w	d3,d7		* 命令がページ境界をまたぐ時
+	beq	main			* d7 = 0 の時
+	move.b	(a4),l(a3)		* d7 = 1 の時
 	bra	main
 
-LD_L_n:	move.b	0(a4,d7.w),l(a3)
-	addq.w	#1,d7			* PC += 1
-	andi.w	#$3fff,d7		* PC がページ境界をまたいだか？
-	bne	main
-	bsr	PC_page_CHG
-	bra	main
 
 *	------ ＬＤ （ＨＬ）,？
 LD_lHLl_A:
 	move.w	hl(a3),d0
 	move.b	d4,d1
 	bsr	write_mem
+	addq.w	#1,d7			* PC += 1
+	and.w	d3,d7		* PC がページ境界をまたいだか？
+	bne	main
+	PC_page_inc
 	bra	main
 LD_lHLl_B:
 	move.w	hl(a3),d0
 	move.b	b(a3),d1
 	bsr	write_mem
+	addq.w	#1,d7			* PC += 1
+	and.w	d3,d7		* PC がページ境界をまたいだか？
+	bne	main
+	PC_page_inc
 	bra	main
 LD_lHLl_C:
 	move.w	hl(a3),d0
 	move.b	c(a3),d1
 	bsr	write_mem
+	addq.w	#1,d7			* PC += 1
+	and.w	d3,d7		* PC がページ境界をまたいだか？
+	bne	main
+	PC_page_inc
 	bra	main
 LD_lHLl_D:
 	move.w	hl(a3),d0
 	move.b	d(a3),d1
 	bsr	write_mem
+	addq.w	#1,d7			* PC += 1
+	and.w	d3,d7		* PC がページ境界をまたいだか？
+	bne	main
+	PC_page_inc
 	bra	main
 LD_lHLl_E:
 	move.w	hl(a3),d0
 	move.b	e(a3),d1
 	bsr	write_mem
+	addq.w	#1,d7			* PC += 1
+	and.w	d3,d7		* PC がページ境界をまたいだか？
+	bne	main
+	PC_page_inc
 	bra	main
 LD_lHLl_H:
 	move.w	hl(a3),d0
 	move.b	h(a3),d1
 	bsr	write_mem
+	addq.w	#1,d7			* PC += 1
+	and.w	d3,d7		* PC がページ境界をまたいだか？
+	bne	main
+	PC_page_inc
 	bra	main
 LD_lHLl_L:
 	move.w	hl(a3),d0
 	move.b	l(a3),d1
 	bsr	write_mem
+	addq.w	#1,d7			* PC += 1
+	and.w	d3,d7		* PC がページ境界をまたいだか？
+	bne	main
+	PC_page_inc
 	bra	main
 LD_lHLl_n:
 	move.w	hl(a3),d0
-	move.b	0(a4,d7.w),d1
-	addq.w	#1,d7			* PC += 1
-	andi.w	#$3fff,d7		* PC がページ境界をまたいだか？
-	bne	@f
-	bsr	PC_page_CHG
-@@:	bsr	write_mem
+	move.b	1(a4,d7.w),d1
+	addq.w	#2,d7			* PC += 2
+	btst.l	#14,d7			* PC がページ境界をまたいだか？
+	bne	1f
+	bsr	write_mem
+	bra	main
+1:	PC_page_inc
+	and.w	d3,d7		* 命令がページ境界をまたぐ時
+	beq	2f
+	move.b	(a4),d1			* d7 = 1 の時
+2:	bsr	write_mem
 	bra	main
 LD_lBCl_A:
 	move.w	bc(a3),d0
 	move.b	d4,d1
 	bsr	write_mem
+	addq.w	#1,d7			* PC += 1
+	and.w	d3,d7		* PC がページ境界をまたいだか？
+	bne	main
+	PC_page_inc
 	bra	main
 LD_lDEl_A:
 	move.w	de(a3),d0
 	move.b	d4,d1
 	bsr	write_mem
+	addq.w	#1,d7			* PC += 1
+	and.w	d3,d7		* PC がページ境界をまたいだか？
+	bne	main
+	PC_page_inc
 	bra	main
 LD_lnnl_A:
 	move.b	d4,d1
-	move.b	1(a4,d7.w),d0		* nn の上位８ビットを読む 
+	move.b	2(a4,d7.w),d0		* nn の上位８ビットを読む 
 	lsl.w	#8,d0
-	move.b	0(a4,d7.w),d0		* nn の下位８ビットを読む 
-	addq.w	#2,d7
+	move.b	1(a4,d7.w),d0		* nn の下位８ビットを読む 
+	addq.w	#3,d7
 	btst.l	#14,d7
-	bne	@f
+	bne	1f
 	bsr	write_mem
 	bra	main
-@@:	andi.w	#$3fff,d7			* 命令がページ境界をまたぐ時
-	bne	@f
-	bsr	PC_page_CHG		* d7 = 0 の時
-	bsr	write_mem
+1:	PC_page_inc			* 命令がページ境界をまたぐ時
+	and.w	d3,d7
+	bne	2f
+	bsr	write_mem		* d7 = 0 の時
 	bra	main
-@@:					* d7 = 1 の時
-	move.b	d0,d2			* nn の下位８ビットをとっておく
-	bsr	PC_page_CHG
+2:	cmpi.w	#2,d7			
+	beq	3f
+	move.b	d0,d2			* d7 = 1 の時
 	move.b	(a4),d0			* nn の上位８ビットを読む
 	lsl.w	#8,d0
-	move.b	d2,d1
+	move.b	d2,d0
 	bsr	write_mem
 	bra	main
+3:	move.b	1(a4),d0		* d7 = 2 の時
+	lsl.w	#8,d0
+	move.b	 (a4),d0 
+	bsr	write_mem
+	bra	main
+
 
 *	------ ＬＤ ＸＸ,nn ------
 LD_BC_nn:
-	move.b	0(a4,d7.w),c(a3)	* nn の下位８ビットを読む 
-	move.b	1(a4,d7.w),b(a3)	* nn の上位８ビットを読む 
-	addq.w	#2,d7
+	move.b	1(a4,d7.w),c(a3)	* nn の下位８ビットを読む 
+	move.b	2(a4,d7.w),b(a3)	* nn の上位８ビットを読む 
+	addq.w	#3,d7
 	btst.l	#14,d7
 	beq	main
-	andi.w	#$3fff,d7		* 命令がページ境界をまたぐ時
-	bne	@f
-	bsr	PC_page_CHG		* d7 = 0 の時
+	PC_page_inc
+	and.w	d3,d7		* 命令がページ境界をまたぐ時
+	beq	main			* d7 = 0 の時
+	cmpi.w	#2,d1
+	beq	1f
+	move.b	 (a4),b(a3)		* d7 = 1 の時
 	bra	main
-@@:
-	bsr	PC_page_CHG		* d7 = 1 の時
-	move.b	(a4),b(a3)		* nn の上位８ビットを読む
+1:	move.b	 (a4),c(a3)		* d7 = 2 の時 
+	move.b	1(a4),b(a3)
 	bra	main
-
 LD_DE_nn:
-	move.b	0(a4,d7.w),e(a3)	* nn の下位８ビットを読む 
-	move.b	1(a4,d7.w),d(a3)	* nn の上位８ビットを読む 
-	addq.w	#2,d7
+	move.b	1(a4,d7.w),e(a3)	* nn の下位８ビットを読む 
+	move.b	2(a4,d7.w),d(a3)	* nn の上位８ビットを読む 
+	addq.w	#3,d7
 	btst.l	#14,d7
 	beq	main
-	andi.w	#$3fff,d7		* 命令がページ境界をまたぐ時
-	bne	@f
-	bsr	PC_page_CHG		* d7 = 0 の時
+	PC_page_inc
+	and.w	d3,d7		* 命令がページ境界をまたぐ時
+	beq	main			* d7 = 0 の時
+	cmpi.w	#2,d1
+	beq	1f
+	move.b	 (a4),d(a3)		* d7 = 1 の時
 	bra	main
-@@:
-	bsr	PC_page_CHG		* d7 = 1 の時
-	move.b	(a4),d(a3)		* nn の上位８ビットを読む
+1:	move.b	 (a4),e(a3)		* d7 = 2 の時 
+	move.b	1(a4),d(a3)
 	bra	main
-
 LD_HL_nn:
-	move.b	0(a4,d7.w),l(a3)	* nn の下位８ビットを読む 
-	move.b	1(a4,d7.w),h(a3)	* nn の上位８ビットを読む 
-	addq.w	#2,d7
+	move.b	1(a4,d7.w),l(a3)	* nn の下位８ビットを読む 
+	move.b	2(a4,d7.w),h(a3)	* nn の上位８ビットを読む 
+	addq.w	#3,d7
 	btst.l	#14,d7
 	beq	main
-	andi.w	#$3fff,d7		* 命令がページ境界をまたぐ時
-	bne	@f
-	bsr	PC_page_CHG		* d7 = 0 の時
+	PC_page_inc
+	and.w	d3,d7		* 命令がページ境界をまたぐ時
+	beq	main			* d7 = 0 の時
+	cmpi.w	#2,d1
+	beq	1f
+	move.b	 (a4),h(a3)		* d7 = 1 の時
 	bra	main
-@@:
-	bsr	PC_page_CHG		* d7 = 1 の時
-	move.b	(a4),h(a3)		* nn の上位８ビットを読む
+1:	move.b	 (a4),l(a3)		* d7 = 2 の時 
+	move.b	1(a4),h(a3)
 	bra	main
-
 LD_SP_nn:
-	move.b	0(a4,d7.w),p(a3)	* nn の下位８ビットを読む 
-	move.b	1(a4,d7.w),s(a3)	* nn の上位８ビットを読む 
-	addq.w	#2,d7
+	move.b	1(a4,d7.w),p(a3)	* nn の下位８ビットを読む 
+	move.b	2(a4,d7.w),s(a3)	* nn の上位８ビットを読む 
+	addq.w	#3,d7
 	btst.l	#14,d7
 	beq	main
-	andi.w	#$3fff,d7		* 命令がページ境界をまたぐ時
-	bne	@f
-	bsr	PC_page_CHG		* d7 = 0 の時
+	PC_page_inc
+	and.w	d3,d7		* 命令がページ境界をまたぐ時
+	beq	main			* d7 = 0 の時
+	cmpi.w	#2,d1
+	beq	1f
+	move.b	 (a4),s(a3)		* d7 = 1 の時
 	bra	main
-@@:
-	bsr	PC_page_CHG		* d7 = 1 の時
-	move.b	(a4),s(a3)		* nn の上位８ビットを読む
+1:	move.b	 (a4),p(a3)		* d7 = 2 の時 
+	move.b	1(a4),s(a3)
 	bra	main
-	
 LD_SP_HL:
 	move.w	hl(a3),sp_(a3)
+	addq.w	#1,d7			* PC += 1
+	and.w	d3,d7		* PC がページ境界をまたいだか？
+	bne	main
+	PC_page_inc
 	bra	main
 
-*	------ ＬＤ ＸＸ,(nn) ------
-LD_BC_lnnl:
-	move.b	1(a4,d7.w),d0		* nn の上位８ビットを読む 
-	lsl.w	#8,d0
-	move.b	0(a4,d7.w),d0		* nn の下位８ビットを読む 
-	addq.w	#2,d7
-	btst.l	#14,d7
-	bne	1f
-	bsr	read_mem_16
-	move.w	d0,bc(a3)
-	bra	main
-1:	andi.w	#$3fff,d7		* 命令がページ境界をまたぐ時
-	bne	2f
-	bsr	PC_page_CHG		* d7 = 0 の時
-	bsr	read_mem_16
-	move.w	d0,bc(a3)
-	bra	main
-2:	move.b	d0,d2			* d7 = 1 の時
-	bsr	PC_page_CHG
-	move.b	(a4),d0			* nn の上位８ビットを読む
-	lsl.w	#8,d0
-	move.b	d2,d0
-	bsr	read_mem_16
-	move.w	d0,bc(a3)
-	bra	main
 
-LD_DE_lnnl:
-	move.b	1(a4,d7.w),d0		* nn の上位８ビットを読む 
-	lsl.w	#8,d0
-	move.b	0(a4,d7.w),d0		* nn の下位８ビットを読む 
-	addq.w	#2,d7
-	btst.l	#14,d7
-	bne	1f
-	bsr	read_mem_16
-	move.w	d0,de(a3)
-	bra	main
-1:	andi.w	#$3fff,d7		* 命令がページ境界をまたぐ時
-	bne	2f
-	bsr	PC_page_CHG		* d7 = 0 の時
-	bsr	read_mem_16
-	move.w	d0,de(a3)
-	bra	main
-2:	move.b	d0,d2			* d7 = 1 の時
-	bsr	PC_page_CHG
-	move.b	(a4),d0			* nn の上位８ビットを読む
-	lsl.w	#8,d0
-	move.b	d2,d0
-	bsr	read_mem_16
-	move.w	d0,de(a3)
-	bra	main
-
+*	------ ＬＤ ＨＬ,(nn) ------
 LD_HL_lnnl:
-	move.b	1(a4,d7.w),d0		* nn の上位８ビットを読む 
+	move.b	2(a4,d7.w),d0		* nn の上位８ビットを読む 
 	lsl.w	#8,d0
-	move.b	0(a4,d7.w),d0		* nn の下位８ビットを読む 
-	addq.w	#2,d7
+	move.b	1(a4,d7.w),d0		* nn の下位８ビットを読む 
+	addq.w	#3,d7
 	btst.l	#14,d7
 	bne	1f
 	bsr	read_mem_16
 	move.w	d0,hl(a3)
 	bra	main
-1:	andi.w	#$3fff,d7		* 命令がページ境界をまたぐ時
+1:	PC_page_inc			* 命令がページ境界をまたぐ時
+	and.w	d3,d7
 	bne	2f
-	bsr	PC_page_CHG		* d7 = 0 の時
+	bsr	read_mem_16		* d7 = 0 の時
+	move.w	d0,hl(a3)
+	bra	main
+2:	cmpi.w	#2,d7
+	beq	3f
+	move.b	d0,d2			* d7 = 1 の時
+	move.b	(a4),d0			* nn の上位８ビットを読む
+	lsl.w	#8,d0
+	move.b	d2,d0
 	bsr	read_mem_16
 	move.w	d0,hl(a3)
 	bra	main
-2:	move.b	d0,d2			* d7 = 1 の時
-	bsr	PC_page_CHG
-	move.b	(a4),d0			* nn の上位８ビットを読む
+3:	move.b	1(a3),d0		* d7 = 2 の時
 	lsl.w	#8,d0
-	move.b	d2,d0
+	move.b	 (a3),d0
 	bsr	read_mem_16
 	move.w	d0,hl(a3)
 	bra	main
 
-LD_SP_lnnl:
-	move.b	1(a4,d7.w),d0		* nn の上位８ビットを読む 
-	lsl.w	#8,d0
-	move.b	0(a4,d7.w),d0		* nn の下位８ビットを読む 
-	addq.w	#2,d7
-	btst.l	#14,d7
-	bne	1f
-	bsr	read_mem_16
-	move.w	d0,sp_(a3)
-	bra	main
-1:	andi.w	#$3fff,d7		* 命令がページ境界をまたぐ時
-	bne	2f
-	bsr	PC_page_CHG		* d7 = 0 の時
-	bsr	read_mem_16
-	move.w	d0,sp_(a3)
-	bra	main
-2:	move.b	d0,d2				* d7 = 1 の時
-	bsr	PC_page_CHG
-	move.b	(a4),d0			* nn の上位８ビットを読む
-	lsl.w	#8,d0
-	move.b	d2,d0
-	bsr	read_mem_16
-	move.w	d0,sp_(a3)
-	bra	main
-
-*	------ ＬＤ (nn),ＸＸ ------
-LD_lnnl_BC:
-	move.w	bc(a3),d1
-	move.b	1(a4,d7.w),d0		* nn の上位８ビットを読む 
-	lsl.w	#8,d0
-	move.b	0(a4,d7.w),d0		* nn の下位８ビットを読む 
-	addq.w	#2,d7
-	btst.l	#14,d7
-	bne	@f
-	bsr	write_mem_16
-	bra	main
-@@:	andi.w	#$3fff,d7		* 命令がページ境界をまたぐ時
-	bne	@f
-	bsr	PC_page_CHG		* d7 = 0 の時
-	bsr	write_mem_16
-	bra	main
-@@:	move.b	d0,d2			* d7 = 1 の時
-	bsr	PC_page_CHG
-	move.b	(a4),d0			* nn の上位８ビットを読む
-	lsl.w	#8,d0
-	move.b	d2,d0
-	bsr	write_mem_16
-	bra	main
-
-LD_lnnl_DE:
-	move.w	de(a3),d1
-	move.b	1(a4,d7.w),d0		* nn の上位８ビットを読む 
-	lsl.w	#8,d0
-	move.b	0(a4,d7.w),d0		* nn の下位８ビットを読む 
-	addq.w	#2,d7
-	btst.l	#14,d7
-	bne	@f
-	bsr	write_mem_16
-	bra	main
-@@:	andi.w	#$3fff,d7		* 命令がページ境界をまたぐ時
-	bne	@f
-	bsr	PC_page_CHG		* d7 = 0 の時
-	bsr	write_mem_16
-	bra	main
-@@:	move.b	d0,d2			* d7 = 1 の時
-	bsr	PC_page_CHG
-	move.b	(a4),d0			* nn の上位８ビットを読む
-	lsl.w	#8,d0
-	move.b	d2,d0
-	bsr	write_mem_16
-	bra	main
-
+*	------ ＬＤ (nn),ＨＬ ------
 LD_lnnl_HL:
 	move.w	hl(a3),d1
-	move.b	1(a4,d7.w),d0		* nn の上位８ビットを読む 
+	move.b	2(a4,d7.w),d0		* nn の上位８ビットを読む 
 	lsl.w	#8,d0
-	move.b	0(a4,d7.w),d0		* nn の下位８ビットを読む 
-	addq.w	#2,d7
+	move.b	1(a4,d7.w),d0		* nn の下位８ビットを読む 
+	addq.w	#3,d7
 	btst.l	#14,d7
-	bne	@f
+	bne	1f
 	bsr	write_mem_16
 	bra	main
-@@:	andi.w	#$3fff,d7		* 命令がページ境界をまたぐ時
-	bne	@f
-	bsr	PC_page_CHG		* d7 = 0 の時
-	bsr	write_mem_16
+1:	PC_page_inc			* 命令がページ境界をまたぐ時
+	and.w	d3,d7
+	bne	2f
+	bsr	write_mem_16		* d7 = 0 の時
 	bra	main
-@@:	move.b	d0,d2			* d7 = 1 の時
-	bsr	PC_page_CHG
+2:	cmpi.w	#2,d7
+	beq	3f
+	move.b	d0,d2			* d7 = 1 の時
 	move.b	(a4),d0			* nn の上位８ビットを読む
 	lsl.w	#8,d0
 	move.b	d2,d0
 	bsr	write_mem_16
 	bra	main
-
-LD_lnnl_SP:
-	move.w	sp_(a3),d1
-	move.b	1(a4,d7.w),d0		* nn の上位８ビットを読む 
+3:	move.b	1(a3),d0		* d7 = 2 の時
 	lsl.w	#8,d0
-	move.b	0(a4,d7.w),d0		* nn の下位８ビットを読む 
-	addq.w	#2,d7
-	btst.l	#14,d7
-	bne	@f
-	bsr	write_mem_16
-	bra	main
-@@:	andi.w	#$3fff,d7		* 命令がページ境界をまたぐ時
-	bne	@f
-	bsr	PC_page_CHG		* d7 = 0 の時
-	bsr	write_mem_16
-	bra	main
-@@:	move.b	d0,d2			* d7 = 1 の時
-	bsr	PC_page_CHG
-	move.b	(a4),d0			* nn の上位８ビットを読む
-	lsl.w	#8,d0
-	move.b	d2,d0
+	move.b	 (a3),d0
 	bsr	write_mem_16
 	bra	main
 
@@ -1481,7 +1616,11 @@ page_3_w16:
 
 *------ ＡＤＤ ------
 ADD_A_A:
-	andi.w	#%01110100_11111111,d6	* Ｎ,Ｃ,HC mode,SZ mode をクリア
+	addq.w	#1,d7			* PC += 1
+	and.w	d3,d7		* PC がページ境界をまたいだか？
+	bne	1f
+	PC_page_inc
+1:	andi.w	#%01110100_11111111,d6	* Ｎ,Ｃ,HC mode,SZ mode をクリア
 	move.b	d4,HC2(a3)		* 足す数を HC2に
 	add.b	d4,d4
 	bvs	V_ADD_A			* オーバーフロー？
@@ -1503,7 +1642,11 @@ NC_ADD_A2:
 	bra	main
 
 ADD_A_B:
-	andi.w	#%01110100_11111111,d6	* Ｎ,Ｃ,HC mode をクリア
+	addq.w	#1,d7			* PC += 1
+	and.w	d3,d7		* PC がページ境界をまたいだか？
+	bne	1f
+	PC_page_inc
+1:	andi.w	#%01110100_11111111,d6	* Ｎ,Ｃ,HC mode をクリア
 	move.b	b(a3),d0
 	move.b	d0,HC2(a3)		* 足す数を HC2に
 	add.b	d0,d4
@@ -1516,7 +1659,11 @@ ADD_A_B:
 	bra	main
 
 ADD_A_C:
-	andi.w	#%01110100_11111111,d6	* Ｎ,Ｃ,HC mode をクリア
+	addq.w	#1,d7			* PC += 1
+	and.w	d3,d7		* PC がページ境界をまたいだか？
+	bne	1f
+	PC_page_inc
+1:	andi.w	#%01110100_11111111,d6	* Ｎ,Ｃ,HC mode をクリア
 	move.b	c(a3),d0
 	move.b	d0,HC2(a3)		* 足す数を HC2に
 	add.b	d0,d4
@@ -1529,7 +1676,11 @@ ADD_A_C:
 	bra	main
 
 ADD_A_D:
-	andi.w	#%01110100_11111111,d6	* Ｎ,Ｃ,HC mode をクリア
+	addq.w	#1,d7			* PC += 1
+	and.w	d3,d7		* PC がページ境界をまたいだか？
+	bne	1f
+	PC_page_inc
+1:	andi.w	#%01110100_11111111,d6	* Ｎ,Ｃ,HC mode をクリア
 	move.b	d(a3),d0
 	move.b	d0,HC2(a3)		* 足す数を HC2に
 	add.b	d0,d4
@@ -1542,7 +1693,11 @@ ADD_A_D:
 	bra	main
 
 ADD_A_E:
-	andi.w	#%01110100_11111111,d6	* Ｎ,Ｃ,HC mode をクリア
+	addq.w	#1,d7			* PC += 1
+	and.w	d3,d7		* PC がページ境界をまたいだか？
+	bne	1f
+	PC_page_inc
+1:	andi.w	#%01110100_11111111,d6	* Ｎ,Ｃ,HC mode をクリア
 	move.b	e(a3),d0
 	move.b	d0,HC2(a3)		* 足す数を HC2に
 	add.b	d0,d4
@@ -1555,7 +1710,11 @@ ADD_A_E:
 	bra	main
 
 ADD_A_H:
-	andi.w	#%01110100_11111111,d6	* Ｎ,Ｃ,HC mode をクリア
+	addq.w	#1,d7			* PC += 1
+	and.w	d3,d7		* PC がページ境界をまたいだか？
+	bne	1f
+	PC_page_inc
+1:	andi.w	#%01110100_11111111,d6	* Ｎ,Ｃ,HC mode をクリア
 	move.b	h(a3),d0
 	move.b	d0,HC2(a3)		* 足す数を HC2に
 	add.b	d0,d4
@@ -1568,7 +1727,11 @@ ADD_A_H:
 	bra	main
 
 ADD_A_L:
-	andi.w	#%01110100_11111111,d6	* Ｎ,Ｃ,HC mode をクリア
+	addq.w	#1,d7			* PC += 1
+	and.w	d3,d7		* PC がページ境界をまたいだか？
+	bne	1f
+	PC_page_inc
+1:	andi.w	#%01110100_11111111,d6	* Ｎ,Ｃ,HC mode をクリア
 	move.b	l(a3),d0
 	move.b	d0,HC2(a3)		* 足す数を HC2に
 	add.b	d0,d4
@@ -1579,8 +1742,13 @@ ADD_A_L:
 	move.b	d4,d6			* 結果を SZ にセット		
 	move.b	d4,d5			* 結果を HC1にセット
 	bra	main
+
 ADD_A_lHLl:
-	andi.w	#%01110100_11111111,d6	* Ｎ,Ｃ,HC mode をクリア
+	addq.w	#1,d7			* PC += 1
+	and.w	d3,d7		* PC がページ境界をまたいだか？
+	bne	1f
+	PC_page_inc
+1:	andi.w	#%01110100_11111111,d6	* Ｎ,Ｃ,HC mode をクリア
 	move.w	hl(a3),d0
 	bsr	read_mem
 	move.b	d0,HC2(a3)		* 足す数を HC2に
@@ -1594,13 +1762,15 @@ ADD_A_lHLl:
 	bra	main
 ADD_A_n:
 	andi.w	#%01110100_11111111,d6	* Ｎ,Ｃ,HC mode をクリア
-	move.b	0(a4,d7.w),d0
-	addq.w	#1,d7			* PC += 1
-	andi.w	#$3fff,d7		* PC がページ境界をまたいだか？
-	bne	@f
-	bsr	PC_page_CHG
-@@:
-	move.b	d0,HC2(a3)		* 足す数を HC2に
+	move.b	1(a4,d7.w),d0
+	addq.w	#2,d7			* PC += 2
+	btst.l	#14,d7			* PC がページ境界をまたいだか？
+	beq	@f
+	PC_page_inc
+	and.w	d3,d7
+	beq	@f			* d7 = 0 の時
+	move.b	(a4),d0			* d7 = 1 の時
+@@:	move.b	d0,HC2(a3)		* 足す数を HC2に
 	add.b	d0,d4
 	bvs	V_ADD_A			* オーバーフロー？
 	bcc	NC_ADD_A1
@@ -1611,7 +1781,11 @@ ADD_A_n:
 	bra	main
 
 ADD_HL_BC:
-	andi.w	#%11111100_11111111,d6	* ＣｙとＮをクリア
+	addq.w	#1,d7			* PC += 1
+	and.w	d3,d7		* PC がページ境界をまたいだか？
+	bne	1f
+	PC_page_inc
+1:	andi.w	#%11111100_11111111,d6	* ＣｙとＮをクリア
 	move.w	bc(a3),d0
 	add.w	d0,hl(a3)
 	bcc	main
@@ -1619,7 +1793,11 @@ ADD_HL_BC:
 	bra	main
 
 ADD_HL_DE:
-	andi.w	#%11111100_11111111,d6	* ＣｙとＮをクリア
+	addq.w	#1,d7			* PC += 1
+	and.w	d3,d7		* PC がページ境界をまたいだか？
+	bne	1f
+	PC_page_inc
+1:	andi.w	#%11111100_11111111,d6	* ＣｙとＮをクリア
 	move.w	de(a3),d0
 	add.w	d0,hl(a3)
 	bcc	main
@@ -1627,27 +1805,37 @@ ADD_HL_DE:
 	bra	main
 
 ADD_HL_HL:
-	andi.w	#%11111100_11111111,d6	* ＣｙとＮをクリア
-	move.w	hl(a3),d0
-	add.w	d0,hl(a3)
+	addq.w	#1,d7			* PC += 1
+	and.w	d3,d7		* PC がページ境界をまたいだか？
+	bne	1f
+	PC_page_inc
+1:	andi.w	#%11111100_11111111,d6	* ＣｙとＮをクリア
+	lsl.w	hl(a3)
 	bcc	main
 	ori.w	#%00000001_00000000,d6	* Ｃｙをセット
 	bra	main
 
 ADD_HL_SP:
-	andi.w	#%11111100_11111111,d6	* ＣｙとＮをクリア
+	addq.w	#1,d7			* PC += 1
+	and.w	d3,d7		* PC がページ境界をまたいだか？
+	bne	1f
+	PC_page_inc
+1:	andi.w	#%11111100_11111111,d6	* ＣｙとＮをクリア
 	move.w	sp_(a3),d0
 	add.w	d0,hl(a3)
 	bcc	main
 	ori.w	#%00000001_00000000,d6	* Ｃｙをセット
 	bra	main
 
-
 *	------ ＡＤＣ ------
 ADC_A_A:
 	btst.l	#8,d6
 	beq	ADD_A_A			* Cy が０の時 ADD と同じ
-	andi.w	#%01111100_00000000,d6	* Ｎ,Ｃ,HC mode,SZ,SZ mode をクリア
+	addq.w	#1,d7			* PC += 1
+	and.w	d3,d7		* PC がページ境界をまたいだか？
+	bne	9f
+	PC_page_inc
+9:	andi.w	#%01111100_00000000,d6	* Ｎ,Ｃ,HC mode,SZ,SZ mode をクリア
 	ori.w	#%00001000_00000000,d6	* HC モードをセット
 	subq.b	#1,d6			* X ビットをセット
 	move.b	d4,HC2(a3)		* 足す数を HC2に
@@ -1673,7 +1861,11 @@ NC_ADC_A2:
 ADC_A_B:
 	btst.l	#8,d6
 	beq	ADD_A_B			* Cy が０の時 ADD と同じ
-	andi.w	#%01111100_00000000,d6	* Ｎ,Ｃ,HC mode,SZ,SZ mode をクリア
+	addq.w	#1,d7			* PC += 1
+	and.w	d3,d7		* PC がページ境界をまたいだか？
+	bne	9f
+	PC_page_inc
+9:	andi.w	#%01111100_00000000,d6	* Ｎ,Ｃ,HC mode,SZ,SZ mode をクリア
 	ori.w	#%00001000_00000000,d6	* HC モードをセット
 	subq.b	#1,d6			* X ビットをセット
 	move.b	b(a3),d0
@@ -1689,7 +1881,11 @@ ADC_A_B:
 ADC_A_C:
 	btst.l	#8,d6
 	beq	ADD_A_C			* Cy が０の時 ADD と同じ
-	andi.w	#%01111100_00000000,d6	* Ｎ,Ｃ,HC mode,SZ,SZ mode をクリア
+	addq.w	#1,d7			* PC += 1
+	and.w	d3,d7		* PC がページ境界をまたいだか？
+	bne	9f
+	PC_page_inc
+9:	andi.w	#%01111100_00000000,d6	* Ｎ,Ｃ,HC mode,SZ,SZ mode をクリア
 	ori.w	#%00001000_00000000,d6	* HC モードをセット
 	subq.b	#1,d6			* X ビットをセット
 	move.b	c(a3),d0
@@ -1705,7 +1901,11 @@ ADC_A_C:
 ADC_A_D:
 	btst.l	#8,d6
 	beq	ADD_A_D			* Cy が０の時 ADD と同じ
-	andi.w	#%01111100_00000000,d6	* Ｎ,Ｃ,HC mode,SZ,SZ mode をクリア
+	addq.w	#1,d7			* PC += 1
+	and.w	d3,d7		* PC がページ境界をまたいだか？
+	bne	9f
+	PC_page_inc
+9:	andi.w	#%01111100_00000000,d6	* Ｎ,Ｃ,HC mode,SZ,SZ mode をクリア
 	ori.w	#%00001000_00000000,d6	* HC モードをセット
 	subq.b	#1,d6			* X ビットをセット
 	move.b	d(a3),d0
@@ -1721,7 +1921,11 @@ ADC_A_D:
 ADC_A_E:
 	btst.l	#8,d6
 	beq	ADD_A_E			* Cy が０の時 ADD と同じ
-	andi.w	#%01111100_00000000,d6	* Ｎ,Ｃ,HC mode,SZ,SZ mode をクリア
+	addq.w	#1,d7			* PC += 1
+	and.w	d3,d7		* PC がページ境界をまたいだか？
+	bne	9f
+	PC_page_inc
+9:	andi.w	#%01111100_00000000,d6	* Ｎ,Ｃ,HC mode,SZ,SZ mode をクリア
 	ori.w	#%00001000_00000000,d6	* HC モードをセット
 	subq.b	#1,d6			* X ビットをセット
 	move.b	e(a3),d0
@@ -1737,7 +1941,11 @@ ADC_A_E:
 ADC_A_H:
 	btst.l	#8,d6
 	beq	ADD_A_H			* Cy が０の時 ADD と同じ
-	andi.w	#%01111100_00000000,d6	* Ｎ,Ｃ,HC mode,SZ,SZ mode をクリア
+	addq.w	#1,d7			* PC += 1
+	and.w	d3,d7		* PC がページ境界をまたいだか？
+	bne	9f
+	PC_page_inc
+9:	andi.w	#%01111100_00000000,d6	* Ｎ,Ｃ,HC mode,SZ,SZ mode をクリア
 	ori.w	#%00001000_00000000,d6	* HC モードをセット
 	subq.b	#1,d6			* X ビットをセット
 	move.b	h(a3),d0
@@ -1753,7 +1961,11 @@ ADC_A_H:
 ADC_A_L:
 	btst.l	#8,d6
 	beq	ADD_A_L			* Cy が０の時 ADD と同じ
-	andi.w	#%01111100_00000000,d6	* Ｎ,Ｃ,HC mode,SZ,SZ mode をクリア
+	addq.w	#1,d7			* PC += 1
+	and.w	d3,d7		* PC がページ境界をまたいだか？
+	bne	9f
+	PC_page_inc
+9:	andi.w	#%01111100_00000000,d6	* Ｎ,Ｃ,HC mode,SZ,SZ mode をクリア
 	ori.w	#%00001000_00000000,d6	* HC モードをセット
 	subq.b	#1,d6			* X ビットをセット
 	move.b	l(a3),d0
@@ -1769,7 +1981,11 @@ ADC_A_L:
 ADC_A_lHLl:
 	btst.l	#8,d6
 	beq	ADD_A_lHLl		* Cy が０の時 ADD と同じ
-	andi.w	#%01111100_00000000,d6	* Ｎ,Ｃ,HC mode,SZ,SZ mode をクリア
+	addq.w	#1,d7			* PC += 1
+	and.w	d3,d7		* PC がページ境界をまたいだか？
+	bne	9f
+	PC_page_inc
+9:	andi.w	#%01111100_00000000,d6	* Ｎ,Ｃ,HC mode,SZ,SZ mode をクリア
 	ori.w	#%00001000_00000000,d6	* HC モードをセット
 	move.w	hl(a3),d0
 	bsr	read_mem
@@ -1788,11 +2004,14 @@ ADC_A_n:
 	beq	ADD_A_n			* Cy が０の時 ADD と同じ
 	andi.w	#%01111100_00000000,d6	* Ｎ,Ｃ,HC mode,SZ,SZ mode をクリア
 	ori.w	#%00001000_00000000,d6	* HC モードをセット
-	move.b	0(a4,d7.w),d0
-	addq.w	#1,d7			* PC += 1
-	andi.w	#$3fff,d7		* PC がページ境界をまたいだか？
-	bne	@f
-	bsr	PC_page_CHG
+	move.b	1(a4,d7.w),d0
+	addq.w	#2,d7			* PC += 2
+	btst.l	#14,d7			* PC がページ境界をまたいだか？
+	beq	@f
+	PC_page_inc
+	and.w	d3,d7
+	beq	@f
+	move.b	(a4),d0
 @@:	subq.b	#1,d6			* X ビットをセット
 	move.b	d0,HC2(a3)		* 足す数を HC2に
 	addx.b	d0,d4
@@ -1804,9 +2023,12 @@ ADC_A_n:
 	move.b	d4,d5			* 結果を HC1にセット
 	bra	main
 
-
 *	------ ＳＵＢ ------
-SUB_A:	andi.w	#%01110110_00000000,d6	* Ｃ,HC mode をクリア。 SZ を０に
+SUB_A:	addq.w	#1,d7			* PC += 1
+	and.w	d3,d7		* PC がページ境界をまたいだか？
+	bne	9f
+	PC_page_inc
+9:	andi.w	#%01110110_00000000,d6	* Ｃ,HC mode をクリア。 SZ を０に
 	ori.w	#%00000010_00000000,d6	* Ｎをセット
 	move.b	d6,d4
 	move.b	#1,PV(a3)		* PVをクリア
@@ -1828,7 +2050,11 @@ NC_SUB_A2:
 	move.b	d4,d6			* 結果を SZ にセット		
 	bra	main
 
-SUB_B:	andi.w	#%01110110_11111111,d6	* Ｃ,HC mode をクリア
+SUB_B:	addq.w	#1,d7			* PC += 1
+	and.w	d3,d7		* PC がページ境界をまたいだか？
+	bne	9f
+	PC_page_inc
+9:	andi.w	#%01110110_11111111,d6	* Ｃ,HC mode をクリア
 	ori.w	#%00000010_00000000,d6	* Ｎをセット
 	move.b	d4,d5			* 引かれる数を HC1に
 	move.b	b(a3),HC2(a3)		* 引く数を HC2に
@@ -1839,7 +2065,11 @@ SUB_B:	andi.w	#%01110110_11111111,d6	* Ｃ,HC mode をクリア
 	move.b	d4,d6			* 結果を SZ にセット		
 	bra	main
 
-SUB_C:	andi.w	#%01110110_11111111,d6	* Ｃ,HC mode をクリア
+SUB_C:	addq.w	#1,d7			* PC += 1
+	and.w	d3,d7		* PC がページ境界をまたいだか？
+	bne	9f
+	PC_page_inc
+9:	andi.w	#%01110110_11111111,d6	* Ｃ,HC mode をクリア
 	ori.w	#%00000010_00000000,d6	* Ｎをセット
 	move.b	d4,d5			* 引かれる数を HC1に
 	move.b	c(a3),HC2(a3)		* 引く数を HC2に
@@ -1850,7 +2080,11 @@ SUB_C:	andi.w	#%01110110_11111111,d6	* Ｃ,HC mode をクリア
 	move.b	d4,d6
 	bra	main
 
-SUB_D:	andi.w	#%01110110_11111111,d6	* Ｃ,HC mode をクリア
+SUB_D:	addq.w	#1,d7			* PC += 1
+	and.w	d3,d7		* PC がページ境界をまたいだか？
+	bne	9f
+	PC_page_inc
+9:	andi.w	#%01110110_11111111,d6	* Ｃ,HC mode をクリア
 	ori.w	#%00000010_00000000,d6	* Ｎをセット
 	move.b	d4,d5			* 引かれる数を HC1に
 	move.b	d(a3),HC2(a3)		* 引く数を HC2に
@@ -1861,7 +2095,11 @@ SUB_D:	andi.w	#%01110110_11111111,d6	* Ｃ,HC mode をクリア
 	move.b	d4,d6
 	bra	main
 
-SUB_E:	andi.w	#%01110110_11111111,d6	* Ｃ,HC mode をクリア
+SUB_E:	addq.w	#1,d7			* PC += 1
+	and.w	d3,d7		* PC がページ境界をまたいだか？
+	bne	9f
+	PC_page_inc
+9:	andi.w	#%01110110_11111111,d6	* Ｃ,HC mode をクリア
 	ori.w	#%00000010_00000000,d6	* Ｎをセット
 	move.b	d4,d5			* 引かれる数を HC1に
 	move.b	e(a3),HC2(a3)		* 引く数を HC2に
@@ -1872,7 +2110,11 @@ SUB_E:	andi.w	#%01110110_11111111,d6	* Ｃ,HC mode をクリア
 	move.b	d4,d6
 	bra	main
 
-SUB_H:	andi.w	#%01110110_11111111,d6	* Ｃ,HC mode をクリア
+SUB_H:	addq.w	#1,d7			* PC += 1
+	and.w	d3,d7		* PC がページ境界をまたいだか？
+	bne	9f
+	PC_page_inc
+9:	andi.w	#%01110110_11111111,d6	* Ｃ,HC mode をクリア
 	ori.w	#%00000010_00000000,d6	* Ｎをセット
 	move.b	d4,d5			* 引かれる数を HC1に
 	move.b	h(a3),HC2(a3)		* 引く数を HC2に
@@ -1883,7 +2125,11 @@ SUB_H:	andi.w	#%01110110_11111111,d6	* Ｃ,HC mode をクリア
 	move.b	d4,d6
 	bra	main
 
-SUB_L:	andi.w	#%01110110_11111111,d6	* Ｃ,HC mode をクリア
+SUB_L:	addq.w	#1,d7			* PC += 1
+	and.w	d3,d7		* PC がページ境界をまたいだか？
+	bne	9f
+	PC_page_inc
+9:	andi.w	#%01110110_11111111,d6	* Ｃ,HC mode をクリア
 	ori.w	#%00000010_00000000,d6	* Ｎをセット
 	move.b	d4,d5			* 引かれる数を HC1に
 	move.b	l(a3),HC2(a3)		* 引く数を HC2に
@@ -1895,7 +2141,11 @@ SUB_L:	andi.w	#%01110110_11111111,d6	* Ｃ,HC mode をクリア
 	bra	main
 
 SUB_lHLl:
-	andi.w	#%01110110_11111111,d6	* Ｃ,HC mode をクリア
+	addq.w	#1,d7			* PC += 1
+	and.w	d3,d7		* PC がページ境界をまたいだか？
+	bne	9f
+	PC_page_inc
+9:	andi.w	#%01110110_11111111,d6	* Ｃ,HC mode をクリア
 	ori.w	#%00000010_00000000,d6	* Ｎをセット
 	move.w	hl(a3),d0
 	bsr	read_mem
@@ -1910,11 +2160,14 @@ SUB_lHLl:
 
 SUB_n:	andi.w	#%01110110_11111111,d6	* Ｃ,HC mode をクリア
 	ori.w	#%00000010_00000000,d6	* Ｎをセット
-	move.b	0(a4,d7.w),d0
-	addq.w	#1,d7			* PC += 1
-	andi.w	#$3fff,d7		* PC がページ境界をまたいだか？
-	bne	@f
-	bsr	PC_page_CHG
+	move.b	1(a4,d7.w),d0
+	addq.w	#2,d7			* PC += 2
+	btst.l	#14,d7			* PC がページ境界をまたいだか？
+	beq	@f
+	PC_page_inc
+	and.w	d3,d7
+	beq	@f
+	move.b	(a4),d0			* d7 = 1 の時
 @@:
 	move.b	d4,d5			* 引かれる数を HC1に
 	move.b	d0,HC2(a3)		* 引く数を HC2に
@@ -1930,7 +2183,11 @@ SUB_n:	andi.w	#%01110110_11111111,d6	* Ｃ,HC mode をクリア
 SBC_A_A:
 	btst.l	#8,d6
 	beq	SUB_A			* Cy が０の時 SUB と同じ
-	andi.w	#%01111111_11111111,d6	* SZ mode を０に
+	addq.w	#1,d7			* PC += 1
+	and.w	d3,d7		* PC がページ境界をまたいだか？
+	bne	9f
+	PC_page_inc
+9:	andi.w	#%01111111_11111111,d6	* SZ mode を０に
 	ori.w	#%00001011_11111111,d6	* Ｎ,Ｃ, HC mode をセット。SZ を $ffに
 	move.b	d6,d4			* A レジスタを $FFに
 	move.b	#1,PV(a3)		* PVをクリア
@@ -1958,7 +2215,11 @@ C_SBC_A2:
 SBC_A_B:
 	btst.l	#8,d6
 	beq	SUB_B			* Cy が０の時 SUB と同じ
-	ori.w	#%00001011_00000000,d6	* Ｎ,Ｃ, HC mode をセット
+	addq.w	#1,d7			* PC += 1
+	and.w	d3,d7		* PC がページ境界をまたいだか？
+	bne	9f
+	PC_page_inc
+9:	ori.w	#%00001011_00000000,d6	* Ｎ,Ｃ, HC mode をセット
 	clr.w	d0			* X ビットをセット
 	subq.w	#1,d0
 	move.b	d4,d5			* 引かれる数を HC1に
@@ -1974,7 +2235,11 @@ SBC_A_B:
 SBC_A_C:
 	btst.l	#8,d6
 	beq	SUB_C			* Cy が０の時 SUB と同じ
-	ori.w	#%00001011_00000000,d6	* Ｎ,Ｃ, HC mode をセット
+	addq.w	#1,d7			* PC += 1
+	and.w	d3,d7		* PC がページ境界をまたいだか？
+	bne	9f
+	PC_page_inc
+9:	ori.w	#%00001011_00000000,d6	* Ｎ,Ｃ, HC mode をセット
 	clr.w	d0			* X ビットをセット
 	subq.w	#1,d0
 	move.b	d4,d5			* 引かれる数を HC1に
@@ -1990,7 +2255,11 @@ SBC_A_C:
 SBC_A_D:
 	btst.l	#8,d6
 	beq	SUB_D			* Cy が０の時 SUB と同じ
-	ori.w	#%00001011_00000000,d6	* Ｎ,Ｃ, HC mode をセット
+	addq.w	#1,d7			* PC += 1
+	and.w	d3,d7		* PC がページ境界をまたいだか？
+	bne	9f
+	PC_page_inc
+9:	ori.w	#%00001011_00000000,d6	* Ｎ,Ｃ, HC mode をセット
 	clr.w	d0			* X ビットをセット
 	subq.w	#1,d0
 	move.b	d4,d5			* 引かれる数を HC1に
@@ -2006,7 +2275,11 @@ SBC_A_D:
 SBC_A_E:
 	btst.l	#8,d6
 	beq	SUB_E			* Cy が０の時 SUB と同じ
-	ori.w	#%00001011_00000000,d6	* Ｎ,Ｃ, HC mode をセット
+	addq.w	#1,d7			* PC += 1
+	and.w	d3,d7		* PC がページ境界をまたいだか？
+	bne	9f
+	PC_page_inc
+9:	ori.w	#%00001011_00000000,d6	* Ｎ,Ｃ, HC mode をセット
 	clr.w	d0			* X ビットをセット
 	subq.w	#1,d0
 	move.b	d4,d5			* 引かれる数を HC1に
@@ -2022,7 +2295,11 @@ SBC_A_E:
 SBC_A_H:
 	btst.l	#8,d6
 	beq	SUB_H			* Cy が０の時 SUB と同じ
-	ori.w	#%00001011_00000000,d6	* Ｎ,Ｃ, HC mode をセット
+	addq.w	#1,d7			* PC += 1
+	and.w	d3,d7		* PC がページ境界をまたいだか？
+	bne	9f
+	PC_page_inc
+9:	ori.w	#%00001011_00000000,d6	* Ｎ,Ｃ, HC mode をセット
 	clr.w	d0			* X ビットをセット
 	subq.w	#1,d0
 	move.b	d4,d5			* 引かれる数を HC1に
@@ -2038,7 +2315,11 @@ SBC_A_H:
 SBC_A_L:
 	btst.l	#8,d6
 	beq	SUB_L			* Cy が０の時 SUB と同じ
-	ori.w	#%00001011_00000000,d6	* Ｎ,Ｃ, HC mode をセット
+	addq.w	#1,d7			* PC += 1
+	and.w	d3,d7		* PC がページ境界をまたいだか？
+	bne	9f
+	PC_page_inc
+9:	ori.w	#%00001011_00000000,d6	* Ｎ,Ｃ, HC mode をセット
 	clr.w	d0			* X ビットをセット
 	subq.w	#1,d0
 	move.b	d4,d5			* 引かれる数を HC1に
@@ -2054,7 +2335,11 @@ SBC_A_L:
 SBC_A_lHLl:
 	btst.l	#8,d6
 	beq	SUB_lHLl		* Cy が０の時 SUB と同じ
-	ori.w	#%00001011_00000000,d6	* Ｎ,Ｃ, HC mode をセット
+	addq.w	#1,d7			* PC += 1
+	and.w	d3,d7		* PC がページ境界をまたいだか？
+	bne	9f
+	PC_page_inc
+9:	ori.w	#%00001011_00000000,d6	* Ｎ,Ｃ, HC mode をセット
 	move.w	hl(a3),d0
 	bsr	read_mem
 	clr.b	d6			* X ビットをセット
@@ -2072,13 +2357,15 @@ SBC_A_n:
 	btst.l	#8,d6
 	beq	SUB_n			* Cy が０の時 SUB と同じ
 	ori.w	#%00001011_00000000,d6	* Ｎ,Ｃ, HC mode をセット
-	move.b	0(a4,d7.w),d0
-	addq.w	#1,d7			* PC += 1
-	andi.w	#$3fff,d7		* PC がページ境界をまたいだか？
-	bne	@f
-	bsr	PC_page_CHG
-@@:
-	clr.b	d6			* X ビットをセット
+	move.b	1(a4,d7.w),d0
+	addq.w	#2,d7			* PC += 2
+	btst.l	#14,d7
+	beq	@f
+	PC_page_inc
+	and.w	d3,d7		* PC がページ境界をまたいだか？
+	beq	@f
+	move.b	(a4),d0			* d7 = 1 の時
+@@:	clr.b	d6			* X ビットをセット
 	subq.b	#1,d6
 	move.b	d4,d5			* 引かれる数を HC1に
 	move.b	d0,HC2(a3)		* 引く数を HC2に
@@ -2092,14 +2379,22 @@ SBC_A_n:
 
 
 *	------ ＡＮＤ ------
-AND_A:	andi.w	#%01110100_11111111,d6	* Ｎ,Ｃ,HC mode,SZ mode をクリア
+AND_A:	addq.w	#1,d7			* PC += 1
+	and.w	d3,d7		* PC がページ境界をまたいだか？
+	bne	9f
+	PC_page_inc
+9:	andi.w	#%01110100_11111111,d6	* Ｎ,Ｃ,HC mode,SZ mode をクリア
 	clr.b	d5			* HC を 1に
 	move.b	#1,HC2(a3)
 	move.b	d4,PV(a3)		* PV をセット
 	move.b	d4,d6			* SZ をセット
 	bra	main	
 
-AND_B:	andi.w	#%01110100_11111111,d6	* Ｎ,Ｃ,HC mode をクリア
+AND_B:	addq.w	#1,d7			* PC += 1
+	and.w	d3,d7		* PC がページ境界をまたいだか？
+	bne	9f
+	PC_page_inc
+9:	andi.w	#%01110100_11111111,d6	* Ｎ,Ｃ,HC mode をクリア
 	clr.b	d5			* HC を 1に
 	move.b	#1,HC2(a3)
 	and.b	b(a3),d4
@@ -2107,7 +2402,11 @@ AND_B:	andi.w	#%01110100_11111111,d6	* Ｎ,Ｃ,HC mode をクリア
 	move.b	d4,d6			* SZ をセット
 	bra	main	
 
-AND_C:	andi.w	#%01110100_11111111,d6	* Ｎ,Ｃ,HC mode をクリア
+AND_C:	addq.w	#1,d7			* PC += 1
+	and.w	d3,d7		* PC がページ境界をまたいだか？
+	bne	9f
+	PC_page_inc
+9:	andi.w	#%01110100_11111111,d6	* Ｎ,Ｃ,HC mode をクリア
 	clr.b	d5			* HC を 1に
 	move.b	#1,HC2(a3)
 	and.b	c(a3),d4
@@ -2115,7 +2414,11 @@ AND_C:	andi.w	#%01110100_11111111,d6	* Ｎ,Ｃ,HC mode をクリア
 	move.b	d4,d6			* SZ をセット
 	bra	main	
 
-AND_D:	andi.w	#%01110100_11111111,d6	* Ｎ,Ｃ,HC mode をクリア
+AND_D:	addq.w	#1,d7			* PC += 1
+	and.w	d3,d7		* PC がページ境界をまたいだか？
+	bne	9f
+	PC_page_inc
+9:	andi.w	#%01110100_11111111,d6	* Ｎ,Ｃ,HC mode をクリア
 	clr.b	d5			* HC を 1に
 	move.b	#1,HC2(a3)
 	and.b	d(a3),d4
@@ -2123,7 +2426,11 @@ AND_D:	andi.w	#%01110100_11111111,d6	* Ｎ,Ｃ,HC mode をクリア
 	move.b	d4,d6			* SZ をセット
 	bra	main	
 
-AND_E:	andi.w	#%01110100_11111111,d6	* Ｎ,Ｃ,HC mode をクリア
+AND_E:	addq.w	#1,d7			* PC += 1
+	and.w	d3,d7		* PC がページ境界をまたいだか？
+	bne	9f
+	PC_page_inc
+9:	andi.w	#%01110100_11111111,d6	* Ｎ,Ｃ,HC mode をクリア
 	clr.b	d5			* HC を 1に
 	move.b	#1,HC2(a3)
 	and.b	e(a3),d4
@@ -2131,7 +2438,11 @@ AND_E:	andi.w	#%01110100_11111111,d6	* Ｎ,Ｃ,HC mode をクリア
 	move.b	d4,d6			* SZ をセット
 	bra	main	
 
-AND_H:	andi.w	#%01110100_11111111,d6	* Ｎ,Ｃ,HC mode をクリア
+AND_H:	addq.w	#1,d7			* PC += 1
+	and.w	d3,d7		* PC がページ境界をまたいだか？
+	bne	9f
+	PC_page_inc
+9:	andi.w	#%01110100_11111111,d6	* Ｎ,Ｃ,HC mode をクリア
 	clr.b	d5			* HC を 1に
 	move.b	#1,HC2(a3)
 	and.b	h(a3),d4
@@ -2139,7 +2450,11 @@ AND_H:	andi.w	#%01110100_11111111,d6	* Ｎ,Ｃ,HC mode をクリア
 	move.b	d4,d6			* SZ をセット
 	bra	main	
 
-AND_L:	andi.w	#%01110100_11111111,d6	* Ｎ,Ｃ,HC mode をクリア
+AND_L:	addq.w	#1,d7			* PC += 1
+	and.w	d3,d7		* PC がページ境界をまたいだか？
+	bne	9f
+	PC_page_inc
+9:	andi.w	#%01110100_11111111,d6	* Ｎ,Ｃ,HC mode をクリア
 	clr.b	d5			* HC を 1に
 	move.b	#1,HC2(a3)
 	and.b	l(a3),d4
@@ -2148,7 +2463,11 @@ AND_L:	andi.w	#%01110100_11111111,d6	* Ｎ,Ｃ,HC mode をクリア
 	bra	main	
 
 AND_lHLl:
-	andi.w	#%01110100_11111111,d6	* Ｎ,Ｃ,HC mode をクリア
+	addq.w	#1,d7			* PC += 1
+	and.w	d3,d7		* PC がページ境界をまたいだか？
+	bne	9f
+	PC_page_inc
+9:	andi.w	#%01110100_11111111,d6	* Ｎ,Ｃ,HC mode をクリア
 	clr.b	d5			* HC を 1に
 	move.b	#1,HC2(a3)
 	move.w	hl(a3),d0
@@ -2161,24 +2480,35 @@ AND_lHLl:
 AND_n:	andi.w	#%01110100_11111111,d6	* Ｎ,Ｃ,HC mode をクリア
 	clr.b	d5			* HC を 1に
 	move.b	#1,HC2(a3)
-	move.b	0(a4,d7.w),d0
-	addq.w	#1,d7			* PC += 1
-	andi.w	#$3fff,d7		* PC がページ境界をまたいだか？
-	bne	@f
-	bsr	PC_page_CHG
+	move.b	1(a4,d7.w),d0
+	addq.w	#2,d7			* PC += 2
+	btst.l	#14,d7			* PC がページ境界をまたいだか？
+	beq	@f
+	PC_page_inc
+	and.w	d3,d7
+	beq	@f
+	move.b	(a4),d0
 @@:	and.b	d0,d4
 	move.b	d4,PV(a3)		* PV をセット
 	move.b	d4,d6			* SZ をセット
 	bra	main	
 
 *	------ ＸＯＲ ------
-XOR_A:	andi.w	#%01110100_00000000,d6	* Ｎ,Ｃ,HC mode,SZ,SZ mode をクリア
+XOR_A:	addq.w	#1,d7			* PC += 1
+	and.w	d3,d7		* PC がページ境界をまたいだか？
+	bne	9f
+	PC_page_inc
+9:	andi.w	#%01110100_00000000,d6	* Ｎ,Ｃ,HC mode,SZ,SZ mode をクリア
 	move.b	d5,HC2(a3)		* HC を 0に。( HC1 = HC2 の時, HCは０)
 	clr.b	d4
 	move.b	d4,PV(a3)		* PV をセット
 	bra	main	
 
-XOR_B:	andi.w	#%01110100_11111111,d6	* Ｎ,Ｃ,HC mode をクリア
+XOR_B:	addq.w	#1,d7			* PC += 1
+	and.w	d3,d7		* PC がページ境界をまたいだか？
+	bne	9f
+	PC_page_inc
+9:	andi.w	#%01110100_11111111,d6	* Ｎ,Ｃ,HC mode をクリア
 	move.b	d5,HC2(a3)		* HC を 0に。( HC1 = HC2 の時, HCは０)
 	move.b	b(a3),d0		* eor <ea>,Dn という命令はないので。
 	eor.b	d0,d4
@@ -2186,7 +2516,11 @@ XOR_B:	andi.w	#%01110100_11111111,d6	* Ｎ,Ｃ,HC mode をクリア
 	move.b	d4,d6			* SZ をセット
 	bra	main	
 
-XOR_C:	andi.w	#%01110100_11111111,d6	* Ｎ,Ｃ,HC mode をクリア
+XOR_C:	addq.w	#1,d7			* PC += 1
+	and.w	d3,d7		* PC がページ境界をまたいだか？
+	bne	9f
+	PC_page_inc
+9:	andi.w	#%01110100_11111111,d6	* Ｎ,Ｃ,HC mode をクリア
 	move.b	d5,HC2(a3)		* HC を 0に。( HC1 = HC2 の時, HCは０)
 	move.b	c(a3),d0		* eor <ea>,Dn という命令はないので。
 	eor.b	d0,d4
@@ -2194,7 +2528,11 @@ XOR_C:	andi.w	#%01110100_11111111,d6	* Ｎ,Ｃ,HC mode をクリア
 	move.b	d4,d6			* SZ をセット
 	bra	main	
 
-XOR_D:	andi.w	#%01110100_11111111,d6	* Ｎ,Ｃ,HC mode をクリア
+XOR_D:	addq.w	#1,d7			* PC += 1
+	and.w	d3,d7		* PC がページ境界をまたいだか？
+	bne	9f
+	PC_page_inc
+9:	andi.w	#%01110100_11111111,d6	* Ｎ,Ｃ,HC mode をクリア
 	move.b	d5,HC2(a3)		* HC を 0に。( HC1 = HC2 の時, HCは０)
 	move.b	d(a3),d0		* eor <ea>,Dn という命令はないので。
 	eor.b	d0,d4
@@ -2202,7 +2540,11 @@ XOR_D:	andi.w	#%01110100_11111111,d6	* Ｎ,Ｃ,HC mode をクリア
 	move.b	d4,d6			* SZ をセット
 	bra	main	
 
-XOR_E:	andi.w	#%01110100_11111111,d6	* Ｎ,Ｃ,HC mode をクリア
+XOR_E:	addq.w	#1,d7			* PC += 1
+	and.w	d3,d7		* PC がページ境界をまたいだか？
+	bne	9f
+	PC_page_inc
+9:	andi.w	#%01110100_11111111,d6	* Ｎ,Ｃ,HC mode をクリア
 	move.b	d5,HC2(a3)		* HC を 0に。( HC1 = HC2 の時, HCは０)
 	move.b	e(a3),d0		* eor <ea>,Dn という命令はないので。
 	eor.b	d0,d4
@@ -2210,7 +2552,11 @@ XOR_E:	andi.w	#%01110100_11111111,d6	* Ｎ,Ｃ,HC mode をクリア
 	move.b	d4,d6			* SZ をセット
 	bra	main	
 
-XOR_H:	andi.w	#%01110100_11111111,d6	* Ｎ,Ｃ,HC mode をクリア
+XOR_H:	addq.w	#1,d7			* PC += 1
+	and.w	d3,d7		* PC がページ境界をまたいだか？
+	bne	9f
+	PC_page_inc
+9:	andi.w	#%01110100_11111111,d6	* Ｎ,Ｃ,HC mode をクリア
 	move.b	d5,HC2(a3)		* HC を 0に。( HC1 = HC2 の時, HCは０)
 	move.b	h(a3),d0		* eor <ea>,Dn という命令はないので。
 	eor.b	d0,d4
@@ -2218,7 +2564,11 @@ XOR_H:	andi.w	#%01110100_11111111,d6	* Ｎ,Ｃ,HC mode をクリア
 	move.b	d4,d6			* SZ をセット
 	bra	main	
 
-XOR_L:	andi.w	#%01110100_11111111,d6	* Ｎ,Ｃ,HC mode をクリア
+XOR_L:	addq.w	#1,d7			* PC += 1
+	and.w	d3,d7		* PC がページ境界をまたいだか？
+	bne	9f
+	PC_page_inc
+9:	andi.w	#%01110100_11111111,d6	* Ｎ,Ｃ,HC mode をクリア
 	move.b	d5,HC2(a3)		* HC を 0に。( HC1 = HC2 の時, HCは０)
 	move.b	l(a3),d0		* eor <ea>,Dn という命令はないので。
 	eor.b	d0,d4
@@ -2227,7 +2577,11 @@ XOR_L:	andi.w	#%01110100_11111111,d6	* Ｎ,Ｃ,HC mode をクリア
 	bra	main	
 
 XOR_lHLl:
-	andi.w	#%01110100_11111111,d6	* Ｎ,Ｃ,HC mode をクリア
+	addq.w	#1,d7			* PC += 1
+	and.w	d3,d7		* PC がページ境界をまたいだか？
+	bne	9f
+	PC_page_inc
+9:	andi.w	#%01110100_11111111,d6	* Ｎ,Ｃ,HC mode をクリア
 	move.b	d5,HC2(a3)		* HC を 0に。( HC1 = HC2 の時, HCは０)
 	move.w	hl(a3),d0
 	bsr	read_mem
@@ -2238,59 +2592,90 @@ XOR_lHLl:
 
 XOR_n:	andi.w	#%01110100_11111111,d6	* Ｎ,Ｃ,HC mode をクリア
 	move.b	d5,HC2(a3)		* HC を 0に。( HC1 = HC2 の時, HCは０)
-	move.b	0(a4,d7.w),d0
-	addq.w	#1,d7			* PC += 1
-	andi.w	#$3fff,d7		* PC がページ境界をまたいだか？
-	bne	@f
-	bsr	PC_page_CHG
+	move.b	1(a4,d7.w),d0
+	addq.w	#2,d7			* PC += 2
+	btst.l	#14,d7		* PC がページ境界をまたいだか？
+	beq	@f
+	PC_page_inc
+	and.w	d3,d7
+	beq	@f
+	move.b	(a4),d0
 @@:	eor.b	d0,d4
 	move.b	d4,PV(a3)		* PV をセット
 	move.b	d4,d6			* SZ をセット
 	bra	main	
 
 *	------ ＯＲ ------
-OR_A:	andi.w	#%01110100_11111111,d6	* Ｎ,Ｃ,HC mode をクリア
+OR_A:	addq.w	#1,d7			* PC += 1
+	and.w	d3,d7		* PC がページ境界をまたいだか？
+	bne	9f
+	PC_page_inc
+9:	andi.w	#%01110100_11111111,d6	* Ｎ,Ｃ,HC mode をクリア
 	move.b	d5,HC2(a3)		* HC を 0に。( HC1 = HC2 の時, HCは０)
 	move.b	d4,PV(a3)		* PV をセット
 	move.b	d4,d6			* SZ をセット
 	bra	main	
 
-OR_B:	andi.w	#%01110100_11111111,d6	* Ｎ,Ｃ,HC mode をクリア
+OR_B:	addq.w	#1,d7			* PC += 1
+	and.w	d3,d7		* PC がページ境界をまたいだか？
+	bne	9f
+	PC_page_inc
+9:	andi.w	#%01110100_11111111,d6	* Ｎ,Ｃ,HC mode をクリア
 	move.b	d5,HC2(a3)		* HC を 0に。( HC1 = HC2 の時, HCは０)
 	or.b	b(a3),d4
 	move.b	d4,PV(a3)		* PV をセット
 	move.b	d4,d6			* SZ をセット
 	bra	main	
 
-OR_C:	andi.w	#%01110100_11111111,d6	* Ｎ,Ｃ,HC mode をクリア
+OR_C:	addq.w	#1,d7			* PC += 1
+	and.w	d3,d7		* PC がページ境界をまたいだか？
+	bne	9f
+	PC_page_inc
+9:	andi.w	#%01110100_11111111,d6	* Ｎ,Ｃ,HC mode をクリア
 	move.b	d5,HC2(a3)		* HC を 0に。( HC1 = HC2 の時, HCは０)
 	or.b	c(a3),d4
 	move.b	d4,PV(a3)		* PV をセット
 	move.b	d4,d6			* SZ をセット
 	bra	main	
 
-OR_D:	andi.w	#%01110100_11111111,d6	* Ｎ,Ｃ,HC mode をクリア
+OR_D:	addq.w	#1,d7			* PC += 1
+	and.w	d3,d7		* PC がページ境界をまたいだか？
+	bne	9f
+	PC_page_inc
+9:	andi.w	#%01110100_11111111,d6	* Ｎ,Ｃ,HC mode をクリア
 	move.b	d5,HC2(a3)		* HC を 0に。( HC1 = HC2 の時, HCは０)
 	or.b	d(a3),d4
 	move.b	d4,PV(a3)		* PV をセット
 	move.b	d4,d6			* SZ をセット
 	bra	main	
 
-OR_E:	andi.w	#%01110100_11111111,d6	* Ｎ,Ｃ,HC mode をクリア
+OR_E:	addq.w	#1,d7			* PC += 1
+	and.w	d3,d7		* PC がページ境界をまたいだか？
+	bne	9f
+	PC_page_inc
+9:	andi.w	#%01110100_11111111,d6	* Ｎ,Ｃ,HC mode をクリア
 	move.b	d5,HC2(a3)		* HC を 0に。( HC1 = HC2 の時, HCは０)
 	or.b	e(a3),d4
 	move.b	d4,PV(a3)		* PV をセット
 	move.b	d4,d6			* SZ をセット
 	bra	main	
 
-OR_H:	andi.w	#%01110100_11111111,d6	* Ｎ,Ｃ,HC mode をクリア
+OR_H:	addq.w	#1,d7			* PC += 1
+	and.w	d3,d7		* PC がページ境界をまたいだか？
+	bne	9f
+	PC_page_inc
+9:	andi.w	#%01110100_11111111,d6	* Ｎ,Ｃ,HC mode をクリア
 	move.b	d5,HC2(a3)		* HC を 0に。( HC1 = HC2 の時, HCは０)
 	or.b	h(a3),d4
 	move.b	d4,PV(a3)		* PV をセット
 	move.b	d4,d6			* SZ をセット
 	bra	main	
 
-OR_L:	andi.w	#%01110100_11111111,d6	* Ｎ,Ｃ,HC mode をクリア
+OR_L:	addq.w	#1,d7			* PC += 1
+	and.w	d3,d7		* PC がページ境界をまたいだか？
+	bne	9f
+	PC_page_inc
+9:	andi.w	#%01110100_11111111,d6	* Ｎ,Ｃ,HC mode をクリア
 	move.b	d5,HC2(a3)		* HC を 0に。( HC1 = HC2 の時, HCは０)
 	or.b	l(a3),d4
 	move.b	d4,PV(a3)		* PV をセット
@@ -2298,7 +2683,11 @@ OR_L:	andi.w	#%01110100_11111111,d6	* Ｎ,Ｃ,HC mode をクリア
 	bra	main	
 
 OR_lHLl:
-	andi.w	#%01110100_11111111,d6	* Ｎ,Ｃ,HC mode をクリア
+	addq.w	#1,d7			* PC += 1
+	and.w	d3,d7		* PC がページ境界をまたいだか？
+	bne	9f
+	PC_page_inc
+9:	andi.w	#%01110100_11111111,d6	* Ｎ,Ｃ,HC mode をクリア
 	move.b	d5,HC2(a3)		* HC を 0に。( HC1 = HC2 の時, HCは０)
 	move.w	hl(a3),d0
 	bsr	read_mem
@@ -2309,18 +2698,25 @@ OR_lHLl:
 
 OR_n:	andi.w	#%01110100_11111111,d6	* Ｎ,Ｃ,HC mode をクリア
 	move.b	d5,HC2(a3)		* HC を 0に。( HC1 = HC2 の時, HCは０)
-	move.b	0(a4,d7.w),d0
-	addq.w	#1,d7			* PC += 1
-	andi.w	#$3fff,d7		* PC がページ境界をまたいだか？
-	bne	@f
-	bsr	PC_page_CHG
+	move.b	1(a4,d7.w),d0
+	addq.w	#2,d7			* PC += 2
+	btst.l	#14,d7			* PC がページ境界をまたいだか？
+	beq	@f
+	PC_page_inc
+	and.w	d3,d7
+	beq	@f
+	move.b	(a4),d0
 @@:	or.b	d0,d4
 	move.b	d4,PV(a3)		* PV をセット
 	move.b	d4,d6			* SZ をセット
 	bra	main	
 
 *	------ ＣＰ ------
-CP_A:	andi.w	#%01110110_00000000,d6	* Ｃ,HC mode をクリア。SZ,SZ modeを０に
+CP_A:	addq.w	#1,d7			* PC += 1
+	and.w	d3,d7		* PC がページ境界をまたいだか？
+	bne	9f
+	PC_page_inc
+9:	andi.w	#%01110110_00000000,d6	* Ｃ,HC mode をクリア。SZ,SZ modeを０に
 	ori.w	#%00000010_00000000,d6	* Ｎをセット
 	move.b	#1,PV(a3)		* PVをクリア
 	move.b	d5,HC2(a3)		* HC をクリア
@@ -2338,7 +2734,11 @@ NC_CP_A2:
 	clr.b	PV(a3)			* PVをセット	
 	bra	main
 
-CP_B:	andi.w	#%01110110_11111111,d6	* Ｃ,HC mode をクリア
+CP_B:	addq.w	#1,d7			* PC += 1
+	and.w	d3,d7		* PC がページ境界をまたいだか？
+	bne	9f
+	PC_page_inc
+9:	andi.w	#%01110110_11111111,d6	* Ｃ,HC mode をクリア
 	ori.w	#%00000010_00000000,d6	* Ｎをセット
 	move.b	d4,d5			* 引かれる数を HC1に
 	move.b	b(a3),HC2(a3)		* 引く数を HC2に
@@ -2349,7 +2749,11 @@ CP_B:	andi.w	#%01110110_11111111,d6	* Ｃ,HC mode をクリア
 	move.b	#1,PV(a3)		* PVをクリア
 	bra	main
 
-CP_C:	andi.w	#%01110110_11111111,d6	* Ｃ,HC mode をクリア
+CP_C:	addq.w	#1,d7			* PC += 1
+	and.w	d3,d7		* PC がページ境界をまたいだか？
+	bne	9f
+	PC_page_inc
+9:	andi.w	#%01110110_11111111,d6	* Ｃ,HC mode をクリア
 	ori.w	#%00000010_00000000,d6	* Ｎをセット
 	move.b	d4,d5			* 引かれる数を HC1に
 	move.b	c(a3),HC2(a3)		* 引く数を HC2に
@@ -2360,7 +2764,11 @@ CP_C:	andi.w	#%01110110_11111111,d6	* Ｃ,HC mode をクリア
 	move.b	#1,PV(a3)		* PVをクリア
 	bra	main
 
-CP_D:	andi.w	#%01110110_11111111,d6	* Ｃ,HC mode をクリア
+CP_D:	addq.w	#1,d7			* PC += 1
+	and.w	d3,d7		* PC がページ境界をまたいだか？
+	bne	9f
+	PC_page_inc
+9:	andi.w	#%01110110_11111111,d6	* Ｃ,HC mode をクリア
 	ori.w	#%00000010_00000000,d6	* Ｎをセット
 	move.b	d4,d5			* 引かれる数を HC1に
 	move.b	d(a3),HC2(a3)		* 引く数を HC2に
@@ -2371,7 +2779,11 @@ CP_D:	andi.w	#%01110110_11111111,d6	* Ｃ,HC mode をクリア
 	move.b	#1,PV(a3)		* PVをクリア
 	bra	main
 
-CP_E:	andi.w	#%01110110_11111111,d6	* Ｃ,HC mode をクリア
+CP_E:	addq.w	#1,d7			* PC += 1
+	and.w	d3,d7		* PC がページ境界をまたいだか？
+	bne	9f
+	PC_page_inc
+9:	andi.w	#%01110110_11111111,d6	* Ｃ,HC mode をクリア
 	ori.w	#%00000010_00000000,d6	* Ｎをセット
 	move.b	d4,d5			* 引かれる数を HC1に
 	move.b	e(a3),HC2(a3)		* 引く数を HC2に
@@ -2382,7 +2794,11 @@ CP_E:	andi.w	#%01110110_11111111,d6	* Ｃ,HC mode をクリア
 	move.b	#1,PV(a3)		* PVをクリア
 	bra	main
 
-CP_H:	andi.w	#%01110110_11111111,d6	* Ｃ,HC mode をクリア
+CP_H:	addq.w	#1,d7			* PC += 1
+	and.w	d3,d7		* PC がページ境界をまたいだか？
+	bne	9f
+	PC_page_inc
+9:	andi.w	#%01110110_11111111,d6	* Ｃ,HC mode をクリア
 	ori.w	#%00000010_00000000,d6	* Ｎをセット
 	move.b	d4,d5			* 引かれる数を HC1に
 	move.b	h(a3),HC2(a3)		* 引く数を HC2に
@@ -2393,7 +2809,11 @@ CP_H:	andi.w	#%01110110_11111111,d6	* Ｃ,HC mode をクリア
 	move.b	#1,PV(a3)		* PVをクリア
 	bra	main
 
-CP_L:	andi.w	#%01110110_11111111,d6	* Ｃ,HC mode をクリア
+CP_L:	addq.w	#1,d7			* PC += 1
+	and.w	d3,d7		* PC がページ境界をまたいだか？
+	bne	9f
+	PC_page_inc
+9:	andi.w	#%01110110_11111111,d6	* Ｃ,HC mode をクリア
 	ori.w	#%00000010_00000000,d6	* Ｎをセット
 	move.b	d4,d5			* 引かれる数を HC1に
 	move.b	l(a3),HC2(a3)		* 引く数を HC2に
@@ -2405,7 +2825,11 @@ CP_L:	andi.w	#%01110110_11111111,d6	* Ｃ,HC mode をクリア
 	bra	main
 
 CP_lHLl:
-	andi.w	#%01110110_11111111,d6	* Ｃ,HC mode をクリア
+	addq.w	#1,d7			* PC += 1
+	and.w	d3,d7		* PC がページ境界をまたいだか？
+	bne	9f
+	PC_page_inc
+9:	andi.w	#%01110110_11111111,d6	* Ｃ,HC mode をクリア
 	ori.w	#%00000010_00000000,d6	* Ｎをセット
 	move.w	hl(a3),d0
 	bsr	read_mem
@@ -2420,11 +2844,14 @@ CP_lHLl:
 
 CP_n:	andi.w	#%01110110_11111111,d6	* Ｃ,HC mode をクリア
 	ori.w	#%00000010_00000000,d6	* Ｎをセット
-	move.b	0(a4,d7.w),d0
-	addq.w	#1,d7			* PC += 1
-	andi.w	#$3fff,d7		* PC がページ境界をまたいだか？
-	bne	@f
-	bsr	PC_page_CHG
+	move.b	1(a4,d7.w),d0
+	addq.w	#2,d7			* PC += 2
+	btst.l	#14,d7			* PC がページ境界をまたいだか？
+	beq	@f
+	PC_page_inc
+	and.w	d3,d7
+	beq	@f
+	move.b	(a4),d0
 @@:
 	move.b	d4,d5			* 引かれる数を HC1に
 	move.b	d0,HC2(a3)		* 引く数を HC2に
@@ -2436,7 +2863,11 @@ CP_n:	andi.w	#%01110110_11111111,d6	* Ｃ,HC mode をクリア
 	bra	main
 
 *	------ ＩＮＣ ------
-INC_A:	andi.w	#%01110101_11111111,d6	* Ｎ,HC modeをクリア
+INC_A:	addq.w	#1,d7			* PC += 1
+	and.w	d3,d7		* PC がページ境界をまたいだか？
+	bne	9f
+	PC_page_inc
+9:	andi.w	#%01110101_11111111,d6	* Ｎ,HC modeをクリア
 	clr.b	PV(a3)			* PVをセット	
 	addq.b	#1,d4
 	bVS	1f
@@ -2446,86 +2877,108 @@ INC_A:	andi.w	#%01110101_11111111,d6	* Ｎ,HC modeをクリア
 	move.b	#1,HC2(a3)
 	bra	main
 
-INC_B:	andi.w	#%01110101_11111111,d6	* Ｎ,HC modeをクリア
+INC_B:	addq.w	#1,d7			* PC += 1
+	and.w	d3,d7		* PC がページ境界をまたいだか？
+	bne	9f
+	PC_page_inc
+9:	andi.w	#%01110101_11111111,d6	* Ｎ,HC modeをクリア
 	clr.b	PV(a3)			* PVをセット	
 	move.b	b(a3),d0
 	addq.b	#1,d0
 	bVS	1f
 	move.b	#1,PV(a3)		* PVをクリア
-1:
-	move.b	d0,d6
+1:	move.b	d0,d6
 	move.b	d0,d5
 	move.b	d0,b(a3)
 	move.b	#1,HC2(a3)
 	bra	main
 
-INC_C:	andi.w	#%01110101_11111111,d6	* Ｎ,HC modeをクリア
+INC_C:	addq.w	#1,d7			* PC += 1
+	and.w	d3,d7		* PC がページ境界をまたいだか？
+	bne	9f
+	PC_page_inc
+9:	andi.w	#%01110101_11111111,d6	* Ｎ,HC modeをクリア
 	clr.b	PV(a3)		* PVをセット	
 	move.b	c(a3),d0
 	addq.b	#1,d0
 	bVS	1f
 	move.b	#1,PV(a3)		* PVをクリア
-1:
-	move.b	d0,d6
+1:	move.b	d0,d6
 	move.b	d0,d5
 	move.b	d0,c(a3)
 	move.b	#1,HC2(a3)
 	bra	main
 
-INC_D:	andi.w	#%01110101_11111111,d6	* Ｎ,HC modeをクリア
+INC_D:	addq.w	#1,d7			* PC += 1
+	and.w	d3,d7		* PC がページ境界をまたいだか？
+	bne	9f
+	PC_page_inc
+9:	andi.w	#%01110101_11111111,d6	* Ｎ,HC modeをクリア
 	clr.b	PV(a3)		* PVをセット	
 	move.b	d(a3),d0
 	addq.b	#1,d0
-	bVS	V_incD
+	bVS	1f
 	move.b	#1,PV(a3)		* PVをクリア
-V_incD:
-	move.b	d0,d6
+1:	move.b	d0,d6
 	move.b	d0,d5
 	move.b	d0,d(a3)
 	move.b	#1,HC2(a3)
 	bra	main
 
-INC_E:	andi.w	#%01110101_11111111,d6	* Ｎ,HC modeをクリア
+INC_E:	addq.w	#1,d7			* PC += 1
+	and.w	d3,d7		* PC がページ境界をまたいだか？
+	bne	9f
+	PC_page_inc
+9:	andi.w	#%01110101_11111111,d6	* Ｎ,HC modeをクリア
 	clr.b	PV(a3)		* PVをセット	
 	move.b	e(a3),d0
 	addq.b	#1,d0
-	bVS	V_incE
+	bVS	1f
 	move.b	#1,PV(a3)		* PVをクリア
-V_incE:
-	move.b	d0,d6
+1:	move.b	d0,d6
 	move.b	d0,d5
 	move.b	d0,e(a3)
 	move.b	#1,HC2(a3)
 	bra	main
 
-INC_H:	andi.w	#%01110101_11111111,d6	* Ｎ,HC modeをクリア
+INC_H:	addq.w	#1,d7			* PC += 1
+	and.w	d3,d7		* PC がページ境界をまたいだか？
+	bne	9f
+	PC_page_inc
+9:	andi.w	#%01110101_11111111,d6	* Ｎ,HC modeをクリア
 	clr.b	PV(a3)		* PVをセット	
 	move.b	h(a3),d0
 	addq.b	#1,d0
-	bVS	V_incH
+	bVS	1f
 	move.b	#1,PV(a3)		* PVをクリア
-V_incH:
-	move.b	d0,d6
+1:	move.b	d0,d6
 	move.b	d0,d5
 	move.b	d0,h(a3)
 	move.b	#1,HC2(a3)
 	bra	main
 
-INC_L:	andi.w	#%01110101_11111111,d6	* Ｎ,HC modeをクリア
+INC_L:	addq.w	#1,d7			* PC += 1
+	and.w	d3,d7		* PC がページ境界をまたいだか？
+	bne	9f
+	PC_page_inc
+9:	andi.w	#%01110101_11111111,d6	* Ｎ,HC modeをクリア
 	clr.b	PV(a3)			* PVをセット	
 	move.b	l(a3),d0
 	addq.b	#1,d0
-	bVS	V_incL
+	bVS	1f
 	move.b	#1,PV(a3)		* PVをクリア
-V_incL:
-	move.b	d0,d6
+1:	move.b	d0,d6
 	move.b	d0,d5
 	move.b	d0,l(a3)
 	move.b	#1,HC2(a3)
 	bra	main
 
 INC_lHLl:
-	andi.w	#%01110101_11111111,d6	* Ｎ,HC modeをクリア
+	addq.w	#1,d7			* PC += 1
+	and.w	d3,d7		* PC がページ境界をまたいだか？
+	bne	9f
+	PC_page_inc
+9:	andi.w	#%01110101_11111111,d6	* Ｎ,HC modeをクリア
 	clr.b	PV(a3)			* PVをセット	
 	move.w	hl(a3),d0
 	bsr	read_mem
@@ -2541,19 +2994,39 @@ INC_lHLl:
 	bra	main
 
 INC_BC:	addq.w	#1,bc(a3)
+	addq.w	#1,d7			* PC += 1
+	and.w	d3,d7		* PC がページ境界をまたいだか？
+	bne	main
+	PC_page_inc
 	bra	main
 
 INC_DE:	addq.w	#1,de(a3)
+	addq.w	#1,d7			* PC += 1
+	and.w	d3,d7		* PC がページ境界をまたいだか？
+	bne	main
+	PC_page_inc
 	bra	main
 
 INC_HL:	addq.w	#1,hl(a3)
+	addq.w	#1,d7			* PC += 1
+	and.w	d3,d7		* PC がページ境界をまたいだか？
+	bne	main
+	PC_page_inc
 	bra	main
 
 INC_SP:	addq.w	#1,sp_(a3)
+	addq.w	#1,d7			* PC += 1
+	and.w	d3,d7		* PC がページ境界をまたいだか？
+	bne	main
+	PC_page_inc
 	bra	main
 
 *	------ ＤＥＣ ------
-DEC_A:	ori.w	#%00001010_00000000,d6	* Ｎ,HC modeをセット
+DEC_A:	addq.w	#1,d7			* PC += 1
+	and.w	d3,d7		* PC がページ境界をまたいだか？
+	bne	9f
+	PC_page_inc
+9:	ori.w	#%00001010_00000000,d6	* Ｎ,HC modeをセット
 	andi.w	#%01111111_11111111,d6	* SZ mode をクリア
 	clr.b	PV(a3)			* PVをセット	
 	move.b	d4,d5			* 引かれる数を HC1 に
@@ -2564,7 +3037,11 @@ DEC_A:	ori.w	#%00001010_00000000,d6	* Ｎ,HC modeをセット
 	clr.b	HC2(a3)			*引く数を０に(HC modeが 1になっていることに注意)
 	bra	main
 
-DEC_B:	ori.w	#%00001010_00000000,d6	* Ｎ,HC modeをセット
+DEC_B:	addq.w	#1,d7			* PC += 1
+	and.w	d3,d7		* PC がページ境界をまたいだか？
+	bne	9f
+	PC_page_inc
+9:	ori.w	#%00001010_00000000,d6	* Ｎ,HC modeをセット
 	andi.w	#%01111111_11111111,d6	* SZ mode をクリア
 	clr.b	PV(a3)			* PVをセット	
 	move.b	b(a3),d0
@@ -2577,7 +3054,11 @@ DEC_B:	ori.w	#%00001010_00000000,d6	* Ｎ,HC modeをセット
 	clr.b	HC2(a3)
 	bra	main
 
-DEC_C:	ori.w	#%00001010_00000000,d6	* Ｎ,HC modeをセット
+DEC_C:	addq.w	#1,d7			* PC += 1
+	and.w	d3,d7		* PC がページ境界をまたいだか？
+	bne	9f
+	PC_page_inc
+9:	ori.w	#%00001010_00000000,d6	* Ｎ,HC modeをセット
 	andi.w	#%01111111_11111111,d6	* SZ mode をクリア
 	clr.b	PV(a3)			* PVをセット	
 	move.b	c(a3),d0
@@ -2590,7 +3071,11 @@ DEC_C:	ori.w	#%00001010_00000000,d6	* Ｎ,HC modeをセット
 	clr.b	HC2(a3)
 	bra	main
 
-DEC_D:	ori.w	#%00001010_00000000,d6	* Ｎ,HC modeをセット
+DEC_D:	addq.w	#1,d7			* PC += 1
+	and.w	d3,d7		* PC がページ境界をまたいだか？
+	bne	9f
+	PC_page_inc
+9:	ori.w	#%00001010_00000000,d6	* Ｎ,HC modeをセット
 	andi.w	#%01111111_11111111,d6	* SZ mode をクリア
 	clr.b	PV(a3)			* PVをセット	
 	move.b	d(a3),d0
@@ -2603,7 +3088,11 @@ DEC_D:	ori.w	#%00001010_00000000,d6	* Ｎ,HC modeをセット
 	clr.b	HC2(a3)
 	bra	main
 
-DEC_E:	ori.w	#%00001010_00000000,d6	* Ｎ,HC modeをセット
+DEC_E:	addq.w	#1,d7			* PC += 1
+	and.w	d3,d7		* PC がページ境界をまたいだか？
+	bne	9f
+	PC_page_inc
+9:	ori.w	#%00001010_00000000,d6	* Ｎ,HC modeをセット
 	andi.w	#%01111111_11111111,d6	* SZ mode をクリア
 	clr.b	PV(a3)			* PVをセット	
 	move.b	e(a3),d0
@@ -2616,7 +3105,11 @@ DEC_E:	ori.w	#%00001010_00000000,d6	* Ｎ,HC modeをセット
 	clr.b	HC2(a3)
 	bra	main
 
-DEC_H:	ori.w	#%00001010_00000000,d6	* Ｎ,HC modeをセット
+DEC_H:	addq.w	#1,d7			* PC += 1
+	and.w	d3,d7		* PC がページ境界をまたいだか？
+	bne	9f
+	PC_page_inc
+9:	ori.w	#%00001010_00000000,d6	* Ｎ,HC modeをセット
 	andi.w	#%01111111_11111111,d6	* SZ mode をクリア
 	clr.b	PV(a3)			* PVをセット	
 	move.b	h(a3),d0
@@ -2629,7 +3122,11 @@ DEC_H:	ori.w	#%00001010_00000000,d6	* Ｎ,HC modeをセット
 	clr.b	HC2(a3)
 	bra	main
 
-DEC_L:	ori.w	#%00001010_00000000,d6	* Ｎ,HC modeをセット
+DEC_L:	addq.w	#1,d7			* PC += 1
+	and.w	d3,d7		* PC がページ境界をまたいだか？
+	bne	9f
+	PC_page_inc
+9:	ori.w	#%00001010_00000000,d6	* Ｎ,HC modeをセット
 	andi.w	#%01111111_11111111,d6	* SZ mode をクリア
 	clr.b	PV(a3)			* PVをセット	
 	move.b	l(a3),d0
@@ -2643,7 +3140,11 @@ DEC_L:	ori.w	#%00001010_00000000,d6	* Ｎ,HC modeをセット
 	bra	main
 
 DEC_lHLl:
-	ori.w	#%00001010_00000000,d6	* Ｎ,HC modeをセット
+	addq.w	#1,d7			* PC += 1
+	and.w	d3,d7		* PC がページ境界をまたいだか？
+	bne	9f
+	PC_page_inc
+9:	ori.w	#%00001010_00000000,d6	* Ｎ,HC modeをセット
 	andi.w	#%01111111_11111111,d6	* SZ mode をクリア
 	clr.b	PV(a3)			* PVをセット	
 	move.w	hl(a3),d0
@@ -2660,21 +3161,41 @@ DEC_lHLl:
 	bra	main
 
 DEC_BC:	subq.w	#1,bc(a3)
+	addq.w	#1,d7			* PC += 1
+	and.w	d3,d7		* PC がページ境界をまたいだか？
+	bne	main
+	PC_page_inc
 	bra	main
 
 DEC_DE:	subq.w	#1,de(a3)
+	addq.w	#1,d7			* PC += 1
+	and.w	d3,d7		* PC がページ境界をまたいだか？
+	bne	main
+	PC_page_inc
 	bra	main
 
 DEC_HL:	subq.w	#1,hl(a3)
+	addq.w	#1,d7			* PC += 1
+	and.w	d3,d7		* PC がページ境界をまたいだか？
+	bne	main
+	PC_page_inc
 	bra	main
 
 DEC_SP:	subq.w	#1,sp_(a3)
+	addq.w	#1,d7			* PC += 1
+	and.w	d3,d7		* PC がページ境界をまたいだか？
+	bne	main
+	PC_page_inc
 	bra	main
 
 
 *	Ａレジスタの値が規定外の時の動きが正しいかどうかわからない
 *	------ ＤＡＡ ------
-DAA:	btst.l	#9,d6			* N フラグを調べる
+DAA:	addq.w	#1,d7			* PC += 1
+	and.w	d3,d7		* PC がページ境界をまたいだか？
+	bne	9f
+	PC_page_inc
+9:	btst.l	#9,d6			* N フラグを調べる
 	bne	1f			* 減算の時
 
 	move.w	d6,d0			* ハーフキャリーフラグを調べる
@@ -2689,7 +3210,7 @@ DAA:	btst.l	#9,d6			* N フラグを調べる
 	move.b	d4,d0
 	andi.b	#%0000_1111,d0
 	cmpi.b	#$0a,d0
-	bcs	2f			* １ケタめが０～９の範囲に入っていた時
+	bmi	2f			* １ケタめが０～９の範囲に入っていた時
 @@:	addq.b	#$06,d4
 	bcs	@f			* ケタ上がりが起きた時(普通は起きない)
 
@@ -2713,14 +3234,19 @@ DAA:	btst.l	#9,d6			* N フラグを調べる
 
 1:					* 減算の時
 	btst.l	#8,d6			* Ｃを調べる
-	bne	@f			* Ｃが１の時
-	move.b	d4,d0
-	andi.b	#%1111_0000,d0
-	cmpi.b	#$a0,d0
-	bcs	2f			* ２ケタめが０～９の範囲に入っていた時
-@@:
-	subi.b	#$60,d4
-	ori.w	#%00000001_00000000,d6	* Ｃをセット
+	bne	2f			* Ｃが１の時
+	move.w	d6,d0			* ハーフキャリーフラグを調べる
+	andi.w	#%00001000_00000000,d0	* HC mode を調べる
+	rol.w	#5,d0
+	move.b	HC2(a3),d1		
+	andi.w	#$000f,d5		* HC1 HC2 を４ビットのみ有効にする
+	andi.w	#$000f,d1
+	add.w	d0,d1
+	cmp.w	d1,d5			* HC1-(HC2 + HC mode)
+	bcc	@f			* HC が０の時
+
+	add.b	#$FA,d4
+	bra	@f
 
 2:	move.w	d6,d0			* ハーフキャリーフラグを調べる
 	andi.w	#%00001000_00000000,d0	* HC mode を調べる
@@ -2730,80 +3256,116 @@ DAA:	btst.l	#9,d6			* N フラグを調べる
 	andi.w	#$000f,d1
 	add.w	d0,d1
 	cmp.w	d1,d5			* HC1-(HC2 + HC mode)
-	bcs	@f			* HC が１の時
-	move.b	d4,d0
-	andi.b	#%0000_1111,d0
-	cmpi.b	#$0a,d0
-	bmi	2f			* １ケタ目が０～９の範囲に入っていた時
-@@:
-	subq.b	#$06,d4	
-2:	andi.w	#%01111111_11111111,d6	* SZ mode をクリア
+	bcs	1f			* HC が１の時
+
+	add.b	#$a0,d4
+	bra	@f
+
+1:	add.b	#$9a,d4
+
+@@:	andi.w	#%01111111_11111111,d6	* SZ mode をクリア
 	move.b	d4,PV(a3)		* PV をセット
 	move.b	d4,d6			* SZ をセット
 	bra	main
 
-
+*1:					* 減算の時
+*	btst.l	#8,d6			* Ｃを調べる
+*	bne	@f			* Ｃが１の時
+*	move.b	d4,d0
+*	andi.b	#%1111_0000,d0
+*	cmpi.b	#$a0,d0
+*	bcs	2f			* ２ケタめが０～９の範囲に入っていた時
+*@@:
+*	subi.b	#$60,d4
+*	ori.w	#%00000001_00000000,d6	* Ｃをセット
+*
+*2:	move.w	d6,d0			* ハーフキャリーフラグを調べる
+*	andi.w	#%00001000_00000000,d0	* HC mode を調べる
+*	rol.w	#5,d0
+*	move.b	HC2(a3),d1		
+*	andi.w	#$000f,d5		* HC1 HC2 を４ビットのみ有効にする
+*	andi.w	#$000f,d1
+*	add.w	d0,d1
+*	cmp.w	d1,d5			* HC1-(HC2 + HC mode)
+*	bcs	@f			* HC が１の時
+*	move.b	d4,d0
+*	andi.b	#%0000_1111,d0
+*	cmpi.b	#$0a,d0
+*	bmi	2f			* １ケタ目が０～９の範囲に入っていた時
+*@@:
+*	subq.b	#$06,d4	
+*2:	andi.w	#%01111111_11111111,d6	* SZ mode をクリア
+*	move.b	d4,PV(a3)		* PV をセット
+*	move.b	d4,d6			* SZ をセット
+*	bra	main
+*
+*
 *	------ ＪＰ ------
-JP:	move.b	1(a4,d7.w),d0		* nn の上位８ビットを読む 
+JP:	move.b	2(a4,d7.w),d0		* nn の上位８ビットを読む 
 	lsl.w	#8,d0
-	move.b	0(a4,d7.w),d0		* nn の下位８ビットを読む 
-	cmpi.w	#$3fff,d7
-	beq	@f
+	move.b	1(a4,d7.w),d0		* nn の下位８ビットを読む 
+	cmpi.w	#$3ffe,d7
+	bcc	@f
 	move.w	d0,d7
-	bsr	PC_page_set
+	PC_page_set
 	bra	main
-@@:					* 命令がページ境界をまたいでいる時
-	move.b	d0,d2			* 下位８ビットをとっておく
-	bsr	PC_page_CHG
+@@:	bne	9f			* ページ境界をまたいだ時
+	PC_page_inc			* d7 = $3ffe の時
 	move.b	(a4),d7			* nn の上位８ビットを読む
 	lsl.w	#8,d7
-	move.b	d2,d7
-	bsr	PC_page_set
+	move.b	d0,d7
+	PC_page_set
+	bra	main
+9:	PC_page_inc			* d7 = $3fff の時
+	move.b	1(a4),d7
+	lsl.w	#8,d7
+	move.b	 (a4),d7
+	PC_page_set
 	bra	main
 
 JP_lHLl:
 	move.w	hl(a3),d7
-	bsr	PC_page_set
+	PC_page_set
 	bra	main
 
 JP_C:	btst.l	#8,d6		* Ｃｙフラグをテスト
 	bne	JP		* Ｃｙが１ならジャンプ
-	addq.w	#2,d7
+	addq.w	#3,d7
 	btst.l	#14,d7
 	beq	main
-	andi.w	#$3fff,d7
-	bsr	PC_page_CHG	* 命令がページ境界をまたいだ時
+	and.w	d3,d7
+	PC_page_inc		* 命令がページ境界をまたいだ時
 	bra	main
 
 JP_NC:	btst.l	#8,d6		* Ｃｙフラグをテスト
 	beq	JP		* Ｃｙが０ならジャンプ
-	addq.w	#2,d7
+	addq.w	#3,d7
 	btst.l	#14,d7
 	beq	main
-	andi.w	#$3fff,d7
-	bsr	PC_page_CHG	* 命令がページ境界をまたいだ時
+	and.w	d3,d7
+	PC_page_inc		* 命令がページ境界をまたいだ時
 	bra	main
 
 JP_Z:	btst.l	#15,d6		* SZ mode を調べる
 	bne	JP
 	move.b	d6,d6		* Ｚフラグをテスト
 	beq	JP		* ０ならジャンプ
-	addq.w	#2,d7
+	addq.w	#3,d7
 	btst.l	#14,d7
 	beq	main
-	andi.w	#$3fff,d7
-	bsr	PC_page_CHG	* 命令がページ境界をまたいだ時
+	and.w	d3,d7
+	PC_page_inc		* 命令がページ境界をまたいだ時
 	bra	main
 
 JP_NZ:	btst.l	#15,d6		* SZ mode を調べる
 	bne	1f
 	tst.b	d6		* Ｚフラグをテスト
 	bne	JP		* ０でないならジャンプ
-1:	addq.w	#2,d7
+1:	addq.w	#3,d7
 	btst.l	#14,d7
 	beq	main
-	andi.w	#$3fff,d7
-	bsr	PC_page_CHG	* 命令がページ境界をまたいだ時
+	and.w	d3,d7
+	PC_page_inc		* 命令がページ境界をまたいだ時
 	bra	main
 
 JP_PE:	move.b	PV(a3),d0
@@ -2827,11 +3389,11 @@ JP_PE:	move.b	PV(a3),d0
 	addx.w	d1,d2
 	andi.b	#1,d2	
 	beq	JP
-	addq.w	#2,d7		* 奇数だからジャンプしない
+	addq.w	#3,d7		* 奇数だからジャンプしない
 	btst.l	#14,d7
 	beq	main
-	andi.w	#$3fff,d7
-	bsr	PC_page_CHG	* 命令がページ境界をまたいだ時
+	and.w	d3,d7
+	PC_page_inc	* 命令がページ境界をまたいだ時
 	bra	main
 
 JP_PO:	move.b	PV(a3),d0
@@ -2855,139 +3417,158 @@ JP_PO:	move.b	PV(a3),d0
 	addx.w	d1,d2
 	andi.b	#1,d2	
 	bne	JP		* 奇数だからジャンプ
-	addq.w	#2,d7		* 偶数だからジャンプしない
+	addq.w	#3,d7		* 偶数だからジャンプしない
 	btst.l	#14,d7
 	beq	main
-	andi.w	#$3fff,d7
-	bsr	PC_page_CHG	* 命令がページ境界をまたいだ時
+	and.w	d3,d7
+	PC_page_inc		* 命令がページ境界をまたいだ時
 	bra	main
 
 JP_P:	btst.l	#15,d6		* SZ mode を調べる
 	bne	1f
 	tst.b	d6
 	bpl	JP
-1:	addq.w	#2,d7
+1:	addq.w	#3,d7
 	btst.l	#14,d7
 	beq	main
-	andi.w	#$3fff,d7
-	bsr	PC_page_CHG	* 命令がページ境界をまたいだ時
+	and.w	d3,d7
+	PC_page_inc	* 命令がページ境界をまたいだ時
 	bra	main
 
 JP_M:	btst.l	#15,d6		* SZ mode を調べる
 	bne	JP
 	tst.b	d6
 	bmi	JP
-	addq.w	#2,d7
+	addq.w	#3,d7
 	btst.l	#14,d7
 	beq	main
-	andi.w	#$3fff,d7
-	bsr	PC_page_CHG	* 命令がページ境界をまたいだ時
+	and.w	d3,d7
+	PC_page_inc	* 命令がページ境界をまたいだ時
 	bra	main
 
 *	------ ＪＲ ------
-JR:	move.b	0(a4,d7.w),d1	* 相対移動量を読み込む
-	ext.w	d1		* ワードに符号拡張
+JR:	cmpi.w	#$3fff,d7
+	beq	9f
+	move.b	1(a4,d7.w),d1		* 相対移動量を読み込む
+	ext.w	d1			* ワードに符号拡張
 	move.l	d7,d0
-	swap	d0		* d0 = 00000000_000000pp
-	ror.w	#2,d0		* d0 = pp000000_00000000
-	or.w	d0,d7		* d7 = PC (R800)
-	addq.w	#1,d7		* d7 = 次の命令の位置
-	add.w	d1,d7		* 足し算
-	bsr	PC_page_set
+	lsr.l	#2,d0			* d0 = pp00????_????????
+	andi.w	#%11000000_00000000,d0	* d0 = pp000000_00000000
+	or.w	d0,d7			* d7 = PC (R800)
+	addq.w	#2,d7			* d7 = 次の命令の位置
+	add.w	d1,d7			* 足し算
+	PC_page_set
+	bra	main
+9:	PC_page_inc			* d7 = $3fff の時
+	move.b	(a4),d1			* 相対移動量を読み込む
+	ext.w	d1			* ワードに符号拡張
+	lsr.l	#2,d7			* d0 = pp001111_11111111
+	andi.w	#%11000000_00000001,d7	* d7 = pp000000_00000001 (次の命令の位置)
+	add.w	d1,d7			* 足し算
+	PC_page_set
 	bra	main
 
 JR_NZ:	btst.l	#15,d6		* SZ mode を調べる
 	bne	1f
 	tst.b	d6		* Ｚフラグをテスト
 	bne	JR		* ０でないならジャンプ
-1:	addq.l	#1,d7
-	andi.w	#$3fff,d7	* PC がページ境界をまたいだか？
-	bne	main
-	bsr	PC_page_CHG	* 命令がページ境界をまたいだ時
+1:	addq.w	#2,d7
+	btst.l	#14,d7		* PC がページ境界をまたいだか？
+	beq	main
+	and.w	d3,d7
+	PC_page_inc		* 命令がページ境界をまたいだ時
 	bra	main
 
 JR_Z:	btst.l	#15,d6		* SZ mode を調べる
 	bne	JR
 	tst.b	d6		* Ｚフラグをテスト
 	beq	JR		* ０ならジャンプ
-	addq.l	#1,d7
-	andi.w	#$3fff,d7	* PC がページ境界をまたいだか？
-	bne	main
-	bsr	PC_page_CHG	* 命令がページ境界をまたいだ時
+	addq.w	#2,d7
+	btst.l	#14,d7		* PC がページ境界をまたいだか？
+	beq	main
+	and.w	d3,d7
+	PC_page_inc		* 命令がページ境界をまたいだ時
 	bra	main
 
 JR_NC:	btst.l	#8,d6		* Ｃｙフラグをテスト
 	beq	JR		* Ｃｙが０ならジャンプ
-	addq.l	#1,d7
-	andi.w	#$3fff,d7	* PC がページ境界をまたいだか？
-	bne	main
-	bsr	PC_page_CHG	* 命令がページ境界をまたいだ時
+	addq.w	#2,d7
+	btst.l	#14,d7		* PC がページ境界をまたいだか？
+	beq	main
+	and.w	d3,d7
+	PC_page_inc		* 命令がページ境界をまたいだ時
 	bra	main
 
 JR_C:	btst.l	#8,d6		* Ｃｙフラグをテスト
 	bne	JR		* Ｃｙが１ならジャンプ
-	addq.l	#1,d7
-	andi.w	#$3fff,d7	* PC がページ境界をまたいだか？
-	bne	main
-	bsr	PC_page_CHG	* 命令がページ境界をまたいだ時
+	addq.w	#2,d7
+	btst.l	#14,d7		* PC がページ境界をまたいだか？
+	beq	main
+	and.w	d3,d7
+	PC_page_inc		* 命令がページ境界をまたいだ時
 	bra	main
 
 *	------ ＣＡＬＬ ------
 CALL:	move.l	d7,d0
 	move.w	d7,d1
-	swap	d0		* d0 = 00000000_000000pp
-	ror.w	#2,d0		* d0 = pp000000_00000000
-	or.w	d0,d1		* d1 = PC (R800)
-	addq.w	#2,d1		* d1 = next Instruction
-	subq.w	#2,sp_(a3)	* PUSH	
+	lsr.l	#2,d0			* d0 = pp00????_????????
+	andi.w	#%11000000_00000000,d0	* d0 = pp000000_00000000
+	or.w	d0,d1			* d1 = PC (R800)
+	addq.w	#3,d1			* d1 = next Instruction
+	subq.w	#2,sp_(a3)		* PUSH	
 	move.w	sp_(a3),d0
 	bsr	write_mem_16
 
-	move.b	1(a4,d7.w),d0		* nn の上位８ビットを読む 
+	move.b	2(a4,d7.w),d0		* nn の上位８ビットを読む 
 	lsl.w	#8,d0
-	move.b	0(a4,d7.w),d0		* nn の下位８ビットを読む 
+	move.b	1(a4,d7.w),d0		* nn の下位８ビットを読む 
 
-	cmpi.w	#$3fff,d7
-	beq	1f
+	cmpi.w	#$3ffe,d7
+	bcc	1f
 	move.w	d0,d7
-	bsr	PC_page_set
+	PC_page_set
 	bra	main
-1:					* 命令がページ境界をまたいだ時
-	move.b	d0,d2			* 下位８ビットをとっておく
-	bsr	PC_page_CHG
+1:	bne	2f			* 命令がページ境界をまたいだ時
+	PC_page_inc			* d7 = $3ffe の時
 	move.b	(a4),d7			* nn の上位８ビットを読む
 	lsl.w	#8,d7
-	move.b	d2,d7
-	bsr	PC_page_set
+	move.b	d0,d7
+	PC_page_set
+	bra	main
+2:	PC_page_inc			* d7 = $3fff の時
+	move.b	1(a4),d7
+	lsl.w	#8,d7
+	move.b	 (a4),d7
+	PC_page_set
 	bra	main
 
 CALL_C:	btst.l	#8,d6		* Ｃｙフラグをテスト
 	bne	CALL		* Ｃｙが１ならコール
-	addq.w	#2,d7
+	addq.w	#3,d7
 	btst.l	#14,d7
 	beq	main
-	andi.w	#$3fff,d7
-	bsr	PC_page_CHG
+	and.w	d3,d7
+	PC_page_inc
 	bra	main
 
 CALL_NC: btst.l	#8,d6		* Ｃｙフラグをテスト
 	beq	CALL		* Ｃｙが０ならコール
-	addq.w	#2,d7
+	addq.w	#3,d7
 	btst.l	#14,d7
 	beq	main
-	andi.w	#$3fff,d7
-	bsr	PC_page_CHG
+	and.w	d3,d7
+	PC_page_inc
 	bra	main
 
 CALL_Z:	btst.l	#15,d6		* SZ mode を調べる
 	bne	CALL
 	tst.b	d6		* Ｚフラグをテスト
 	beq	CALL		* ０ならコール
-	addq.w	#2,d7
+	addq.w	#3,d7
 	btst.l	#14,d7
 	beq	main
-	andi.w	#$3fff,d7
-	bsr	PC_page_CHG
+	and.w	d3,d7
+	PC_page_inc
 	bra	main
 
 CALL_NZ:
@@ -2996,11 +3577,11 @@ CALL_NZ:
 	tst.b	d6		* Ｚフラグをテスト
 	bne	CALL		* ０でないならコール
 @@:
-	addq.w	#2,d7
+	addq.w	#3,d7
 	btst.l	#14,d7
 	beq	main
-	andi.w	#$3fff,d7
-	bsr	PC_page_CHG
+	and.w	d3,d7
+	PC_page_inc
 	bra	main
 
 CALL_PE:
@@ -3025,11 +3606,11 @@ CALL_PE:
 	addx.w	d1,d2
 	andi.b	#1,d2	
 	beq	CALL		* 偶数だからコール
-	addq.w	#2,d7		* 奇数だからコールしない
+	addq.w	#3,d7		* 奇数だからコールしない
 	btst.l	#14,d7
 	beq	main
-	andi.w	#$3fff,d7
-	bsr	PC_page_CHG
+	and.w	d3,d7
+	PC_page_inc
 	bra	main
 
 CALL_PO:
@@ -3054,34 +3635,33 @@ CALL_PO:
 	addx.w	d1,d2
 	andi.b	#1,d2	
 	bne	CALL		* 奇数だからコール
-	addq.w	#2,d7		* 偶数だからコールしない
+	addq.w	#3,d7		* 偶数だからコールしない
 	btst.l	#14,d7
 	beq	main
-	andi.w	#$3fff,d7
-	bsr	PC_page_CHG
+	and.w	d3,d7
+	PC_page_inc
 	bra	main
 
 CALL_P:	btst.l	#15,d6		* SZ mode を調べる
 	bne	@f
 	tst.b	d6
 	bpl	CALL
-@@:
-	addq.w	#2,d7
+@@:	addq.w	#3,d7
 	btst.l	#14,d7
 	beq	main
-	andi.w	#$3fff,d7
-	bsr	PC_page_CHG
+	and.w	d3,d7
+	PC_page_inc
 	bra	main
 
 CALL_M:	btst.l	#15,d6		* SZ mode を調べる
 	bne	CALL
 	tst.b	d6
 	bmi	CALL
-	addq.w	#2,d7
+	addq.w	#3,d7
 	btst.l	#14,d7
 	beq	main
-	andi.w	#$3fff,d7
-	bsr	PC_page_CHG
+	and.w	d3,d7
+	PC_page_inc
 	bra	main
 
 *	------ ＲＥＴ ------
@@ -3089,39 +3669,63 @@ RET:	move.w	sp_(a3),d0
 	bsr	read_mem_16
 	addq.w	#2,sp_(a3)
 	move.w	d0,d7
-	bsr	PC_page_set
+	PC_page_set
 	bra	main
 
 RET_C:	btst.l	#8,d6		* Ｃｙフラグをテスト
 	bne	RET		* Ｃｙが１ならリターン
+	addq.w	#1,d7		* PC += 1
+	and.w	d3,d7	* PC がページ境界をまたいだか？
+	bne	main
+	PC_page_inc
 	bra	main
 
 RET_NC:	btst.l	#8,d6		* Ｃｙフラグをテスト
 	beq	RET		* Ｃｙが０ならリターン
+	addq.w	#1,d7		* PC += 1
+	and.w	d3,d7	* PC がページ境界をまたいだか？
+	bne	main
+	PC_page_inc
 	bra	main
 
 RET_Z:	btst.l	#15,d6		* SZ mode を調べる
 	bne	RET
 	tst.b	d6		* Ｚフラグをテスト
 	beq	RET		* ０ならリターン
+	addq.w	#1,d7		* PC += 1
+	and.w	d3,d7	* PC がページ境界をまたいだか？
+	bne	main
+	PC_page_inc
 	bra	main
 
 RET_NZ:	btst.l	#15,d6		* SZ mode を調べる
 	bne	main
 	tst.b	d6		* Ｚフラグをテスト
 	bne	RET		* ０でないならリターン
+	addq.w	#1,d7		* PC += 1
+	and.w	d3,d7	* PC がページ境界をまたいだか？
+	bne	main
+	PC_page_inc
 	bra	main
 
 RET_M:	btst.l	#15,d6		* SZ mode を調べる
 	bne	RET
 	tst.b	d6		* ＳＺフラグをテスト
 	bmi	RET		* 負ならリターン
+	addq.w	#1,d7		* PC += 1
+	and.w	d3,d7	* PC がページ境界をまたいだか？
+	bne	main
+	PC_page_inc
 	bra	main
 
 RET_P:	btst.l	#15,d6		* SZ mode を調べる
 	bne	main
 	tst.b	d6		* ＳＺフラグをテスト
 	bpl	RET		* 正ならリターン
+	addq.w	#1,d7		* PC += 1
+	and.w	d3,d7	* PC がページ境界をまたいだか？
+	bne	main
+	PC_page_inc
 	bra	main
 
 RET_PE:	move.b	PV(a3),d0
@@ -3137,6 +3741,10 @@ loop_RET_PE_Odd:
 	bcs	loop_RET_PO_Even	* 奇数へ
 	subq.w	#1,d1
 	bne	loop_RET_PO_Odd
+	addq.w	#1,d7		* PC += 1
+	and.w	d3,d7	* PC がページ境界をまたいだか？
+	bne	main
+	PC_page_inc
 	bra	main		* 最終的にこっちに来た時は、奇数だからリターンしない
 
 RET_PO:	move.b	PV(a3),d0
@@ -3145,6 +3753,10 @@ loop_RET_PO_Even:
 	lsr.b	#1,d0
 	bcs	loop_RET_PO_Odd	* 奇数へ
 	dbra	d1,loop_RET_PO_Even
+	addq.w	#1,d7		* PC += 1
+	and.w	d3,d7	* PC がページ境界をまたいだか？
+	bne	main
+	PC_page_inc
 	bra	main		* 最終的にこっちに来た時は、偶数だからリターンしない
 loop_RET_PO_Odd:
 	lsr.b	#1,d0
@@ -3155,15 +3767,21 @@ loop_RET_PO_Odd:
 *	------ ＤＪＮＺ ------
 DJNZ:	subq.b	#1,b(a3)	* b = b-1
 	bne	JR		* b != 0 ならブランチ
-	addq.w	#1,d7
-	andi.w	#$3fff,d7	* PC がページ境界をまたいだか？
-	bne	main
-	bsr	PC_page_CHG
+	addq.w	#2,d7
+	btst.l	#14,d7		* PC がページ境界をまたいだか？
+	beq	main
+	PC_page_inc
+	and.w	d3,d7
 	bra	main
+
 
 *	------ ＰＵＳＨ  ＰＯＰ ------
 PUSH_AF:
-	move.w	d6,-(sp)
+	addq.w	#1,d7
+	and.w	d3,d7
+	bne	9f
+	PC_page_inc
+9:	move.w	d6,-(sp)
 	move.b	PV(a3),d0
 	ori.w	#%00000100_00000000,d6	* P/V フラグをセット
 	move.w	#8-1,d1
@@ -3211,10 +3829,15 @@ next_pushAF:
 	bsr	write_mem_16
 
 	move.w	(sp)+,d6
+
 	bra	main
 
 
-POP_AF:	move.w	sp_(a3),d0
+POP_AF:	addq.w	#1,d7
+	and.w	d3,d7
+	bne	9f
+	PC_page_inc
+9:	move.w	sp_(a3),d0
 	bsr	read_mem_16
 	addq.w	#2,sp_(a3)
 
@@ -3254,12 +3877,20 @@ PUSH_BC:
 	move.w	sp_(a3),d0
 	move.w	bc(a3),d1
 	bsr	write_mem_16
+	addq.w	#1,d7
+	and.w	d3,d7
+	bne	main
+	PC_page_inc
 	bra	main
 POP_BC:
 	move.w	sp_(a3),d0
 	bsr	read_mem_16
 	addq.w	#2,sp_(a3)
 	move.w	d0,bc(a3)
+	addq.w	#1,d7
+	and.w	d3,d7
+	bne	main
+	PC_page_inc
 	bra	main
 
 PUSH_DE:
@@ -3267,12 +3898,20 @@ PUSH_DE:
 	move.w	sp_(a3),d0
 	move.w	de(a3),d1
 	bsr	write_mem_16
+	addq.w	#1,d7
+	and.w	d3,d7
+	bne	main
+	PC_page_inc
 	bra	main
 POP_DE:
 	move.w	sp_(a3),d0
 	bsr	read_mem_16
 	addq.w	#2,sp_(a3)
 	move.w	d0,de(a3)
+	addq.w	#1,d7
+	and.w	d3,d7
+	bne	main
+	PC_page_inc
 	bra	main
 
 PUSH_HL:
@@ -3280,12 +3919,20 @@ PUSH_HL:
 	move.w	sp_(a3),d0
 	move.w	hl(a3),d1
 	bsr	write_mem_16
+	addq.w	#1,d7
+	and.w	d3,d7
+	bne	main
+	PC_page_inc
 	bra	main
 POP_HL:
 	move.w	sp_(a3),d0
 	bsr	read_mem_16
 	addq.w	#2,sp_(a3)
 	move.w	d0,hl(a3)
+	addq.w	#1,d7
+	and.w	d3,d7
+	bne	main
+	PC_page_inc
 	bra	main
 
 *	------ ＥＸ ------
@@ -3296,6 +3943,10 @@ EX_lSPl_HL:
 	move.w	d0,hl(a3)
 	move.w	sp_(a3),d0
 	bsr	write_mem_16
+	addq.w	#1,d7
+	and.w	d3,d7
+	bne	main
+	PC_page_inc
 	bra	main
 
 EXX:	move.l	bc(a3),d0		* d0 = bc, de
@@ -3307,12 +3958,20 @@ EXX:	move.l	bc(a3),d0		* d0 = bc, de
 	move.l	d0,bc_(a3)
 	move.w	d1,hl_(a3)
 
+	addq.w	#1,d7
+	and.w	d3,d7
+	bne	main
+	PC_page_inc
 	bra	main
 
 EX_DE_HL:
 	move.l	de(a3),d0
 	swap	d0
 	move.l	d0,de(a3)
+	addq.w	#1,d7
+	and.w	d3,d7
+	bne	main
+	PC_page_inc
 	bra	main
 
 EX_AF_AFd:
@@ -3339,6 +3998,10 @@ EX_AF_AFd:
 	move.w	d6_d(a3),d6
 	move.w	d0,d6_d(a3)
 
+	addq.w	#1,d7
+	and.w	d3,d7
+	bne	main
+	PC_page_inc
 	bra	main
 
 
@@ -3347,141 +4010,161 @@ CCF:	andi.w	#%11110101_11111111,d6	* HC mode と Nを０に
 	beq	1f
 	clr.b	d5			* HC を１に。HC には Cyの元の値が入る
 	move.b	#1,HC2(a3)
+	addq.w	#1,d7
+	and.w	d3,d7
+	bne	main
+	PC_page_inc
 	bra	main	
 1:	move.b	d5,HC2(a3)		* HC を０に。
+	addq.w	#1,d7
+	and.w	d3,d7
+	bne	main
+	PC_page_inc
 	bra	main
 
 SCF:	andi.w	#%11110101_11111111,d6	* HC mode と Nを０に
 	ori.w	#%00000001_00000000,d6	* Cy を１に
 	move.b	d5,HC2(a3)		* HC を０に。
+	addq.w	#1,d7
+	and.w	d3,d7
+	bne	main
+	PC_page_inc
 	bra	main
 
 CPL:	ori.w	#%00001010_00000000,d6	* N,HC mode を１に
 	move.b	d5,HC2(a3)		* HC を１に。（HC mode が 1だから１になる）
 	eori.b	#$ff,d4			* Aレジスタを反転
+	addq.w	#1,d7
+	and.w	d3,d7
+	bne	main
+	PC_page_inc
 	bra	main
 
-DI:	move.b	#$80,interrupt_status-base(a3)
-	bra	main
+DI:		move.b	#$80,interrupt_status-base(a3)
+		addq.w	#1,d7
+		and.w	d3,d7
+		bne	main
+		PC_page_inc
+		bra	main
 
-EI:	clr.b	interrupt_status-base(a3)
-*	bclr.b	#7,interrupt_status-base(a3)
-					* DI 状態の時にかかった割り込みは保持されるのか
-					* わからない。この方法だと保持される。
-					* EIは１命令おいて実行される
-	clr.w	d0			* d0 の上位ビットを０にクリア
-	move.b	0(a4,d7.w),d0		* 命令を読み込む
-	addq.w	#1,d7			* PC += 1
-	andi.w	#$3fff,d7		* PC がページ境界をまたいだか？
-	bne	@f
-	bsr	PC_page_CHG
-@@:	lea.l	instructions(pc),a0
-	add.w	d0,d0
-	add.w	d0,d0
-	movea.l	0(a0,d0.w),a0
-	jmp	(a0)
+EI:		clr.b	interrupt_status-base(a3)	* DI 状態の時にかかった割り込み
+							* は破棄される
+		addq.w	#1,d7
+		and.w	d3,d7
+		bne	1f
+		PC_page_inc
+1:							* EIは１命令おいて実行される
+		clr.w	d0				* d0 の上位ビットを０にクリア
+		move.b	0(a4,d7.w),d0			* 命令を読み込む
+		lea.l	instructions(pc),a0
+		movea.l	0(a0,d0.w*4),a0
+		jmp	(a0)
 
 
-RST_00H:
-	move.l	d7,d0
-	move.l	d7,d1
-	swap	d0		* d0 = 00000000_000000pp
-	ror.w	#2,d0		* d0 = pp000000_00000000
-	or.w	d0,d1		* d1 = PC (R800) = next Instruction
-	subq.w	#2,sp_(a3)	* PUSH	
-	move.w	sp_(a3),d0
-	bsr	write_mem_16
-	move.w	#$0000,d7
-	bsr	PC_page_set
-	bra	main
+RST_00H:	move.l	d7,d1
+		lsr.l	#2,d7			* d7 = pp00????_????????
+		andi.w	#%11000000_00000000,d7	* d7 = pp000000_00000000
+		or.w	d7,d1
+		addq.w	#1,d1			* d1 = PC (R800) = next instruction
+		subq.w	#2,sp_(a3)		* PUSH	
+		move.w	sp_(a3),d0
+		bsr	write_mem_16
+		move.w	#$0000,d7
+		PC_page_set
+		bra	main
+
 RST_08H:
-	move.l	d7,d0
 	move.l	d7,d1
-	swap	d0		* d0 = 00000000_000000pp
-	ror.w	#2,d0		* d0 = pp000000_00000000
-	or.w	d0,d1		* d1 = PC (R800) = next Instruction
-	subq.w	#2,sp_(a3)	* PUSH	
+	lsr.l	#2,d7			* d7 = pp00????_????????
+	andi.w	#%11000000_00000000,d7	* d7 = pp000000_00000000
+	or.w	d7,d1
+	addq.w	#1,d1			* d1 = PC (R800) = next instruction
+	subq.w	#2,sp_(a3)		* PUSH	
 	move.w	sp_(a3),d0
 	bsr	write_mem_16
 	move.w	#$0008,d7
-	bsr	PC_page_set
+	PC_page_set
 	bra	main
 RST_10H:
-	move.l	d7,d0
 	move.l	d7,d1
-	swap	d0		* d0 = 00000000_000000pp
-	ror.w	#2,d0		* d0 = pp000000_00000000
-	or.w	d0,d1		* d1 = PC (R800) = next Instruction
-	subq.w	#2,sp_(a3)	* PUSH	
+	lsr.l	#2,d7			* d7 = pp00????_????????
+	andi.w	#%11000000_00000000,d7	* d7 = pp000000_00000000
+	or.w	d7,d1
+	addq.w	#1,d1			* d1 = PC (R800) = next instruction
+	subq.w	#2,sp_(a3)		* PUSH	
 	move.w	sp_(a3),d0
 	bsr	write_mem_16
 	move.w	#$0010,d7
-	bsr	PC_page_set
+	PC_page_set
 	bra	main
 RST_18H:
-	move.l	d7,d0
 	move.l	d7,d1
-	swap	d0		* d0 = 00000000_000000pp
-	ror.w	#2,d0		* d0 = pp000000_00000000
-	or.w	d0,d1		* d1 = PC (R800) = next Instruction
-	subq.w	#2,sp_(a3)	* PUSH	
+	lsr.l	#2,d7			* d7 = pp00????_????????
+	andi.w	#%11000000_00000000,d7	* d7 = pp000000_00000000
+	or.w	d7,d1
+	addq.w	#1,d1			* d1 = PC (R800) = next instruction
+	subq.w	#2,sp_(a3)		* PUSH	
 	move.w	sp_(a3),d0
 	bsr	write_mem_16
 	move.w	#$0018,d7
-	bsr	PC_page_set
+	PC_page_set
 	bra	main
 RST_20H:
-	move.l	d7,d0
 	move.l	d7,d1
-	swap	d0		* d0 = 00000000_000000pp
-	ror.w	#2,d0		* d0 = pp000000_00000000
-	or.w	d0,d1		* d1 = PC (R800) = next Instruction
-	subq.w	#2,sp_(a3)	* PUSH	
+	lsr.l	#2,d7			* d7 = pp00????_????????
+	andi.w	#%11000000_00000000,d7	* d7 = pp000000_00000000
+	or.w	d7,d1
+	addq.w	#1,d1			* d1 = PC (R800) = next instruction
+	subq.w	#2,sp_(a3)		* PUSH	
 	move.w	sp_(a3),d0
 	bsr	write_mem_16
 	move.w	#$0020,d7
-	bsr	PC_page_set
+	PC_page_set
 	bra	main
 RST_28H:
-	move.l	d7,d0
 	move.l	d7,d1
-	swap	d0		* d0 = 00000000_000000pp
-	ror.w	#2,d0		* d0 = pp000000_00000000
-	or.w	d0,d1		* d1 = PC (R800) = next Instruction
-	subq.w	#2,sp_(a3)	* PUSH	
+	lsr.l	#2,d7			* d7 = pp00????_????????
+	andi.w	#%11000000_00000000,d7	* d7 = pp000000_00000000
+	or.w	d7,d1
+	addq.w	#1,d1			* d1 = PC (R800) = next instruction
+	subq.w	#2,sp_(a3)		* PUSH	
 	move.w	sp_(a3),d0
 	bsr	write_mem_16
 	move.w	#$0028,d7
-	bsr	PC_page_set
+	PC_page_set
 	bra	main
 RST_30H:
-	move.l	d7,d0
 	move.l	d7,d1
-	swap	d0		* d0 = 00000000_000000pp
-	ror.w	#2,d0		* d0 = pp000000_00000000
-	or.w	d0,d1		* d1 = PC (R800) = next Instruction
-	subq.w	#2,sp_(a3)	* PUSH	
+	lsr.l	#2,d7			* d7 = pp00????_????????
+	andi.w	#%11000000_00000000,d7	* d7 = pp000000_00000000
+	or.w	d7,d1
+	addq.w	#1,d1			* d1 = PC (R800) = next instruction
+	subq.w	#2,sp_(a3)		* PUSH	
 	move.w	sp_(a3),d0
 	bsr	write_mem_16
 	move.w	#$0030,d7
-	bsr	PC_page_set
+	PC_page_set
 	bra	main
 RST_38H:
-	move.l	d7,d0
 	move.l	d7,d1
-	swap	d0		* d0 = 00000000_000000pp
-	ror.w	#2,d0		* d0 = pp000000_00000000
-	or.w	d0,d1		* d1 = PC (R800) = next Instruction
-	subq.w	#2,sp_(a3)	* PUSH	
+	lsr.l	#2,d7			* d7 = pp00????_????????
+	andi.w	#%11000000_00000000,d7	* d7 = pp000000_00000000
+	or.w	d7,d1
+	addq.w	#1,d1			* d1 = PC (R800) = next instruction
+	subq.w	#2,sp_(a3)		* PUSH	
 	move.w	sp_(a3),d0
 	bsr	write_mem_16
 	move.w	#$0038,d7
-	bsr	PC_page_set
+	PC_page_set
 	bra	main
 
 
 *	------ ＲＬＣＡ ------
-RLCA:	andi.w	#%11110100_11111111,d6	* Ｎ,Ｃ HC modeをクリア
+RLCA:	addq.w	#1,d7			* PC += 1
+	and.w	d3,d7		* PC がページ境界をまたいだか？
+	bne	9f
+	PC_page_inc
+9:	andi.w	#%11110100_11111111,d6	* Ｎ,Ｃ HC modeをクリア
 	move.b	d5,HC2(a3)		* HC をクリア
 	rol.b	#1,d4
 	bcc	main
@@ -3489,7 +4172,11 @@ RLCA:	andi.w	#%11110100_11111111,d6	* Ｎ,Ｃ HC modeをクリア
 	bra	main
 
 *	------ ＲＲＣＡ ------
-RRCA:	andi.w	#%11110100_11111111,d6	* Ｎ,Ｃ HC modeをクリア
+RRCA:	addq.w	#1,d7			* PC += 1
+	and.w	d3,d7		* PC がページ境界をまたいだか？
+	bne	9f
+	PC_page_inc
+9:	andi.w	#%11110100_11111111,d6	* Ｎ,Ｃ HC modeをクリア
 	move.b	d5,HC2(a3)		* HC をクリア
 	ror.b	#1,d4
 	bcc	main
@@ -3497,26 +4184,35 @@ RRCA:	andi.w	#%11110100_11111111,d6	* Ｎ,Ｃ HC modeをクリア
 	bra	main
 
 *	------ ＲＬＡ ------
-RLA:	btst.l	#8,d6			* ＣＹの状態をチェック
+RLA:	addq.w	#1,d7			* PC += 1
+	and.w	d3,d7		* PC がページ境界をまたいだか？
+	bne	9f
+	PC_page_inc
+9:	btst.l	#8,d6			* ＣＹの状態をチェック
 	beq	RLA_2			* CY が０の時
 	andi.w	#%11110100_11111111,d6	* Ｎ,Ｃ,HC mode をクリア
 	move.b	d5,HC2(a3)		* HC をクリア
-	lsl.b	#1,d4
+	add.b	d4,d4
 	bcc	@f
 	ori.w	#%00000001_00000000,d6	* ＣＹをセット
-@@:	ori.w	#%00000000_00000001,d4	* 最下位ビットをセット
+@@:
+	ori.w	#%00000000_00000001,d4	* 最下位ビットをセット
 	bra	main
 
 RLA_2:	andi.w	#%11110100_11111111,d6	* Ｎ,Ｃ,HC mode をクリア
 	move.b	d5,HC2(a3)		* HC をクリア
-	lsl.b	#1,d4
+	add.b	d4,d4
 	bcc	main
 	ori.w	#%00000001_00000000,d6	* ＣＹをセット
 	bra	main
 
 
 *	------ ＲＲＡ ------
-RRA:	btst.l	#8,d6			* ＣＹの状態をチェック
+RRA:	addq.w	#1,d7			* PC += 1
+	and.w	d3,d7		* PC がページ境界をまたいだか？
+	bne	9f
+	PC_page_inc
+9:	btst.l	#8,d6			* ＣＹの状態をチェック
 	beq	RRA_2			* CY が０の時
 	andi.w	#%11110100_11111111,d6	* Ｎ,Ｃ,HC mode をクリア
 	move.b	d5,HC2(a3)		* HC をクリア
@@ -3534,13 +4230,18 @@ RRA_2:	andi.w	#%11110100_11111111,d6	* Ｎ,Ｃ,HC mode をクリア
 	bra	main
 
 *	------ ＨＡＬＴ ------
-HALT:	move.b	interrupt_status-base(a3),d0
+HALT:	addq.w	#1,d7			* PC += 1
+	and.w	d3,d7		* PC がページ境界をまたいだか？
+	bne	9f
+	PC_page_inc
+9:	move.b	interrupt_status-base(a3),d0
 	bgt	@f
-	bra	HALT
+	bra	9b
 
 @@:	bra	main			* 割り込みがかかった時
 
 
+*************************** ここまで
 
 *
 *	＄ＣＢライン命令
@@ -3554,7 +4255,7 @@ HALT:	move.b	interrupt_status-base(a3),d0
 *			 00011	RR
 *			 00100	SLA
 *			 00101	SRA
-*			 00110	SLL		* undifined instruction
+*			 00110	SLI		* undifined instruction
 *			 00111	SRL
 *
 *			 01000
@@ -3579,14 +4280,15 @@ HALT:	move.b	interrupt_status-base(a3),d0
 *			 111 - a
 *
 *
-CB:
-	move.b	0(a4,d7.w),d0		* 第二オペコードを読み込む
-	addq.w	#1,d7
-	andi.w	#$3fff,d7		* PC がページ境界をまたいだか？
-	bne	@f
-	bsr	PC_page_CHG
-@@:
-	bclr.l	#7,d0			* ００Ｈ～７ＦＨの命令かどうか
+CB:	move.b	1(a4,d7.w),d0		* 第二オペコードを読み込む
+	addq.w	#2,d7
+	btst.l	#14,d7
+	beq	@f			* PC がページ境界をまたいだか？
+	PC_page_inc			* またいだ時
+	and.w	d3,d7
+	beq	@f
+	move.b	(a4),d0			* 読み直し
+@@:	bclr.l	#7,d0			* ００Ｈ～７ＦＨの命令かどうか
 	beq	case2			* そうなら case2へ
 case1:
 	bclr.l	#6,d0
@@ -3622,18 +4324,19 @@ set_lhll
 
 *	------ ＲＥＳ ------
 RES:	move.b	d0,d1
-	andi.w	#%0011_1000,d0			* BIT_n_? の n を d0にロード
+	andi.w	#%00000000_00111000,d0		* BIT_n_? の n を d0にロード
 	lsr.w	#3,d0
 
+	andi.w	#%00000000_00000111,d1		* レジスタの値をロード
 	addq.w	#2,d1
 	bclr.l	#3,d1
 	bne	RES_aorhl			* RES A, RES (HL)の時
-	bclr.b	d0,a(a3,d1.w)			* レジスタの nビット目をセット
+	bclr.b	d0,a(a3,d1.w)			* レジスタの nビット目をクリア
 	bra	main
 RES_aorhl:
 	tst.w	d1
 	beq	RES_lhll
-	bclr.l	d0,d4				* A レジスタの nビット目をセット
+	bclr.l	d0,d4				* A レジスタの nビット目をクリア
 	bra	main
 RES_lhll
 	move.w	d0,-(sp)
@@ -3653,13 +4356,13 @@ case2:
 
 *	------ ＢＩＴ ------
 BIT:	move.w	d0,d1
-	andi.w	#%0011_1000,d0			* BIT_n_? の n を d0にロード
+	andi.w	#%00000000_00111000,d0	* BIT_n_? の n を d0にロード
 	lsr.w	#3,d0
 
-	andi.w	#%0000_0000_0000_0111,d1
+	andi.w	#%00000000_00000111,d1
 	addq.w	#2,d1
 	bclr.l	#3,d1
-	bne	BIT_aorhl			* BIT A, BIT (HL)の時
+	bne	BIT_aorhl		* BIT A, BIT (HL)の時
 
 	andi.w	#%01110101_00000000,d6	* N, HC modeを０に。 ＳＺを０に
 	clr.b	d5			* HC を１に
@@ -3696,8 +4399,7 @@ BIT_lHLl:
 *	------ ローテート,シフト ------
 rot_sft:
 	andi.w	#%0000_0000_0011_1111,d0	* 命令にジャンプ
-	add.w	d0,d0
-	move.w	Rot_Sft_JPT(pc,d0.w),d0
+	move.w	Rot_Sft_JPT(pc,d0.w*2),d0
 	jmp	Rot_Sft_JPT(pc,d0.w)
 
 Rot_Sft_JPT:
@@ -3752,14 +4454,14 @@ Rot_Sft_JPT:
 	.dc.w	SRA_lHLl-Rot_Sft_JPT
 	.dc.w	SRA_A-Rot_Sft_JPT	* $2f
 
-	.dc.w	SLA_B-Rot_Sft_JPT	* $30	SLL 未定義命令(Shift Left Logical?)
-	.dc.w	SLA_C-Rot_Sft_JPT	*	SLA と全く同じらしい
-	.dc.w	SLA_D-Rot_Sft_JPT
-	.dc.w	SLA_E-Rot_Sft_JPT
-	.dc.w	SLA_H-Rot_Sft_JPT
-	.dc.w	SLA_L-Rot_Sft_JPT
-	.dc.w	SLA_lHLl-Rot_Sft_JPT
-	.dc.w	SLA_A-Rot_Sft_JPT
+	.dc.w	SLI_B-Rot_Sft_JPT	* $30	SLI 未定義命令(Shift Left ?????)
+	.dc.w	SLI_C-Rot_Sft_JPT	*	ビット０に１が入る左シフト
+	.dc.w	SLI_D-Rot_Sft_JPT
+	.dc.w	SLI_E-Rot_Sft_JPT
+	.dc.w	SLI_H-Rot_Sft_JPT
+	.dc.w	SLI_L-Rot_Sft_JPT
+	.dc.w	SLI_lHLl-Rot_Sft_JPT
+	.dc.w	SLI_A-Rot_Sft_JPT
 	.dc.w	SRL_B-Rot_Sft_JPT	* $38
 	.dc.w	SRL_C-Rot_Sft_JPT
 	.dc.w	SRL_D-Rot_Sft_JPT
@@ -4206,7 +4908,7 @@ RR_lHLl:
 *	------ ＳＬＡ ------
 SLA_A:	andi.w	#%01110100_11111111,d6	* Ｎ,Ｃ,HC mode をクリア
 	move.b	d5,HC2(a3)		* HC をクリア
-	lsl.b	#1,d4
+	add.b	d4,d4
 	bcc	@f
 	ori.w	#%00000001_00000000,d6	* CY をセット
 @@:	move.b	d4,d6
@@ -4216,7 +4918,7 @@ SLA_A:	andi.w	#%01110100_11111111,d6	* Ｎ,Ｃ,HC mode をクリア
 SLA_B:	andi.w	#%01110100_11111111,d6	* Ｎ,Ｃ,HC mode をクリア
 	move.b	d5,HC2(a3)		* HC をクリア
 	move.b	b(a3),d0
-	lsl.b	#1,d0
+	add.b	d0,d0
 	bcc	@f
 	ori.w	#%00000001_00000000,d6	* CY をセット
 @@:	move.b	d0,b(a3)
@@ -4227,7 +4929,7 @@ SLA_B:	andi.w	#%01110100_11111111,d6	* Ｎ,Ｃ,HC mode をクリア
 SLA_C:	andi.w	#%01110100_11111111,d6	* Ｎ,Ｃ,HC mode をクリア
 	move.b	d5,HC2(a3)		* HC をクリア
 	move.b	c(a3),d0
-	lsl.b	#1,d0
+	add.b	d0,d0
 	bcc	@f
 	ori.w	#%00000001_00000000,d6	* CY をセット
 @@:	move.b	d0,c(a3)
@@ -4238,7 +4940,7 @@ SLA_C:	andi.w	#%01110100_11111111,d6	* Ｎ,Ｃ,HC mode をクリア
 SLA_D:	andi.w	#%01110100_11111111,d6	* Ｎ,Ｃ,HC mode をクリア
 	move.b	d5,HC2(a3)		* HC をクリア
 	move.b	d(a3),d0
-	lsl.b	#1,d0
+	add.b	d0,d0
 	bcc	@f
 	ori.w	#%00000001_00000000,d6	* CY をセット
 @@:	move.b	d0,d(a3)
@@ -4249,7 +4951,7 @@ SLA_D:	andi.w	#%01110100_11111111,d6	* Ｎ,Ｃ,HC mode をクリア
 SLA_E:	andi.w	#%01110100_11111111,d6	* Ｎ,Ｃ,HC mode をクリア
 	move.b	d5,HC2(a3)		* HC をクリア
 	move.b	e(a3),d0
-	lsl.b	#1,d0
+	add.b	d0,d0
 	bcc	@f
 	ori.w	#%00000001_00000000,d6	* CY をセット
 @@:	move.b	d0,e(a3)
@@ -4260,7 +4962,7 @@ SLA_E:	andi.w	#%01110100_11111111,d6	* Ｎ,Ｃ,HC mode をクリア
 SLA_H:	andi.w	#%01110100_11111111,d6	* Ｎ,Ｃ,HC mode をクリア
 	move.b	d5,HC2(a3)		* HC をクリア
 	move.b	h(a3),d0
-	lsl.b	#1,d0
+	add.b	d0,d0
 	bcc	@f
 	ori.w	#%00000001_00000000,d6	* CY をセット
 @@:	move.b	d0,h(a3)
@@ -4271,7 +4973,7 @@ SLA_H:	andi.w	#%01110100_11111111,d6	* Ｎ,Ｃ,HC mode をクリア
 SLA_L:	andi.w	#%01110100_11111111,d6	* Ｎ,Ｃ,HC mode をクリア
 	move.b	d5,HC2(a3)		* HC をクリア
 	move.b	l(a3),d0
-	lsl.b	#1,d0
+	add.b	d0,d0
 	bcc	@f
 	ori.w	#%00000001_00000000,d6	* CY をセット
 @@:	move.b	d0,l(a3)
@@ -4284,7 +4986,7 @@ SLA_lHLl:
 	move.b	d5,HC2(a3)		* HC をクリア
 	move.w	hl(a3),d0
 	bsr	read_mem
-	lsl.b	#1,d0
+	add.b	d0,d0
 	bcc	@f
 	ori.w	#%00000001_00000000,d6	* ＣＹをセット
 @@:	move.b	d0,d6
@@ -4478,6 +5180,106 @@ SRL_lHLl:
 	bsr	write_mem
 	bra	main
 
+*	------ ＳＬＩ ------
+SLI_A:	andi.w	#%01110100_11111111,d6	* Ｎ,Ｃ,HC mode をクリア
+	move.b	d5,HC2(a3)		* HC をクリア
+	add.b	d4,d4
+	bcc	@f
+	ori.w	#%00000001_00000000,d6	* CY をセット
+@@:	addq.b	#1,d4			* ビット１をセット
+	move.b	d4,d6
+	move.b	d4,PV(a3)
+	bra	main
+
+SLI_B:	andi.w	#%01110100_11111111,d6	* Ｎ,Ｃ,HC mode をクリア
+	move.b	d5,HC2(a3)		* HC をクリア
+	move.b	b(a3),d0
+	add.b	d0,d0
+	bcc	@f
+	ori.w	#%00000001_00000000,d6	* CY をセット
+@@:	addq.b	#1,d0			* ビット１をセット
+	move.b	d0,b(a3)
+	move.b	d0,d6
+	move.b	d0,PV(a3)
+	bra	main
+
+SLI_C:	andi.w	#%01110100_11111111,d6	* Ｎ,Ｃ,HC mode をクリア
+	move.b	d5,HC2(a3)		* HC をクリア
+	move.b	c(a3),d0
+	add.b	d0,d0
+	bcc	@f
+	ori.w	#%00000001_00000000,d6	* CY をセット
+@@:	addq.b	#1,d0			* ビット１をセット
+	move.b	d0,c(a3)
+	move.b	d0,d6
+	move.b	d0,PV(a3)
+	bra	main
+
+SLI_D:	andi.w	#%01110100_11111111,d6	* Ｎ,Ｃ,HC mode をクリア
+	move.b	d5,HC2(a3)		* HC をクリア
+	move.b	d(a3),d0
+	add.b	d0,d0
+	bcc	@f
+	ori.w	#%00000001_00000000,d6	* CY をセット
+@@:	addq.b	#1,d0			* ビット１をセット
+	move.b	d0,d(a3)
+	move.b	d0,d6
+	move.b	d0,PV(a3)
+	bra	main
+
+SLI_E:	andi.w	#%01110100_11111111,d6	* Ｎ,Ｃ,HC mode をクリア
+	move.b	d5,HC2(a3)		* HC をクリア
+	move.b	e(a3),d0
+	add.b	d0,d0
+	bcc	@f
+	ori.w	#%00000001_00000000,d6	* CY をセット
+@@:	addq.b	#1,d0			* ビット１をセット
+	move.b	d0,e(a3)
+	move.b	d0,d6
+	move.b	d0,PV(a3)
+	bra	main
+
+SLI_H:	andi.w	#%01110100_11111111,d6	* Ｎ,Ｃ,HC mode をクリア
+	move.b	d5,HC2(a3)		* HC をクリア
+	move.b	h(a3),d0
+	add.b	d0,d0
+	bcc	@f
+	ori.w	#%00000001_00000000,d6	* CY をセット
+@@:	addq.b	#1,d0			* ビット１をセット
+	move.b	d0,h(a3)
+	move.b	d0,d6
+	move.b	d0,PV(a3)
+	bra	main
+
+SLI_L:	andi.w	#%01110100_11111111,d6	* Ｎ,Ｃ,HC mode をクリア
+	move.b	d5,HC2(a3)		* HC をクリア
+	move.b	l(a3),d0
+	add.b	d0,d0
+	bcc	@f
+	ori.w	#%00000001_00000000,d6	* CY をセット
+@@:	addq.b	#1,d0			* ビット１をセット
+	move.b	d0,l(a3)
+	move.b	d0,d6
+	move.b	d0,PV(a3)
+	bra	main
+
+SLI_lHLl:
+	andi.w	#%01110100_11111111,d6	* Ｎ,Ｃ,HC mode をクリア
+	move.b	d5,HC2(a3)		* HC をクリア
+	move.w	hl(a3),d0
+	bsr	read_mem
+	add.b	d0,d0
+	bcc	@f
+	ori.w	#%00000001_00000000,d6	* ＣＹをセット
+@@:	addq.b	#1,d0			* ビット１をセット
+	move.b	d0,d6
+	move.b	d0,PV(a3)
+	move.b	d0,d1
+	move.w	hl(a3),d0
+	bsr	write_mem
+	bra	main
+
+
 
 *	------ ＲＬＤ,ＲＲＤ ------
 RLD_lHLl:
@@ -4495,7 +5297,7 @@ RLD_lHLl:
 
 	andi.b	#%11110000,d4
 	lsr.w	#8,d0
-	or.b	d0,d4			* d4.b = |Ah| (H|
+	add.b	d0,d4			* d4.b = |Ah| (H|
 
 	move.w	hl(a3),d0
 	bsr	write_mem
@@ -4511,8 +5313,8 @@ RRD_lHLl:
 	move.w	hl(a3),d0		* d0.w = |?????| (HL) |
 	bsr	read_mem
 
-	move.b	d4,-(sp)
-	move.w	(sp)+,d1		* d1.w = |  A  |??????|
+	move.b	d4,d1
+	lsl.w	#8,d1			* d1.w = |  A  |000000|
 	move.b	d0,d1			* d1.w = |  A  | (HL) |
 
 	lsr.w	#4,d1			* d1.w = |00|  A   |(H|
@@ -4533,17 +5335,17 @@ RRD_lHLl:
 *
 ********************************************************************
 ED:	clr.w	d0
-	move.b	0(a4,d7.w),d0		* 第二オペコードを読み込む
-	addq.w	#1,d7
-	andi.w	#$3fff,d7		* PC がページ境界をまたいだか？
-	bne	@f
-	bsr	PC_page_CHG
-@@:
-	subi.w	#$40,d0
+	move.b	1(a4,d7.w),d0		* 第二オペコードを読み込む
+	addq.w	#2,d7
+	btst.l	#14,d7
+	beq	@f			* PC がページ境界をまたいだか？
+	PC_page_inc			* またいだ時
+	and.w	d3,d7
+	beq	@f
+	move.b	(a4),d0			* 読み直し
+@@:	subi.w	#$40,d0
 	bcs	other				* ＄３ｆ以下の時は特殊命令へ
-	add.w	d0,d0
-	add.w	d0,d0
-	movea.l	ED_JPT(pc,d0.w),a0
+	movea.l	ED_JPT(pc,d0.w*4),a0
 	jmp	(a0)
 
 ED_JPT:	.dc.l	IN_B_c			* $40
@@ -4751,15 +5553,14 @@ ED_JPT:	.dc.l	IN_B_c			* $40
 	.dc.l	none_ED			* $ff
 
 none_ED:					* おかしな命令を実行しました
-	lsr.w	#2,d0
 	move.w	d0,d1
 	lsr.w	#4,d0
-	move.b	HEX_ed(pc,d0.w),number_ed+0
+	move.b	HEX(pc,d0.w),number_ed+0
 	andi.w	#$0f,d1
-	move.b	HEX_ed(pc,d1.w),number_ed+1
+	move.b	HEX(pc,d1.w),number_ed+1
 
 	pea.l	errms_ed
-	DOS	_PRINT
+	DOS	__PRINT
 	lea.l	4(sp),sp
 	move.b	#$ff,d0
 	bra	main
@@ -4770,49 +5571,127 @@ number_ed:
 	.dc.b	'00'
 	.dc.b	0x0d,0x0a,0x00
 
-HEX_ed:	.dc.b	'0123456789ABCDEF'
-
 	.even
 
-
+*
+*	６８０ｘ０ネイティブルーチンの呼びだし
+*
+*
 other:					* ＭＳ用に拡張した命令
+*	AF レジスタをセット
+
+	move.w	d6,-(sp)
+	move.b	PV(a3),d2
+	ori.w	#%00000100_00000000,d6	* P/V フラグをセット
+	move.w	#8-1,d1
+@@:	lsr.b	#1,d2
+	bcc	1f
+	eori.w	#%00000100_00000000,d6	* P/V フラグを反転
+1:	dbra	d1,@b
+	andi.w	#%10101111_11111111,d6	* SZH フラグをリセット
+	move.w	d6,d2			* ハーフキャリーフラグを調べる
+	andi.w	#%00001000_00000000,d2	* HC mode を調べる
+	rol.w	#5,d2
+	move.b	HC2(a3),d1		
+	andi.w	#$000f,d5		* HC1 HC2 を４ビットのみ有効にする
+	andi.w	#$000f,d1
+	add.w	d2,d1
+	cmp.w	d1,d5			* HC1-(HC2 + HC mode)
+	bcc	1f
+	ori.w	#%00010000_00000000,d6	* H フラグをセット
+1:	bclr.l	#15,d6			* SZ mode をテスト
+	bne	1f
+	tst.b	d6
+	bmi	2f
+	bne	3f
+	ori.w	#%01000000_00000000,d6	* Z フラグをセット
+	bra	3f
+2:	ori.w	#%10000000_00000000,d6	* S フラグをセット
+	bra	3f
+1:	ori.w	#%11000000_00000000,d6
+3:	move.b	d4,a(a3)		* A レジスタをロード
+	move.w	d6,d1
+	lsr.w	#8,d1			* フラグのロード
+	andi.b	#%11010111,d1		* フラグと関係無い部分の削除
+	move.b	f(a3),d2
+	andi.b	#%00101000,d2		* フラグと関係無い部分のロード
+	or.b	d2,d1
+	move.b	d1,f(a3)
+
 	add.w	#$20,d0
 	bpl	CALL68
 
 JP68:	add.w	#$20,d0
-	move.b	d0,-(sp)
-	move.w	(sp)+,d0
+	lsl.w	#8,d0
 	move.b	0(a4,d7.w),d0		* d0 = ルーチン番号
 	addq.w	#1,d7
-	andi.w	#$3fff,d7		* PC がページ境界をまたいだか？
+	and.w	d3,d7		* PC がページ境界をまたいだか？
 	bne	@f
-	bsr	PC_page_CHG
+	PC_page_inc
 @@:
-	lsl.w	#2,d1			* d1 = d1 * 4
-	lea.l	native_jpt_add,a0
-	move.l	0(a0,d0.w),a0
-	jsr	(a0)
+	lsl.w	#2,d1			* d0 = d0 * 4
+	movea.l	native_jpt_add,a1
+	move.l	0(a1,d0.w),a1
+
+	movem.l	d4-d6/a3-a4,-(sp)
+	jsr	(a1)
+	movem.l	(sp)+,d4-d6/a3-a4
 
 	move.w	d0,d7			* d0.w に戻り先の番地が入っている
-	bsr	PC_page_set
-	bra	main
+	PC_page_set
+	bra	next_jp_call_68
 
 CALL68:	add.w	#$20,d0
 	move.b	d0,-(sp)
 	move.b	(sp)+,d0
 	move.b	0(a4,d7.w),d0		* d0 = ルーチン番号
 	addq.w	#1,d7
-	andi.w	#$3fff,d7		* PC がページ境界をまたいだか？
+	and.w	d3,d7		* PC がページ境界をまたいだか？
 	bne	@f
-	bsr	PC_page_CHG
+	PC_page_inc
 @@:
 	lsl.w	#2,d0			* d0 = d0 * 4
-	lea.l	native_jpt_add,a0
-	move.l	0(a0,d0.w),a0
+	lea.l	native_jpt_add,a1
+	move.l	0(a1,d0.w),a1
 
-	jsr	(a0)
+	movem.l	d4-d6/a3-a4,-(sp)
+	jsr	(a1)
+	movem.l	(sp)+,d4-d6/a3-a4
 
+*
+*	フラグのセット
+*
+next_jp_call_68:
+	move.b	a(a3),d4		* Aレジスタをセット
+	move.b	f(a3),d0		* フラグのロード
+	clr.b	PV(a3)
+	btst.l	#2,d0			* P/V フラグを調べる
+	bne	@f
+	move.b	#1,PV(a3)		* 奇数にする
+
+@@:	move.b	d0,d6
+	lsl.w	#8,d6			* フラグのロード
+	andi.w	#%00000011_00000000,d6	* N,Cのみ有効に。SZ, HC mode を０に
+	clr.b	d5			* HC1
+	clr.b	HC2(a3)
+
+	btst.l	#4,d0			* HC フラグを調べる
+	beq	@f
+	move.b	#1,HC2(a3)
+@@:	andi.b	#%11000000,d0
+	beq	1f			* 全部立っていなければプラス
+	bpl	main			* S フラグが立っていなければゼロ
+	cmpi.b	#%11000000,d0		* どっちも立ってる？
+	beq	@f
+	move.b	#-1,d6
 	bra	main
+
+@@:	ori.w	#%10000000_00000000,d6	* SZ mode をセット
+	bra	main
+
+1:	move.b	#1,d6
+	bra	main
+	
 
 *	------ ＩＭ ------
 IM_0:	move.w	#0,interrupt_mode-base(a3)
@@ -4824,6 +5703,145 @@ IM_1:	move.w	#1,interrupt_mode-base(a3)
 IM_2:	move.w	#2,interrupt_mode-base(a3)
 	bra	main
 
+*	------ ＬＤ ＸＸ,(nn) ------
+LD_BC_lnnl:
+	move.b	1(a4,d7.w),d0		* nn の上位８ビットを読む 
+	lsl.w	#8,d0
+	move.b	0(a4,d7.w),d0		* nn の下位８ビットを読む 
+	addq.w	#2,d7
+	btst.l	#14,d7
+	bne	1f
+	bsr	read_mem_16
+	move.w	d0,bc(a3)
+	bra	main
+1:	PC_page_inc
+	and.w	d3,d7		* 命令がページ境界をまたぐ時
+	bne	2f
+	bsr	read_mem_16		* d7 = 0 の時
+	move.w	d0,bc(a3)
+	bra	main
+2:	move.b	d0,d2			* d7 = 1 の時
+	move.b	(a4),d0			* nn の上位８ビットを読む
+	lsl.w	#8,d0
+	move.b	d2,d0
+	bsr	read_mem_16
+	move.w	d0,bc(a3)
+	bra	main
+
+LD_DE_lnnl:
+	move.b	1(a4,d7.w),d0		* nn の上位８ビットを読む 
+	lsl.w	#8,d0
+	move.b	0(a4,d7.w),d0		* nn の下位８ビットを読む 
+	addq.w	#2,d7
+	btst.l	#14,d7
+	bne	1f
+	bsr	read_mem_16
+	move.w	d0,de(a3)
+	bra	main
+1:	PC_page_inc
+	and.w	d3,d7		* 命令がページ境界をまたぐ時
+	bne	2f
+	bsr	read_mem_16
+	move.w	d0,de(a3)
+	bra	main
+2:	move.b	d0,d2			* d7 = 1 の時
+	move.b	(a4),d0			* nn の上位８ビットを読む
+	lsl.w	#8,d0
+	move.b	d2,d0
+	bsr	read_mem_16
+	move.w	d0,de(a3)
+	bra	main
+
+LD_SP_lnnl:
+	move.b	1(a4,d7.w),d0		* nn の上位８ビットを読む 
+	lsl.w	#8,d0
+	move.b	0(a4,d7.w),d0		* nn の下位８ビットを読む 
+	addq.w	#2,d7
+	btst.l	#14,d7
+	bne	1f
+	bsr	read_mem_16
+	move.w	d0,sp_(a3)
+	bra	main
+1:	PC_page_inc
+	and.w	d3,d7		* 命令がページ境界をまたぐ時
+	bne	2f
+	bsr	read_mem_16
+	move.w	d0,sp_(a3)
+	bra	main
+2:	move.b	d0,d2			* d7 = 1 の時
+	move.b	(a4),d0			* nn の上位８ビットを読む
+	lsl.w	#8,d0
+	move.b	d2,d0
+	bsr	read_mem_16
+	move.w	d0,sp_(a3)
+	bra	main
+
+*	------ ＬＤ (nn),ＸＸ ------
+LD_lnnl_BC:
+	move.w	bc(a3),d1
+	move.b	1(a4,d7.w),d0		* nn の上位８ビットを読む 
+	lsl.w	#8,d0
+	move.b	0(a4,d7.w),d0		* nn の下位８ビットを読む 
+	addq.w	#2,d7
+	btst.l	#14,d7
+	bne	@f
+	bsr	write_mem_16
+	bra	main
+@@:	PC_page_inc
+	and.w	d3,d7		* 命令がページ境界をまたぐ時
+	bne	@f
+	bsr	write_mem_16
+	bra	main
+@@:	move.b	d0,d2			* d7 = 1 の時
+	move.b	(a4),d0			* nn の上位８ビットを読む
+	lsl.w	#8,d0
+	move.b	d2,d0
+	bsr	write_mem_16
+	bra	main
+
+LD_lnnl_DE:
+	move.w	de(a3),d1
+	move.b	1(a4,d7.w),d0		* nn の上位８ビットを読む 
+	lsl.w	#8,d0
+	move.b	0(a4,d7.w),d0		* nn の下位８ビットを読む 
+	addq.w	#2,d7
+	btst.l	#14,d7
+	bne	@f
+	bsr	write_mem_16
+	bra	main
+@@:	PC_page_inc
+	and.w	d3,d7		* 命令がページ境界をまたぐ時
+	bne	@f
+	bsr	write_mem_16
+	bra	main
+@@:	move.b	d0,d2			* d7 = 1 の時
+	move.b	(a4),d0			* nn の上位８ビットを読む
+	lsl.w	#8,d0
+	move.b	d2,d0
+	bsr	write_mem_16
+	bra	main
+
+LD_lnnl_SP:
+	move.w	sp_(a3),d1
+	move.b	1(a4,d7.w),d0		* nn の上位８ビットを読む 
+	lsl.w	#8,d0
+	move.b	0(a4,d7.w),d0		* nn の下位８ビットを読む 
+	addq.w	#2,d7
+	btst.l	#14,d7
+	bne	@f
+	bsr	write_mem_16
+	bra	main
+@@:	PC_page_inc			* 命令がページ境界をまたぐ時
+	and.w	d3,d7
+	bne	@f
+	bsr	write_mem_16		* d7 = 0 の時
+	bra	main
+@@:	move.b	d0,d2			* d7 = 1 の時
+	move.b	(a4),d0			* nn の上位８ビットを読む
+	lsl.w	#8,d0
+	move.b	d2,d0
+	bsr	write_mem_16
+	bra	main
 
 ***************************** フラグの動きが正しいかわからない *********************
 *	------ ＡＤＣ ------
@@ -5056,7 +6074,7 @@ CPI:	andi.w	#%01110111_11111111,d6	* HC modeをクリア
 
 CPIR:	andi.w	#%01110111_11111111,d6	* HC modeをクリア
 	ori.w	#%00000010_00000000,d6	* Ｎ をセット
-	clr.b	PV(a3)			* PV をセット		
+	clr.b	PV(a3)		* PV をセット		
 loop_CPIR:
 	move.w	hl(a3),d0
 	bsr	read_mem
@@ -5357,7 +6375,7 @@ RETN:	move.w	sp_(a3),d0
 	bsr	read_mem_16
 	addq.w	#2,sp_(a3)
 	move.w	d0,d7
-	bsr	PC_page_set
+	PC_page_set
 	bra	main
 
 *	------ ＲＥＴＩ ------
@@ -5365,7 +6383,7 @@ RETI:	move.w	sp_(a3),d0
 	bsr	read_mem_16
 	addq.w	#2,sp_(a3)
 	move.w	d0,d7
-	bsr	PC_page_set
+	PC_page_set
 	bra	main
 
 *************************************************************************
@@ -5375,26 +6393,49 @@ RETI:	move.w	sp_(a3),d0
 *
 *************************************************************************
 DD:	clr.w	d0
-	move.b	0(a4,d7.w),d0
-	add.w	#1,d7
-	andi.w	#$3fff,d7
-	bne	@f
-	bsr	PC_page_CHG
-@@:	add.w	d0,d0
-	move.w	DD_FD_JPT(pc,d0.w),d2
+	move.b	1(a4,d7.w),d0
+	addq.w	#2,d7
+	btst.l	#14,d7
+	beq	@f			* PC がページ境界をまたいだか？
+	PC_page_inc			* またいだ時
+	and.w	d3,d7
+	beq	@f
+	move.b	(a4),d0			* 読み直し
+@@:	move.w	DD_FD_JPT(pc,d0.w*2),d2
 	clr.l	d1
 	jmp	DD_FD_JPT(pc,d2.w)
 
 FD:	clr.w	d0
-	move.b	0(a4,d7.w),d0
-	add.w	#1,d7
-	andi.w	#$3fff,d7
-	bne	@f
-	bsr	PC_page_CHG
-@@:	add.w	d0,d0
-	move.w	DD_FD_JPT(pc,d0.w),d2
+	move.b	1(a4,d7.w),d0
+	addq.w	#2,d7
+	btst.l	#14,d7
+	beq	@f			* PC がページ境界をまたいだか？
+	PC_page_inc			* またいだ時
+	and.w	d3,d7
+	beq	@f
+	move.b	(a4),d0			* 読み直し
+@@:	move.w	DD_FD_JPT(pc,d0.w*2),d2
 	moveq.l	#2,d1
 	jmp	DD_FD_JPT(pc,d2.w)
+
+DD_2:	move.b	0(a4,d7.w),d0
+	add.w	#1,d7
+	and.w	d3,d7
+	bne	@f
+	PC_page_inc
+@@:	move.w	DD_FD_JPT(pc,d0.w*2),d2
+	clr.l	d1
+	jmp	DD_FD_JPT(pc,d2.w)
+
+FD_2:	move.b	0(a4,d7.w),d0
+	add.w	#1,d7
+	and.w	d3,d7
+	bne	@f
+	PC_page_inc
+@@:	move.w	DD_FD_JPT(pc,d0.w*2),d2
+	moveq.l	#2,d1
+	jmp	DD_FD_JPT(pc,d2.w)
+
 
 DD_FD_JPT:
 	.dc.w	none_DD_FD-DD_FD_JPT		* $00
@@ -5403,7 +6444,7 @@ DD_FD_JPT:
 	.dc.w	none_DD_FD-DD_FD_JPT
 	.dc.w	none_DD_FD-DD_FD_JPT
 	.dc.w	none_DD_FD-DD_FD_JPT
-	.dc.w	LD_B_n-DD_FD_JPT
+	.dc.w	LD_B_n_2-DD_FD_JPT
 	.dc.w	none_DD_FD-DD_FD_JPT
 	.dc.w	none_DD_FD-DD_FD_JPT		* $08
 	.dc.w	ADD_Idx_BC-DD_FD_JPT
@@ -5411,7 +6452,7 @@ DD_FD_JPT:
 	.dc.w	none_DD_FD-DD_FD_JPT
 	.dc.w	none_DD_FD-DD_FD_JPT
 	.dc.w	none_DD_FD-DD_FD_JPT
-	.dc.w	LD_C_n-DD_FD_JPT
+	.dc.w	LD_C_n_2-DD_FD_JPT
 	.dc.w	none_DD_FD-DD_FD_JPT		* $0f
 
 	.dc.w	none_DD_FD-DD_FD_JPT		* $10
@@ -5420,7 +6461,7 @@ DD_FD_JPT:
 	.dc.w	none_DD_FD-DD_FD_JPT
 	.dc.w	none_DD_FD-DD_FD_JPT
 	.dc.w	none_DD_FD-DD_FD_JPT
-	.dc.w	LD_D_n-DD_FD_JPT
+	.dc.w	LD_D_n_2-DD_FD_JPT
 	.dc.w	none_DD_FD-DD_FD_JPT
 	.dc.w	none_DD_FD-DD_FD_JPT		* $18
 	.dc.w	ADD_Idx_DE-DD_FD_JPT
@@ -5428,7 +6469,7 @@ DD_FD_JPT:
 	.dc.w	none_DD_FD-DD_FD_JPT
 	.dc.w	none_DD_FD-DD_FD_JPT
 	.dc.w	none_DD_FD-DD_FD_JPT
-	.dc.w	LD_E_n-DD_FD_JPT
+	.dc.w	LD_E_n_2-DD_FD_JPT
 	.dc.w	none_DD_FD-DD_FD_JPT		* $1f
 
 	.dc.w	none_DD_FD-DD_FD_JPT		* $20
@@ -5462,42 +6503,42 @@ DD_FD_JPT:
 	.dc.w	none_DD_FD-DD_FD_JPT
 	.dc.w	none_DD_FD-DD_FD_JPT
 	.dc.w	none_DD_FD-DD_FD_JPT
-	.dc.w	LD_A_n-DD_FD_JPT
+	.dc.w	LD_A_n_2-DD_FD_JPT
 	.dc.w	none_DD_FD-DD_FD_JPT		* $3f
 
-	.dc.w	LD_B_B-DD_FD_JPT		* $40
-	.dc.w	LD_B_C-DD_FD_JPT
-	.dc.w	LD_B_D-DD_FD_JPT
-	.dc.w	LD_B_E-DD_FD_JPT
+	.dc.w	LD_B_B_2-DD_FD_JPT		* $40
+	.dc.w	LD_B_C_2-DD_FD_JPT
+	.dc.w	LD_B_D_2-DD_FD_JPT
+	.dc.w	LD_B_E_2-DD_FD_JPT
 	.dc.w	LD_B_IdxH-DD_FD_JPT
 	.dc.w	LD_B_IdxL-DD_FD_JPT
 	.dc.w	LD_B_lIdx_dl-DD_FD_JPT
-	.dc.w	LD_B_A-DD_FD_JPT
-	.dc.w	LD_C_B-DD_FD_JPT		* $48
-	.dc.w	LD_C_C-DD_FD_JPT
-	.dc.w	LD_C_D-DD_FD_JPT
-	.dc.w	LD_C_E-DD_FD_JPT
+	.dc.w	LD_B_A_2-DD_FD_JPT
+	.dc.w	LD_C_B_2-DD_FD_JPT		* $48
+	.dc.w	LD_C_C_2-DD_FD_JPT
+	.dc.w	LD_C_D_2-DD_FD_JPT
+	.dc.w	LD_C_E_2-DD_FD_JPT
 	.dc.w	LD_C_IdxH-DD_FD_JPT
 	.dc.w	LD_C_IdxL-DD_FD_JPT
 	.dc.w	LD_C_lIdx_dl-DD_FD_JPT
-	.dc.w	LD_C_A-DD_FD_JPT		* $4f
+	.dc.w	LD_C_A_2-DD_FD_JPT		* $4f
 
-	.dc.w	LD_D_B-DD_FD_JPT		* $50
-	.dc.w	LD_D_C-DD_FD_JPT
-	.dc.w	LD_D_D-DD_FD_JPT
-	.dc.w	LD_D_E-DD_FD_JPT
+	.dc.w	LD_D_B_2-DD_FD_JPT		* $50
+	.dc.w	LD_D_C_2-DD_FD_JPT
+	.dc.w	LD_D_D_2-DD_FD_JPT
+	.dc.w	LD_D_E_2-DD_FD_JPT
 	.dc.w	LD_D_IdxH-DD_FD_JPT
 	.dc.w	LD_D_IdxL-DD_FD_JPT
 	.dc.w	LD_D_lIdx_dl-DD_FD_JPT
-	.dc.w	LD_D_A-DD_FD_JPT
-	.dc.w	LD_E_B-DD_FD_JPT		* $58
-	.dc.w	LD_E_C-DD_FD_JPT
-	.dc.w	LD_E_D-DD_FD_JPT
-	.dc.w	LD_E_E-DD_FD_JPT
+	.dc.w	LD_D_A_2-DD_FD_JPT
+	.dc.w	LD_E_B_2-DD_FD_JPT		* $58
+	.dc.w	LD_E_C_2-DD_FD_JPT
+	.dc.w	LD_E_D_2-DD_FD_JPT
+	.dc.w	LD_E_E_2-DD_FD_JPT
 	.dc.w	LD_E_IdxH-DD_FD_JPT
 	.dc.w	LD_E_IdxL-DD_FD_JPT
 	.dc.w	LD_E_lIdx_dl-DD_FD_JPT
-	.dc.w	LD_E_A-DD_FD_JPT		* $5f
+	.dc.w	LD_E_A_2-DD_FD_JPT		* $5f
 
 	.dc.w	LD_IdxH_B-DD_FD_JPT		* $60
 	.dc.w	LD_IdxH_C-DD_FD_JPT
@@ -5524,14 +6565,14 @@ DD_FD_JPT:
 	.dc.w	LD_lIdx_dl_L-DD_FD_JPT
 	.dc.w	none_DD_FD-DD_FD_JPT
 	.dc.w	LD_lIdx_dl_A-DD_FD_JPT
-	.dc.w	LD_A_B-DD_FD_JPT		* $78
-	.dc.w	LD_A_C-DD_FD_JPT
-	.dc.w	LD_A_D-DD_FD_JPT
-	.dc.w	LD_A_E-DD_FD_JPT
+	.dc.w	LD_A_B_2-DD_FD_JPT		* $78
+	.dc.w	LD_A_C_2-DD_FD_JPT
+	.dc.w	LD_A_D_2-DD_FD_JPT
+	.dc.w	LD_A_E_2-DD_FD_JPT
 	.dc.w	LD_A_IdxH-DD_FD_JPT
 	.dc.w	LD_A_IdxL-DD_FD_JPT
 	.dc.w	LD_A_lIdx_dl-DD_FD_JPT
-	.dc.w	LD_A_A-DD_FD_JPT		* $7f
+	.dc.w	LD_A_A_2-DD_FD_JPT		* $7f
 
 	.dc.w	none_DD_FD-DD_FD_JPT		* $80
 	.dc.w	none_DD_FD-DD_FD_JPT
@@ -5631,7 +6672,7 @@ DD_FD_JPT:
 	.dc.w	none_DD_FD-DD_FD_JPT
 	.dc.w	none_DD_FD-DD_FD_JPT
 	.dc.w	none_DD_FD-DD_FD_JPT
-	.dc.w	DD-DD_FD_JPT
+	.dc.w	DD_2-DD_FD_JPT
 	.dc.w	none_DD_FD-DD_FD_JPT
 	.dc.w	none_DD_FD-DD_FD_JPT		* $df
 
@@ -5665,20 +6706,19 @@ DD_FD_JPT:
 	.dc.w	none_DD_FD-DD_FD_JPT
 	.dc.w	none_DD_FD-DD_FD_JPT
 	.dc.w	none_DD_FD-DD_FD_JPT
-	.dc.w	FD-DD_FD_JPT
+	.dc.w	FD_2-DD_FD_JPT
 	.dc.w	stop-DD_FD_JPT
 	.dc.w	system_end-DD_FD_JPT		* $ff
 
 none_DD_FD:					* おかしな命令を実行しました
-	lsr.w	#1,d0
 	move.w	d0,d1
 	lsr.w	#4,d0
-	move.b	HEX_df(pc,d0.w),number_ddfd+0
+	move.b	HEX(pc,d0.w),number_ddfd+0
 	andi.w	#$0f,d1
-	move.b	HEX_df(pc,d1.w),number_ddfd+1
+	move.b	HEX(pc,d1.w),number_ddfd+1
 
 	pea.l	errms_ddfd
-	DOS	_PRINT
+	DOS	__PRINT
 	lea.l	4(sp),sp
 	move.b	#$ff,d0
 	bra	main
@@ -5689,15 +6729,49 @@ number_ddfd:
 	.dc.b	'00'
 	.dc.b	0x0d,0x0a,0x00
 
-HEX_df:	.dc.b	'0123456789ABCDEF'
-
 	.even
 
+LD_A_A_2:
+	bra	main
+LD_A_B_2:
+	move.b	b(a3),d4
+	bra	main
+LD_A_C_2:
+	move.b	c(a3),d4
+	bra	main
+LD_A_D_2:
+	move.b	d(a3),d4
+	bra	main
+LD_A_E_2:
+	move.b	e(a3),d4
+	bra	main
 LD_A_IdxH:
 	move.b	ix_h(a3,d1.w),d4
 	bra	main
 LD_A_IdxL:
 	move.b	ix_l(a3,d1.w),d4
+	bra	main
+LD_A_n_2:
+	move.b	0(a4,d7.w),d4
+	addq.w	#1,d7			* PC += 1
+	and.w	d3,d7		* PC がページ境界をまたいだか？
+	bne	main
+	PC_page_inc
+	bra	main
+
+LD_B_A_2:
+	move.b	d4,b(a3)
+	bra	main
+LD_B_B_2:
+	bra	main
+LD_B_C_2:
+	move.b	c(a3),b(a3)
+	bra	main
+LD_B_D_2:
+	move.b	d(a3),b(a3)
+	bra	main
+LD_B_E_2:
+	move.b	e(a3),b(a3)
 	bra	main
 LD_B_IdxH:
 	move.b	ix_h(a3,d1.w),b(a3)
@@ -5705,11 +6779,55 @@ LD_B_IdxH:
 LD_B_IdxL:
 	move.b	ix_l(a3,d1.w),b(a3)
 	bra	main
+LD_B_n_2:
+	move.b	0(a4,d7.w),b(a3)
+	addq.w	#1,d7			* PC += 1
+	and.w	d3,d7		* PC がページ境界をまたいだか？
+	bne	main
+	PC_page_inc
+	bra	main
+
+LD_C_A_2:
+	move.b	d4,c(a3)
+	bra	main
+LD_C_B_2:
+	move.b	b(a3),c(a3)
+	bra	main
+LD_C_C_2:
+	bra	main
+LD_C_D_2:
+	move.b	d(a3),c(a3)
+	bra	main
+LD_C_E_2:
+	move.b	e(a3),c(a3)
+	bra	main
 LD_C_IdxH:
 	move.b	ix_h(a3,d1.w),c(a3)
 	bra	main
 LD_C_IdxL:
 	move.b	ix_l(a3,d1.w),c(a3)
+	bra	main
+LD_C_n_2:
+	move.b	0(a4,d7.w),c(a3)
+	addq.w	#1,d7			* PC += 1
+	and.w	d3,d7		* PC がページ境界をまたいだか？
+	bne	main
+	PC_page_inc
+	bra	main
+
+LD_D_A_2:
+	move.b	d4,d(a3)
+	bra	main
+LD_D_B_2:
+	move.b	b(a3),d(a3)
+	bra	main
+LD_D_C_2:
+	move.b	c(a3),d(a3)
+	bra	main
+LD_D_D_2:
+	bra	main
+LD_D_E_2:
+	move.b	e(a3),d(a3)
 	bra	main
 LD_D_IdxH:
 	move.b	ix_h(a3,d1.w),d(a3)
@@ -5717,13 +6835,41 @@ LD_D_IdxH:
 LD_D_IdxL:
 	move.b	ix_l(a3,d1.w),d(a3)
 	bra	main
+LD_D_n_2:
+	move.b	0(a4,d7.w),d(a3)
+	addq.w	#1,d7			* PC += 1
+	and.w	d3,d7		* PC がページ境界をまたいだか？
+	bne	main
+	PC_page_inc
+	bra	main
+
+LD_E_A_2:
+	move.b	d4,e(a3)
+	bra	main
+LD_E_B_2:
+	move.b	b(a3),e(a3)
+	bra	main
+LD_E_C_2:
+	move.b	c(a3),e(a3)
+	bra	main
+LD_E_D_2:
+	move.b	d(a3),e(a3)
+	bra	main
+LD_E_E_2:
+	bra	main
 LD_E_IdxH:
 	move.b	ix_h(a3,d1.w),e(a3)
 	bra	main
 LD_E_IdxL:
 	move.b	ix_l(a3,d1.w),e(a3)
 	bra	main
-
+LD_E_n_2:
+	move.b	0(a4,d7.w),e(a3)
+	addq.w	#1,d7			* PC += 1
+	and.w	d3,d7			* PC がページ境界をまたいだか？
+	bne	main
+	PC_page_inc
+	bra	main
 
 LD_IdxH_A:
 	move.b	d4,ix_h(a3,d1.w)
@@ -5768,16 +6914,16 @@ LD_IdxL_IdxL:
 LD_IdxH_n:
 	move.b	0(a4,d7.w),ix_h(a3,d1.w)
 	addq.w	#1,d7			* PC += 1
-	andi.w	#$3fff,d7		* PC がページ境界をまたいだか？
+	and.w	d3,d7		* PC がページ境界をまたいだか？
 	bne	main
-	bsr	PC_page_CHG
+	PC_page_inc
 	bra	main
 LD_IdxL_n:
 	move.b	0(a4,d7.w),ix_l(a3,d1.w)
 	addq.w	#1,d7			* PC += 1
-	andi.w	#$3fff,d7		* PC がページ境界をまたいだか？
+	and.w	d3,d7		* PC がページ境界をまたいだか？
 	bne	main
-	bsr	PC_page_CHG
+	PC_page_inc
 	bra	main
 
 ADD_A_IdxH:
@@ -6027,9 +7173,9 @@ ADD_A_lIdx_dl:
 	ext.w	d1
 	add.w	d1,d0
 	add.w	#1,d7
-	andi.w	#$3fff,d7		* PC がページ境界をまたいだか？
+	and.w	d3,d7		* PC がページ境界をまたいだか？
 	bne	@f
-	bsr	PC_page_CHG
+	PC_page_inc
 @@:
 	bsr	read_mem
 	move.b	d0,HC2(a3)		* 足す数を HC2に
@@ -6052,9 +7198,9 @@ ADC_A_lIdx_dl:
 	ext.w	d1
 	add.w	d1,d0
 	add.w	#1,d7
-	andi.w	#$3fff,d7		* PC がページ境界をまたいだか？
+	and.w	d3,d7		* PC がページ境界をまたいだか？
 	bne	@f
-	bsr	PC_page_CHG
+	PC_page_inc
 @@:
 	bsr	read_mem
 	subq.b	#1,d6			* X ビットをセット
@@ -6076,9 +7222,9 @@ SUB_lIdx_dl:
 	ext.w	d1
 	add.w	d1,d0
 	add.w	#1,d7
-	andi.w	#$3fff,d7		* PC がページ境界をまたいだか？
+	and.w	d3,d7		* PC がページ境界をまたいだか？
 	bne	@f
-	bsr	PC_page_CHG
+	PC_page_inc
 @@:
 	bsr	read_mem
 	move.b	d4,d5			* 引かれる数を HC1に
@@ -6099,9 +7245,9 @@ SBC_A_lIdx_dl:
 	ext.w	d1
 	add.w	d1,d0
 	add.w	#1,d7
-	andi.w	#$3fff,d7		* PC がページ境界をまたいだか？
+	and.w	d3,d7		* PC がページ境界をまたいだか？
 	bne	@f
-	bsr	PC_page_CHG
+	PC_page_inc
 @@:
 	bsr	read_mem
 	clr.b	d6			* X ビットをセット
@@ -6125,9 +7271,9 @@ AND_lIdx_dl:
 	ext.w	d1
 	add.w	d1,d0
 	add.w	#1,d7
-	andi.w	#$3fff,d7		* PC がページ境界をまたいだか？
+	and.w	d3,d7		* PC がページ境界をまたいだか？
 	bne	@f
-	bsr	PC_page_CHG
+	PC_page_inc
 @@:
 	bsr	read_mem
 	and.b	d0,d4
@@ -6143,9 +7289,9 @@ XOR_lIdx_dl:
 	ext.w	d1
 	add.w	d1,d0
 	add.w	#1,d7
-	andi.w	#$3fff,d7		* PC がページ境界をまたいだか？
+	and.w	d3,d7		* PC がページ境界をまたいだか？
 	bne	@f
-	bsr	PC_page_CHG
+	PC_page_inc
 @@:
 	bsr	read_mem
 	eor.b	d0,d4
@@ -6161,9 +7307,9 @@ OR_lIdx_dl:
 	ext.w	d1
 	add.w	d1,d0
 	add.w	#1,d7
-	andi.w	#$3fff,d7		* PC がページ境界をまたいだか？
+	and.w	d3,d7		* PC がページ境界をまたいだか？
 	bne	@f
-	bsr	PC_page_CHG
+	PC_page_inc
 @@:
 	bsr	read_mem
 	or.b	d0,d4
@@ -6179,9 +7325,9 @@ CP_lIdx_dl:
 	ext.w	d1
 	add.w	d1,d0
 	add.w	#1,d7
-	andi.w	#$3fff,d7		* PC がページ境界をまたいだか？
+	and.w	d3,d7		* PC がページ境界をまたいだか？
 	bne	@f
-	bsr	PC_page_CHG
+	PC_page_inc
 @@:
 	bsr	read_mem
 	move.b	d4,d5			* 引かれる数を HC1に
@@ -6201,9 +7347,9 @@ INC_lIdx_dl:
 	ext.w	d1
 	add.w	d1,d0
 	add.w	#1,d7
-	andi.w	#$3fff,d7		* PC がページ境界をまたいだか？
+	and.w	d3,d7		* PC がページ境界をまたいだか？
 	bne	@f
-	bsr	PC_page_CHG
+	PC_page_inc
 @@:
 	move.w	d0,-(sp)
 	bsr	read_mem
@@ -6229,9 +7375,9 @@ DEC_lIdx_dl:
 	ext.w	d1
 	add.w	d1,d0
 	add.w	#1,d7
-	andi.w	#$3fff,d7		* PC がページ境界をまたいだか？
+	and.w	d3,d7		* PC がページ境界をまたいだか？
 	bne	@f
-	bsr	PC_page_CHG
+	PC_page_inc
 @@:	move.w	d0,-(sp)
 	bsr	read_mem
 	move.b	d0,d5			* 引かれる数を HC1 に
@@ -6287,11 +7433,11 @@ LD_Idx_nn:
 	addq.w	#2,d7
 	btst.l	#14,d7
 	beq	main
-	andi.w	#$3fff,d7		* 命令がページ境界をまたぐ時
+	and.w	d3,d7		* 命令がページ境界をまたぐ時
 	bne	@f
-	bsr	PC_page_CHG		* d7 = 0 の時
+	PC_page_inc		* d7 = 0 の時
 	bra	main
-@@:	bsr	PC_page_CHG		* d7 = 1 の時
+@@:	PC_page_inc		* d7 = 1 の時
 	move.b	(a4),ix_h(a3,d1.w)	* nn の上位８ビットを読む
 	bra	main
 
@@ -6305,15 +7451,15 @@ LD_Idx_lnnl:
 	bsr	read_mem_16
 	move.w	d0,ix(a3,d1.w)
 	bra	main
-@@:	andi.w	#$3fff,d7		* 命令がページ境界をまたぐ時
+@@:	and.w	d3,d7		* 命令がページ境界をまたぐ時
 	bne	@f
-	bsr	PC_page_CHG		* d7 = 0 の時
+	PC_page_inc		* d7 = 0 の時
 	bsr	read_mem_16
 	move.w	d0,ix(a3,d1.w)
 	bra	main
 @@:
 	move.b	d0,d2			* d7 = 1 の時
-	bsr	PC_page_CHG
+	PC_page_inc
 	move.b	(a4),d0			* nn の上位８ビットを読む
 	lsl.w	#8,d0
 	move.b	d2,d0
@@ -6331,14 +7477,14 @@ LD_lnnl_Idx:
 	bne	@f
 	bsr	write_mem_16
 	bra	main
-@@:	andi.w	#$3fff,d7		* 命令がページ境界をまたぐ時
+@@:	and.w	d3,d7		* 命令がページ境界をまたぐ時
 	bne	@f
-	bsr	PC_page_CHG		* d7 = 0 の時
+	PC_page_inc		* d7 = 0 の時
 	bsr	write_mem_16
 	bra	main
 @@:
 	move.b	d0,d2			* d7 = 1 の時
-	bsr	PC_page_CHG
+	PC_page_inc
 	move.b	(a4),d0			* nn の上位８ビットを読む
 	lsl.w	#8,d0
 	move.b	d2,d0
@@ -6365,9 +7511,9 @@ LD_A_lIdx_dl:
 	ext.w	d1
 	add.w	d1,d0
 	add.w	#1,d7
-	andi.w	#$3fff,d7		* PC がページ境界をまたいだか？
+	and.w	d3,d7		* PC がページ境界をまたいだか？
 	bne	1f
-	bsr	PC_page_CHG
+	PC_page_inc
 1:
 	bsr	read_mem		*メモリから 8ビットのデータを d0に読み込む。
 	move.b	d0,d4
@@ -6379,9 +7525,9 @@ LD_B_lIdx_dl:
 	ext.w	d1
 	add.w	d1,d0
 	add.w	#1,d7
-	andi.w	#$3fff,d7		* PC がページ境界をまたいだか？
+	and.w	d3,d7		* PC がページ境界をまたいだか？
 	bne	1f
-	bsr	PC_page_CHG
+	PC_page_inc
 1:
 	bsr	read_mem		*メモリから 8ビットのデータを d0に読み込む。
 	move.b	d0,b(a3)
@@ -6393,9 +7539,9 @@ LD_C_lIdx_dl:
 	ext.w	d1
 	add.w	d1,d0
 	add.w	#1,d7
-	andi.w	#$3fff,d7		* PC がページ境界をまたいだか？
+	and.w	d3,d7		* PC がページ境界をまたいだか？
 	bne	1f
-	bsr	PC_page_CHG
+	PC_page_inc
 1:
 	bsr	read_mem		*メモリから 8ビットのデータを d0に読み込む。
 	move.b	d0,c(a3)
@@ -6407,9 +7553,9 @@ LD_D_lIdx_dl:
 	ext.w	d1
 	add.w	d1,d0
 	add.w	#1,d7
-	andi.w	#$3fff,d7		* PC がページ境界をまたいだか？
+	and.w	d3,d7		* PC がページ境界をまたいだか？
 	bne	1f
-	bsr	PC_page_CHG
+	PC_page_inc
 1:
 	bsr	read_mem		*メモリから 8ビットのデータを d0に読み込む。
 	move.b	d0,d(a3)
@@ -6421,9 +7567,9 @@ LD_E_lIdx_dl:
 	ext.w	d1
 	add.w	d1,d0
 	add.w	#1,d7
-	andi.w	#$3fff,d7		* PC がページ境界をまたいだか？
+	and.w	d3,d7		* PC がページ境界をまたいだか？
 	bne	1f
-	bsr	PC_page_CHG
+	PC_page_inc
 1:
 	bsr	read_mem		*メモリから 8ビットのデータを d0に読み込む。
 	move.b	d0,e(a3)
@@ -6435,9 +7581,9 @@ LD_H_lIdx_dl:
 	ext.w	d1
 	add.w	d1,d0
 	add.w	#1,d7
-	andi.w	#$3fff,d7		* PC がページ境界をまたいだか？
+	and.w	d3,d7		* PC がページ境界をまたいだか？
 	bne	1f
-	bsr	PC_page_CHG
+	PC_page_inc
 1:
 	bsr	read_mem		*メモリから 8ビットのデータを d0に読み込む。
 	move.b	d0,h(a3)
@@ -6449,9 +7595,9 @@ LD_L_lIdx_dl:
 	ext.w	d1
 	add.w	d1,d0
 	add.w	#1,d7
-	andi.w	#$3fff,d7		* PC がページ境界をまたいだか？
+	and.w	d3,d7		* PC がページ境界をまたいだか？
 	bne	1f
-	bsr	PC_page_CHG
+	PC_page_inc
 1:
 	bsr	read_mem		*メモリから 8ビットのデータを d0に読み込む。
 	move.b	d0,l(a3)
@@ -6465,9 +7611,9 @@ LD_lIdx_dl_A:
 	ext.w	d1
 	add.w	d1,d0
 	add.w	#1,d7
-	andi.w	#$3fff,d7		* PC がページ境界をまたいだか？
+	and.w	d3,d7		* PC がページ境界をまたいだか？
 	bne	1f
-	bsr	PC_page_CHG
+	PC_page_inc
 1:
 	move.b	d4,d1
 	bsr	write_mem
@@ -6479,9 +7625,9 @@ LD_lIdx_dl_B:
 	ext.w	d1
 	add.w	d1,d0
 	add.w	#1,d7
-	andi.w	#$3fff,d7		* PC がページ境界をまたいだか？
+	and.w	d3,d7		* PC がページ境界をまたいだか？
 	bne	1f
-	bsr	PC_page_CHG
+	PC_page_inc
 1:
 	move.b	b(a3),d1
 	bsr	write_mem
@@ -6493,9 +7639,9 @@ LD_lIdx_dl_C:
 	ext.w	d1
 	add.w	d1,d0
 	add.w	#1,d7
-	andi.w	#$3fff,d7		* PC がページ境界をまたいだか？
+	and.w	d3,d7		* PC がページ境界をまたいだか？
 	bne	1f
-	bsr	PC_page_CHG
+	PC_page_inc
 1:
 	move.b	c(a3),d1
 	bsr	write_mem
@@ -6507,9 +7653,9 @@ LD_lIdx_dl_D:
 	ext.w	d1
 	add.w	d1,d0
 	add.w	#1,d7
-	andi.w	#$3fff,d7		* PC がページ境界をまたいだか？
+	and.w	d3,d7		* PC がページ境界をまたいだか？
 	bne	1f
-	bsr	PC_page_CHG
+	PC_page_inc
 1:
 	move.b	d(a3),d1
 	bsr	write_mem
@@ -6521,9 +7667,9 @@ LD_lIdx_dl_E:
 	ext.w	d1
 	add.w	d1,d0
 	add.w	#1,d7
-	andi.w	#$3fff,d7		* PC がページ境界をまたいだか？
+	and.w	d3,d7		* PC がページ境界をまたいだか？
 	bne	1f
-	bsr	PC_page_CHG
+	PC_page_inc
 1:
 	move.b	e(a3),d1
 	bsr	write_mem
@@ -6535,9 +7681,9 @@ LD_lIdx_dl_H:
 	ext.w	d1
 	add.w	d1,d0
 	add.w	#1,d7
-	andi.w	#$3fff,d7		* PC がページ境界をまたいだか？
+	and.w	d3,d7		* PC がページ境界をまたいだか？
 	bne	1f
-	bsr	PC_page_CHG
+	PC_page_inc
 1:
 	move.b	h(a3),d1
 	bsr	write_mem
@@ -6549,9 +7695,9 @@ LD_lIdx_dl_L:
 	ext.w	d1
 	add.w	d1,d0
 	add.w	#1,d7
-	andi.w	#$3fff,d7		* PC がページ境界をまたいだか？
+	and.w	d3,d7		* PC がページ境界をまたいだか？
 	bne	1f
-	bsr	PC_page_CHG
+	PC_page_inc
 1:
 	move.b	l(a3),d1
 	bsr	write_mem
@@ -6568,14 +7714,14 @@ LD_lIdx_dl_n:
 	bne	1f
 	bsr	write_mem
 	bra	main
-1:	andi.w	#$3fff,d7		* 命令がページ境界をまたぐ時
+1:	and.w	d3,d7		* 命令がページ境界をまたぐ時
 	bne	1f
-	bsr	PC_page_CHG		* d7 = 0 の時
+	PC_page_inc		* d7 = 0 の時
 	bsr	write_mem
 	bra	main
 1:
 	move.b	d0,d2			* d7 = 1 の時
-	bsr	PC_page_CHG
+	PC_page_inc
 	move.b	(a4),d0			* nn の上位８ビットを読む
 	lsl.w	#8,d0
 	move.b	d2,d0
@@ -6602,7 +7748,7 @@ POP_Idx:
 *	------ ＪＰ (Ｉｄｘ) ------
 JP_lIdxl:
 	move.w	ix(a3,d1.w),d7
-	bsr	PC_page_set
+	PC_page_set
 	bra	main
 
 
@@ -6640,14 +7786,12 @@ DD_FD_CB:
 	move.b	1(a4,d7.w),d2
 	add.w	#2,d7
 	btst.l	#14,d7
+	beq	1f
+	and.w	d3,d7		* 命令がページ境界をまたぐとき
 	bne	@f
+	PC_page_inc			* d7 = 0 のとき
 	bra	1f
-@@:	andi.w	#$3fff,d7		* 命令がページ境界をまたぐとき
-	bne	@f
-	bsr	PC_page_CHG		* d7 = 0 のとき
-	bra	1f
-@@:
-	bsr	PC_page_CHG		* d7 = 1 のとき
+@@:	PC_page_inc			* d7 = 1 のとき
 	move.b	(a4),d2			* -1(a4,d7.w) = (a4)
 
 1:	subq.b	#6,d2
@@ -6663,7 +7807,7 @@ DD_FD_CB_JPT:
 	.dc.w	RR_lIdx_dl-DD_FD_CB_JPT			* 1e
 	.dc.w	SLA_lIdx_dl-DD_FD_CB_JPT		* 26
 	.dc.w	SRA_lIdx_dl-DD_FD_CB_JPT		* 2e
-	.dc.w	SLA_lIdx_dl-DD_FD_CB_JPT		* 36 SLL
+	.dc.w	SLI_lIdx_dl-DD_FD_CB_JPT		* 36
 	.dc.w	SRL_lIdx_dl-DD_FD_CB_JPT		* 3e
 
 	.dc.w	BIT_lIdx_dl-DD_FD_CB_JPT		* 46
@@ -6765,7 +7909,7 @@ RL_lIdx_dl:
 	move.b	d5,HC2(a3)		* HC をクリア
 	move.w	d0,-(sp)		* Idx + d をプッシュ
 	bsr	read_mem
-	lsl.b	#1,d0
+	add.b	d0,d0
 	bcc	1f
 	ori.w	#%00000001_00000000,d6	* ＣＹをセット
 1:	ori.w	#%00000000_00000001,d0	* 最下位ビットをセット
@@ -6801,7 +7945,7 @@ SLA_lIdx_dl:
 	move.b	d5,HC2(a3)		* HC をクリア
 	move.w	d0,-(sp)		* Idx + d をプッシュ
 	bsr	read_mem
-	lsl.b	#1,d0
+	add.b	d0,d0
 	bcc	1f
 	ori.w	#%00000001_00000000,d6	* ＣＹをセット
 1:	move.b	d0,d6
@@ -6841,8 +7985,21 @@ SRL_lIdx_dl:
 	bsr	write_mem
 	bra	main
 
-
-*******************    ここまで   *******************************************
+SLI_lIdx_dl:
+	andi.w	#%01110100_11111111,d6	* Ｎ,Ｃ,HC mode をクリア
+	move.b	d5,HC2(a3)		* HC をクリア
+	move.w	d0,-(sp)		* Idx + d をプッシュ
+	bsr	read_mem
+	add.b	d0,d0
+	bcc	1f
+	ori.w	#%00000001_00000000,d6	* ＣＹをセット
+1:	addq.b	#1,d0
+	move.b	d0,d6
+	move.b	d0,PV(a3)
+	move.b	d0,d1
+	move.w	(sp)+,d0
+	bsr	write_mem
+	bra	main
 
 *****************************************************
 *
@@ -7017,13 +8174,15 @@ wt16_PAC:
 *****************************************************
 
 *	------ ＩＮ ------
-IN_A_n:	move.b	0(a4,d7.w),d0		* n を読む
-	addq.w	#1,d7			* PC += 1
-	andi.w	#$3fff,d7		* PC がページ境界をまたいだか？
-	bne	@f
-	bsr	PC_page_CHG
-@@:
-	bsr	input
+IN_A_n:	move.b	1(a4,d7.w),d0		* n を読む
+	addq.w	#2,d7			* PC += 2
+	btst.l	#14,d7			* PC がページ境界をまたいだか？
+	beq	@f
+	PC_page_inc
+	and.w	d3,d7
+	beq	@f
+	move.b	(a4),d0
+@@:	bsr	input
 	move.b	d0,d4
 	bra	main
 
@@ -7150,11 +8309,14 @@ INDR:	ori.w	#%00000010_00000000,d6	* Nをセット
 	
 *	------ ＯＵＴ ------
 OUT_n_A:
-	move.b	0(a4,d7.w),d0		* n を読む
-	addq.w	#1,d7			* PC += 1
-	andi.w	#$3fff,d7		* PC がページ境界をまたいだか？
-	bne	@f
-	bsr	PC_page_CHG
+	move.b	1(a4,d7.w),d0		* n を読む
+	addq.w	#2,d7			* PC += 2
+	btst.l	#14,d7			* PC がページ境界をまたいだか？
+	beq	@f
+	PC_page_inc
+	and.w	d3,d7
+	beq	@f
+	move.b	(a4),d0
 @@:	move.b	d4,d1
 	bsr	output
 	bra	main
@@ -7267,17 +8429,42 @@ OTDR:	ori.w	#%00000010_00000000,d6	* Nをセット
 *  (帰り値)
 *	.d0.b	読み込んだ値
 *
-*	d1,d2,d3 破壊可能性あり
+*	d1,d2 破壊可能性あり
 *
 *****************************************************************	
 input:
 	clr.w	d1
 	move.b	d0,d1				* 上位バイトを０でクリア
-	add.w	d1,d1
-	add.w	d1,d1
-	movea.l	input_table(pc,d1.w),a0		* d0 の値を変えちゃだめ（68000用にする
+	movea.l	input_table(pc,d1.w*4),a0	* d0 の値を変えちゃだめ（68000用にする
 						* 時注意）
 	jmp	(a0)				* rts を省略するためジャンプにしてある
+
+no_port_IN:
+	move.b	#$ff,d0
+	rts
+
+no_port_IN_2:
+	move.w	d1,d0
+	lsr.w	#4,d0
+	move.b	HEX(pc,d0.w),number_r+0
+	andi.w	#$0f,d1
+	move.b	HEX(pc,d1.w),number_r+1
+
+	pea.l	errms_r
+	DOS	__PRINT
+	lea.l	4(sp),sp
+	move.b	#$ff,d0
+	rts
+
+errms_r:
+	.dc.b	'エミュレーションしていないポートを読み込みました。0x'
+number_r:
+	.dc.b	'00'
+	.dc.b	0x0d,0x0a,0x00
+
+	.even
+
+HEX:	.dc.b	'0123456789ABCDEF'
 
 input_table:
 *	0
@@ -7361,34 +8548,6 @@ input_table:
 	.dc.l	no_port_IN,	no_port_IN,	no_port_IN,	no_port_IN
 	.dc.l	r_port_FC,	r_port_FD,	r_port_FE,	r_port_FF
 
-no_port_IN:
-	move.b	#$ff,d0
-	rts
-
-no_port_IN_2:
-	lsr.w	#2,d1
-	move.w	d1,d0
-	lsr.w	#4,d0
-	move.b	HEX(pc,d0.w),number_r+0
-	andi.w	#$0f,d1
-	move.b	HEX(pc,d1.w),number_r+1
-
-	pea.l	errms_r
-	DOS	_PRINT
-	lea.l	4(sp),sp
-	move.b	#$ff,d0
-	rts
-
-errms_r:
-	.dc.b	'エミュレーションしていないポートを読み込みました。0x'
-number_r:
-	.dc.b	'00'
-	.dc.b	0x0d,0x0a,0x00
-
-	.even
-
-HEX:	.dc.b	'0123456789ABCDEF'
-
 
 *****************************************************************
 *
@@ -7404,9 +8563,7 @@ HEX:	.dc.b	'0123456789ABCDEF'
 output:
 	clr.w	d2
 	move.b	d0,d2				* 上位バイトを０でクリア
-	add.w	d2,d2
-	add.w	d2,d2
-	movea.l	output_table(pc,d2.w),a0	* d0 の値を変えちゃだめ（68000用にする
+	movea.l	output_table(pc,d2.w*4),a0	* d0 の値を変えちゃだめ（68000用にする
 						* 時注意）
 	jmp	(a0)				* rts を省略するためジャンプにしてある
 
@@ -7414,15 +8571,14 @@ no_port_OUT:
 	rts
 
 no_port_OUT_2:
-	lsr.w	#2,d2
 	move.w	d2,d0				* d2.w ポート番号
 	lsr.w	#4,d0
-	move.b	HEX_out(pc,d0.w),number_w+0
+	move.b	HEX(pc,d0.w),number_w+0
 	andi.w	#$0f,d2
-	move.b	HEX_out(pc,d2.w),number_w+1
+	move.b	HEX(pc,d2.w),number_w+1
 
 	pea.l	errms_w
-	DOS	_PRINT
+	DOS	__PRINT
 	lea.l	4(sp),sp
 	rts
 
@@ -7431,9 +8587,6 @@ errms_w:
 number_w:
 	.dc.b	'00'
 	.dc.b	0x0d,0x0a,0x00
-
-HEX_out:
-	.dc.b	'0123456789ABCDEF'
 
 	.even
 
@@ -7578,12 +8731,10 @@ exslotreg_write:
 
 	move.b	slot_type(a0),d0		* スロットの種類に応じて読み書きルーチ
 	ext.w	d0				* ンを設定
-	add.w	d0,d0
-	add.w	d0,d0
-	move.l	 wt8_sub_add_0-base2(a2,d0.w), wt8_sub_add_p3-base2(a2)
-	move.l	wt16_sub_add_0-base2(a2,d0.w),wt16_sub_add_p3-base2(a2)
-	move.l	 rd8_sub_add_0-base2(a2,d0.w), rd8_sub_add_p3-base2(a2)
-	move.l	rd16_sub_add_0-base2(a2,d0.w),rd16_sub_add_p3-base2(a2)
+	move.l	 wt8_sub_add_0-base2(a2,d0.w*4), wt8_sub_add_p3-base2(a2)
+	move.l	wt16_sub_add_0-base2(a2,d0.w*4),wt16_sub_add_p3-base2(a2)
+	move.l	 rd8_sub_add_0-base2(a2,d0.w*4), rd8_sub_add_p3-base2(a2)
+	move.l	rd16_sub_add_0-base2(a2,d0.w*4),rd16_sub_add_p3-base2(a2)
 
 *	ページ０は表に出てるか？
 	move.b	slot_reg,d0
@@ -7601,12 +8752,10 @@ exslotreg_write:
 
 	move.b	slot_type(a0),d0		* スロットの種類に応じて読み書きルーチ
 	ext.w	d0				* ンを設定
-	add.w	d0,d0
-	add.w	d0,d0
-	move.l	 wt8_sub_add_0-base2(a2,d0.w), wt8_sub_add_p0-base2(a2)
-	move.l	wt16_sub_add_0-base2(a2,d0.w),wt16_sub_add_p0-base2(a2)
-	move.l	 rd8_sub_add_0-base2(a2,d0.w), rd8_sub_add_p0-base2(a2)
-	move.l	rd16_sub_add_0-base2(a2,d0.w),rd16_sub_add_p0-base2(a2)
+	move.l	 wt8_sub_add_0-base2(a2,d0.w*4), wt8_sub_add_p0-base2(a2)
+	move.l	wt16_sub_add_0-base2(a2,d0.w*4),wt16_sub_add_p0-base2(a2)
+	move.l	 rd8_sub_add_0-base2(a2,d0.w*4), rd8_sub_add_p0-base2(a2)
+	move.l	rd16_sub_add_0-base2(a2,d0.w*4),rd16_sub_add_p0-base2(a2)
 
 *	ページ１は表に出てるか？
 not_exist0:
@@ -7626,12 +8775,10 @@ not_exist0:
 
 	move.b	slot_type(a0),d0		* スロットの種類に応じて読み書きルーチ
 	ext.w	d0				* ンを設定
-	add.w	d0,d0
-	add.w	d0,d0
-	move.l	 wt8_sub_add_0-base2(a2,d0.w), wt8_sub_add_p1-base2(a2)
-	move.l	wt16_sub_add_0-base2(a2,d0.w),wt16_sub_add_p1-base2(a2)
-	move.l	 rd8_sub_add_0-base2(a2,d0.w), rd8_sub_add_p1-base2(a2)
-	move.l	rd16_sub_add_0-base2(a2,d0.w),rd16_sub_add_p1-base2(a2)
+	move.l	 wt8_sub_add_0-base2(a2,d0.w*4), wt8_sub_add_p1-base2(a2)
+	move.l	wt16_sub_add_0-base2(a2,d0.w*4),wt16_sub_add_p1-base2(a2)
+	move.l	 rd8_sub_add_0-base2(a2,d0.w*4), rd8_sub_add_p1-base2(a2)
+	move.l	rd16_sub_add_0-base2(a2,d0.w*4),rd16_sub_add_p1-base2(a2)
 
 *	ページ２は表に出てるか？
 not_exist1:
@@ -7650,12 +8797,10 @@ not_exist1:
 
 	move.b	slot_type(a0),d0		* スロットの種類に応じて読み書きルーチ
 	ext.w	d0				* ンを設定
-	add.w	d0,d0
-	add.w	d0,d0
-	move.l	 wt8_sub_add_0-base2(a2,d0.w), wt8_sub_add_p2-base2(a2)
-	move.l	wt16_sub_add_0-base2(a2,d0.w),wt16_sub_add_p2-base2(a2)
-	move.l	 rd8_sub_add_0-base2(a2,d0.w), rd8_sub_add_p2-base2(a2)
-	move.l	rd16_sub_add_0-base2(a2,d0.w),rd16_sub_add_p2-base2(a2)
+	move.l	 wt8_sub_add_0-base2(a2,d0.w*4), wt8_sub_add_p2-base2(a2)
+	move.l	wt16_sub_add_0-base2(a2,d0.w*4),wt16_sub_add_p2-base2(a2)
+	move.l	 rd8_sub_add_0-base2(a2,d0.w*4), rd8_sub_add_p2-base2(a2)
+	move.l	rd16_sub_add_0-base2(a2,d0.w*4),rd16_sub_add_p2-base2(a2)
 not_exist2:
 	move.l	(sp)+,a1
 	move.l	(sp)+,a2
@@ -7693,12 +8838,10 @@ w_port_A8:
 						* ンを設定
 						* d0の上位バイトは０になってるはずだか
 						* ら、ext.w d0 はいらない
-	add.w	d0,d0
-	add.w	d0,d0
-	move.l	 wt8_sub_add_0-base2(a2,d0.w), wt8_sub_add_p0-base2(a2)
-	move.l	wt16_sub_add_0-base2(a2,d0.w),wt16_sub_add_p0-base2(a2)
-	move.l	 rd8_sub_add_0-base2(a2,d0.w), rd8_sub_add_p0-base2(a2)
-	move.l	rd16_sub_add_0-base2(a2,d0.w),rd16_sub_add_p0-base2(a2)
+	move.l	 wt8_sub_add_0-base2(a2,d0.w*4), wt8_sub_add_p0-base2(a2)
+	move.l	wt16_sub_add_0-base2(a2,d0.w*4),wt16_sub_add_p0-base2(a2)
+	move.l	 rd8_sub_add_0-base2(a2,d0.w*4), rd8_sub_add_p0-base2(a2)
+	move.l	rd16_sub_add_0-base2(a2,d0.w*4),rd16_sub_add_p0-base2(a2)
 
 	move.b	d1,d0
 	andi.w	#%00001100,d0			* ページ１の切り替え
@@ -7712,12 +8855,10 @@ w_port_A8:
 	move.l	a1,page1
 	move.b	slot_type(a1),d0		* スロットの種類に応じて読み書きルーチ
 						* ンを設定
-	add.w	d0,d0
-	add.w	d0,d0
-	move.l	 wt8_sub_add_0-base2(a2,d0.w), wt8_sub_add_p1-base2(a2)
-	move.l	wt16_sub_add_0-base2(a2,d0.w),wt16_sub_add_p1-base2(a2)
-	move.l	 rd8_sub_add_0-base2(a2,d0.w), rd8_sub_add_p1-base2(a2)
-	move.l	rd16_sub_add_0-base2(a2,d0.w),rd16_sub_add_p1-base2(a2)
+	move.l	 wt8_sub_add_0-base2(a2,d0.w*4), wt8_sub_add_p1-base2(a2)
+	move.l	wt16_sub_add_0-base2(a2,d0.w*4),wt16_sub_add_p1-base2(a2)
+	move.l	 rd8_sub_add_0-base2(a2,d0.w*4), rd8_sub_add_p1-base2(a2)
+	move.l	rd16_sub_add_0-base2(a2,d0.w*4),rd16_sub_add_p1-base2(a2)
 
 
 	move.b	d1,d0
@@ -7731,12 +8872,10 @@ w_port_A8:
 	move.l	a1,page2
 	move.b	slot_type(a1),d0		* スロットの種類に応じて読み書きルーチ
 						* ンを設定
-	add.w	d0,d0
-	add.w	d0,d0
-	move.l	 wt8_sub_add_0-base2(a2,d0.w), wt8_sub_add_p2-base2(a2)
-	move.l	wt16_sub_add_0-base2(a2,d0.w),wt16_sub_add_p2-base2(a2)
-	move.l	 rd8_sub_add_0-base2(a2,d0.w), rd8_sub_add_p2-base2(a2)
-	move.l	rd16_sub_add_0-base2(a2,d0.w),rd16_sub_add_p2-base2(a2)
+	move.l	 wt8_sub_add_0-base2(a2,d0.w*4), wt8_sub_add_p2-base2(a2)
+	move.l	wt16_sub_add_0-base2(a2,d0.w*4),wt16_sub_add_p2-base2(a2)
+	move.l	 rd8_sub_add_0-base2(a2,d0.w*4), rd8_sub_add_p2-base2(a2)
+	move.l	rd16_sub_add_0-base2(a2,d0.w*4),rd16_sub_add_p2-base2(a2)
 
 
 	andi.w	#%11000000,d1			* ページ３の切り替え
@@ -7750,18 +8889,13 @@ w_port_A8:
 	move.l	a1,page3
 	move.b	slot_type(a1),d0		* スロットの種類に応じて読み書きルーチ
 						* ンを設定
-	add.w	d0,d0
-	add.w	d0,d0
-	move.l	 wt8_sub_add_0-base2(a2,d0.w), wt8_sub_add_p3-base2(a2)
-	move.l	wt16_sub_add_0-base2(a2,d0.w),wt16_sub_add_p3-base2(a2)
-	move.l	 rd8_sub_add_0-base2(a2,d0.w), rd8_sub_add_p3-base2(a2)
-	move.l	rd16_sub_add_0-base2(a2,d0.w),rd16_sub_add_p3-base2(a2)
+	move.l	 wt8_sub_add_0-base2(a2,d0.w*4), wt8_sub_add_p3-base2(a2)
+	move.l	wt16_sub_add_0-base2(a2,d0.w*4),wt16_sub_add_p3-base2(a2)
+	move.l	 rd8_sub_add_0-base2(a2,d0.w*4), rd8_sub_add_p3-base2(a2)
+	move.l	rd16_sub_add_0-base2(a2,d0.w*4),rd16_sub_add_p3-base2(a2)
 
 	swap	d7				* PC のベースポインタも変更
-	move.w	d7,d0
-	add.w	d0,d0
-	add.w	d0,d0
-	movea.l	page0-base(a3,d0.w),a4		* （変わってないかもしれないが、
+	movea.l	page0-base(a3,d7.w*4),a4	* （変わってないかもしれないが、
 	swap	d7				*   チェックするより常に変えるほ
 						*   うが早い）
 	rts	
@@ -7804,10 +8938,7 @@ w_port_FC:
 	move.w	4*0(a2,d0.w),page0-base(a3)
 
 	swap	d7				* PC のベースポインタも変更
-	move.w	d7,d0
-	add.w	d0,d0
-	add.w	d0,d0
-	movea.l	page0-base(a3,d0.w),a4		* （変わってないかもしれないが、
+	movea.l	page0-base(a3,d7.w*4),a4	* （変わってないかもしれないが、
 	swap	d7				*   チェックするより常に変えるほ
 						*   うが早い）
 	rts	
@@ -7842,10 +8973,7 @@ w_port_FD:
 	move.w	4*1(a2,d0.w),page1-base(a3)
 
 	swap	d7				* PC のベースポインタも変更
-	move.w	d7,d0
-	add.w	d0,d0
-	add.w	d0,d0
-	movea.l	page0-base(a3,d0.w),a4		* （変わってないかもしれないが、
+	movea.l	page0-base(a3,d7.w*4),a4	* （変わってないかもしれないが、
 	swap	d7				*   チェックするより常に変えるほ
 						*   うが早い）
 	rts	
@@ -7879,10 +9007,7 @@ w_port_FE:
 	move.w	4*2(a2,d0.w),page2-base(a3)
 
 	swap	d7				* PC のベースポインタも変更
-	move.w	d7,d0
-	add.w	d0,d0
-	add.w	d0,d0
-	movea.l	page0-base(a3,d0.w),a4		* （変わってないかもしれないが、
+	movea.l	page0-base(a3,d7.w*4),a4	* （変わってないかもしれないが、
 	swap	d7				*   チェックするより常に変えるほ
 						*   うが早い）
 	rts	
@@ -7917,10 +9042,7 @@ w_port_FF:
 	move.w	4*3(a2,d1.w),page3-base(a3)
 
 	swap	d7				* PC のベースポインタも変更
-	move.w	d7,d0
-	add.w	d0,d0
-	add.w	d0,d0
-	movea.l	page0-base(a3,d0.w),a4		* （変わってないかもしれないが、
+	movea.l	page0-base(a3,d7.w*4),a4	* （変わってないかもしれないが、
 	swap	d7				*   チェックするより常に変えるほ
 						*   うが早い）
 	rts	
@@ -7976,7 +9098,7 @@ PV_:			* ＰＶフラグはＰＶの値のうち１であるビットが偶数個
 	.dc.b	0	* なら１、奇数なら０とする。
 
 *	ＡＦ’用のフラグ保存場所
-HC1_d_:	.dc.b	0
+HC1_d_:	.dc.b	0	* d5 
 HC2_d_:	.dc.b	0
 PV_d_:	.dc.b	0
 	.even
