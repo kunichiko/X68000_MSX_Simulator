@@ -1,0 +1,432 @@
+*
+*	Ｍｓｘ Ｓｉｍｕｌａｔｅｒ
+*		[[ ＢＤＯＳ ＣＡＬＬ Ｒｏｕｔｉｎｅ ]]
+*				1993.10.		by Kuni.
+*
+
+	.include	iocscall.equ
+	.include	doscall.equ
+
+	.xref	vram_adr
+	.xref	FONT_adr
+	.xref	_put
+	.xref	_print
+
+	.xdef	_BDOS
+
+GPAGE0		equ	$c00000		* ＧＲＡＭの先頭アドレス
+
+R09		equ	$e80012		* ＣＲＴＣレジスタ９
+R21		equ	$e8002a
+R23		equ	$e8002e
+pla0		equ	$e00000
+
+V_R02		equ	$e82600		* ビデオコントロールレジスタ２
+
+	.text
+	.even
+
+*
+*	コントロールキャラクタのチェック
+*		d0 に キーコードを入れてコール
+*
+ctrl_check:
+	cmpi.w	#$03,d0			* ブレークキーが押されているか？
+	beq	break
+	cmpi.w	#$10,d0			* ctrl +P が押されているか？
+	beq	start_P_echo		* 押されていたらプリンタへのエコーを開始
+	cmpi.w	#$0e,d0			* ctrl +N が押されているか？
+	beq	stop_P_echo		* 押されていたらプリンタへのエコーを停止
+	rts
+break:
+	rts
+
+start_P_echo:
+	move.w	#1,P_echo
+	rts
+stop_P_echo:
+	clr.w	P_echo
+	rts
+
+P_echo:
+	.dc.w	0			* プリンタへのエコーの有無
+*
+*	コントロール＋Ｓ のチェック
+*		d0 に キーコードを入れてコール
+*
+ctrl_S_check:
+	move.w	#$fe,-(sp)
+	DOS	_INPOUT			* チェックのみ (読み出さない)
+	addq.l	#4,sp
+	cmpi.w	#$13,d0			* ctrl +S が押されているか？
+	beq	wait
+	rts
+wait:
+	DOS	_INKEY			* ctrl +S がバッファに入っているので読み出す
+	DOS	_INKEY			* 何か押されるまで待つ
+	rts
+
+*
+*	エコーバックの処理
+*		d0 に文字コードを入れてコール
+*
+echo_back:
+	move.l	d0,-(sp)
+	bsr	_put
+	addq.l	#4,sp
+
+	rts
+*
+*	int BDOS( int function_no, int parameter); 
+*
+*	d0 は破壊される。返り値がある時はそれが入ってくる。
+*	ファンクションコールが存在しない時は、－１が返る。	
+*
+_BDOS:
+	link	a6,#0
+	movem.l	d1-d4/a0-a3,-(sp)
+
+	move.l	8(a6),d0		* d0 <= ファンクションナンバー
+	cmpi.w	#$70,d0
+	bhi	not_exist
+
+	lsl.w	#2,d0			* d0 *= 4
+	lea.l	func_j_table,a0
+	movea.l	0(a0,d0.w),a0		* ジャンプテーブルから読み出す
+	jmp	(a0)			* 読み出した先へ飛ぶ
+
+not_exist:				* ファンクションナンバーが無効です。
+	move.w	#-1,d0			* -1 を返す。
+return:
+	movem.l	(sp)+,d1-d4/a0-a3
+	unlk	a6
+
+	rts
+
+************** ここからファンクションコールルーチン *************
+term0:
+	bra	return
+con_in:
+	DOS	_INKEY
+	bsr	ctrl_check		* コントロールキャラクタのチェック
+	bsr	echo_back		* エコーバック
+	bra	return
+con_out:
+	move.l	12(a6),d0
+	bsr	echo_back
+	bsr	ctrl_S_check
+	bra	return
+AUX_in:
+	DOS	_COMINP
+	bsr	ctrl_S_check
+	bra	return
+AUX_out:
+	move.w	12+2(a6),-(sp)
+	DOS	_COMOUT
+	addq.l	#2,sp
+	bsr	ctrl_S_check
+	bra	return
+lstout:
+	move.w	12+2(a6),-(sp)
+	DOS	_PRNOUT
+	addq.l	#2,sp
+	bsr	ctrl_S_check
+	bra	return
+dir_IO:
+	bra	return
+dir_in:
+	DOS	_INKEY
+	bra	return
+in_noecho:
+	DOS	_INKEY
+	bsr	ctrl_check		* コントロールキャラクタのチェック
+	bra	return
+strout:
+	bra	return
+bufin:
+	bra	return
+const:
+
+	DOS	_KEYSNS
+	bra	return
+cpmver:
+	move.l	#$0020,d0
+	bra	return
+dskrst:
+	DOS	_FFLUSH
+	bra	return
+seldsk:
+	bra	return
+fopen:
+	bra	return
+fclose:
+	bra	return
+sfirst:
+	bra	return
+snext:
+	bra	return
+fdel:
+	bra	return
+rdseq:
+	bra	return
+wrseq:
+	bra	return
+fmake:
+	bra	return
+fren:
+	bra	return
+login:
+	bra	return
+curdrv:
+	bra	return
+setdta:
+	bra	return
+alloc:
+	bra	return
+rdrnd:				* 0x21
+	bra	return
+wrrnd:
+	bra	return
+fsize:
+	bra	return
+setrnd:
+	bra	return
+wrblk:
+	bra	return
+rdblk:
+	bra	return
+wrzer:
+	bra	return
+gdate:
+	bra	return
+sdate:
+	bra	return
+gtime:
+	bra	return
+stime:
+	bra	return
+verify:
+	bra	return
+rdabs:
+	bra	return
+wrabs:
+	bra	return
+dparm:
+	bra	return
+ffirst:
+	bra	return
+fnext:
+	bra	return
+fnew:
+	bra	return
+open:
+	bra	return
+create:
+	bra	return
+close:
+	bra	return
+ensure:
+	bra	return
+dup:
+	bra	return
+read:
+	bra	return
+write:
+	bra	return
+seek:
+	bra	return
+ioctl:
+	bra	return
+htest:
+	bra	return
+delete:
+	bra	return
+rename:
+	bra	return
+move:
+	bra	return
+attr:
+	bra	return
+ftime:
+	bra	return
+hdelet:
+	bra	return
+hrename:
+	bra	return
+hmove:
+	bra	return
+hattr:
+	bra	return
+hftime:
+	bra	return
+getdta:
+	bra	return
+getvfy:
+	bra	return
+getcd:
+	bra	return
+chdir:
+	bra	return
+parse:
+	bra	return
+pfile:
+	bra	return
+chkchr:
+	bra	return
+wpath:
+	bra	return
+flush:
+	bra	return
+fork:
+	bra	return
+join:
+	bra	return
+term:
+	bra	return
+defab:
+	bra	return
+defer:
+	bra	return
+error:
+	bra	return
+explain:
+	bra	return
+format:
+	bra	return
+ramd:
+	bra	return
+buffer:
+	bra	return
+assign:
+	bra	return
+genv:
+	bra	return
+senv:
+	bra	return
+fenv:
+	bra	return
+dskchk:
+	bra	return
+dosver:
+	bra	return
+redir:
+	bra	return
+
+*********** ここからファンクションコールジャンプテーブル ********
+func_j_table:
+	.dc.l	term0			* 0x00	Program terminate
+	.dc.l	con_in			* 0x01	Console input
+	.dc.l	con_out			* 0x02	Console output
+	.dc.l	AUX_in			* 0x03	Auxiliary input
+	.dc.l	AUX_out			* 0x04	Auxiliary output
+	.dc.l	lstout			* 0x05	Printer output
+	.dc.l	dir_IO			* 0x06	Direct console I/O
+	.dc.l	dir_in			* 0x07	Direct console input
+	.dc.l	in_noecho		* 0x08	Console input without echo
+	.dc.l	strout			* 0x09	String output
+	.dc.l	bufin			* 0x0a	Buffered line input
+	.dc.l	const			* 0x0b	Console status
+	.dc.l	cpmver			* 0x0c	Return CP/M version number
+	.dc.l	dskrst			* 0x0d	Disk reset	
+	.dc.l	seldsk			* 0x0e	Select disk	
+	.dc.l	fopen			* 0x0f	Open file (FCB)
+	.dc.l	fclose			* 0x10	Close file (FCB)
+	.dc.l	sfirst			* 0x11	Search for first (FCB)
+	.dc.l	snext			* 0x12	Search for next (FCB)
+	.dc.l	fdel			* 0x13	Delete file (FCB)
+	.dc.l	rdseq			* 0x14	Read sequential (FCB)
+	.dc.l	wrseq			* 0x15	Write sequential (FCB)
+	.dc.l	fmake			* 0x16	Create file (FCB)
+	.dc.l	fren			* 0x17	Rename file (FCB)
+	.dc.l	login			* 0x18	Get login vector
+	.dc.l	curdrv			* 0x19	Get current drive
+	.dc.l	setdta			* 0x1a	Set disk transfer address
+	.dc.l	alloc			* 0x1b	Get allocation information
+	.dc.l	not_exist		* 0x1c			
+	.dc.l	not_exist		* 0x1d			
+	.dc.l	not_exist		* 0x1e			
+	.dc.l	not_exist		* 0x1f			
+	.dc.l	not_exist		* 0x20			
+	.dc.l	rdrnd			* 0x21	Read random (FCB)
+	.dc.l	wrrnd			* 0x22	Write random (FCB)
+	.dc.l	fsize			* 0x23	Get file size (FCB)
+	.dc.l	setrnd			* 0x24	Set random record (FCB)
+	.dc.l	not_exist		* 0x25			
+	.dc.l	wrblk			* 0x26	Write random block (FCB)
+	.dc.l	rdblk			* 0x27	Read random block (FCB)
+	.dc.l	wrzer			* 0x28	Write random with zero fill (FCB)*/
+	.dc.l	not_exist		* 0x29			
+	.dc.l	gdate			* 0x2a	Get date	
+	.dc.l	sdate			* 0x2b	Set date	
+	.dc.l	gtime			* 0x2c	Get time	
+	.dc.l	stime			* 0x2d	Set time	
+	.dc.l	verify			* 0x2e	Set/reset verify flag
+	.dc.l	rdabs			* 0x2f	Absolute sector read
+	.dc.l	wrabs			* 0x30	Absolute sector write
+	.dc.l	dparm			* 0x31	Get disk parameters
+	.dc.l	ffirst			* 0x40	Find first entry
+	.dc.l	fnext			* 0x41	Find next entry
+	.dc.l	fnew			* 0x42	Find new entry
+	.dc.l	open			* 0x43	Open file handle
+	.dc.l	create			* 0x44	Create file and open handle
+	.dc.l	close			* 0x45	Close file handle
+	.dc.l	ensure			* 0x46	Ensure file handle
+	.dc.l	dup			* 0x47	Duplicate file  andle
+	.dc.l	read			* 0x48	Read from file handle
+	.dc.l	write			* 0x49	Write to file handle
+	.dc.l	seek			* 0x4a	Seek (position file pointer)
+	.dc.l	ioctl			* 0x4b	I/O control for devices
+	.dc.l	htest			* 0x4c	Test file handle
+	.dc.l	delete			* 0x4d	Delete file or subdirectory
+	.dc.l	rename			* 0x4e	Rename file or subdirectory
+	.dc.l	move			* 0x4f	Move file or subdirectory
+	.dc.l	attr			* 0x50	Change file or subdir attributes*/
+	.dc.l	ftime			* 0x51	Get/set file date and time
+	.dc.l	hdelet			* 0x52	Delete file handle
+	.dc.l	hrename			* 0x53	Rename file handle
+	.dc.l	hmove			* 0x54	Move file handle
+	.dc.l	hattr			* 0x55	Change file handle attributes*/
+	.dc.l	hftime			* 0x56	Get/set file handle date and time*/
+	.dc.l	getdta			* 0x57	Get disk transfer address
+	.dc.l	getvfy			* 0x58	Get verify flag setting
+	.dc.l	getcd			* 0x59	Get current directory
+	.dc.l	chdir			* 0x5a	Change directory
+	.dc.l	parse			* 0x5b	Parse pathname
+	.dc.l	pfile			* 0x5c	Parse filename
+	.dc.l	chkchr			* 0x5d	Check character 
+	.dc.l	wpath			* 0x5e	Get whole path string
+	.dc.l	flush			* 0x5f	Flush disk buffers
+	.dc.l	fork			* 0x60	Fork a child process
+	.dc.l	join			* 0x61	Return to parent process
+	.dc.l	term			* 0x62	Terminate with error code
+	.dc.l	defab			* 0x63	Define abort exit routine
+	.dc.l	defer			* 0x64	Def. critical err handle routine
+	.dc.l	error			* 0x65	Get previous error code
+	.dc.l	explain			* 0x66	Explain error code
+	.dc.l	format			* 0x67	Format disk	
+	.dc.l	ramd			* 0x68	Create or destroy RAMdisk
+	.dc.l	buffer			* 0x69	Allocate sector buffers
+	.dc.l	assign			* 0x6a	Logical drive assignment
+	.dc.l	genv			* 0x6b	Get environment item
+	.dc.l	senv			* 0x6c	Set environment item
+	.dc.l	fenv			* 0x6d	Find environment item
+	.dc.l	dskchk			* 0x6e	Get/set disk check status
+	.dc.l	dosver			* 0x6f	Get MSX-DOS version number
+	.dc.l	redir			* 0x70	Get/set redirection flags
+
+
+fnamebuf2:
+	.dc.b	"*       .*  ",0
+
+	.even
+
+filebuf:
+	.ds.b	53 
+
+errmesf:
+	.dc.b	"ファイルエラーです",$0d,$0a,$00
+errmes:
+	.dc.b	"メモリが確保できません",$0d,$0a,$00
+
+	.end
+

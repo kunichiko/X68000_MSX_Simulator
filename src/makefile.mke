@@ -1,0 +1,15 @@
+ms.x: ms.o ms_command.o ms_bdos_sub_mac.o ms_vdp_mac.o ms_sysvalue.o ms_sub_mac.o
+	gcc -ldos -liocs ms.o ms_command.o ms_bdos_sub_mac.o ms_vdp_mac.o ms_sysvalue.o ms_sub_mac.o
+ms.o: ms.c
+	gcc -c -O -g ms.c
+ms_command.o: ms_command.c
+	gcc -c -O ms_command.c
+ms_bdos_sub_mac.o: ms_bdos_sub_mac.has
+	has ms_bdos_sub_mac.has
+ms_vdp_mac.o: ms_vdp_mac.has
+	has ms_vdp_mac.has
+ms_sysvalue.o: ms_sysvalue.has
+	has ms_sysvalue.has
+ms_sub_mac.o: ms_sub_mac.has
+	has ms_sub_mac.has
+

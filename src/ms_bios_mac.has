@@ -1,0 +1,424 @@
+*
+*	ÇUÇWÉlÉCÉeÉBÉuÉãÅ[É`ÉìãyÇ—ÇªÇÃÉWÉÉÉìÉvÉeÅ[ÉuÉã
+*
+*
+
+	.xdef	MS_JPT
+
+MS_JPT:
+	.dc.l	CHKRAM
+	.dc.l	SYNCHR
+	.dc.l	RDSLT
+	.dc.l	CHRGTR
+	.dc.l	WRSLT
+	.dc.l	OUTDO
+	.dc.l	CALSLT
+	.dc.l	DCOMPR
+	.dc.l	ENASLT
+	.dc.l	GETYPR
+	.dc.l	CALLF
+	.dc.l	KEYINT
+	.dc.l	INITIO
+	.dc.l	INIFNK
+
+*	------ ÇuÇcÇo ÉAÉNÉZÉXóp ------
+	.dc.l	DISSCR
+	.dc.l	ENASCR
+	.dc.l	WRTVDP
+	.dc.l	RDVRM
+	.dc.l	WRTVRM
+	.dc.l	SETRD
+	.dc.l	SETWRT
+	.dc.l	FILVRM
+	.dc.l	LDIRMV
+	.dc.l	LDIRVM
+	.dc.l	CHGMOD
+	.dc.l	CJGCLR
+	.dc.l	NMI
+	.dc.l	CLRSPR
+	.dc.l	INITXT
+	.dc.l	INIT32
+	.dc.l	INIGRP
+	.dc.l	INIMLT
+	.dc.l	SETTXT
+	.dc.l	SETT32
+	.dc.l	SETGRP
+	.dc.l	SETMLT
+	.dc.l	CALPAT
+	.dc.l	CALATR
+	.dc.l	GSPSIZ
+	.dc.l	GRPPRT
+
+*	------ ÇoÇrÇf ä÷òA ------
+	.dc.l	GICINI
+	.dc.l	WRTPSG
+	.dc.l	RDPSG
+	.dc.l	STRTMS
+
+*	------ ì¸èoóÕ ------
+	.dc.l	CHSNS
+	.dc.l	CHGET
+	.dc.l	CHPUT
+	.dc.l	LPTOUT
+	.dc.l	LPTSTT
+	.dc.l	CNVCHR
+	.dc.l	PINLIN
+	.dc.l	INLIN
+	.dc.l	QINLIN
+	.dc.l	BREAKX
+	.dc.l	BEEP
+	.dc.l	CLS
+	.dc.l	POSOT
+	.dc.l	FNKSB
+	.dc.l	ERAFNK
+	.dc.l	DSPFNK
+	.dc.l	TOTEXT
+
+*	------ ÇfÇ`ÇlÇd ÇhÅ^Çn ------
+	.dc.l	GTSTCK
+	.dc.l	GTTRIG
+	.dc.l	GETPAD
+	.dc.l	GETPDL
+
+*	------ ÇnÇîÇàÇÖÇí ------
+	.dc.l	CHGCAP
+	.dc.l	CHGSND
+	.dc.l	RSLREG
+	.dc.l	WSLREG
+	.dc.l	RDVDP
+	.dc.l	SNSMAT
+	.dc.l	ISFLIO
+	.dc.l	OUTDLP
+	.dc.l	KILBUF
+	.dc.l	CALBAS
+
+*	------ ÇlÇrÇwÇQ ä÷òA ------
+	.dc.l	SUBROM
+	.dc.l	EXTROM
+	.dc.l	EOL
+	.dc.l	BIGFIL
+	.dc.l	NSETRD
+	.dc.l	NSTWRT
+	.dc.l	NRDVRM
+	.dc.l	NWRVRM
+
+*	------ ÇlÇrÇwÇQÅ{ ä÷òA ------
+	.dc.l	RDRES
+	.dc.l	WRRES
+
+*	------ ÇîÇïÇíÇÇÇèÇq ä÷òA ------
+	.dc.l	CHGCPU
+	.dc.l	GETCPU
+	.dc.l	PCMPLY
+	.dc.l	PCMREC
+
+*	------ ÇrÇtÇaÅ|ÇqÇnÇl ------
+	.dc.l	GRPPRT
+	.dc.l	NVBXLN
+	.dc.l	NVBXFL
+	.dc.l	CHGMOD
+	.dc.l	INITXT
+	.dc.l	INIT32
+	.dc.l	INIGRP
+	.dc.l	INIMLT
+	.dc.l	SETTXT
+	.dc.l	SETT32
+	.dc.l	SETGRP
+	.dc.l	SETMLT
+	.dc.l	CLRSPR
+	.dc.l	CALPAT
+	.dc.l	CALATR
+	.dc.l	GSPSIZ
+	.dc.l	GETPAT
+	.dc.l	WRTVRM
+	.dc.l	RDVRM
+	.dc.l	CHGCLR
+	.dc.l	CLSSUB
+	.dc.l	DSPFNK
+	.dc.l	WRTVDP
+	.dc.l	VDPSTA
+	.dc.l	SETPAG
+	.dc.l	INIPLT
+	.dc.l	RSTPLT
+	.dc.l	GETPLT
+	.dc.l	SETPLT
+	.dc.l	BEEP2
+	.dc.l	PROMPT
+	.dc.l	NEWPAD
+	.dc.l	CHGMDP
+	.dc.l	KNJPRT
+	.dc.l	REDCLK
+	.dc.l	WRTCLK
+
+
+*	------ ÇqÇrÇs ä÷åW ------
+CHKRAM:
+	rts
+SYNCHR:
+	rts
+RDSLT:
+	rts
+CHRGTR:
+	rts
+WRSLT:
+	rts
+OUTDO:
+	rts
+CALSLT:
+	rts
+DCOMPR:
+	rts
+ENASLT:
+	rts
+GETYPR:
+	rts
+CALLF:
+	rts
+KEYINT:
+	rts
+INITIO:
+	rts
+INIFNK:
+	rts
+
+*	------ ÇuÇcÇo ÉAÉNÉZÉXóp ------
+DISSCR:
+	rts
+ENASCR:
+	rts
+WRTVDP:
+	rts
+RDVRM:
+	rts
+WRTVRM:
+	rts
+SETRD:
+	rts
+SETWRT:
+	rts
+FILVRM:
+	rts
+LDIRMV:
+	rts
+LDIRVM:
+	rts
+CHGMOD:
+	rts
+CJGCLR:
+	rts
+NMI:
+	rts
+CLRSPR:
+	rts
+INITXT:
+	rts
+INIT32:
+	rts
+INIGRP:
+	rts
+INIMLT:
+	rts
+SETTXT:
+	rts
+SETT32:
+	rts
+SETGRP:
+	rts
+SETMLT:
+	rts
+CALPAT:
+	rts
+CALATR:
+	rts
+GSPSIZ:
+	rts
+GRPPRT:
+	rts
+
+*	------ ÇoÇrÇf ä÷òA ------
+GICINI:
+	rts
+WRTPSG:
+	rts
+RDPSG:
+	rts
+STRTMS:
+	rts
+
+*	------ ì¸èoóÕ ------
+CHSNS:
+	rts
+CHGET:
+	rts
+CHPUT:
+	rts
+LPTOUT:
+	rts
+LPTSTT:
+	rts
+CNVCHR:
+	rts
+PINLIN:
+	rts
+INLIN:
+	rts
+QINLIN:
+	rts
+BREAKX:
+	rts
+BEEP:
+	rts
+CLS:
+	rts
+POSOT:
+	rts
+FNKSB:
+	rts
+ERAFNK:
+	rts
+DSPFNK:
+	rts
+TOTEXT:
+	rts
+
+*	------ ÇfÇ`ÇlÇd ÇhÅ^Çn ------
+GTSTCK:
+	rts
+GTTRIG:
+	rts
+GETPAD:
+	rts
+GETPDL:
+	rts
+
+*	------ ÇnÇîÇàÇÖÇí ------
+CHGCAP:
+	rts
+CHGSND:
+	rts
+RSLREG:
+	rts
+WSLREG:
+	rts
+RDVDP:
+	rts
+SNSMAT:
+	rts
+ISFLIO:
+	rts
+OUTDLP:
+	rts
+KILBUF:
+	rts
+CALBAS:
+	rts
+
+*	------ ÇlÇrÇwÇQ ä÷òA ------
+SUBROM:
+	rts
+EXTROM:
+	rts
+EOL:
+	rts
+BIGFIL:
+	rts
+NSETRD:
+	rts
+NSTWRT:
+	rts
+NRDVRM:
+	rts
+NWRVRM:
+	rts
+
+*	------ ÇlÇrÇwÇQÅ{ ä÷òA ------
+RDRES:
+	rts
+WRRES:
+	rts
+
+*	------ ÇîÇïÇíÇÇÇèÇq ä÷òA ------
+CHGCPU:
+	rts
+GETCPU:
+	rts
+PCMPLY:
+	rts
+PCMREC:
+	rts
+
+*	------ ÇrÇtÇaÅ|ÇqÇnÇl ------
+GRPPRT:
+	rts
+NVBXLN:
+	rts
+NVBXFL:
+	rts
+CHGMOD:
+	rts
+INITXT:
+	rts
+INIT32:
+	rts
+INIGRP:
+	rts
+INIMLT:
+	rts
+SETTXT:
+	rts
+SETT32:
+	rts
+SETGRP:
+	rts
+SETMLT:
+	rts
+CLRSPR:
+	rts
+CALPAT:
+	rts
+CALATR:
+	rts
+GSPSIZ:
+	rts
+GETPAT:
+	rts
+WRTVRM:
+	rts
+RDVRM:
+	rts
+CHGCLR:
+	rts
+CLSSUB:
+	rts
+DSPFNK:
+	rts
+WRTVDP:
+	rts
+VDPSTA:
+	rts
+SETPAG:
+	rts
+INIPLT:
+	rts
+RSTPLT:
+	rts
+GETPLT:
+	rts
+SETPLT:
+	rts
+BEEP2:
+	rts
+PROMPT:
+	rts
+NEWPAD:
+	rts
+CHGMDP:
+	rts
+KNJPRT:
+	rts
+REDCLK:
+	rts
+WRTCLK:
+	rts
+
+	.end

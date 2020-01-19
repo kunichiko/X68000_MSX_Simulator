@@ -1,0 +1,645 @@
+*
+*	Ｍｓｘ Ｓｉｍｕｌａｔｅｒ
+*		[[ ＢＤＯＳ ＣＡＬＬ ＳＵＢ ]]
+*				1993.10.		by Kuni.
+*
+
+	.include	iocscall.equ
+	.include	doscall.equ
+
+	.xdef	_put
+	.xdef	_print
+	.xdef	_locate
+	.xdef	_set_width
+	.xdef	_set_screen
+
+	.xref	vram_adr
+	.xref	FONT_adr
+
+GPAGE0		equ	$c00000		* ＧＲＡＭの先頭アドレス
+
+R09		equ	$e80012		* ＣＲＴＣレジスタ９
+R21		equ	$e8002a
+R23		equ	$e8002e
+pla0		equ	$e00000
+
+V_R02		equ	$e82600		* ビデオコントロールレジスタ２
+
+	.text
+	.even
+
+********************************************************************************
+*
+*	文字表示のためのサブルーチン群
+*
+********************************************************************************
+*
+*	１文字表示
+*
+*  (例)
+*	put( int char_cord);
+*
+_put:
+	link	a6,#0
+	movem.l	d0-d4/a0-a3,-(sp)
+
+	bsr	select_putchar	* a3 = put_char ルーチンのアドレス
+
+	move.l	8(a6),d0	* 表示する文字コード
+
+	movea.l	carsol_g_address,a1
+	movea.l	carsol_v_address,a2
+
+	jsr	(a3)		* jsr put_char
+
+	addq.w	#1,locate_x	* Ｘ座標を１増加
+	move.w	width,d0
+	cmp.w	locate_x,d0	* Ｘ座標が端まで達したら改行
+	beq	put_cord_13
+
+put_next:
+	move.l	a1,carsol_g_address
+	move.l	a2,carsol_v_address
+
+************ カーソル表示 *************
+	move.l	screen_mode,d0	* スクリーンモードが１より大きいならば飛ばし
+	cmpi.l	#1,d0
+	bhi	put_end
+	move.w	cur_mode,d0	* カーソル非表示モードなら飛ばし
+	beq	put_end
+
+	move.l	#255,d0
+	jsr	(a3)		* カーソル表示
+
+put_end:
+	movem.l	(sp)+,d0-d4/a0-a3
+	unlk	a6
+
+	rts
+
+put_cord_13:
+	clr.w	locate_x
+	addq.w	#1,locate_y
+	bsr	calc_gram
+
+	bra	put_next		
+
+*
+*	文字列表示
+*
+*  (例)
+*	print( (char *)strings);
+*
+_print:
+	link	a6,#0
+	movem.l	d0-d4/a0-a4,-(sp)
+
+	movea.l	8(a6),a4	* a4 = 文字列へののポインタ
+
+	bsr	select_putchar	* a3 = put_char ルーチンのアドレス
+
+	movea.l	carsol_g_address,a1
+	movea.l	carsol_v_address,a2
+
+loop1_print:
+	clr.l	d0
+	move.b	(a4)+,d0	* d0 = 表示する文字のキャラクターコード
+	beq	print_end	* d0 = 0  なら終了
+
+	cmp.b	#10,d0		* d0 = 10,13 なら改行処理
+	beq	cord_13
+	cmp.b	#13,d0
+	beq	cord_13
+
+	cmp.b	#32,d0		* その他のコントロールコードは飛ばす。
+	bmi	loop1_print
+	jsr	(a3)		* jsr put_char
+
+	addq.w	#1,locate_x
+	move.w	width,d0
+	cmp.w	locate_x,d0	* Ｘ座標が端まで達したら改行
+	beq	cord_13
+
+	bra	loop1_print
+	
+print_end:
+	move.l	a1,carsol_g_address
+	move.l	a3,carsol_v_address
+
+************ カーソル表示 *************
+	move.l	screen_mode,d0	* スクリーンモードが１より大きいならば飛ばし
+	cmpi.l	#1,d0
+	bhi	print_end2
+	move.w	cur_mode,d0	* カーソル非表示モードなら飛ばし
+	beq	print_end2
+
+	move.l	#255,d0
+	jsr	(a3)		* カーソル表示
+print_end2:
+	movem.l	(sp)+,d0-d4/a0-a4
+	unlk	a6
+
+	rts
+
+cord_13:
+	clr.w	locate_x
+	addq.w	#1,locate_y
+	bsr	calc_gram
+
+	bra	loop1_print
+
+*
+*	カーソルの座標から、表示するＧＲＡＭアドレスを計算
+*
+*	a1 ・・・・ 次に表示するＧＲＡＭアドレス
+*	a2 ・・・・ 次に表示するＶＲＡＭアドレス
+*
+calc_gram:
+	movem.l	d0-d1,-(sp)
+
+	movea.l	#GPAGE0,a1
+	movea.l	vram_adr,a2
+
+	move.w	screen_mode,d0
+	beq	screen0
+	cmpi.w	#1,d0
+	beq	screen1
+
+next_calc:
+	movem.l	(sp)+,d0-d1
+	rts			* screen 0,1 以外では文字は表示しない
+				* （グラフィックとして扱う）
+screen0:
+	move.w	screen0_mode,d0
+	beq	width40_mode_calc
+
+* screen0 width80 の時
+	move.w	locate_x,d0	* 表示するＸ座標
+	ext.l	d0
+	lsl.l	#1,d0		* d0 = d0 x 6(dot) x 2(byte)
+	move.l	d0,d1		* d1 = d0x2
+	lsl.l	#1,d0		* d0 = d0x4
+	add.l	d1,d0		* d0 = d0x2 + d0x4 = d0x6 
+	adda.l	d0,a1
+	move.w	locate_y,d0	* 表示するＹ座標
+	ext.l	d0
+	swap	d0		* d0 = d0 x 65536
+	lsr.l	#2,d0		* d0 = d0 / 4
+	adda.l	d0,a1		* a1 = a1 + (d0 x 1024x2x8)
+
+	move.w	locate_y,d0
+	lsl.w	#4,d0		* d0 = d0x16
+	move.w	d0,d1
+	lsl.w	#2,d0		* d0 = d0x64
+	add.w	d1,d0		* d0 = d0x16 + d0x64 = d0x80
+	add.w	locate_x,d0 
+	ext.l	d0
+	adda.l	d0,a2
+
+	bra	next_calc
+
+* screen0 width40 の時
+width40_mode_calc:
+	move.w	locate_x,d0	* 表示するＸ座標
+	ext.l	d0
+	lsl.l	#2,d0		* d0 = d0 x 6(dot) x 2(byte) x 2(倍)
+	move.l	d0,d1		* d1 = d0x4
+	lsl.l	#1,d0		* d0 = d0x8
+	add.l	d1,d0		* d0 = d0x4 + d0x8 = d0 x12 
+	adda.l	d0,a1
+	move.w	locate_y,d0	* 表示するＹ座標
+	ext.l	d0
+	swap	d0		* d0 = d0 x 65536
+	lsr.l	#2,d0		* d0 = d0 / 4
+	adda.l	d0,a1		* a1 = a1 + (d0 x 1024x2x8)
+
+	move.w	locate_y,d0
+	lsl.w	#3,d0		* d0 = d0x8
+	move.w	d0,d1
+	lsl.w	#2,d0		* d0 = d0x32
+	add.w	d1,d0		* d0 = d0x8 + d0x32 = d0 x40
+	add.w	locate_x,d0
+	ext.l	d0
+	adda.l	d0,a2
+
+	bra	next_calc
+		
+screen1:
+	move.w	locate_x,d0	* 表示するＸ座標
+	ext.l	d0
+	lsl.l	#5,d0		* d0 = d0 x 8(dot) x 2(byte) x 2(倍) = d0 x 32 
+	adda.l	d0,a1
+	move.w	locate_y,d0	* 表示するＹ座標
+	ext.l	d0
+	swap	d0		* d0 = d0 x 65536
+	lsr.l	#2,d0		* d0 = d0 / 4
+	adda.l	d0,a1		* a1 = a1 + (d0 x 1024x2x8)
+
+	adda.l	#$1800,a2	* a2 = パターンネームテーブル
+	move.w	locate_y,d0
+	lsl.w	#5,d0		* d0 = d0 x 32
+	add.w	locate_x,d0
+	ext.l	d0
+	adda.l	d0,a2
+
+	bra	next_calc
+
+*
+*	スクリーンモードに応じて put_char ルーチンを選択し、
+*	そのアドレスを a3 に返すルーチン
+*
+select_putchar:
+	move.w	screen_mode,d0		* d0 = スクリーンモード
+	beq	s0_putchar
+	cmpi.w	#1,d0
+	beq	s1_putchar
+
+	lea.l	put_char_other,a3	* その他のモード  の時
+	rts
+
+s0_putchar:
+	move.w	screen0_mode,d0
+	beq	width40_mode
+
+	lea.l	put_char_s0_1,a3	* screen0 width80 の時
+	rts
+
+width40_mode:
+	lea.l	put_char_s0_0,a3	* screen0 width40 の時
+	rts
+
+s1_putchar:
+	lea.l	put_char_s1,a3		* screen1	  の時
+	rts
+
+*
+*	文字キャラクタ表示
+*
+*	d0.l ・・・ キャラクタコード 0 ～ 255
+*	a1.l ・・・ 表示するＧＲＡＭアドレス
+*	a2.l ・・・ 表示するＶＲＡＭアドレス
+*
+* (返り値)
+*	d1,d2,d3,d4,a0 ・・・ 破壊
+*	a1 ・・・・ 次に表示するＧＲＡＭアドレス
+*	a2 ・・・・ 次に表示するＶＲＡＭアドレス
+*
+put_char_other:			* 文字を表示できないモードの時はここを呼ぶ
+	rts			* 要するに何もしない
+
+put_char_s0_0:
+	movea.l	FONT_adr,a0	* a0 = フォントのある先頭アドレス
+
+	lsl.w	#3,d0		* d0 *= 8
+	adda.l	d0,a0		* a0 = 表示するフォントのアドレス
+
+	move.w	fore_color,d2	* ２ドット同時書き込みするため
+	swap	d2
+	move.w	fore_color,d2
+	move.w	back_color,d3
+	swap	d3
+	move.w	back_color,d3
+
+	moveq.l	#4,d0		* ループカウンタ
+loop1_put_char:
+	move.w	(a0)+,d1	* d1 = フォントデータ
+
+
+	moveq.l	#6,d4		* ループカウンタ
+loop2_put_char:
+	lsl.w	#1,d1		* 最上位ビットを送り出す
+	bcc	not0_1		* 最上位ビットが１でなければ次へ	
+	move.l	d2,1024(a1)	* 前景色を表示
+	move.l	d2,(a1)+
+	bra	next0_1
+not0_1:	move.l	d3,1024(a1)	* 背景色を表示
+	move.l	d3,(a1)+	* 背景色を表示
+next0_1:
+	subq.w	#1,d4
+	bne	loop2_put_char
+
+	adda.l	#1024+1024-24,a1	* １ライン下げる
+	lsl.w	#2,d1
+
+	moveq.l	#6,d4		* ループカウンタ
+loop3_put_char:
+	lsl.w	#1,d1		* 最上位ビットを送り出す
+	bcc	not0_2		* 最上位ビットが１でなければ次へ	
+	move.l	d2,1024(a1)	* 前景色を表示
+	move.l	d2,(a1)+
+	bra	next0_2
+not0_2:	move.l	d3,1024(a1)	* 背景色を表示
+	move.l	d3,(a1)+	* 背景色を表示
+next0_2:
+	subq.w	#1,d4
+	bne	loop3_put_char
+
+	adda.l	#1024+1024-24,a1	* １ライン下げる
+
+
+	subq.w	#1,d0
+	bne	loop1_put_char
+
+	suba.l	#1024*16-24,a1	
+	rts
+
+
+put_char_s0_1:
+	movea.l	FONT_adr,a0	* a0 = フォントのある先頭アドレス
+
+	lsl.w	#3,d0		* d0 *= 8
+	adda.l	d0,a0		* a0 = 表示するフォントのアドレス
+
+	move.w	fore_color,d2
+	move.w	back_color,d3
+
+	moveq.l	#4,d0		* ループカウンタ
+loop4_put_char:
+	move.w	(a0)+,d1	* d1 = フォントデータ
+
+
+	moveq.l	#6,d4		* ループカウンタ
+loop5_put_char:
+	lsl.w	#1,d1		* 最上位ビットを送り出す
+	bcc	not0_3		* 最上位ビットが１でなければ次へ	
+	move.w	d2,1024(a1)	* 前景色を表示
+	move.w	d2,(a1)+
+	bra	next0_3
+not0_3:	move.w	d3,1024(a1)	* 背景色を表示
+	move.w	d3,(a1)+	* 背景色を表示
+next0_3:
+	subq.w	#1,d4
+	bne	loop5_put_char
+
+	adda.l	#1024+1024-12,a1	* １ライン下げる
+	lsl.w	#2,d1
+
+	moveq.l	#6,d4		* ループカウンタ
+loop6_put_char:
+	lsl.w	#1,d1		* 最上位ビットを送り出す
+	bcc	not0_4		* 最上位ビットが１でなければ次へ	
+	move.w	d2,1024(a1)	* 前景色を表示
+	move.w	d2,(a1)+
+	bra	next0_4
+not0_4:	move.w	d3,1024(a1)	* 背景色を表示
+	move.w	d3,(a1)+	* 背景色を表示
+next0_4:
+	subq.w	#1,d4
+	bne	loop6_put_char
+
+	adda.l	#1024+1024-12,a1	* １ライン下げる
+
+
+	subq.w	#1,d0
+	bne	loop4_put_char
+
+	suba.l	#1024*16-12,a1	
+	rts
+
+
+put_char_s1:
+	movea.l	FONT_adr,a0	* a0 = フォントのある先頭アドレス
+
+	lsl.w	#3,d0		* d0 *= 8
+	adda.l	d0,a0		* a0 = 表示するフォントのアドレス
+
+	move.w	fore_color,d2	* ２ドット同時書き込みするため
+	swap	d2
+	move.w	fore_color,d2
+	move.w	back_color,d3
+	swap	d3
+	move.w	back_color,d3
+
+	moveq.l	#4,d0		* ループカウンタ
+loop7_put_char:
+	move.w	(a0)+,d1	* d1 = フォントデータ
+
+	moveq.l	#8,d4		* ループカウンタ
+loop8_put_char:
+	lsl.w	#1,d1		* 最上位ビットを送り出す
+	bcc	not1_1		* 最上位ビットが１でなければ次へ	
+	move.l	d2,1024(a1)	* 前景色を表示
+	move.l	d2,(a1)+
+	bra	next1_1
+not1_1:	move.l	d3,1024(a1)	* 背景色を表示
+	move.l	d3,(a1)+	* 背景色を表示
+next1_1:
+	subq.w	#1,d4
+	bne	loop8_put_char
+
+	adda.l	#1024+1024-32,a1	* １ライン下げる
+
+	moveq.l	#8,d4		* ループカウンタ
+loop9_put_char:
+	lsl.w	#1,d1		* 最上位ビットを送り出す
+	bcc	not1_2		* 最上位ビットが１でなければ次へ	
+	move.l	d2,1024(a1)	* 前景色を表示
+	move.l	d2,(a1)+
+	bra	next1_2
+not1_2:	move.l	d3,1024(a1)	* 背景色を表示
+	move.l	d3,(a1)+	* 背景色を表示
+next1_2:
+	subq.w	#1,d4
+	bne	loop9_put_char
+
+	adda.l	#1024+1024-32,a1	* １ライン下げる
+
+
+	subq.w	#1,d0
+	bne	loop7_put_char
+
+	suba.l	#1024*16-32,a1	
+
+	rts
+
+*
+*	カーソル位置指定
+*
+*  (例)
+*	locate( int x, int y);
+*
+_locate:
+	link	a6,#0
+	movem.l	d0/a1,-(sp)
+
+	move.l	 8(a6),d0	* d0 = x
+	move.w	d0,locate_x	
+
+	move.l	12(a6),d0	* d0 = y
+	move.w	d0,locate_y
+
+	bsr	calc_gram
+	move.l	a1,carsol_g_address
+	move.l	a3,carsol_v_address
+
+	movem.l	(sp)+,d0/a1
+	unlk	a6
+
+	rts
+
+*
+*	画面表示幅設定
+*
+*	int set_width( int size);
+*
+_set_width:
+	link	a6,#0
+
+	move.l	d1,-(sp)
+	move.l	8(a6),d0	* d0 = 表示幅
+
+	move.w	screen_mode,d1
+	beq	screen0_wi
+
+	cmpi.w	#32,d0
+	bhi	over_wi		* スクリーン１で３２より大きい時はエラー
+	move.w	d0,width_s1
+
+	bra	next_set_width
+
+screen0_wi:
+	cmpi.w	#40,d0		* 表示幅が４０よりも大きい時
+	bhi	width80_mode_wi
+
+	move.w	d0,width_s0
+	bra	next_set_width
+
+width80_mode_wi:
+	cmpi.w	#80,d0		* スクリーン０で８０より大きい時はエラー
+	bhi	over_wi
+	move.w	d0,width_s0
+
+next_set_width:
+	move.l	d1,-(sp)	* スクリーンを初期化
+	bsr	_set_screen
+	addq.l	#4,sp
+
+	clr.l	d0		* エラー無しのサイン
+
+	move.l	(sp)+,d1
+	unlk	a6
+	rts
+
+over_wi:			* 設定できない数値を指定してきた時
+	move.l	#$ffff_ffff,d0	* エラーコードとして－１を帰す
+
+	move.l	(sp)+,d1
+	unlk	a6
+	rts
+
+*
+*	文字表示のためのワークエリア
+*
+width:
+	.dc.w	80
+width_s0:
+	.dc.w	80
+width_s1:
+	.dc.w	32
+	
+carsol_g_address:		* 次に表示するＧＲＡＭアドレス
+	.dc.l	GPAGE0
+
+carsol_v_address:		* 次に表示するＶＲＡＭアドレス
+	.dc.l	0
+
+
+screen_mode:
+	.dc.w	0		* 現在のスクリーンモード
+screen0_mode:
+	.dc.w	1		* ０・・width40  １・・width80
+
+locate_x:			*カーソルの座標
+	.dc.w	0
+locate_y:
+	.dc.w	0
+cur_mode:
+	.dc.w	1		* カーソルの表示／非表示 (０・・非表示 １・・表示)
+
+
+fore_color:			* 表示する文字の前景色
+	.dc.w	15
+back_color:			* 表示する文字の背景色
+	.dc.w	0
+
+********************************************************************
+*
+*	スクリーンモード指定及び初期化
+*
+*	int set_screen( int screen_mode);
+*
+********************************************************************
+_set_screen:
+	link	a6,#0
+	move.l	d1,-(sp)
+	clr.l	d1
+
+	move.l	8(a6),d0	* d0 = スクリーンモード
+	move.w	d0,screen_mode
+
+	beq	screen0_set_sc
+
+	move.w	width,d0
+	move.w	d0,width_s1
+
+	bra	next_set_sc
+
+screen0_set_sc:
+	move.w	width,d0
+	cmpi.w	#40,d0		* 表示幅が４０よりも大きい時
+	bhi	width80_mode
+
+	move.w	d0,width_s0
+	clr.w	screen0_mode
+	bra	next_set_sc
+
+width80_mode:
+	cmpi.w	#80,d0		* スクリーン０で８０より大きい時はエラー
+	bhi	over_set_sc
+	move.w	d0,width_s0
+	move.w	#1,screen0_mode
+
+next_set_sc:
+	clr.l	-(sp)
+	clr.l	-(sp)
+	bsr	_locate		* カーソル位置を（ ０, ０）に
+	addq.l	#8,sp
+
+	move.l	d1,d0
+	move.l	(sp)+,d1
+	unlk	a6
+
+	rts
+
+over_set_sc:			* 設定できない数値を指定してきた時
+	ori.l	#$ffff_ffff,d1	* エラーコードとして－１を帰す
+
+	move.l	(sp)+,d1
+	unlk	a6
+	rts
+
+*
+*		ワークエリア
+*
+	.data
+	.even
+
+fnamebuf0:
+	.dc.b	"        .SP ",0
+fnamebuf1:
+	.dc.b	"        .PAL",0
+
+fnamebuf2:
+	.dc.b	"*       .*  ",0
+
+	.even
+
+filebuf:
+	.ds.b	53 
+
+errmesf:
+	.dc.b	"ファイルエラーです",$0d,$0a,$00
+errmes:
+	.dc.b	"メモリが確保できません",$0d,$0a,$00
+
+	.end

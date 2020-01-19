@@ -1,0 +1,162 @@
+*	動作試験プログラム
+
+*	 31     16 15       0
+*	｜        ｜   ｜ A ｜  d4	Ａレジスタ
+*	｜        ｜   ｜HC1｜  d5	フラグ
+*	｜        ｜ F ｜ SZ｜  d6	フラグ
+*	｜ PC page｜PC(16k) ｜	d7
+*	｜     registers    ｜	a3	a3 = レジスターの格納されているアドレス
+*	｜    PC Base ADD   ｜	a4
+*
+*	PC Base ADD + PC(16k) = 実アドレス
+*
+*	PC page は PC(R800) の上位２ビットの値が入っている
+*
+*		PC(R800)  $8100  =   %10___000001_00000000  
+*
+*		=> d7 %00000000_00000010_00000001_00000000
+*
+*	flag = 00000000
+*		   | |+--Cy
+*		   | +---N
+*		   +-----HC のモード。0の時通常モード。1の時 ADC,SBC モード。
+*
+*	registers:
+*	a:	.dc.b	0		* Ａレジスタは d4 に入ってるから使わない
+*	f:	.dc.b	0
+*	b:	.dc.b	0
+*	c:	.dc.b	0
+*	d:	.dc.b	0
+*	e:	.dc.b	0
+*	h:	.dc.b	0
+*	l:	.dc.b	0
+*
+*	ix_h:	.dc.b	0
+*	ix_l:	.dc.b	0
+*	iy_h:	.dc.b	0
+*	iy_l:	.dc.b	0
+*
+*	s:	.dc.b	0
+*	p:	.dc.b	0
+*
+*	    7  6  5  4  3  2  1  0
+*	F:| s| z|  | H|  |PV| N|CY|
+*
+*		H と P/V は、その 0,1 を判定するための値をそれぞれ
+*		HC1,HC2 と PV に保存し、必用な時に計算する。
+*
+*		S と Z は、その 0,1 を判断するための値を SZ に保存
+*		し、必用な時に計算する。
+*
+
+	.68000
+
+	.include	iocscall.equ
+	.include	doscall.equ
+
+	.text
+	.even
+
+	.xref	_emulate
+
+	.xref	page0
+	.xref	page1
+	.xref	page2
+	.xref	page3
+
+	.xdef	MS_JPT			* ６８ネイティブルーチンのジャンプテーブル
+	.xdef	VDP			* VDP処理ルーチンのアドレス
+
+
+	.xdef	wt_VDP_0
+	.xdef	wt_VDP_1
+	.xdef	wt_VDP_2
+	.xdef	wt_VDP_3
+
+	.xdef	rd_VDP_0
+	.xdef	rd_VDP_1
+	.xdef	rd_VDP_2
+	.xdef	rd_VDP_3
+
+headerlength	equ	8		* 各ページの情報を示したヘッダーの長さ
+
+a	equ	0
+f	equ	1	
+b	equ	2	
+c	equ	3	
+d	equ	4
+e	equ	5
+h	equ	6
+l	equ	7
+ix_h	equ	8
+ix_l	equ	9
+iy_h	equ	10
+iy_l	equ	11
+s	equ	12
+p	equ	13
+
+bc	equ	2
+de	equ	4
+hl	equ	6
+ix	equ	8
+iy	equ	10
+sp_	equ	12
+
+
+MS_JPT:			* ６８ネイティブルーチンのジャンプテーブル
+VDP:			* VDP処理ルーチンのアドレス
+
+wt_VDP_0:
+wt_VDP_1:
+wt_VDP_2:
+wt_VDP_3:
+rd_VDP_0:
+rd_VDP_1:
+rd_VDP_2:
+rd_VDP_3:
+
+start:
+	lea.l	$10(a0),a0
+	suba.l	a0,a1
+	move.l	a1,-(sp)
+	move.l	a0,-(sp)
+	DOS	_SETBLOCK
+	addq.l	#8,sp
+
+	move.l	#$10000,-(sp)
+	DOS	_MALLOC
+	addq.l	#4,sp
+
+	lea.l	base,a3
+
+	move.l	d0,page0-base(a3)
+	add.l	#$4000,d0
+	move.l	d0,page1-base(a3)
+	add.l	#$4000,d0
+	move.l	d0,page2-base(a3)
+	add.l	#$4000,d0
+	move.l	d0,page3-base(a3)
+
+	sub.l	#$c000,d0
+	move.l	d0,-(sp)
+
+	move.w	#0,-(sp)
+	pea.l	filename
+	DOS	_OPEN
+	lea.l	6(sp),sp
+
+	move.l	(sp)+,d1
+
+	move.l	#$1000,-(sp)		* とりあえず $1000 バイトだけ
+	move.l	d1,-(sp)
+	move.w	d0,-(sp)
+	DOS	_READ
+	lea	10(sp),sp
+
+	bra	_emulate
+
+filename:
+	.dc.b	'TEST.COM',0
+
+	.end
+

@@ -1,0 +1,7 @@
+r800_00.x: r800.0 ms_r800_mac_00.o
+	hlk -o R800_00 R800.o ms_r800_mac_00.o
+r800.0: R800.has
+	has R800.has
+ms_r800_mac_00.o: ms_r800_mac_00.has
+	has ms_r800_mac_00.has
+
