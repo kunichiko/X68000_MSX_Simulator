@@ -12,13 +12,23 @@
 #include <string.h>
 #include <iocslib.h>
 #include <doslib.h>
+#include <x68k/iocs.h>
+#include <x68k/dos.h>
 #include "ms.h"
 
 #define	segments	4
 
+void emulate( void);
+void initialize( void);
+void MMemSet( void *, int);
+void VDPSet( void *);
+void SetROM( void *, char *, int, int, int);
+int PSG_INIT( void);
+void ms_exit( void);
+
 void main() {
-void *MMem,*VideoRAM,*MainROM1,*MainROM2,*SUBROM;
-int a,i;
+	void *MMem,*VideoRAM,*MainROM1,*MainROM2,*SUBROM;
+	int a,i;
 
 	if ( _iocs_b_super( 0) < 0)
 		;
@@ -64,6 +74,8 @@ int a,i;
 											
 	if( PSG_INIT() != 0)
 		printf("‚o‚r‚f‚Ì‰Šú‰»‚ÉŽ¸”s‚µ‚Ü‚µ‚½\n");
+
+	printf("X680x0 MSXƒVƒ~ƒ…ƒŒ[ƒ^[ with elf2x68k\n");
 
 	emulate();
 	

@@ -13,6 +13,8 @@
 #include <unistd.h>
 #include <iocslib.h>
 #include <doslib.h>
+#include <x68k/iocs.h>
+#include <x68k/dos.h>
 
 #define h_length 8
 

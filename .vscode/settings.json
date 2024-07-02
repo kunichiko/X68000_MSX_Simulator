@@ -2,5 +2,6 @@
     "files.associations": {
         "dirent.h": "c",
         "_types.h": "c"
-    }
+    },
+    "files.encoding": "shiftjis"
 }
