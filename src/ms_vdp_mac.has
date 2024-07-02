@@ -93,7 +93,8 @@ IERA		equ	$e88007
 *
 ***************************************************************
 read_vdp_0:				* ＶＲＡＭの読み込み
-	movea.l	read_rot(pc),a0
+	* movea.l	read_rot(pc),a0
+	movea.l    read_rot,a0
 	jmp	(a0)
 
 read_vdp_1:				* ステータスレジスタの読みだし
@@ -101,7 +102,9 @@ read_vdp_1:				* ステータスレジスタの読みだし
 	andi.w	#%00001111,d0
 	add.w	d0,d0
 	add.w	d0,d0
-	move.l	r_SReg_jpt(pc,d0.w),a0
+	*move.l	r_SReg_jpt(pc,d0.w),a0
+	lea		r_SReg_jpt,a0 
+	move.l	(a0,d0.w),a0
 	jmp	(a0)
 
 r_SReg_jpt:
@@ -123,15 +126,18 @@ r_SReg_jpt:
 	.dc.l	r_SReg_f
 
 r_SReg_0:
-	move.b	S_0(pc),d0
+	*move.b	S_0(pc),d0
+	move.b	S_0,d0
 	bclr.b	#7,S_0			* ビット７は読み出すとリセットされる
 	rts
 r_SReg_1:
-	move.b	S_1(pc),d0
+	*move.b	S_1(pc),d0
+	move.b	S_1,d0
 	bclr.b	#1,S_1			* ビット１は読み出すとリセットされる
 	rts
 r_SReg_2:
-	move.b	S_2(pc),d0
+	*move.b	S_2(pc),d0
+	move.b	S_2,d0
 	move.b	GPIP,d1			* いったんレジスタに読んだ方がいいと思うから
 	btst.l	#7,d1			* 水平帰線期間かどうか
 	beq	@f
@@ -141,25 +147,32 @@ r_SReg_2:
 	ori.b	#%01000000,d0
 @@:	rts
 r_SReg_3:
-	move.b	S_3(pc),d0
+	*move.b	S_3(pc),d0
+	move.b	S_3,d0
 	rts
 r_SReg_4:
-	move.b	S_4(pc),d0
+	*move.b	S_4(pc),d0
+	move.b	S_4,d0
 	rts
 r_SReg_5:
-	move.b	S_5(pc),d0
+	*move.b	S_5(pc),d0
+	move.b	S_5,d0
 	rts
 r_SReg_6:
-	move.b	S_6(pc),d0
+	*move.b	S_6(pc),d0
+	move.b	S_6,d0
 	rts
 r_SReg_7:
-	move.b	S_7(pc),d0
+	*move.b	S_7(pc),d0
+	move.b	S_7,d0
 	rts
 r_SReg_8:
-	move.b	S_8(pc),d0
+	*move.b	S_8(pc),d0
+	move.b	S_8,d0
 	rts
 r_SReg_9:
-	move.b	S_9(pc),d0
+	*move.b	S_9(pc),d0
+	move.b	S_9,d0
 	rts
 r_SReg_f:
 	move.b	#$ff,d0
@@ -180,7 +193,7 @@ read_vdp_3:
 *
 ***************************************************************
 write_vdp_0:				* VRAM への書き込み
-	movea.l	write_rot(pc),a0
+	movea.l	write_rot,a0
 	jmp	(a0)
 
 write_vdp_1:
@@ -231,7 +244,7 @@ write_vdp_2:				* パレットレジスタへの書き込み
 	andi.b	#%00001111,R_16
 	andi.w	#$000f,d0
 	add.w	d0,d0
-	lea.l	P_0(pc),a0
+	lea.l	P_0,a0
 	move.w	d1,0(a0,d0.w)
 
 	move.w	display_mode,d0
@@ -338,7 +351,8 @@ write_vdp_3:
 @@:	move.w	d0,d2
 	add.w	d2,d2
 	add.w	d2,d2
-	move.l	w_CReg_jpt(pc,d2.w),a0
+	lea		w_CReg_jpt,a0
+	move.l	(a0,d2.w),a0
 	jmp	(a0)
 
 
@@ -350,7 +364,8 @@ incmode:
 @@:	move.w	d0,d2
 	add.w	d2,d2
 	add.w	d2,d2
-	move.l	w_CReg_jpt(pc,d2.w),a0
+	lea		w_CReg_jpt,a0
+	move.l	(a0,d2.w),a0
 	jmp	(a0)
 	
 
@@ -365,7 +380,8 @@ set_CReg_Direct:
 	move.w	d0,d2
 	add.w	d2,d2
 	add.w	d2,d2
-	move.l	w_CReg_jpt(pc,d2.w),a0
+	lea		w_CReg_jpt,a0
+	move.l	(a0,d2.w),a0
 	jmp	(a0)
 
 
@@ -2366,7 +2382,7 @@ no_com:
 	move.b	d1,d0
 	move.w	d0,d2
 	lsr.w	#4,d0
-	lea.l	HEX(pc),a0
+	lea.l	HEX,a0
 	move.b	0(a0,d0.w),number+0
 	andi.w	#$0f,d2
 	move.b	0(a0,d2.w),number+1
@@ -2385,7 +2401,7 @@ POINT_G5:
 	move.b	d1,d0
 	move.w	d0,d2
 	lsr.w	#4,d0
-	lea.l	HEX(pc),a0
+	lea.l	HEX,a0
 	move.b	0(a0,d0.w),number+0
 	andi.w	#$0f,d2
 	move.b	0(a0,d2.w),number+1
@@ -2401,7 +2417,7 @@ POINT_G5:
 *
 PSET_G4:
 	bsr	get_D_gram_add_G4
-	move.b	CLR(pc),d0
+	move.b	CLR,d0
 	andi.w	#%00000011,d0
 	move.w	d0,(a0)
 
@@ -2409,7 +2425,7 @@ PSET_G4:
 
 PSET_G5:
 	bsr	get_D_gram_add_G5
-	move.b	CLR(pc),d0
+	move.b	CLR,d0
 	andi.w	#%00000011,d0
 	move.w	d0,(a0)
 
@@ -2423,7 +2439,7 @@ SRCH_G5:
 	move.b	d1,d0
 	move.w	d0,d2
 	lsr.w	#4,d0
-	lea.l	HEX(pc),a0
+	lea.l	HEX,a0
 	move.b	0(a0,d0.w),number+0
 	andi.w	#$0f,d2
 	move.b	0(a0,d2.w),number+1
@@ -2444,14 +2460,14 @@ LINE_G5:
 
 	bsr	get_D_gram_add_G5	* 始点のＧＲＡＭアドレス（DX,DYから求める）
 
-	move.b	ARG(pc),d1
+	move.b	ARG,d1
 	bclr.l	#0,d1			* MAJ のテスト
 	bne	9f			* 長辺がＹ方向の時
 
-	move.w	NY(pc),d5
+	move.w	NY,d5
 *	subq.w	#1,d5			* d5 = Ｙ方向の長さ
 	
-	move.w	NX(pc),d2		* d2 = 長辺ドット数
+	move.w	NX,d2		* d2 = 長辺ドット数
 *	subq.w	#1,d2			* d2 = Ｘ方向の長さ
 
 	bclr.l	#2,d1			* DIX を調べる
@@ -2467,7 +2483,7 @@ LINE_G5:
 1:	move.l	#-1024*2,d1
 	sub.w	d5,DY
 @@:
-	move.b	CLR(pc),d6		* color
+	move.b	CLR,d6		* color
 	andi.w	#%00000011,d6
 
 	move.w	d2,d4
@@ -2502,7 +2518,7 @@ LMMV_G5:
 	move.b	d1,d0
 	move.w	d0,d2
 	lsr.w	#4,d0
-	lea.l	HEX(pc),a0
+	lea.l	HEX,a0
 	move.b	0(a0,d0.w),number+0
 	andi.w	#$0f,d2
 	move.b	0(a0,d2.w),number+1
@@ -2521,7 +2537,7 @@ LMMM_G5:
 	move.b	d1,d0
 	move.w	d0,d2
 	lsr.w	#4,d0
-	lea.l	HEX(pc),a0
+	lea.l	HEX,a0
 	move.b	0(a0,d0.w),number+0
 	andi.w	#$0f,d2
 	move.b	0(a0,d2.w),number+1
@@ -2540,7 +2556,7 @@ LMCM_G5:
 	move.b	d1,d0
 	move.w	d0,d2
 	lsr.w	#4,d0
-	lea.l	HEX(pc),a0
+	lea.l	HEX,a0
 	move.b	0(a0,d0.w),number+0
 	andi.w	#$0f,d2
 	move.b	0(a0,d2.w),number+1
@@ -2564,10 +2580,10 @@ LMMC_G5:
 	bsr	get_D_gram_add_G5	* 始点のＧＲＡＭアドレス（DX,DYから求める）
 	movea.l	d0,a0
 
-	move.w	NY(pc),d5
-	move.w	NX(pc),d2
+	move.w	NY,d5
+	move.w	NX,d2
 	
-	move.b	ARG(pc),d1
+	move.b	ARG,d1
 	bclr.l	#2,d1			* DIX を調べる
 	bne	1f
 	move.l	#2,d0
@@ -2576,16 +2592,16 @@ LMMC_G5:
 @@:	andi.b	#%00001000,d1		* DIY を調べる
 	bne	1f
 	move.l	#1024*2,d1
-	move.w	DY(pc),d6
+	move.w	DY,d6
 	add.w	d5,d6
 	move.w	d6,NEXT_DY		* コマンド終了時のDYを設定
 	bra	@f
 1:	move.l	#-1024*2,d1
-	move.w	DY(pc),d6
+	move.w	DY,d6
 	add.w	d5,d6
 	move.w	d6,NEXT_DY		* コマンド終了時のDYを設定
 @@:
-	move.b	CLR(pc),d6		* color
+	move.b	CLR,d6		* color
 	andi.w	#%00000011,d6
 
 	move.l	a0,g_add_2
@@ -2597,12 +2613,12 @@ LMMC_G5:
 	bne	@f
 	add.l	d1,g_add_2
 	move.l	g_add_2,a0
-	move.w	NX(pc),d2		* loop_x 再設定
+	move.w	NX,d2		* loop_x 再設定
 	subq.w	#1,d5
 	bne	@f
 
 	andi.b	#%11111110,S_2		* コマンド終了
-	move.w	NEXT_DY(pc),DY
+	move.w	NEXT_DY,DY
 	move.l	#w_CLR,MC_add
 
 	movem.l	(sp)+,d4-d6
@@ -2623,22 +2639,22 @@ LMMC_G5:
 
 DO_LMMC_G5:
 	andi.w	#%00000011,d1
-	move.l	g_add(pc),a0
+	move.l	g_add,a0
 
 	move.w	d1,(a0)
 
-	adda.l	add_x(pc),a0
+	adda.l	add_x,a0
 	subq.w	#1,loop_x		* loop_x -= 1
 	bne	@f
-	move.l	add_y(pc),d1
+	move.l	add_y,d1
 	add.l	d1,g_add_2
 	move.l	g_add_2,a0
-	move.w	NX(pc),loop_x		* loop_x 再設定
+	move.w	NX,loop_x		* loop_x 再設定
 	subq.w	#1,loop_y
 	bne	@f
 
 	andi.b	#%11111110,S_2		* コマンド終了
-	move.w	NEXT_DY(pc),DY
+	move.w	NEXT_DY,DY
 	move.l	#w_CLR,MC_add
 	rts
 
@@ -2671,7 +2687,7 @@ HMMV_G5:
 	move.b	d1,d0
 	move.w	d0,d2
 	lsr.w	#4,d0
-	lea.l	HEX(pc),a0
+	lea.l	HEX,a0
 	move.b	0(a0,d0.w),number+0
 	andi.w	#$0f,d2
 	move.b	0(a0,d2.w),number+1
@@ -2690,7 +2706,7 @@ HMMM_G5:
 	move.b	d1,d0
 	move.w	d0,d2
 	lsr.w	#4,d0
-	lea.l	HEX(pc),a0
+	lea.l	HEX,a0
 	move.b	0(a0,d0.w),number+0
 	andi.w	#$0f,d2
 	move.b	0(a0,d2.w),number+1
@@ -2709,7 +2725,7 @@ YMMM_G5:
 	move.b	d1,d0
 	move.w	d0,d2
 	lsr.w	#4,d0
-	lea.l	HEX(pc),a0
+	lea.l	HEX,a0
 	move.b	0(a0,d0.w),number+0
 	andi.w	#$0f,d2
 	move.b	0(a0,d2.w),number+1
@@ -2728,7 +2744,7 @@ HMMC_G5:
 	move.b	d1,d0
 	move.w	d0,d2
 	lsr.w	#4,d0
-	lea.l	HEX(pc),a0
+	lea.l	HEX,a0
 	move.b	0(a0,d0.w),number+0
 	andi.w	#$0f,d2
 	move.b	0(a0,d2.w),number+1
@@ -2761,13 +2777,13 @@ w_SPRITE:
 *		a0.l	求めたアドレス
 *
 get_S_gram_add_G5:
-	move.w	SY(pc),d0
+	move.w	SY,d0
 	andi.l	#%00000011_11111111,d0
 	add.w	#$00c0*32,d0		* gram base add
 	swap	d0
 	lsr.l	#5,d0			* d0.l = $c00000 + SY * 2048
-	add.w	SX(pc),d0		* ワードでＯＫ
-	add.w	SX(pc),d0		* d0.1 = $c00000 + SY * 2048 + SX * 2
+	add.w	SX,d0		* ワードでＯＫ
+	add.w	SX,d0		* d0.1 = $c00000 + SY * 2048 + SX * 2
 	movea.l	d0,a0
 	rts
 
@@ -2778,26 +2794,26 @@ get_S_gram_add_G5:
 *		a0.l	求めたアドレス
 *
 get_D_gram_add_G4:
-	move.w	DY(pc),d0
+	move.w	DY,d0
 	andi.l	#%00000011_11111111,d0
 	add.w	#$00c0*32,d0		* gram base add
 	swap	d0
 	lsr.l	#5,d0			* d0.l = $c00000 + DY * 2048
 	movea.l	d0,a0
-	move.w	DX(pc),d0		* ワードでＯＫ
+	move.w	DX,d0		* ワードでＯＫ
 	add.w	d0,d0
 	add.w	d0,d0
 	adda.w	d0,a0			* a0.l = $c00000 + DY * 2048 + DX * 4
 	rts
 
 get_D_gram_add_G5:
-	move.w	DY(pc),d0
+	move.w	DY,d0
 	andi.l	#%00000011_11111111,d0
 	add.w	#$00c0*32,d0		* gram base add
 	swap	d0
 	lsr.l	#5,d0			* d0.l = $c00000 + DY * 2048
-	add.w	DX(pc),d0		* ワードでＯＫ
-	add.w	DX(pc),d0		* d0.l = $c00000 + DY * 2048 + DX * 2
+	add.w	DX,d0		* ワードでＯＫ
+	add.w	DX,d0		* d0.l = $c00000 + DY * 2048 + DX * 2
 	movea.l	d0,a0
 	rts
 

@@ -446,7 +446,7 @@ _new_read_200:
 	rts
 
 _new_read_210:
-	print	msg00(pc)
+	print	msg00
 
 	DOS	__EXIT
 

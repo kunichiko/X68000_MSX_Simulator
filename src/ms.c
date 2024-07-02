@@ -10,8 +10,8 @@
 
 #include <stdio.h>
 #include <string.h>
-#include <sys/iocs.h>
-#include <sys/dos.h>
+#include <iocslib.h>
+#include <doslib.h>
 #include "ms.h"
 
 #define	segments	4
