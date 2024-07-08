@@ -1,0 +1,30 @@
+{
+    // IntelliSense を使用して利用可能な属性を学べます。
+    // 既存の属性の説明をホバーして表示します。
+    // 詳細情報は次を確認してください: https://go.microsoft.com/fwlink/?linkid=830387
+    "version": "0.2.0",
+    "configurations": [
+
+        {
+            "name": "Remote debug",
+            "type": "cppdbg",
+            "request": "launch",
+            "program": "${workspaceFolder}/src/ms.x.elf",
+            "stopAtEntry": false,
+            "cwd": "${workspaceFolder}",
+            "environment": [],
+            "externalConsole": false,
+            "MIMode": "gdb",
+            "miDebuggerPath": "/opt/local/bin/ggdb",
+            "miDebuggerServerAddress": "/tmp/ttyV1",
+            "miDebuggerArgs": "",
+            "setupCommands": [
+                {
+                    "description": "gdb の再フォーマットを有効にする",
+                    "text": "-enable-pretty-printing",
+                    "ignoreFailures": true
+                },
+            ]
+        }
+    ]
+}
