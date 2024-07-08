@@ -1,7 +1,15 @@
 {
     "files.associations": {
         "dirent.h": "c",
-        "_types.h": "c"
+        "_types.h": "c",
+        "*.has": "platformio-debug.asm"
     },
-    "files.encoding": "shiftjis"
+    "files.encoding": "shiftjis",
+    "editor.detectIndentation": false,
+    "editor.renderWhitespace": "all",
+    "editor.insertSpaces": false,
+    "[platformio-debug.asm]": {
+        "editor.detectIndentation": false,
+        "editor.tabSize": 8
+    }
 }
