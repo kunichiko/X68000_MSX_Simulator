@@ -14,11 +14,13 @@ LDFLAGS = -lm -lbas -liocs -ldos
 
 ASFLAGS = -i /Users/ohnaka/work/XEiJ/HFS/XGCC/INCLUDE/ -w0
 
-all: ms.x
+all: ms.x copy_to_target
+
+copy_to_target:
+	cp ms.x /Users/ohnaka/work/XEiJ/HFS/MS.X/
 
 ms.x: ms.o ms_R800_mac_30.o ms_vdp_mac.o ms_sysvalue.o ms_sub_mac.o ms_IO_PORT.o ms_PSG_mac.o ms_readcart.o
 	$(LD) $(LDFLAGS) -o ms.x ms.o ms_R800_mac_30.o ms_vdp_mac.o ms_sysvalue.o ms_sub_mac.o ms_IO_port.o ms_PSG_mac.o ms_readcart.o
-# mv ms.x 実行ディレクトリ
 
 %.o: %.c
 	$(CC) $(CFLAGS) $<

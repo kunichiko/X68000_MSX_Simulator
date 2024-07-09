@@ -19,6 +19,7 @@
 
 	.xref	S_0
 
+	.xref	emu_yield
 	.xref	interrupt_status
 
 	.xref	active_page
@@ -28,7 +29,7 @@
 	.xdef	KEY_vector
 	.xdef	NMI_vector
 
-	.xdef	_initialize
+	.xdef	_ms_init
 	.xdef	_ms_exit
 	.xdef	_MMemSet
 	.xdef	_VDPSet
@@ -77,16 +78,21 @@ print:		macro	msg
 *
 *	システムの設定
 *
-	movea.l	#0,a1	
-	IOCS	__VDISPST
-*	void initialize();
+*	movea.l	#0,a1	
+*	IOCS	__VDISPST
+*	void _ms_init();
 *
-_initialize:
+_ms_init:
 	link	a6,#0
 	move.l	a0,-(sp)
 
+	move.w	sr,d0
+	move.w	d0,-(sp)
+	or.w	#%00000111_00000000,d0	* 一時的に割り込み禁止
+	move.w	d0,sr
+
 @@:	move.w	#1,d1			* 毎回割り込み
-	lea.l	interrupt,a1	
+	lea.l	interrupt,a1
 	IOCS	__VDISPST
 	move.l	d0,d0
 	beq	@f
@@ -102,15 +108,19 @@ _initialize:
 
 	andi.b	#%00001110,$e9c001	* プリンタの割り込みを禁止
 
+	* ベクタ $4cは、MFP Receive Buffer Full (キーデータの受信データあり)
+	* (X68000 環境ハンドブック参照)
 	move.w	#$4c,d1
 	lea.l	KEY_INT,a1
 	IOCS	__B_INTVCS
-	move.l	d0,KEY_vector	* 元のアドレスを保存
+	move.l	d0,KEY_vector		* 元のアドレスを保存
 
 *	move.w	#$1f,d1
 *	lea.l	NMI_INT,a1
 *	IOCS	__B_INTVCS
-*	move.l	d0,NMI_vector	* 元のアドレスを保存
+*	move.l	d0,NMI_vector		* 元のアドレスを保存
+
+	move.w	(sp)+,sr		* 割り込み復帰
 
 	move.l	(sp)+,a0
 	unlk	a6
@@ -122,7 +132,12 @@ NMI_INT:
 	rte
 
 _ms_exit:
-	clr.l	a1	
+	move.w	sr,d0
+	move.w	d0,-(sp)		* sr を保存
+	or.w	#%00000111_00000000,d0	* 一時的に割り込み禁止
+	move.w	d0,sr
+
+	clr.l	a1			* 垂直同期割り込みを禁止
 	IOCS	__VDISPST
 
 	move.w	#$4c,d1
@@ -133,13 +148,10 @@ _ms_exit:
 *	movea.l	NMI_vector,a1
 *	IOCS	__B_INTVCS
 
-	move.w	sr,d0
-	move.w	d0,-(sp)
-	or.w	#%00000111_00000000,d0		* 割り込み禁止
-	move.w	d0,sr
-	clr.l	a1
+	clr.l	a1			* OPM割り込みを禁止
 	IOCS	__OPMINTST
-	move.w	(sp)+,sr			* 割り込み復帰
+
+	move.w	(sp)+,sr		* sr を復元
 
 	DOS	__EXIT
 
@@ -147,8 +159,9 @@ interrupt:
 	subq.b	#1,int_cnt
 	beq	@f
 	rte
-@@:	move.b	#2,int_cnt
+@@:	move.b	#1,int_cnt		* 割り込み間引き率 (1は毎回)
 	bset.b	#0,interrupt_status	* 割り込みをかける	
+	move.b	#1,emu_yield
 	bset.b	#7,S_0
 
 	rte
@@ -202,6 +215,7 @@ _MMemSet:
 *
 _VDPSet:
 	link	a6,#0
+	movem.l	d3-d7/a0-a5,-(sp)
 
 	move.l	 8(a6),VideoRAM		* Sysvalue にセット
 
@@ -246,7 +260,9 @@ _VDPSet:
 
 	move.w	#%001000011_1100100,VCRR_1	* プライオリティの設定
 
+	movem.l	(sp)+,d3-d7/a0-a5
 	unlk	a6
+
 	rts
 
 
@@ -261,6 +277,7 @@ _VDPSet:
 *
 _SetROM:
 	link	a6,#0
+	movem.l	d3-d7/a0-a5,-(sp)
 
 	movea.l	8(a6),a0
 	move.b	16+3(a6),(a0)		* ROM の種類をセット
@@ -289,6 +306,7 @@ _SetROM:
 	DOS	__CLOSE			* 前にセットしたファイルハンドルを流用
 	lea	10(sp),sp
 
+	movem.l	(sp)+,d3-d7/a0-a5
 	unlk	a6
 	rts
 
@@ -307,6 +325,7 @@ _SetROM:
 *
 _set_cartridge:
 	link	a6,#0
+	movem.l	d3-d7/a0-a5,-(sp)
 
 *	まだやってない
 
@@ -323,6 +342,7 @@ _set_cartridge:
 	add.w	d1,d0
 	move.l	(sp)+,0(a0,d0.w)
 
+	movem.l	(sp)+,d3-d7/a0-a5
 	unlk	a6
 	rts
 
@@ -333,11 +353,13 @@ _set_cartridge:
 *
 _new_malloc:
 	link	a6,#0
+	movem.l	d3-d7/a0-a5,-(sp)
 
 	move.l	8(a6),-(sp)
 	DOS	__MALLOC
 	lea.l	4(sp),sp
 
+	movem.l	(sp)+,d3-d7/a0-a5
 	unlk	a6
 	rts
 

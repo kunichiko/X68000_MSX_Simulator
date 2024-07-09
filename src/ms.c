@@ -2,81 +2,307 @@
 
 		ＭＳＸ.Ｓｉｍｕｌａｔｅｒ [[ MS ]]
 				[[スタートアッププログラム ]]
-								
+
 	ver. 0.01	prpgramed by Kuni.
 										1995.9.15
 
 */
 
 #include <stdio.h>
+#include <stdlib.h>
 #include <string.h>
+#include <unistd.h>
+#include <ctype.h>
 #include <iocslib.h>
 #include <doslib.h>
 #include <x68k/iocs.h>
 #include <x68k/dos.h>
 #include "ms.h"
 
-#define	segments	4
+#define NUM_SEGMENTS 4
 
-void emulate( void);
-void initialize( void);
+void emulater_ini(void);
+int emulate( int(*)(int));
+void ms_init( void);
+void ms_exit( void);
 void MMemSet( void *, int);
 void VDPSet( void *);
-void SetROM( void *, char *, int, int, int);
+
+/*
+  SlotにROMをセットします。
+	int SetROM( (void *)address, (char *)filename, (int)kind, (int)slot, (int)page);
+
+  引数：
+	void *ROM		: ROMのアドレス
+	char *ROMName	: ROMファイル名
+	int size		: ROMのサイズ
+	int slot		: スロット番号
+	int page		: ページ番号
+
+  スロット番号の詳細：
+	slot %0000ssxx
+		ss: 基本スロット番号
+		xx: 拡張スロット番号
+
+	戻り値：(ちゃんと実装されていないかもしれません)
+		0	: 正常終了
+		-1	: エラー
+*/
+void SetROM( void* address, const char* filename, int kind, int slot, int page);
 int PSG_INIT( void);
-void ms_exit( void);
 
-void main() {
-	void *MMem,*VideoRAM,*MainROM1,*MainROM2,*SUBROM;
-	int a,i;
+int emuLoop(int);
+void allocateAndSetROM(size_t size, const char* romFileName, int param1, int param2, int param3);
 
-	if ( _iocs_b_super( 0) < 0)
-		;
+void printHelpAndExit(char* progname) {
+	fprintf(stderr, "Usage: %s [-m1 MAINROM1_PATH] [-m2 MAINROM2_PATH] [-r11 ROM1_PATH] [-r12 ROM2_PATH]\n", progname);
+	exit(EXIT_FAILURE);
+}
 
-	initialize();								/* システムの初期化				*/
+/*
+	メイン関数
 
-	MMem = new_malloc( 64*1024 + 8*segments);	/* ６４Ｋ + ８バイト＊総セグメント数	*/
-	if( MMem > (void *)0x81000000 ) {
- 		printf("メモリが確保できません\n");
+	起動オプション：
+		-m1 filename	: MAIN ROMを指定したものに変更します(前半16K)
+		-m2 filename	: MAIN ROMを指定したものに変更します(後半16K)
+		-rxx filename	: スロットにfilenameをセットします
+			xx: 10の位 = スロット番号, 1の位 = ページ番号
+			例：-r11 GAME1.ROM	: スロット1-ページ1にGAME1.ROMをセット				
+*/
+int main(int argc, char *argv[]) {
+	void *MMem, *VideoRAM, *MainROM1, *MainROM2, *SUBROM, *SLOT1_1, *ROM, *SLOT1_2;
+	int a, i;
+	char *mainrom1_path = "MAINROM1.ROM"; // デフォルトのMAIN ROM1パス
+	char *mainrom2_path = "MAINROM2.ROM"; // デフォルトのmAIN ROM2パス
+	char *cartridge_path[4][4]; // カートリッジのパス
+	int opt;
+
+	printf("MSX Simulator\n");
+
+	for (int i = 0; i < 4; i++) {
+		for (int j = 0; j < 4; j++) {
+			cartridge_path[i][j] = NULL;
+		}
+	}
+
+	// コマンドラインオプションの解析
+	while ((opt = getopt(argc, argv, "m:r:")) != -1)
+	{
+		switch (opt)
+		{
+		case 'm': // -mN オプション
+			if (strlen(optarg) == 1 && isdigit(optarg[0]))
+			{ 
+				if (argv[optind] != NULL)
+				{
+					if (optarg[0] == '1')
+					{
+						mainrom1_path = argv[optind++];
+					} else if (optarg[0] == '2')
+					{
+						mainrom2_path = argv[optind++];
+					}
+				}
+			}
+			break;
+		case 'r': // -rNN オプション
+			if (strlen(optarg) == 2 && isdigit(optarg[0]) && isdigit(optarg[1])) {
+				// -r に続く2桁の数字を取得
+				int num = atoi(optarg);
+				int slot = (num / 10);
+				int page = num % 10; // 1の位がpage
+				if ( slot >= 0 && slot <= 3 && page >= 0 && page <= 3) {
+					// 次の引数（ROMファイル名）を取得
+					if (argv[optind] != NULL)
+					{
+						cartridge_path[slot][page] = argv[optind++];
+					}
+					else
+					{
+						printf("ROMファイル名が指定されていません\n");
+						ms_exit();
+					}
+				} else {
+					printf("スロット番号が不正です\n");
+					printHelpAndExit(argv[0]);
+				}
+			}
+			break;
+		default: /* '?' */
+			printHelpAndExit(argv[0]);
+			break;
+		}
+	}
+
+	if (_iocs_b_super(0) < 0)
+	{
+		printf("スーパーバイザーモードに移行できませんでした\n");
+		return -1;
+	}
+
+	printf("ms_init: enter\n");
+	ms_init(); /* システムの初期化				*/
+	printf("ms_init: exit\n");
+
+	MMem = new_malloc(64 * 1024 + 8 * NUM_SEGMENTS); /* ６４Ｋ + ８バイト＊総セグメント数	*/
+	if (MMem > (void *)0x81000000)
+	{
+		printf("メモリが確保できません\n");
 		ms_exit();
 	}
-	MMemSet( MMem, (int)segments);					/* アセンブラのルーチンへ引き渡し		*/
+	MMemSet(MMem, (int)NUM_SEGMENTS); /* アセンブラのルーチンへ引き渡し		*/
 
-	VideoRAM = new_malloc( 128*1024);		/* ＶＲＡＭ １２８Ｋ 					*/
-	if( VideoRAM > (void *)0x81000000 ) {
- 		printf("メモリが確保できません\n");
+	VideoRAM = new_malloc(128 * 1024); /* ＶＲＡＭ １２８Ｋ 					*/
+	if (VideoRAM > (void *)0x81000000)
+	{
+		printf("メモリが確保できません\n");
 		ms_exit();
 	}
-	VDPSet( VideoRAM);						/* アセンブラのルーチンへ引き渡し		*/
-											/* 画面の初期化等						*/
+	printf("VDPSet: enter\n");
+	VDPSet(VideoRAM); /* アセンブラのルーチンへ引き渡し		*/
+					  /* 画面の初期化等						*/
+	printf("VDPSet: exit\n");
 
-	MainROM1 = new_malloc( 16*1024+8);		/* ＭＡＩＮＲＯＭ（前半） １６Ｋ 		*/
-	if( MainROM1 > (void *)0x81000000 ) {
- 		printf("メモリが確保できません\n");
-		ms_exit();
-	}
-	SetROM( MainROM1,"MAINROM1.ROM", (int)2, (int)0x00, (int)0 );
-	
-	MainROM2 = new_malloc( 16*1024+8);		/* ＭＡＩＮＲＯＭ（前半） １６Ｋ 		*/
-	if( MainROM2 > (void *)0x81000000 ) {
- 		printf("メモリが確保できません\n");
-		ms_exit();
-	}
-	SetROM( MainROM2,"MAINROM2.ROM", (int)2, (int)0x00, (int)1 );
+	/* ＭＡＩＮＲＯＭ（前半:16K, 後半:16K */
+	allocateAndSetROM(16 * 1024, mainrom1_path, 2, 0x00, 0);
+	allocateAndSetROM(16 * 1024, mainrom2_path, 2, 0x00, 1);
+	/* ＳＵＢＲＯＭ 16K */
+	allocateAndSetROM(16 * 1024, "SUBROM.ROM", 2, 0x0d, 0);
 
-	SUBROM = new_malloc( 16*1024+8);		/* ＳＵＢＲＯＭ １６Ｋ 					*/
-	if( SUBROM > (void *)0x81000000 ) {
- 		printf("メモリが確保できません\n");
-		ms_exit();
+	/* 基本スロット1-ページ1のROM配置 (32KBytesゲームの前半16Kなど）	*/
+	//	allocateAndSetROM( 16 * 1024,"GAME1.ROM", (int)2, (int)0x04, (int)1 );
+	/* 基本スロット1-ページ1のROM配置 (32KBytesゲームの後半16Kなど）	*/
+	//	allocateAndSetROM( 16 * 1024,"GAME2.ROM", (int)2, (int)0x04, (int)2 );
+
+	for (int i = 0; i < 4; i++) {
+		for (int j = 0; j < 4; j++) {
+			if ( cartridge_path[i][j] != NULL) {
+				allocateAndSetROM(16 * 1024, cartridge_path[i][j], 2, i<<2, j);
+			}
+		}
 	}
-	SetROM( SUBROM,"SUBROM.ROM", (int)2, (int)0x0d, (int)0 );
-											
-											
-	if( PSG_INIT() != 0)
+
+
+	printf("PSG\n");
+	if (PSG_INIT() != 0)
+	{
 		printf("ＰＳＧの初期化に失敗しました\n");
+		ms_exit();
+	}
 
 	printf("X680x0 MSXシミュレーター with elf2x68k\n");
 
-	emulate();
-	
+	printf("emu-ini\n");
+	emulater_ini();
+	printf("emu-ini exit\n");
+	emulate(emuLoop);
+
+	printf("終了します\n");
+
+	ms_exit();
+}
+
+/*
+ X68000の _BITSNS で得られるキーマトリクスをMSXのキーマトリクスに変換するためのマッピング
+
+ - X68000側のマトリクス
+	- X68000環境ハンドブック 「p287 _BITSNS」 参照
+ - MSX側のマトリクス
+	- MSXデータパック p12 「2.5 キーボード」 参照
+ */
+unsigned short KEY_MAP[][8] = {
+	//  [    ][ESC ][1   ][2   ][3   ][4   ][5   ][6   ] 
+	{   0xf00,0x704,0x002,0x004,0x008,0x010,0x020,0x040},
+	//  [7   ][8   ][9   ][0   ][-   ][^   ][\   ][BS  ] 
+	{   0x080,0x101,0x102,0x001,0x104,0x108,0x110,0x720},
+	//  [TAB ][Q   ][W   ][E   ][R   ][T   ][Y   ][U   ] 
+	{   0x708,0x440,0x510,0x304,0x480,0x502,0x540,0x504},
+	//  [I   ][O   ][P   ][@   ][ [  ][RET ][ A  ][ S  ] 
+	{   0x340,0x410,0x420,0x120,0x140,0x780,0x240,0x501},
+	//  [ D  ][ F  ][ G  ][ H  ][ J  ][ K  ][ L  ][ ;+ ] 
+	{   0x302,0x308,0x310,0x320,0x380,0x401,0x402,0x180},
+	//  [ :* ][ ]  ][ Z  ][ X  ][ C  ][ V  ][ B  ][ N  ] 
+	{   0x201,0x203,0x580,0x520,0x301,0x508,0x280,0x408},
+	//  [ M  ][ ,< ][ .> ][ /  ][ _  ][ SP ][HOME][DEL ]  HOME=CLS
+	{   0x404,0x204,0x208,0x210,0x220,0x801,0x802,0x808}, 
+	//  [RUP ][RDWN][UNDO][LEFT][UP  ][RIGT][DOWN][CLR ]
+	{   0xf00,0xf00,0xf00,0x810,0x820,0x880,0x840,0xf00},
+	//  [(/) ][(*) ][(-) ][(7) ][(8) ][(9) ][(+) ][(4) ]  TEN KEYs
+	{   0xf00,0xf00,0xf00,0xf00,0xf00,0xf00,0xf00,0xf00},
+	//  [(5) ][(6) ][(=) ][(1) ][(2) ][(3) ][ENTR][(0) ]  TEN KEYs
+	{   0xf00,0xf00,0xf00,0xf00,0xf00,0xf00,0xf00,0xf00},
+	//  [(,) ][(.) ][KIGO][TORK][HELP][XF1 ][XF2 ][XF3 ]  登録=エミュレータ終了
+	{   0xf00,0xf00,0xf00,0xfff,0xf00,0xf00,0xf00,0xf00},
+	//  [XF4 ][XF5 ][KANA][ROME][CODE][CAPS][INS ][HIRA]
+	{   0xf00,0xf00,0x610,0xf00,0xf00,0xf00,0xf00,0xf00},
+	//  [ZENK][BRAK][COPY][ F1 ][ F2 ][ F3 ][ F4 ][ F5 ]  BRAK=STOP
+	{   0xf00,0x710,0xf00,0xf00,0xf00,0xf00,0xf00,0xf00},
+	//  [ F6 ][ F7 ][ F8 ][ F9 ][ F10][    ][    ][    ]
+	{   0xf00,0xf00,0xf00,0xf00,0xf00,0xf00,0xf00,0xf00},
+	//  [SHFT][CTRL][OPT1][OPT2][    ][    ][    ][    ]  OPT1=GRAPH
+	{   0x601,0x602,0x604,0xf00,0xf00,0xf00,0xf00,0xf00},
+	//  [    ][    ][    ][    ][    ][    ][    ][    ]
+	{   0xf00,0xf00,0xf00,0xf00,0xf00,0xf00,0xf00,0xf00}
+};
+
+extern unsigned char* KEYSNS_tbl_ptr;
+
+int divider = 0;
+
+int emuLoop(int pc) {
+	unsigned short map;
+	unsigned char X, Y;
+
+	//if (divider++ < 2) {
+	//	return 0;
+	//}
+	//divider = 0;
+	// キースキャン
+	for (int i = 0; i < 0x0f; i++)
+	{
+		KEYSNS_tbl_ptr[i] = 0xff;
+	}
+	for (int i = 0; i < 0x0f; i++)
+	{
+		int v = _iocs_bitsns(i);
+		//int v = 0;
+		for (int j = 0; j < 8; j++)
+		{
+			if ((v & 1) == 1)
+			{
+				map = KEY_MAP[i][j];
+				Y = (map & 0xf00) >> 8;
+				X = (map & 0xff);
+				if (Y == 0xf)
+				{
+					// 特殊キー
+					switch (X)
+					{
+					case 0xff: // 登録キーによる終了
+						return 1;
+					default:
+						break;
+					}
+				}
+				else
+				{
+					KEYSNS_tbl_ptr[Y] &= ~X;
+				}
+			}
+			v >>= 1;
+		}
+	}
+
+	return 0;
+}
+
+void allocateAndSetROM(size_t size, const char *romFileName, int kind, int slot, int page)
+{
+	void *ROM = new_malloc(size + 8);
+	if (ROM > (void *)0x81000000)
+	{
+		printf("メモリが確保できません\n");
+		ms_exit();
+	}
+	SetROM(ROM, romFileName, kind, slot, page);
 }

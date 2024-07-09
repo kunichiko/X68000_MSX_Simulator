@@ -116,6 +116,7 @@
 	.xdef	_emulater_ini
 	.xdef	_emulate
 	.xdef	cpu_main
+	.xdef	emu_yield
 	.xdef	interrupt_status
 
 	.xdef	page0
@@ -229,6 +230,8 @@ PC_page_set	macro			* JP命令等で PCが変わった時の処理
 *	int emulater_ini();
 *
 _emulater_ini:
+	movem.l	d3-d7/a0-a6,-(sp)
+
 	lea.l	registers,a3
 	clr.l	exslot_reg_0		* 拡張スロット選択レジスタの値をクリア
 	clr.w	d1
@@ -240,31 +243,53 @@ _emulater_ini:
 	move.b	#$80,interrupt_status	* DI に
 	clr.w	interrupt_mode		* IM を０に
 
+	movem.l	(sp)+,d3-d7/a0-a6
 	rts
 
 *
 *	void emulate();
 *
 _emulate:
-	lea.l	registers,a3
-	clr.l	exslot_reg_0		* 拡張スロット選択レジスタの値をクリア
-	clr.w	d1
-	bsr	w_port_A8		* スロットを０で初期化
+	move.l	4(sp),emu_loop_func	* ループ関数のポインタを保存
+	movem.l	d3-d7/a0-a6,-(sp)
 
-	clr.w	d7			* pc = 0
-	PC_page_set
-	clr.w	sp_(a3)			* sp = 0
-	move.b	#$80,interrupt_status	* DI に
-	clr.w	interrupt_mode		* IM を０に
+	lea.l	registers,a3
 cpu_main:
-	move.b	interrupt_status-base(a3),d0
-	bgt	INT			* 割り込みがかかった時
+	move.b	emu_yield-base(a3),d0
+	bne	emu_int
 	clr.w	d0			* d0 の上位ビットを０にクリア
 	move.b	0(a4,d7.w),d0		* 命令を読み込む
 	movea.l	instructions(pc,d0.w*4),a0
 	jmp	(a0)
 
-end:	DOS	__EXIT
+emu_int:
+	clr.b	emu_yield-base(a3)
+	* Z80の割り込みがあるか検査
+	move.b	interrupt_status-base(a3),d0
+	bgt	INT
+	* 割り込み以外の処理はC側の処理を呼び出す
+	movem.l	d1-d7/a0-a6,-(sp)
+	*movea.l	emu_loop_func-base(a3),a0
+	movea.l	emu_loop_func,a0
+	move.l	d7,-(sp)	* PCを引数として渡す
+	jsr	(a0)
+	lea.l	4(sp),sp
+	movem.l	(sp)+,d1-d7/a0-a6
+	move.l	d0,d0
+	beq	cpu_main
+	bra	emu_end
+
+	* キーをスキャン
+	moveq	#$a,d1
+	IOCS	__BITSNS
+	btst	#3,d0		* 「登録」キーが押されたか？
+	beq	cpu_main	* 押されていなければ戻る
+	bra	emu_end		* エミュレーション終了
+
+emu_end:
+	movem.l	(sp)+,d3-d7/a0-a6
+	moveq.l #-1,d0
+	rts
 
 instructions:
 	.dc.l	nop				* $00
@@ -7764,7 +7789,7 @@ EX_lSPl_Idx:
 
 *	------ Ｓｙｓｔｅｍ Ｅｎｄ ------
 system_end:
-	bra	end
+	bra	emu_end
 
 *	------ デバッガに制御を渡す ------
 stop:
@@ -9055,6 +9080,9 @@ w_port_FF:
 PC_page:
 	.dc.w	0	* 現在ＰＣが存在するページ
 
+emu_loop_func:
+	.dc.l	0	* エミュレータのループ関数のアドレス
+
 base:			* a3 の指すアドレス
 registers:
 	.dc.b	0	* a
@@ -9104,7 +9132,12 @@ PV_d_:	.dc.b	0
 d6_d_:	.dc.w	0	* d6 に対応する部分
 
 
-*	割り込み状態の設定	
+*	割り込み状態の設定
+emu_yield:
+	.dc.b	0		* CPUエミュレータの割り込み要求
+				* 0 なし
+				* 1 あり
+
 interrupt_status:
 	.dc.b	0		* 00000000
 				* |      +-- 0 割り込み無し
