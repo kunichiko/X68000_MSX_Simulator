@@ -6,7 +6,7 @@
 
 	.include	iocscall.mac
 	.include	doscall.mac
-	.include	himemcall.mac
+	.include	src/himemcall.mac
 
 	.xref	VideoRAM
 	.xref	slot_0_0

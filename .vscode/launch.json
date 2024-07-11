@@ -9,7 +9,7 @@
             "name": "Remote debug",
             "type": "cppdbg",
             "request": "launch",
-            "program": "${workspaceFolder}/src/ms.x.elf",
+            "program": "${workspaceFolder}/build/ms.x.elf",
             "stopAtEntry": false,
             "cwd": "${workspaceFolder}",
             "environment": [],

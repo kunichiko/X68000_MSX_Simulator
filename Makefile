@@ -4,7 +4,8 @@ CC = $(CROSS)gcc
 AS = run68 /Users/ohnaka/work/XEiJ/HFS/HAS/HAS060.X
 LD = $(CROSS)gcc
 
-CFLAGS = -c -m68000 -O2 -finput-charset=CP932
+#CFLAGS = -g -c -m68000 -O2 -finput-charset=CP932
+CFLAGS = -g -c -m68000 -finput-charset=CP932
 LDFLAGS = -lm -lbas -liocs -ldos
 
 #GCC_OPTS = -c -O -g -finput-charset=CP932
@@ -14,18 +15,24 @@ LDFLAGS = -lm -lbas -liocs -ldos
 
 ASFLAGS = -i /Users/ohnaka/work/XEiJ/HFS/XGCC/INCLUDE/ -w0
 
-all: ms.x copy_to_target
+SRC_DIR = src
+BUILD_DIR = build
+
+all: ${BUILD_DIR} ${BUILD_DIR}/ms.x copy_to_target
+
+$(BUILD_DIR):
+	mkdir -p $(BUILD_DIR)
 
 copy_to_target:
-	cp ms.x /Users/ohnaka/work/XEiJ/HFS/MS.X/
+	cp ${BUILD_DIR}/ms.x /Users/ohnaka/work/XEiJ/HFS/MS.X/
 
-ms.x: ms.o ms_R800_mac_30.o ms_vdp_mac.o ms_sysvalue.o ms_sub_mac.o ms_IO_PORT.o ms_PSG_mac.o ms_readcart.o
-	$(LD) $(LDFLAGS) -o ms.x ms.o ms_R800_mac_30.o ms_vdp_mac.o ms_sysvalue.o ms_sub_mac.o ms_IO_port.o ms_PSG_mac.o ms_readcart.o
+${BUILD_DIR}/ms.x: $(BUILD_DIR)/ms.o $(BUILD_DIR)/ms_R800_mac_30.o $(BUILD_DIR)/ms_vdp_mac.o $(BUILD_DIR)/ms_sysvalue.o $(BUILD_DIR)/ms_sub_mac.o $(BUILD_DIR)/ms_IO_PORT.o $(BUILD_DIR)/ms_PSG_mac.o $(BUILD_DIR)/ms_readcart.o
+	$(LD) $(LDFLAGS) -o $@ $^
 
-%.o: %.c
-	$(CC) $(CFLAGS) $<
+${BUILD_DIR}/%.o: $(SRC_DIR)/%.c
+	$(CC) $(CFLAGS) $< -o $@
 
-%.o: %.has
+${BUILD_DIR}/%.o: $(SRC_DIR)/%.has
 	$(AS) $(ASFLAGS) $< -o $@.tmp
 	x68k2elf.py $@.tmp $@
 	rm $@.tmp
@@ -52,4 +59,4 @@ ms.x: ms.o ms_R800_mac_30.o ms_vdp_mac.o ms_sysvalue.o ms_sub_mac.o ms_IO_PORT.o
 #	$(CC) $(GCC_OPTS) ms_readcart.c
 
 clean:
-	rm -f *.o ms.x
+	rm -f $(BUILD_DIR)
