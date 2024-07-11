@@ -12,5 +12,8 @@
     "[platformio-debug.asm]": {
         "editor.detectIndentation": false,
         "editor.tabSize": 8
-    }
+    },
+	"[markdown]": {
+		"files.encoding": "utf8"
+	}
 }

@@ -56,6 +56,15 @@ VR		equ	$e88017		* ベクタレジスタ
 
 GPAGE0		equ	$c00000		* ＧＲＡＭの先頭アドレス
 
+CRTC_0		equ	$e80000
+CRTC_1		equ	$e80002
+CRTC_2		equ $e80004
+CRTC_3		equ $e80006
+CRTC_4		equ	$e80008
+CRTC_5		equ	$e8000a
+CRTC_6		equ $e8000c
+CRTC_7		equ $e8000e
+CRTC_8		equ $e80010
 CRTR_9		equ	$e80012		* ＣＲＴＣレジスタ９
 CRTR_21		equ	$e8002a
 CRTR_23		equ	$e8002e
@@ -235,6 +244,19 @@ _VDPSet:
 	move.l	#0,d2
 	move.l	#1,d3
 	IOCS	__BGCTRLST
+
+* 512 x 424にする
+	move.w	#91,CRTC_0
+	move.w	#9,CRTC_1
+	move.w	#17,CRTC_2
+	move.w	#81,CRTC_3
+	move.w	#524,CRTC_4
+	move.w	#5,CRTC_5
+	move.w	#52,CRTC_6
+	move.w	#476,CRTC_7
+	move.w	#27,CRTC_8	* adjust
+
+*
 
 	move.w	VCRR_2,d0
 	ori.w	#%00000000_01100001,d0

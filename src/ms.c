@@ -10,6 +10,7 @@
 
 #include <stdio.h>
 #include <stdlib.h>
+#include <stddef.h>
 #include <string.h>
 #include <unistd.h>
 #include <ctype.h>
@@ -319,13 +320,16 @@ void allocateAndSetROM(size_t size, const char *romFileName, int kind, int slot,
 	 
  */
 
-unsigned int* X68_SSR = (unsigned short*)0x00eb0000; // スプライトスクロールレジスタ
+unsigned short* X68_SSR = (unsigned short*)0x00eb0000; // スプライトスクロールレジスタ
 unsigned int* X68_PCG = (unsigned int*)0x00eb8000;
 
 unsigned int* X68_PCG_buffer;
 
 void initSprite(void) {
-	X68_PCG_buffer = (unsigned int*)malloc( 256 * 128); // 1スプライト(16x16)あたり128バイト
+	// X68000は 1スプライト(16x16)パターンあたり128バイトが必要
+	// MSXは 256個定義できるが、X68000は128個しか定義できないため、メモリ上に定義領域を作っておき
+	// 表示時に転送するようにしている
+	X68_PCG_buffer = (unsigned int*)malloc( 256 * 128); 
 	// PCGバッファの初期化
 	for (int i = 0; i < 256 * 128; i++) {
 		X68_PCG_buffer[i] = 0;

@@ -3,13 +3,15 @@
         {
             "name": "elf2x68k",
             "includePath": [
-                "${workspaceFolder}/**"
+                "${workspaceFolder}/**",
+                "/opt/homebrew/Cellar/elf2x68k/20240707/m68k-elf/include/**",
+                "/opt/homebrew/Cellar/elf2x68k/20240707/**"
             ],
             "defines": [],
             "macFrameworkPath": [
                 "/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX.sdk/System/Library/Frameworks"
             ],
-            "compilerPath": "/Users/ohnaka/work/X68000/elf2x68k/m68k-xelf/bin/m68k-xelf-gcc",
+            "compilerPath": "/opt/homebrew/Cellar/elf2x68k/20240707/bin/m68k-xelf-gcc",
             "cStandard": "c17",
             "cppStandard": "c++17",
             "intelliSenseMode": "${default}",
