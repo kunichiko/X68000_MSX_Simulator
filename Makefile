@@ -59,4 +59,4 @@ ${BUILD_DIR}/%.o: $(SRC_DIR)/%.has
 #	$(CC) $(GCC_OPTS) ms_readcart.c
 
 clean:
-	rm -f $(BUILD_DIR)
+	rm -rf $(BUILD_DIR)
