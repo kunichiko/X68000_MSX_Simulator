@@ -65,7 +65,7 @@
 
 	.xref	_emulater_ini
 	.xref	_emulate
-	.xref	main
+	.xref	cpu_main
 	.xref	base
 
 	.xref	f
@@ -248,7 +248,7 @@ command_G:
 	IOCS	__B_INTVCS
 	move.l	d0,KEY_vector	* Œ³‚ÌƒAƒhƒŒƒX‚ð•Û‘¶
 
-	jsr	main
+	jsr	cpu_main
 
 	move.w	#$4c,d1
 	movea.l	KEY_vector,a1
@@ -431,7 +431,7 @@ command_S:
 	jsr	write_mem
 
 	movem.l	(sp)+,d4-d7/a3-a4
-	jsr	main
+	jsr	cpu_main
 
 	move.l	d7,d0
 	move.l	d7,d1

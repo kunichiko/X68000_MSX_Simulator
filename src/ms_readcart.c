@@ -8,20 +8,24 @@
 
 #include <stdio.h>
 #include <string.h>
-#include <dirent.h>
+//#include <dirent.h>
 #include <fcntl.h>
-#include <sys/iocs.h>
-#include <sys/dos.h>
+#include <unistd.h>
+#include <iocslib.h>
+#include <doslib.h>
+#include <x68k/iocs.h>
+#include <x68k/dos.h>
 
 #define h_length 8
 
 void read_cartridge( char *, void *, int, int, int);
+void set_cartridge( void *, int, int, int);
 
 /*	カートリッジファイルを検索するルーチン			*/
 
 void mount_cartridge( ) {
-DIR directory;
-DIR *p_directory;
+//DIR directory;
+//DIR *p_directory;
 
 /*	p_directory = opendir();	*/
 
@@ -39,6 +43,14 @@ void mount_cartridge_zantei() {
 	read_cartridge( "SUBROM.ROM", 0, 0x0d, 0, 2);
 }
 
+int filelength(int fh) {
+	struct stat st;
+	if( fstat(fh, &st) == -1) {
+		return -1;
+	}
+	return st.st_size;
+}
+
 /*																		*/
 /*				サーチされたファイルを実際に読み込むルーチン			*/
 /*																		*/
@@ -51,15 +63,22 @@ void mount_cartridge_zantei() {
 /*	kind		カートリッジの種類。ccfファイルがあればそちらが優先		*/
 /*																		*/
 void read_cartridge(char *path_crt, void *ccf_buff, int location, int page, int kind){
-int crt_fh;									/* カートリッジファイルの fh が入る	*/
-int ccf_fh;									/* コンフィグファイルの fh が入る	*/
-int crt_length;
-void *crt_buff;
+	int crt_fh;									/* カートリッジファイルの fh が入る	*/
+	int ccf_fh;									/* コンフィグファイルの fh が入る	*/
+	int crt_length;
+	void *crt_buff;
 
 	crt_fh = open( path_crt, O_RDONLY | O_BINARY);
-
+	if( ccf_fh == -1) {
+		printf("ファイルが見つかりません。\n");
+		return;
+	}
 	if( ccf_buff == 0) {
 		crt_length = filelength(crt_fh);
+		if(crt_length == -1) {
+			printf("ファイルの長さが取得できません。\n");
+			return;
+		}
 		if( ( crt_buff = _dos_malloc( crt_length + h_length ) ) > (void *)0x81000000) {
 			printf("メモリが確保できません。\n");
 			return;

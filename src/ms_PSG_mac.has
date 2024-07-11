@@ -29,16 +29,20 @@ cont_8255	equ	$e9a007
 
 	.68000
 
-w_OPM	macro	sorce,num
+***************************************************************
+*       OPMレジスタ書き込みマクロ
+***************************************************************
+w_OPM	macro	val,regnum
 
 @@:	tst.b	OPM_port		* ウェイト
 	bmi	@b
-	move.b	num,OPM_regset
+	move.b	regnum,OPM_regset
 @@:	tst.b	OPM_port		* ウェイト
 	bmi	@b
-	move.b	sorce,OPM_port
+	move.b	val,OPM_port
 
 	endm
+***************************************************************
 
 	.text
 	.even
@@ -55,6 +59,8 @@ w_OPM	macro	sorce,num
 *
 ***************************************************************
 _PSG_INIT:
+	movem.l	d3-d7/a0-a5,-(sp)
+
 *	レジスタ初期化
 	w_OPM	#%00000010,#$01
 
@@ -81,7 +87,7 @@ _PSG_INIT:
 *	６８はＯＰＭのマニュアルと192.27セント（約１音）ずれている。よってノート番号で
 *	-200セント(半音)調整し、キーフラクションで+7.8125セント調整する。
 *
-	move.l	#$10D7*2,-(sp)			* 本当は $1000*2でよくも出来るけど
+	move.l	#$10D7*4,-(sp)			* 本当は $1000*2でよくも出来るけど
 	DOS	__MALLOC				* 手抜きのため。
 	lea.l	4(sp),sp
 
@@ -102,6 +108,7 @@ _PSG_INIT:
 	move.b	#%01111011,d0			* キーコード初期値
 	move.b	#%00010100,d1			* キーフラクション初期値（7.8125セント）
 	move.w	#(tone_tbl_end-tone_tbl)/2-1,d2	* ループカウンタ
+
 1:
 	move.w	-(a1),d3
 	sub.w	2(a1),d3			* d3 = (x-y)	ループの回数
@@ -192,6 +199,9 @@ _PSG_INIT:
 	w_OPM	#%01111001,#$08
 	w_OPM	#%01111010,#$08
 
+*	ノイズジェネレータの初期化
+	w_OPM	#%10001111,#$0f
+
 *	割り込みの設定
 	lea.l	OPM_int,a1
 	IOCS	__OPMINTST
@@ -217,6 +227,7 @@ _PSG_INIT:
 	w_OPM	#%00000101,#$14			* 割り込み開始
 
 	clr.l	d0
+	movem.l	(sp)+,d3-d7/a0-a5
 
 	rts
 
@@ -275,7 +286,7 @@ SLOT_set:
 	or.b	3(a0),d2			* RR
 	w_OPM	d2,d1
 
-	sub.w	#$a0,d1
+	sub.w	#$a0,d1				* ずれた分を戻す 
 
 	rts
 
@@ -358,10 +369,10 @@ r_PSG_R10:
 	rts
 
 r_PSG_R11:				* エンベロープ周期 下位８ビット
-	move.w	PSG_R11,d0
+	move.w	PSG_R12_R11,d0
 	rts
 r_PSG_R12:				* エンベロープ周期 上位８ビット
-	move.w	PSG_R11,d0
+	move.w	PSG_R12_R11,d0
 	lsr.w	#8,d0
 	rts
 
@@ -440,6 +451,7 @@ w_PSG_R00:
 	w_OPM	1(a0,d1.w),#$30		* キーフラクション設定
 
 	rts
+
 w_PSG_R01:
 	andi.b	#%00001111,d1
 	move.b	d1,PSG_R00		* チャンネルＡ音程分周比の上位４ビット
@@ -502,54 +514,89 @@ w_PSG_R06:
 
 w_PSG_R07:
 	move.b	d1,PSG_R07
+	bra	PSG_refresh
 
-	btst.l	#0,d1			* ch.1 出力制御
-	beq	1f
+PSG_refresh:
+	move.b	PSG_R07,d1
+
 	w_OPM	#%00111100,#$20
-	bra	@f
-1:	w_OPM	#%11111100,#$20
-
-@@:	btst.l	#1,d1			* ch.2 出力制御
-	beq	1f
+	w_OPM	#%00000000,#$08		* キーオフ
+	btst.l	#0,d1			* ch.1 出力制御
+	bne	@f
+	w_OPM	#%11111100,#$20
+	w_OPM	#%01111000,#$08		* キーオン
+@@:
 	w_OPM	#%00111100,#$21
-	bra	@f
-1:	w_OPM	#%11111100,#$21
-
-@@:	btst.l	#2,d1			* ch.3 出力制御
-	beq	1f
+	w_OPM	#%00000001,#$08		* キーオフ
+	btst.l	#1,d1			* ch.2 出力制御
+	bne	@f
+	w_OPM	#%11111100,#$21
+	w_OPM	#%01111001,#$08		* キーオン
+@@:
 	w_OPM	#%00111100,#$22
-	bra	@f
-1:	w_OPM	#%11111100,#$22
-
-@@:	rts
+	w_OPM	#%00000010,#$08		* キーオフ
+	btst.l	#2,d1			* ch.3 出力制御
+	bne	@f
+	w_OPM	#%11111100,#$22
+	w_OPM	#%01111010,#$08		* キーオン
+@@:
+	w_OPM	#%00000111,#$27
+	w_OPM	#%00000111,#$08		* キーオフ
+	and.b	#%00111000,d1		* ノイズ出力
+	cmp.b	#%00111000,d1
+	bne	@f
+	w_OPM	#%11000111,#$27
+	w_OPM	#%01111111,#$08		* キーオン
+@@:
+	rts
 
 w_PSG_R08:
 	move.b	d1,PSG_R08
 
 	lea.l	volume_tbl,a0
+	btst.l	#4,d1
+	beq	1f
+	moveq.l	#8,d1			* 本当はエンベロープモードの設定
+	bra	@f
+1:
 	andi.w	#$000f,d1
+@@:
 	w_OPM	0(a0,d1.w),#$70		* TL のセット
-	rts
+	bra	PSG_refresh
+
 w_PSG_R09:
 	move.b	d1,PSG_R09
 
 	lea.l	volume_tbl,a0
+	btst.l	#4,d1
+	beq	1f
+	moveq.l	#8,d1			* 本当はエンベロープモードの設定
+	bra	@f
+1:
 	andi.w	#$000f,d1
+@@:
 	w_OPM	0(a0,d1.w),#$71		* TL のセット
-	rts
+	bra	PSG_refresh
+
 w_PSG_R10:
 	move.b	d1,PSG_R10
 
 	lea.l	volume_tbl,a0
+	btst.l	#4,d1
+	beq	1f
+	moveq.l	#8,d1			* 本当はエンベロープモードの設定
+	bra	@f
+1:
 	andi.w	#$000f,d1
+@@:
 	w_OPM	0(a0,d1.w),#$72		* TL のセット
-	rts
+	bra	PSG_refresh
 
 w_PSG_R11:
-	move.b	d1,PSG_R11+1
+	move.b	d1,PSG_R12_R11+1
 	rts
 w_PSG_R12:
-	move.b	d1,PSG_R11+0
+	move.b	d1,PSG_R12_R11+0
 	rts
 w_PSG_R13:
 	move.b	d1,PSG_R13
@@ -635,7 +682,7 @@ PSG_R10:
 	.dc.b	0
 
 	.even
-PSG_R11:
+PSG_R12_R11:
 	.dc.w	0
 PSG_R13:
 	.dc.b	0

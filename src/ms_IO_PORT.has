@@ -38,6 +38,10 @@
 
 	.xdef	KEY_INT
 	.xdef	TOUROKU_int
+	.xdef	_KEYSNS_tbl_ptr
+
+	.xref	emu_yield
+	.xref	KEY_vector
 
 	.68000
 
@@ -68,11 +72,13 @@ r_port_A8:				* スロット選択レジスタの値
 r_port_A9:
 	move.b	p_AA,d0
 	andi.w	#$000f,d0
-	move.b	KEYSNS_tbl(pc,d0.w),d0
+	move.b	_KEYSNS_tbl(pc,d0.w),d0
 	rts
 
-KEYSNS_tbl:
+_KEYSNS_tbl:
 	.dc.b	$ff,$ff,$ff,$ff,$ff,$ff,$ff,$ff,$ff,$ff,$ff,$ff,$ff,$ff,$ff,$ff
+_KEYSNS_tbl_ptr:
+	.dc.l	_KEYSNS_tbl
 
 
 r_port_AA:
@@ -343,10 +349,15 @@ RTC1mask:
 	.dc.b	0
 
 KEY_INT:
+	move.b	#1,emu_yield
+	move.l	KEY_vector,-(sp)	* もともと設定されていたルーチンに処理を引き継ぐため、SPを介してrtsでジャンプ
+	rts
+
+KEY_INT_OLD:	
 	movem.l	d0-d1/a0,-(sp)
 	move.b	USART_data,d0
 
-	lea.l	KEYSNS_tbl,a0
+	lea.l	_KEYSNS_tbl,a0
 	add.w	d0,d0
 	btst.l	#8,d0
 	bne	OFF
@@ -360,6 +371,7 @@ ON:	andi.w	#$00ff,d0
 	and.b	d1,0(a0,d0.w)
 
 	movem.l	(sp)+,d0-d1/a0
+	
 	rte
 
 OFF:	andi.w	#$00ff,d0
@@ -369,6 +381,7 @@ OFF:	andi.w	#$00ff,d0
 	or.b	d1,0(a0,d0.w)
 
 	movem.l	(sp)+,d0-d1/a0
+
 	rte
 
 INT:	cmpi.b	#1,d0
