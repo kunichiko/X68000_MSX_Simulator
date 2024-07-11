@@ -408,7 +408,7 @@ w_CReg_jpt:
 	.dc.l	w_R16
 	.dc.l	w_R17
 	.dc.l	normal
-	.dc.l	normal
+	.dc.l	w_R19
 	.dc.l	normal		* R#20
 	.dc.l	normal
 	.dc.l	normal
@@ -481,10 +481,16 @@ normal:
 	move.b	d1,0(a0,d0.w)
 	rts
 
+*crtcras_:
+*	.dc.l	crtcras
 w_R0:
 	bclr.l	#4,d1			* IE1 のテスト
 	beq	@f
 					* 走査線割り込みを使用する
+	clr.w	d1
+	move.b	R_19,d1
+	*TBD
+	*TBD
 	bra	1f
 @@:					* 走査線割り込みを使用しない
 1:	andi.w	#%00000000_00001110,d1	* 画面モードのセット
@@ -731,6 +737,9 @@ w_R15:	move.b	d1,R_15
 w_R16:	move.b	d1,R_16
 	rts
 w_R17:	move.b	d1,R_17
+	rts
+
+w_R19:	move.b	d1,R_19
 	rts
 
 w_R23:					* 縦スクロール
@@ -2761,6 +2770,7 @@ HMMC_G5:
 *
 ***************************************************************
 w_SPRITE:
+
 	rts
 
 
@@ -3026,7 +3036,7 @@ R_01:	.dc.b	0		* Mode register 1
 	.dc.b	0
 	.dc.b	0
 	.dc.b	0
-	.dc.b	0
+R_06:	.dc.b	0		* Sprite
 	.dc.b	0
 	.dc.b	0		* Mode register 2
 	.dc.b	0		* Mode register 3

@@ -306,3 +306,86 @@ void allocateAndSetROM(size_t size, const char *romFileName, int kind, int slot,
 	}
 	SetROM(ROM, romFileName, kind, slot, page);
 }
+
+/*
+ 	スプライトの処理
+
+	MS.Xは、MSXの256ドットをX68000の512ドットに拡大している
+	そのため、MSXの8x8ドットのスプライトは、X68000上は16x16ドットになる
+	MSXのスプライトパターンは最大256個定義することができるが、
+	X68000は16x16ドットのスプライトパターンを最大128個しか定義できず、数が足りない。
+	そこで、MSXのスプライトは最大32個しか表示できないことを利用し、
+	X68000のスプライトパターンは、現在表示中のスプライトのみを定義することにする。
+	 
+ */
+
+unsigned int* X68_SSR = (unsigned short*)0x00eb0000; // スプライトスクロールレジスタ
+unsigned int* X68_PCG = (unsigned int*)0x00eb8000;
+
+unsigned int* X68_PCG_buffer;
+
+void initSprite(void) {
+	X68_PCG_buffer = (unsigned int*)malloc( 256 * 128); // 1スプライト(16x16)あたり128バイト
+	// PCGバッファの初期化
+	for (int i = 0; i < 256 * 128; i++) {
+		X68_PCG_buffer[i] = 0;
+	}
+}
+
+/*
+ スプライトパターンジェネレータテーブルへの書き込み
+     offset: パターンジェネレータテーブルのベースアドレスからのオフセットバイト
+     pattern: 書き込むパターン
+*/
+void writeSpritePattern(int offset, unsigned char pattern) {
+	int pNum = offset / 8; // MSXのスプライトパターン番号
+	int pLine = offset % 8; // パターンの何行目か 
+	int pcgLine = pLine * 2; // MSXの1ラインはX68000では2ライン
+	unsigned int pLeft=0,pRight=0; // 1ラインの左4ドットと右4ドット (X68000の8x8のパターンの左側と右側)
+
+    // 右端のドットから処理
+	for(int i =0; i < 4;i++) {
+		if(pattern & 1) {
+			pRight |= (0xf0000000);
+			pRight >>= 4;
+		}
+		pattern >>= 1;
+	}
+    // 残りの左4ドットの処理
+	for(int i =0; i < 4;i++) {
+		if(pattern & 1) {
+			pLeft |= (0xf0000000);
+			pLeft >>= 4;
+		}
+		pattern >>= 1;
+	}
+	// パターンジェネレータテーブルへの書き込み
+	X68_PCG_buffer[pNum * 32 + pcgLine+0 + 0] = pLeft;
+	X68_PCG_buffer[pNum * 32 + pcgLine+1 + 0] = pLeft;
+	X68_PCG_buffer[pNum * 32 + pcgLine+0 + 16] = pRight;
+	X68_PCG_buffer[pNum * 32 + pcgLine+1 + 16] = pRight;
+}
+
+void writeSpriteAttribute(int offset, unsigned char attribute) {
+	int pNum = offset / 4; // MSXのスプライトプレーン番号
+	int type = offset % 4; // 属性の種類
+
+	switch(type) {
+		case 0: // Y座標
+			X68_SSR[pNum*4+1] = attribute * 2; // MSXのY座標は2倍
+			break;
+		case 1: // X座標
+			X68_SSR[pNum*4+0] = attribute * 2; // MSXのX座標は2倍
+			// TODO ECビットによる位置補正処理
+			break;
+		case 2: // パターン番号
+			// 事前にバッファに展開しておいたパターンを転送
+			for(int i = 0; i < 32; i++) { 
+				X68_PCG[pNum*32+i] = X68_PCG_buffer[attribute*32+i];
+			}
+			break;
+		case 3: // 属性
+			// TODO 属性の処理
+			break;
+	}
+}
