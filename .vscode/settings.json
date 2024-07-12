@@ -1,10 +1,12 @@
 {
     "C_Cpp.default.configurationProvider": "elf2x68k",
     "files.associations": {
-        "dirent.h": "c",
-        "_types.h": "c",
-        "*.has": "platformio-debug.asm"
-    },
+		"dirent.h": "c",
+		"_types.h": "c",
+		"*.has": "platformio-debug.asm",
+		"doslib.h": "c",
+		"dos.h": "c"
+	},
     "files.encoding": "shiftjis",
     "editor.detectIndentation": false,
     "editor.renderWhitespace": "all",

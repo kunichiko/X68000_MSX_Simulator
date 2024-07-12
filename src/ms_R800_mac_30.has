@@ -264,10 +264,7 @@ cpu_main:
 
 emu_int:
 	clr.b	emu_yield-base(a3)
-	* Z80の割り込みがあるか検査
-	move.b	interrupt_status-base(a3),d0
-	bgt	INT
-	* 割り込み以外の処理はC側の処理を呼び出す
+	* C側の処理を呼び出す
 	movem.l	d1-d7/a0-a6,-(sp)
 	*movea.l	emu_loop_func-base(a3),a0
 	movea.l	emu_loop_func,a0
@@ -276,15 +273,13 @@ emu_int:
 	lea.l	4(sp),sp
 	movem.l	(sp)+,d1-d7/a0-a6
 	move.l	d0,d0
-	beq	cpu_main
+	beq	@f
 	bra	emu_end
 
-	* キーをスキャン
-	moveq	#$a,d1
-	IOCS	__BITSNS
-	btst	#3,d0		* 「登録」キーが押されたか？
-	beq	cpu_main	* 押されていなければ戻る
-	bra	emu_end		* エミュレーション終了
+	* Z80の割り込みがあるか検査
+@@:	move.b	interrupt_status-base(a3),d0
+	bgt	INT
+	bra	cpu_main
 
 emu_end:
 	movem.l	(sp)+,d3-d7/a0-a6

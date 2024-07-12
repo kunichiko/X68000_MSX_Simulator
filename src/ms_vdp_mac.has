@@ -10,6 +10,8 @@
 	.include	doscall.equ
 
 	.xref	VideoRAM
+	.xref	writeSpritePattern
+	.xref	writeSpriteAttribute
 
 	.xdef	read_vdp_0
 	.xdef	read_vdp_1
@@ -22,6 +24,7 @@
 
 	.xdef	S_0
 
+	.xdef	sprite_size
 	.xdef	active_page
 
 MFP_GPIP_6	equ	$000138		* 水平割り込みのベクタアドレス
@@ -292,16 +295,18 @@ s_p_GRAPHIC6:
 *
 
 	lea.l	P_0,a0
-	lea.l	g_palette+2,a1
-	lea.l	$E82220+2,a2			* ＢＧ用のパレット
+	lea.l	$E82220+2,a1			* ＢＧ用のパレット
 
 	move.w	back_color,d0
 	add.w	d0,d0
-	move.w	0(a0,d0.w),(a2)			* a0 は P_0 のアドレスが入っている
+	move.w	0(a0,d0.w),(a1)			* a0 は P_0 のアドレスが入っている
 
 	lea.l	2(a0),a0
 	move.w	#15-1,d0
-@@:	move.w	(a0)+,(a1)+
+	lea.l	g_palette+2,a1			* グラフィック用のパレット
+	lea.l	t_palette+32+2,a2		* スプライト用のパレット(0x10?0x1fを使用)
+@@:	move.w	(a0),(a1)+
+	move.w	(a0)+,(a2)+
 	dbra	d0,@b
 
 	rts
@@ -394,13 +399,13 @@ w_CReg_jpt:
 	.dc.l	w_R2
 	.dc.l	w_R3
 	.dc.l	w_R4
-	.dc.l	normal
-	.dc.l	normal
+	.dc.l	w_R5			* スプライトアトリビュートテーブル(下位)
+	.dc.l	w_R6			* スプライトパターンジェネレータテーブル
 	.dc.l	w_R7
 	.dc.l	normal
 	.dc.l	normal
 	.dc.l	w_R10			* R#10
-	.dc.l	normal
+	.dc.l	w_R11			* スプライトアトリビュートテーブル(上位)
 	.dc.l	normal
 	.dc.l	normal
 	.dc.l	w_R14
@@ -502,21 +507,23 @@ w_R0:
 	rts
 
 w_R1:					* ===== 完全ではない ======
-	move.b	d1,R_01
-
-	bclr.l	#6,d1
+	bclr.l	#6,d1			* BL = ブランク, 1の時画面表示ON
 	beq	@f
-	move.w	active_page,VCRR_02
+	ori.w	#%00000000_01100001,VCRR_02
 	bra	1f
-@@:	move.w	active_page,d0
-	andi.w	#%11111111_11100000,d0
-	move.w	d0,VCRR_02
+@@:	andi.w	#%11111111_11100000,VCRR_02
 
-1:	bclr.l	#5,d1
+1:	bclr.l	#5,d1			* IE0 = 割り込み許可, 1の時許可
 	beq	@f
 	ori.b	#%00100000,IERA
 	bra	1f
 @@:	andi.b	#%11011111,IERA		* 割り込み禁止
+
+1:	bclr.l	#1,d1			* スプライトのサイズ, 0の時 8x8, 1の時 16x16
+	beq	@f
+	move.b	#1, sprite_size
+	bra	1f
+@@:	move.b	#0, sprite_size
 
 1:	move.b	d1,d0
 	andi.w	#%00000000_00010000,d0
@@ -675,6 +682,71 @@ w_R4_gr2_3:
 	rts
 
 *
+*	R5 はスプライトアトリビュートテーブルの下位バイト
+*	システムにスプライトアトリビュートテーブルが変更されたことを伝える必用がある
+*
+w_R5:	move.l	R_5,d0			* d0 = A_AAAAAAAA_A0000000
+	lsr.w	#7,d0			* d0 = 0_000000AA_AAAAAAAA
+	move.b	d1,d0			* d0 = 0_000000AA_BBBBBBBB
+	lsl.w	#7,d0			* d0 = A_ABBBBBBB_B0000000
+
+	move.w	display_mode,d1
+	add.w	d1,d1
+	add.w	d1,d1
+	movea.l	w_R5_jpt(pc,d1.w),a0
+	jmp	(a0)
+
+w_R5_jpt:
+	.dc.l	w_R5_0
+	.dc.l	w_R5_0
+	.dc.l	w_R5_0
+	.dc.l	w_R5_0
+	.dc.l	w_R5_0
+	.dc.l	w_R5_0
+	.dc.l	w_R5_0
+	.dc.l	w_R5_0
+	.dc.l	w_R5_0
+	.dc.l	w_R5_0
+	.dc.l	w_R5_0
+	.dc.l	w_R5_0
+
+w_R5_0:
+	move.l	d0,R_5
+	rts
+
+*
+*	スプライトパターンジェネレータテーブルの設定
+*	システムにスプライトパターンジェネレータテーブルが変更されたことを伝える必用がある
+*
+w_R6:	andi.l	#%00000000_00111111,d1	* 00000000_00000000_00AAAAAA
+	swap	d1			* 00AAAAAA_00000000_00000000
+	lsr.l	#5,d1			* 0000000A_AAAAA000_00000000
+
+	move.w	display_mode,d0
+	add.w	d0,d0
+	add.w	d0,d0
+	movea.l	w_R6_jpt(pc,d0.w),a0
+	jmp	(a0)
+
+w_R6_jpt:
+	.dc.l	w_R6_0
+	.dc.l	w_R6_0
+	.dc.l	w_R6_0
+	.dc.l	w_R6_0
+	.dc.l	w_R6_0
+	.dc.l	w_R6_0
+	.dc.l	w_R6_0
+	.dc.l	w_R6_0
+ 	.dc.l	w_R6_0
+	.dc.l	w_R6_0
+	.dc.l	w_R6_0
+	.dc.l	w_R6_0
+
+w_R6_0:
+	move.l	d1,R_6
+	rts
+
+*
 *	ＳＣＲＥＥＮ８の時の処理がまだ
 *
 w_R7:	clr.w	d0
@@ -714,10 +786,23 @@ w_R10:	andi.w	#%00000000_00000111,d1
 	swap	d0			* d0 = 00000000_00000000_00000AAA
 	move.w	d1,d0			* d0 = 00000000_00000000_00000BBB
 	swap	d0			* d0 = 00000BBB_AAAAAAAA_00000000
-	lsr.l	#2,d0
+	lsr.l	#2,d0			* d0 = 0000000B_BBAAAAAA_AA000000
 	move.l	d0,R_3
 *
 *	システムにカラーテーブルが変更されたことを伝える必用がある
+*
+	rts
+
+w_R11:	andi.w	#%00000000_00000011,d1
+	move.l	R_5,d0			* d0 = 0000000A_AAAAAAAA_A0000000
+	lsl.l	#1,d0			* d0 = 000000AA_AAAAAAAA_00000000
+	swap	d0			* d0 = 00000000_00000000_000000AA
+	move.w	d1,d0			* d0 = 00000000_00000000_000000BB
+	swap	d0			* d0 = 000000BB_AAAAAAAA_00000000
+	lsr.l	#1,d0			* d0 = 0000000B_BAAAAAAA_A0000000
+	move.l	d0,R_5
+*
+*	システムにスプライトアトリビュートテーブルが変更されたことを伝える必用がある
 *
 	rts
 
@@ -744,8 +829,6 @@ w_R19:	move.b	d1,R_19
 
 w_R23:					* 縦スクロール
 	move.b	d1,R_23
-	*subi.b	#22,d1			* 画面の中心にくるように
-	subi.b	#10,d1
 	clr.w	d0
 	move.b	d1,d0
 	add.w	d0,d0
@@ -1891,6 +1974,8 @@ w_GRAPHIC2:
 	movea.l	VideoRAM,a0
 	move.l	vram_add,d0			* D0 ・・書き込むアドレス
 	move.b	d1,0(a0,d0.l)			* VRAM へ書き込み
+
+	* R_2と一致していたらパターンネームテーブルへの書き込み
 	andi.w	#%11111100_00000000,d0		* 下位１０ビットをクリア
 	cmp.l	R_2,d0
 	bne	@f
@@ -1899,6 +1984,8 @@ w_GRAPHIC2:
 	bsr	w_p_name_GR2			* パターンネームテーブルへの書き込み
 	move.w	(sp)+,d1
 	move.l	(sp)+,d0
+
+	* R_3と一致していたらパターンジェネレータテーブルへの書き込み
 @@:	andi.w	#%11100000_00000000,d0
 	cmp.l	R_3,d0
 	bne	@f
@@ -1907,9 +1994,29 @@ w_GRAPHIC2:
 	bsr	w_p_gene_GR2			* パターンジェネレータテーブルへの書き込み
 	move.w	(sp)+,d1
 	move.l	(sp)+,d0
+
+	* R_4と一致していたらカラーテーブルへの書き込み
 @@:	cmp.l	R_4,d0
 	bne	@f
+	move.w	d1,-(sp)
 	bsr	w_color_GR2			* カラーテーブルへの書き込み
+	move.w	(sp)+,d1
+
+	* R_6と一致していたらスプライトパターンジェネレータテーブルへの書き込み
+@@:	move.l	vram_add,d0
+	andi.l	#%1_11111000_00000000,d0
+	cmp.l	R_6,d0
+	bne	@f
+	bsr	w_SP_p_gene			* スプライトパターンジェネレータテーブルへの書き込み
+
+	* R_5と一致していたらスプライトアトリビュートテーブルへの書き込み
+@@:	move.l	vram_add,d0
+	andi.l	#%1_11111111_10000000,d0
+	cmp.l	R_5,d0
+	bne	@f
+	bsr	w_SP_attr			* スプライトアトリビュートテーブルへの書き込み
+
+	* VRAM書き込みアドレスをインクリメント
 @@:	move.l	vram_add,d0
 	move.w	d0,d2
 	addq.w	#1,d2				* 上位ワードは変化しないからワードでＯＫ
@@ -1918,6 +2025,41 @@ w_GRAPHIC2:
 	or.w	d2,d0
 	move.l	d0,vram_add
 	rts
+
+* スプライトアトリビュートテーブルへの書き込み
+* d1.b ・・・ 値
+w_SP_attr:
+	move.l	vram_add,d0
+	sub.l	R_5,d0			* オフセット
+	and.l	#$ff,d1
+	move.l	d1,-(sp)
+	move.l	d0,-(sp)
+	move.l	VideoRAM,d0		* d0 = X68000上にあるVRAMのベースアドレス
+	add.l	R_5,d0			* d0 = X68000上におけるスプライトアトリビュートテーブルのアドレス
+	move.l	d0,-(sp)
+	jsr	writeSpriteAttribute
+	lea.l	4(sp),sp
+	move.l	(sp)+,d0
+	move.l	(sp)+,d1
+	rts
+
+* スプライトパターンジェネレータテーブルへの書き込み
+* d1.b ・・・ 値
+w_SP_p_gene:
+	move.l	vram_add,d0
+	sub.l	R_6,d0			* オフセット
+	and.l	#$ff,d1
+	move.l	d1,-(sp)
+	move.l	d0,-(sp)
+	move.l	VideoRAM,d0		* d0 = X68000上にあるVRAMのベースアドレス
+	add.l	R_6,d0			* d0 = X68000上におけるスプライトパターンテーブルのアドレス
+	move.l	d0,-(sp)
+	jsr	writeSpritePattern
+	lea.l	4(sp),sp
+	move.l	(sp)+,d0
+	move.l	(sp)+,d1
+	rts
+
 
 w_color_GR2:
 *	更新フラグを立てて垂直帰線期間に一度に更新するようにする。
