@@ -17,10 +17,9 @@
 
 	.xref	slot_3_ex
 
-	.xref	S_0
-
-	.xref	emu_yield
-	.xref	interrupt_status
+	.xref	S_0		* VDP ステータスレジスタ 0
+	.xref	R_1		* VDP コントロールレジスタ 1
+	.xref	cpu_emu_yield
 
 	.xref	active_page
 
@@ -93,18 +92,22 @@ print:		macro	msg
 *
 *	movea.l	#0,a1	
 *	IOCS	__VDISPST
-*	void _ms_init();
+*	void _ms_init(int vsync_rate);
 *
 _ms_init:
 	link	a6,#0
-	move.l	a0,-(sp)
+	movem.l	d3-d7/a0-a5,-(sp)
+
+	move.w	10(a6),vsync_rate
 
 	move.w	sr,d0
 	move.w	d0,-(sp)
 	or.w	#%00000111_00000000,d0	* 一時的に割り込み禁止
 	move.w	d0,sr
 
-@@:	move.w	#1,d1			* 毎回割り込み
+@@:
+	move.w	vsync_rate,d1
+	and.w	#$0_ff,d1			* 垂直帰線期間で、指定回数ごとに割り込み
 	lea.l	interrupt,a1
 	IOCS	__VDISPST
 	move.l	d0,d0
@@ -116,10 +119,7 @@ _ms_init:
 	IOCS	__VDISPST
 	bra	@b
 @@:
-	andi.b	#%11011111,IERA		* VDP R#1 の IE が１になるまで割り込み禁止
-	bclr.b	#0,interrupt_status	
-
-	andi.b	#%00001110,$e9c001	* プリンタの割り込みを禁止
+*	andi.b	#%00001110,$e9c001	* プリンタの割り込みを禁止
 
 	* ベクタ $4cは、MFP Receive Buffer Full (キーデータの受信データあり)
 	* (X68000 環境ハンドブック参照)
@@ -135,7 +135,7 @@ _ms_init:
 
 	move.w	(sp)+,sr		* 割り込み復帰
 
-	move.l	(sp)+,a0
+	movem.l	(sp)+,d3-d7/a0-a5
 	unlk	a6
 
 	rts
@@ -169,20 +169,13 @@ _ms_exit:
 	DOS	__EXIT
 
 interrupt:
-	subq.b	#1,int_cnt
+	btst.b	#5,R_1			* VDP IE0 (R#1のbit5) をみて、割り込みが許可されているかを調べる
 	beq	@f
-	rte
-@@:	move.b	#1,int_cnt		* 割り込み間引き率 (1は毎回)
-	bset.b	#0,interrupt_status	* 割り込みをかける	
-	move.b	#1,emu_yield
-	bset.b	#7,S_0
+	bset.b	#7,S_0			* VDP ステータスレジスタ 0の bit7に、割り込み発生フラグを立てる。これがZ80のINT端子の状態を表している。
+@@:
+	move.l	#$0001_0100,cpu_emu_yield	* 上位: cpu_yield, 下位: emu_yield
 
 	rte
-
-	.data
-int_cnt:
-	.dc.b	2,0
-	.text
 
 *
 *	メインメモリ設定ルーチン
@@ -532,6 +525,9 @@ _new_read_210:
 	DOS	__EXIT
 
 	.data
+
+vsync_rate:
+	.dc.w	0
 original:
 	.dc.l	0
 f_handle:

@@ -16,18 +16,17 @@
 #include <ctype.h>
 #include <iocslib.h>
 #include <doslib.h>
-#include <x68k/iocs.h>
-#include <x68k/dos.h>
 #include "ms.h"
 
 #define NUM_SEGMENTS 4
 
 extern void writeSpritePattern(unsigned char* p, int offset, unsigned int pattern);
 extern void writeSpriteAttribute(unsigned char* p, int offset, unsigned int attribute);
+extern int readMemFromC(int address);
 
 void emulater_ini(void);
-int emulate( int(*)(int));
-void ms_init( void);
+int emulate( int(*)(unsigned int, unsigned int));
+void ms_init( int vsync_rate);
 void ms_exit( void);
 void MMemSet( void *, int);
 void VDPSet( void *);
@@ -56,16 +55,27 @@ void initSprite(void);
 void SetROM( void* address, const char* filename, int kind, int slot, int page);
 int PSG_INIT( void);
 
-int emuLoop(int);
+int emuLoop(unsigned int pc, unsigned int counter);
 void allocateAndSetROM(size_t size, const char* romFileName, int param1, int param2, int param3);
 
 void _toggleTextPlane(void);
 void _setTextPlane(int textPlaneMode);
 
 void printHelpAndExit(char* progname) {
-	fprintf(stderr, "Usage: %s [-m1 MAINROM1_PATH] [-m2 MAINROM2_PATH] [-r11 ROM1_PATH] [-r12 ROM2_PATH]\n", progname);
+	fprintf(stderr, "Usage: %s [-v N] [-m1 MAINROM1_PATH] [-m2 MAINROM2_PATH] [-r11 ROM1_PATH] [-r12 ROM2_PATH]\n", progname);
+	fprintf(stderr, " -v vsync rate (1-60)\n");
+	fprintf(stderr, "    1: default (every frame), 2: every 2 frames, ...\n");
 	exit(EXIT_FAILURE);
 }
+
+static unsigned char *MMem;
+static unsigned char *VideoRAM;
+static unsigned char *MainROM1;
+static unsigned char *MainROM2;
+static unsigned char *SUBROM;
+static unsigned char *SLOT1_1;
+static unsigned char *SLOT1_2;
+static unsigned char *ROM;
 
 /*
 	メイン関数
@@ -78,23 +88,23 @@ void printHelpAndExit(char* progname) {
 			例：-r11 GAME1.ROM	: スロット1-ページ1にGAME1.ROMをセット				
 */
 int main(int argc, char *argv[]) {
-	void *MMem, *VideoRAM, *MainROM1, *MainROM2, *SUBROM, *SLOT1_1, *ROM, *SLOT1_2;
-	int a, i;
+	int i, j;
 	char *mainrom1_path = "MAINROM1.ROM"; // デフォルトのMAIN ROM1パス
 	char *mainrom2_path = "MAINROM2.ROM"; // デフォルトのmAIN ROM2パス
 	char *cartridge_path[4][4]; // カートリッジのパス
+	int vsync_rate = 1;
 	int opt;
 
-	printf("MSX Simulator\n");
+	printf("[[ MSX Simulator MS.X]]\n");
 
-	for (int i = 0; i < 4; i++) {
-		for (int j = 0; j < 4; j++) {
+	for (i = 0; i < 4; i++) {
+		for (j = 0; j < 4; j++) {
 			cartridge_path[i][j] = NULL;
 		}
 	}
 
 	// コマンドラインオプションの解析
-	while ((opt = getopt(argc, argv, "m:r:")) != -1)
+	while ((opt = getopt(argc, argv, "m:r:v:")) != -1)
 	{
 		switch (opt)
 		{
@@ -136,6 +146,19 @@ int main(int argc, char *argv[]) {
 				}
 			}
 			break;
+		case 'v': // -v N オプション
+			// VSYNCレートの設定
+			if (optarg != NULL) {
+				vsync_rate = atoi(optarg);
+				if (vsync_rate < 1 || vsync_rate > 61) {
+					printf("VSYNCレートが不正です\n");
+					printHelpAndExit(argv[0]);
+				}
+			} else {
+				printf("VSYNCレートが指定されていません\n");
+				printHelpAndExit(argv[0]);
+			}
+			break;
 		default: /* '?' */
 			printHelpAndExit(argv[0]);
 			break;
@@ -148,12 +171,10 @@ int main(int argc, char *argv[]) {
 		return -1;
 	}
 
-	printf("ms_init: enter\n");
-	ms_init(); /* システムの初期化				*/
-	printf("ms_init: exit\n");
+	ms_init(vsync_rate); /* システムの初期化				*/
 
 	MMem = new_malloc(64 * 1024 + 8 * NUM_SEGMENTS); /* ６４Ｋ + ８バイト＊総セグメント数	*/
-	if (MMem > (void *)0x81000000)
+	if (MMem > (unsigned char *)0x81000000)
 	{
 		printf("メモリが確保できません\n");
 		ms_exit();
@@ -161,15 +182,16 @@ int main(int argc, char *argv[]) {
 	MMemSet(MMem, (int)NUM_SEGMENTS); /* アセンブラのルーチンへ引き渡し		*/
 
 	VideoRAM = new_malloc(128 * 1024); /* ＶＲＡＭ １２８Ｋ 					*/
-	if (VideoRAM > (void *)0x81000000)
+	if (VideoRAM > (unsigned char *)0x81000000)
 	{
 		printf("メモリが確保できません\n");
 		ms_exit();
 	}
-	printf("VDPSet: enter\n");
 	VDPSet(VideoRAM); /* アセンブラのルーチンへ引き渡し		*/
 					  /* 画面の初期化等						*/
-	printf("VDPSet: exit\n");
+
+	printf("[[ MSX Simulator MS.X]]\n");
+	printf(" この画面は HELP キーで消せます\n");
 
 	/* ＭＡＩＮＲＯＭ（前半:16K, 後半:16K */
 	allocateAndSetROM(16 * 1024, mainrom1_path, 2, 0x00, 0);
@@ -182,8 +204,8 @@ int main(int argc, char *argv[]) {
 	/* 基本スロット1-ページ1のROM配置 (32KBytesゲームの後半16Kなど）	*/
 	//	allocateAndSetROM( 16 * 1024,"GAME2.ROM", (int)2, (int)0x04, (int)2 );
 
-	for (int i = 0; i < 4; i++) {
-		for (int j = 0; j < 4; j++) {
+	for ( i = 0; i < 4; i++) {
+		for ( j = 0; j < 4; j++) {
 			if ( cartridge_path[i][j] != NULL) {
 				allocateAndSetROM(16 * 1024, cartridge_path[i][j], 2, i<<2, j);
 			}
@@ -222,37 +244,37 @@ int main(int argc, char *argv[]) {
 	- MSXデータパック p12 「2.5 キーボード」 参照
  */
 unsigned short KEY_MAP[][8] = {
-	//  [    ][ESC ][1   ][2   ][3   ][4   ][5   ][6   ] 
+	//0 [    ][ESC ][1   ][2   ][3   ][4   ][5   ][6   ] 
 	{   0xf00,0x704,0x002,0x004,0x008,0x010,0x020,0x040},
-	//  [7   ][8   ][9   ][0   ][-   ][^   ][\   ][BS  ] 
+	//1 [7   ][8   ][9   ][0   ][-   ][^   ][\   ][BS  ] 
 	{   0x080,0x101,0x102,0x001,0x104,0x108,0x110,0x720},
-	//  [TAB ][Q   ][W   ][E   ][R   ][T   ][Y   ][U   ] 
+	//2 [TAB ][Q   ][W   ][E   ][R   ][T   ][Y   ][U   ] 
 	{   0x708,0x440,0x510,0x304,0x480,0x502,0x540,0x504},
-	//  [I   ][O   ][P   ][@   ][ [  ][RET ][ A  ][ S  ] 
+	//3 [I   ][O   ][P   ][@   ][ [  ][RET ][ A  ][ S  ] 
 	{   0x340,0x410,0x420,0x120,0x140,0x780,0x240,0x501},
-	//  [ D  ][ F  ][ G  ][ H  ][ J  ][ K  ][ L  ][ ;+ ] 
+	//4 [ D  ][ F  ][ G  ][ H  ][ J  ][ K  ][ L  ][ ;+ ] 
 	{   0x302,0x308,0x310,0x320,0x380,0x401,0x402,0x180},
-	//  [ :* ][ ]  ][ Z  ][ X  ][ C  ][ V  ][ B  ][ N  ] 
+	//5 [ :* ][ ]  ][ Z  ][ X  ][ C  ][ V  ][ B  ][ N  ] 
 	{   0x201,0x203,0x580,0x520,0x301,0x508,0x280,0x408},
-	//  [ M  ][ ,< ][ .> ][ /  ][ _  ][ SP ][HOME][DEL ]  HOME=CLS
+	//6 [ M  ][ ,< ][ .> ][ /  ][ _  ][ SP ][HOME][DEL ]  HOME=CLS
 	{   0x404,0x204,0x208,0x210,0x220,0x801,0x802,0x808}, 
-	//  [RUP ][RDWN][UNDO][LEFT][UP  ][RIGT][DOWN][CLR ]
+	//7 [RUP ][RDWN][UNDO][LEFT][UP  ][RIGT][DOWN][CLR ]
 	{   0xf00,0xf00,0xf00,0x810,0x820,0x880,0x840,0xf00},
-	//  [(/) ][(*) ][(-) ][(7) ][(8) ][(9) ][(+) ][(4) ]  TEN KEYs
+	//8 [(/) ][(*) ][(-) ][(7) ][(8) ][(9) ][(+) ][(4) ]  TEN KEYs
 	{   0xf00,0xf00,0xf00,0xf00,0xf00,0xf00,0xf00,0xf00},
-	//  [(5) ][(6) ][(=) ][(1) ][(2) ][(3) ][ENTR][(0) ]  TEN KEYs
+	//9 [(5) ][(6) ][(=) ][(1) ][(2) ][(3) ][ENTR][(0) ]  TEN KEYs
 	{   0xf00,0xf00,0xf00,0xf00,0xf00,0xf00,0xf00,0xf00},
-	//  [(,) ][(.) ][KIGO][TORK][HELP][XF1 ][XF2 ][XF3 ]  登録=エミュレータ終了
-	{   0xf00,0xf00,0xf00,0xfff,0xffe,0xf00,0xf00,0xf00},
-	//  [XF4 ][XF5 ][KANA][ROME][CODE][CAPS][INS ][HIRA]
+	//a [(,) ][(.) ][KIGO][TORK][HELP][XF1 ][XF2 ][XF3 ]  登録=エミュレータ終了
+	{   0xf00,0xf00,0xffd,0xfff,0xffe,0xf00,0xf00,0xf00},
+	//b [XF4 ][XF5 ][KANA][ROME][CODE][CAPS][INS ][HIRA]
 	{   0xf00,0xf00,0x610,0xf00,0xf00,0xf00,0xf00,0xf00},
-	//  [ZENK][BRAK][COPY][ F1 ][ F2 ][ F3 ][ F4 ][ F5 ]  BRAK=STOP
+	//c [ZENK][BRAK][COPY][ F1 ][ F2 ][ F3 ][ F4 ][ F5 ]  BRAK=STOP
 	{   0xf00,0x710,0xf00,0xf00,0xf00,0xf00,0xf00,0xf00},
-	//  [ F6 ][ F7 ][ F8 ][ F9 ][ F10][    ][    ][    ]
+	//d [ F6 ][ F7 ][ F8 ][ F9 ][ F10][    ][    ][    ]
 	{   0xf00,0xf00,0xf00,0xf00,0xf00,0xf00,0xf00,0xf00},
-	//  [SHFT][CTRL][OPT1][OPT2][    ][    ][    ][    ]  OPT1=GRAPH
+	//e [SHFT][CTRL][OPT1][OPT2][    ][    ][    ][    ]  OPT1=GRAPH
 	{   0x601,0x602,0x604,0xf00,0xf00,0xf00,0xf00,0xf00},
-	//  [    ][    ][    ][    ][    ][    ][    ][    ]
+	//f [    ][    ][    ][    ][    ][    ][    ][    ]
 	{   0xf00,0xf00,0xf00,0xf00,0xf00,0xf00,0xf00,0xf00}
 };
 
@@ -260,23 +282,29 @@ extern unsigned char* KEYSNS_tbl_ptr;
 
 int divider = 0;
 
-int emuLoop(int pc) {
+void dump(unsigned int page, unsigned int pc);
+
+int emuLoop(unsigned int pc, unsigned int counter) {
+	int i,j;
 	unsigned short map;
 	unsigned char X, Y;
 	int hitkey = 0;
+	static int kigoKeyHit = 0;
+	static int kigoKeyHitLast = 0;
 	static int helpKeyHit = 0;
 	static int helpKeyHitLast = 0;
 
+	kigoKeyHit = 0;
 	helpKeyHit = 0;
 
-	for (int i = 0; i < 0x0f; i++)
+	for ( i = 0x00; i < 0x0f; i++)
 	{
 		KEYSNS_tbl_ptr[i] = 0xff;
 	}
-	for (int i = 0; i < 0x0f; i++)
+	for ( i = 0x00; i < 0x0f; i++)
 	{
 		int v = _iocs_bitsns(i);
-		for (int j = 0; j < 8; j++)
+		for ( j = 0; j < 8; j++)
 		{
 			if ((v & 1) == 1)
 			{
@@ -289,6 +317,9 @@ int emuLoop(int pc) {
 					// 特殊キー
 					switch (X)
 					{
+					case 0xfd: // 記号キーを押すと、PC周辺のメモリダンプ
+						kigoKeyHit = 1;
+						break;
 					case 0xfe: // HELPキーを押すとテキスト表示切り替え
 						helpKeyHit = 1;
 						break;
@@ -314,6 +345,13 @@ int emuLoop(int pc) {
 		_dos_kflushio(0xff);
 	}
 
+	if (kigoKeyHit && !kigoKeyHitLast)
+	{
+		printf("COUNTER=%08x\n", counter);
+		dump(pc >> 16, pc & 0xffff);
+	}
+	kigoKeyHitLast = kigoKeyHit;
+
 	if (helpKeyHit && !helpKeyHitLast)
 	{
 		_toggleTextPlane();
@@ -321,6 +359,26 @@ int emuLoop(int pc) {
 	helpKeyHitLast = helpKeyHit;
 
 	return 0;
+}
+
+// メモリダンプ
+void dump(unsigned int page, unsigned int pc) {
+	int i,j;
+	int pcbase;
+	int data;
+	
+	pcbase = pc & 0xfff0;
+	printf("PAGE=%04x, PC=%04x\n", page, pc);
+	for (i = -1; i < 2; i++)
+	{
+		printf("%04x: ", pcbase + i * 16);
+		for (j = 0; j < 16; j++)
+		{
+			data = readMemFromC(pcbase + i * 16 + j);
+			printf("%02x ", data);
+		}
+		printf("\n");
+	}
 }
 
 // テキスト表示切り替え
@@ -377,11 +435,15 @@ unsigned int* X68_PCG = (unsigned int*)0x00eb8000;
 unsigned int* X68_PCG_buffer;
 extern unsigned char sprite_size;	// 0: 8x8, 1: 16x16
 
+/*
+ スプライトの初期化
+ */
 void initSprite(void) {
+	int i;
+
 	// X68000は 1スプライト(16x16)パターンあたり128バイトが必要
 	// MSXは 256個定義できるが、X68000は128個しか定義できないため、メモリ上に定義領域を作っておき
 	// 表示時に転送するようにしている
-	printf("%d\n", sizeof(unsigned int));
 	X68_PCG_buffer = (unsigned int*)malloc( 256 * 32 * sizeof(unsigned int)); 
 	if (X68_PCG_buffer > (unsigned int *)0x81000000)
 	{
@@ -389,7 +451,7 @@ void initSprite(void) {
 		ms_exit();
 	}
 	// PCGバッファの初期化
-	for (int i = 0; i < 256 * 32; i++) {
+	for ( i = 0; i < 256 * 32; i++) {
 		X68_PCG_buffer[i] = 0;
 	}
 	// スプライトパレットの初期化
@@ -404,13 +466,14 @@ void initSprite(void) {
      pattern: 書き込むパターン(下位8bitのみ使用)
 */
 void writeSpritePattern(unsigned char* p, int offset, unsigned int pattern) {
+	int i,j;
 	int ptNum = offset / 8; // MSXのスプライトパターン番号
 	int pLine = offset % 8; // パターンの何行目か 
 	int pcgLine = pLine * 2; // MSXの1ラインはX68000では2ライン
 	unsigned int pLeft=0,pRight=0; // 1ラインの左4ドットと右4ドットを X68000の8x8のパターン2つに変換
 
     // 右端のドットから処理
-	for(int i =0; i < 4;i++) {
+	for(i =0; i < 4;i++) {
 		pRight >>= 8;
 		if(pattern & 1) {
 			pRight |= (0xff000000);
@@ -418,7 +481,7 @@ void writeSpritePattern(unsigned char* p, int offset, unsigned int pattern) {
 		pattern >>= 1;
 	}
     // 残りの左4ドットの処理
-	for(int i =0; i < 4;i++) {
+	for(i =0; i < 4;i++) {
 		pLeft >>= 8;
 		if(pattern & 1) {
 			pLeft |= (0xff000000);
@@ -433,18 +496,19 @@ void writeSpritePattern(unsigned char* p, int offset, unsigned int pattern) {
 }
 
 void writeSpriteAttribute(unsigned char* p, int offset, unsigned int attribute) {
+	int i,j;
 	int plNum = (offset / 4) % 32; // MSXのスプライトプレーン番号
 	int type = offset % 4; // 属性の種類
 
 	switch(type) {
 		case 0: // Y座標
-			for( int i=0; i<4; i++) {
-				X68_SSR[plNum*16+i*4+1] = ((attribute & 0xff) * 2) + (i%2)*16; // MSXのY座標の2倍
+			for( i=0; i<4; i++) {
+				X68_SSR[plNum*16+i*4+1] = (((attribute + 1 ) & 0xff) * 2) + (i%2)*16 + 16; // MSXのY座標の2倍, MSXは1ライン下に表示されるので+1, X68000のスプライトの原点は(16,16)なのでずらす
 			}
 			break;
 		case 1: // X座標
-			for( int i=0; i<4; i++) {
-				X68_SSR[plNum*16+i*4+0] = ((attribute & 0xff) * 2) + (i/2)*16; // MSXのX座標の2倍
+			for( i=0; i<4; i++) {
+				X68_SSR[plNum*16+i*4+0] = ((attribute & 0xff) * 2) + (i/2)*16 + 16; // MSXのX座標の2倍
 			}
 			// TODO ECビットによる位置補正処理
 			break;
@@ -455,11 +519,11 @@ void writeSpriteAttribute(unsigned char* p, int offset, unsigned int attribute) 
 			unsigned int color = p[(offset & 0x1fffc)+3] & 0xf;
 			unsigned int colorex = color << 28 | color << 24 | color << 20 | color << 16 | color << 12 | color << 8 | color << 4 | color; // MSXの4ドット分(X68000だと2倍の8ドットに拡大)
 			if (sprite_size == 0) { // 8x8
-				for(int i = 0; i < 32; i++) { 
+				for( i = 0; i < 32; i++) { 
 					X68_PCG[plNum*32*4+i] = X68_PCG_buffer[(ptNum & 0xff)*32+i] & colorex;
 				}
 			} else { // 16x16
-				for(int i = 0; i < 32*4; i++) { 
+				for( i = 0; i < 32*4; i++) { 
 					X68_PCG[plNum*32*4+i] = X68_PCG_buffer[(ptNum & 0xfc)*32+i] & colorex;
 				}
 			}
@@ -473,7 +537,7 @@ void writeSpriteAttribute(unsigned char* p, int offset, unsigned int attribute) 
 		X68_SSR[plNum*4+3] = 0x0003; // スプライト表示ON
 	} else {
 		// 16x16モードは X68000上で 32x32になるので、16x16のスプライトを4つ並べて表現する
-		for( int i=0; i<4; i++) {
+		for( i=0; i<4; i++) {
 			X68_SSR[plNum*16+i*4+2] = 0x100 + plNum*4+i; // パレット0x10-0x1fを使用するので 0x100を足す
 			X68_SSR[plNum*16+i*4+3] = 0x0003; // スプライト表示ON
 		}

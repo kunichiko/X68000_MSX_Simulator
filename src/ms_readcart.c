@@ -13,8 +13,6 @@
 #include <unistd.h>
 #include <iocslib.h>
 #include <doslib.h>
-#include <x68k/iocs.h>
-#include <x68k/dos.h>
 
 #define h_length 8
 
@@ -79,7 +77,7 @@ void read_cartridge(char *path_crt, void *ccf_buff, int location, int page, int 
 			printf("ファイルの長さが取得できません。\n");
 			return;
 		}
-		if( ( crt_buff = _dos_malloc( crt_length + h_length ) ) > (void *)0x81000000) {
+		if( ( crt_buff = (void*)_dos_malloc( crt_length + h_length ) ) > (void *)0x81000000) {
 			printf("メモリが確保できません。\n");
 			return;
 		}

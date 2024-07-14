@@ -40,7 +40,7 @@
 	.xdef	TOUROKU_int
 	.xdef	_KEYSNS_tbl_ptr
 
-	.xref	emu_yield
+	.xref	cpu_emu_yield
 	.xref	KEY_vector
 
 	.68000
@@ -72,14 +72,18 @@ r_port_A8:				* スロット選択レジスタの値
 r_port_A9:
 	move.b	p_AA,d0
 	andi.w	#$000f,d0
-	move.b	_KEYSNS_tbl(pc,d0.w),d0
+	lea	_KEYSNS_tbl,a0
+	move.b	(a0,d0.w),d0
 	rts
+
+	.data
 
 _KEYSNS_tbl:
 	.dc.b	$ff,$ff,$ff,$ff,$ff,$ff,$ff,$ff,$ff,$ff,$ff,$ff,$ff,$ff,$ff,$ff
 _KEYSNS_tbl_ptr:
 	.dc.l	_KEYSNS_tbl
 
+	.text
 
 r_port_AA:
 	move.b	p_AA,d0
@@ -286,6 +290,8 @@ w_block3:
 	move.b	d1,0(a0,d0.w)
 	rts
 
+	.data
+
 RTC1:	.dc.b	0		* 0
 	.dc.b	0
 	.dc.b	0
@@ -348,8 +354,10 @@ RTC1mask:
 	.dc.b	3
 	.dc.b	0
 
+	.text
+
 KEY_INT:
-	move.b	#1,emu_yield
+	move.l	#$0000_0001,cpu_emu_yield
 	move.l	KEY_vector,-(sp)	* もともと設定されていたルーチンに処理を引き継ぐため、SPを介してrtsでジャンプ
 	rts
 

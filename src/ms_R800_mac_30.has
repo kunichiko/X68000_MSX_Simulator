@@ -7,17 +7,17 @@
 *				1995.9.24		by Kuni.
 *
 
-
+*	TODO:
 *	ＲＥＴＮとＲＥＴＩをちゃんとやってない
 
 
-*	 31     16 15       0
-*	｜        ｜   ｜ A ｜  d4	Ａレジスタ
-*	｜        ｜   ｜HC1｜  d5	フラグ
-*	｜        ｜ F ｜ SZ｜  d6	フラグ
-*	｜ PC page｜PC(16k) ｜	d7
-*	｜     registers    ｜	a3	a3 = レジスターの格納されているアドレス
-*	｜    PC Base ADD   ｜	a4
+*	 31     16 15 8 7  0
+*	|         |    | A  |  d4	Ａレジスタ
+*	|         |    |HC1 |  d5	フラグ
+*	|         | F  | SZ |  d6	フラグ
+*	| PC page | PC(16k) |  d7
+*	|     registers     |  a3	a3 = レジスターの格納されているアドレス
+*	|    PC Base ADD    |  a4	a4 = PC
 *
 *	PC Base ADD + PC(16k) = 実アドレス
 *
@@ -36,8 +36,8 @@
 *	       +---------SZ のモード。0の時通常モード。1の時S,Zどちらも１になる。
 *
 *	registers:
-*	a:	.dc.b	0		* Ａレジスタは d4 に入ってるから使わない
-*	f:	.dc.b	0
+*	a:	.dc.b	0	* Aレジスタは d4 を使うから使わない
+*	f:	.dc.b	0	* Fレジスタは d5 を使うから使わない
 *	b:	.dc.b	0
 *	c:	.dc.b	0
 *	d:	.dc.b	0
@@ -109,6 +109,8 @@
 
 	.xref	native_jpt_add		* ６８ネイティブルーチンのジャンプテーブル
 
+	.xref	S_0			* VDPのステータスレジスタ0
+
 	.xdef	f
 	.xdef	HC2
 	.xdef	PV
@@ -116,8 +118,8 @@
 	.xdef	_emulater_ini
 	.xdef	_emulate
 	.xdef	cpu_main
-	.xdef	emu_yield
-	.xdef	interrupt_status
+	.xdef	cpu_emu_yield
+	.xdef	_readMemFromC
 
 	.xdef	page0
 	.xdef	page1
@@ -230,7 +232,8 @@ PC_page_set	macro			* JP命令等で PCが変わった時の処理
 *	int emulater_ini();
 *
 _emulater_ini:
-	movem.l	d3-d7/a0-a6,-(sp)
+	link	a6,#0
+	movem.l	d3-d7/a0-a5,-(sp)
 
 	lea.l	registers,a3
 	clr.l	exslot_reg_0		* 拡張スロット選択レジスタの値をクリア
@@ -240,49 +243,103 @@ _emulater_ini:
 	clr.w	d7			* pc = 0
 	PC_page_set
 	clr.w	sp_(a3)			* sp = 0
-	move.b	#$80,interrupt_status	* DI に
-	clr.w	interrupt_mode		* IM を０に
+	move.b	#$00,interrupt_enable	* DI に
+	clr.b	interrupt_mode		* IM を０に
 
-	movem.l	(sp)+,d3-d7/a0-a6
+	movem.l	(sp)+,d3-d7/a0-a5
+	unlk	a6
 	rts
 
+	.data
+
+emu_counter:
+	.dc.l	0
+emu_counter_latch:
+	.dc.l	0
+emu_yield_div:
+	.dc.w	0
+
+	.text
 *
 *	void emulate();
 *
 _emulate:
-	move.l	4(sp),emu_loop_func	* ループ関数のポインタを保存
-	movem.l	d3-d7/a0-a6,-(sp)
+	link	a6,#0
+	movem.l	d3-d7/a0-a5,-(sp)
+	
+	move.l	8(a6),emu_loop_func	* 引数1のループ関数のポインタを保存しておく
 
+	clr.l	emu_counter
+	clr.l	emu_counter_latch
+	clr.w	emu_yield_div
 	lea.l	registers,a3
 cpu_main:
-	move.b	emu_yield-base(a3),d0
-	bne	emu_int
+	add.l	#1,emu_counter
+	move.l	cpu_emu_yield,d0
+	beq	cpu_main_next
+	bsr	check_yield
+cpu_main_next:
 	clr.w	d0			* d0 の上位ビットを０にクリア
 	move.b	0(a4,d7.w),d0		* 命令を読み込む
-	movea.l	instructions(pc,d0.w*4),a0
+	lea.l	instructions,a0
+	movea.l	(a0,d0.w*4),a0
 	jmp	(a0)
 
-emu_int:
-	clr.b	emu_yield-base(a3)
-	* C側の処理を呼び出す
+; cpu_yieldか emu_yieldのどちらかが0でない場合の中断処理
+check_yield:
+	; cpu_yieldの処理
+	cmpi.w	#0,cpu_yield
+	beq	@f
+	subq.w	#1,cpu_yield
+	bne	@f
+	; cpu_yieldが0になったので、割り込み判定を行う
+	cmpi.b	#1,interrupt_enable
+	bne	@f		* DIなら割り込まない
+	; あらためてVDPのS_0の bit7を見て割り込み要求があるかどうかを見る
+	btst.b	#7,S_0
+	beq	@f
+	; emu_counter が 0x1000 に達していなかったら割り込みを一回スキップ(実験)
+	cmpi.l	#$1000,emu_counter
+	bgt	1f
+	rts
+1:	bsr	INT
+	move.l	emu_counter,emu_counter_latch
+	clr.l	emu_counter
+	rts
+
+	; emu_yieldの処理
+@@:	cmpi.w	#0,emu_yield
+	bne	@f
+	rts
+@@:	subq.w	#1,emu_yield
+	beq	@f
+	rts	
+
+	; emu_yieldが0になったので、C側の処理を呼び出す
+@@:	cmpi.w	#0,emu_yield_div	* さらに間引きを実施
+	beq	@f			* 0なら実行
+	subq.w	#1,emu_yield_div
+	rts
+@@:	move.w	#2,emu_yield_div	* 1 = 2回に一回実行, 2 = 3回に1回
 	movem.l	d1-d7/a0-a6,-(sp)
-	*movea.l	emu_loop_func-base(a3),a0
 	movea.l	emu_loop_func,a0
-	move.l	d7,-(sp)	* PCを引数として渡す
+	move.l	emu_counter_latch,-(sp)	* カウンタを引数として渡す
+	move.l	d7,-(sp)		* PCを引数として渡す
 	jsr	(a0)
-	lea.l	4(sp),sp
+	lea.l	8(sp),sp
 	movem.l	(sp)+,d1-d7/a0-a6
 	move.l	d0,d0
-	beq	@f
+	bne	@f
+	rts
+@@:	
+	; 0以外が帰ってきたのでエミュレータを終了
+	; サブルーチンを1段飛ばすために、SPをインクリメント
+	lea.l	4(sp),sp
 	bra	emu_end
 
-	* Z80の割り込みがあるか検査
-@@:	move.b	interrupt_status-base(a3),d0
-	bgt	INT
-	bra	cpu_main
-
 emu_end:
-	movem.l	(sp)+,d3-d7/a0-a6
+	movem.l	(sp)+,d3-d7/a0-a5
+	unlk	a6
 	moveq.l #-1,d0
 	rts
 
@@ -561,8 +618,8 @@ instructions:
 
 
 *	------ 割り込み処理 ------
-INT:	move.b	#$80,interrupt_status	* DI に
-	cmpi.w	#1,interrupt_mode	* 割り込みがかかった時の処理
+INT:	move.b	#0,interrupt_enable	* DI に
+	cmpi.b	#1,interrupt_mode	* 割り込みがかかった時の処理
 	bhi	mode2
 					* モード０割り込みは実現できない
 mode1:	move.l	d7,d1
@@ -575,7 +632,7 @@ mode1:	move.l	d7,d1
 
 	move.w	#$0038,d7
 	PC_page_set
-	bra	cpu_main
+	rts
 
 mode2:	move.l	d7,d1
 	swap	d7		* d7 = 00000000_000000pp
@@ -591,7 +648,7 @@ mode2:	move.l	d7,d1
 	bsr	read_mem_16
 	move.w	d0,d7
 	PC_page_set
-	bra	cpu_main
+	rts
 
 
 nop:	addq.w	#1,d7			* PC += 1
@@ -1351,6 +1408,25 @@ LD_lnnl_HL:
 	bsr	write_mem_16
 	bra	cpu_main
 
+
+*******************************************************************
+* Cから読み出すサブルーチン
+*******************************************************************
+_readMemFromC:
+	link	a6,#0
+	movem.l	d1-d7/a0-a5,-(sp)
+	
+	move.l	8(a6),d0	* 引数1のアドレスを取得
+
+	lea.l	registers,a3
+	bsr	read_mem	* メモリから 8ビットのデータを読み込む
+
+	and.l	#$ff,d0		* 上位24ビットをクリア
+
+	movem.l	(sp)+,d1-d7/a0-a5
+	unlk	a6
+	rts
+
 *******************************************************************
 *
 *	メモリから 8ビットのデータを読み込むサブルーチン。
@@ -1367,26 +1443,26 @@ read_mem:
 	bne	page_1_r8
 page_0_r8:
 	andi.w	#%00111111_11111111,d0
-	movea.l	page0-base(a3),a0
-	movea.l	rd8_sub_add_p0-base(a3),a1
+	movea.l	page0,a0
+	movea.l	rd8_sub_add_p0,a1
 	jmp	(a1)				* rts を省略するために jmp にしてある
 page_1_r8:
 	andi.w	#%00111111_11111111,d0
-	movea.l	page1-base(a3),a0
-	movea.l	rd8_sub_add_p1-base(a3),a1
+	movea.l	page1,a0
+	movea.l	rd8_sub_add_p1,a1
 	jmp	(a1)				* rts を省略するために jmp にしてある
 page_2or3_r8:
 	btst.l	#14,d0
 	bne	page_3_r8
 page_2_r8:
 	andi.w	#%00111111_11111111,d0
-	movea.l	page2-base(a3),a0
-	movea.l	rd8_sub_add_p2-base(a3),a1
+	movea.l	page2,a0
+	movea.l	rd8_sub_add_p2,a1
 	jmp	(a1)				* rts を省略するために jmp にしてある
 page_3_r8:
 	andi.w	#%00111111_11111111,d0
-	movea.l	page3-base(a3),a0
-	movea.l	rd8_sub_add_p3-base(a3),a1
+	movea.l	page3,a0
+	movea.l	rd8_sub_add_p3,a1
 	cmp.w	#$3fff,d0
 	beq	next_r8
 	jmp	(a1)				* rts を省略するために jmp にしてある
@@ -1412,26 +1488,26 @@ write_mem:
 	bne	page_1_w8
 page_0_w8:
 	andi.w	#%00111111_11111111,d0
-	movea.l	page0-base(a3),a0
-	movea.l	wt8_sub_add_p0-base(a3),a1
+	movea.l	page0,a0
+	movea.l	wt8_sub_add_p0,a1
 	jmp	(a1)				* rts を省略するために jmp にしてある
 page_1_w8:
 	andi.w	#%00111111_11111111,d0
-	movea.l	page1-base(a3),a0
-	movea.l	wt8_sub_add_p1-base(a3),a1
+	movea.l	page1,a0
+	movea.l	wt8_sub_add_p1,a1
 	jmp	(a1)				* rts を省略するために jmp にしてある
 page_2or3_w8:
 	btst.l	#14,d0
 	bne	page_3_w8
 page_2_w8:
 	andi.w	#%00111111_11111111,d0
-	movea.l	page2-base(a3),a0
-	movea.l	wt8_sub_add_p2-base(a3),a1
+	movea.l	page2,a0
+	movea.l	wt8_sub_add_p2,a1
 	jmp	(a1)				* rts を省略するために jmp にしてある
 page_3_w8:
 	andi.w	#%00111111_11111111,d0
-	movea.l	page3-base(a3),a0
-	movea.l	wt8_sub_add_p3-base(a3),a1
+	movea.l	page3,a0
+	movea.l	wt8_sub_add_p3,a1
 	cmp.w	#$3fff,d0
 	beq	next_w8
 	jmp	(a1)				* rts を省略するために jmp にしてある
@@ -1453,36 +1529,36 @@ read_mem_16:
 	btst.l	#14,d0
 	bne	page_1_r16
 page_0_r16:
-	movea.l	page0-base(a3),a0
+	movea.l	page0,a0
 	andi.w	#$3fff,d0
 	cmpi.w	#$3fff,d0
 	beq	@f				* ページ境界をまたがって読み込む時
-	movea.l	rd16_sub_add_p0-base(a3),a1
+	movea.l	rd16_sub_add_p0,a1
 	jmp	(a1)				* rts を省略するために jmp にしてある
 @@:
-	movea.l	rd8_sub_add_p0-base(a3),a1
+	movea.l	rd8_sub_add_p0,a1
 	jsr	(a1)
 	move.b	d0,-(sp)
 	clr.w	d0				* ページ１の $0000番地を読む
-	movea.l	rd8_sub_add_p1-base(a3),a1
+	movea.l	rd8_sub_add_p1,a1
 	jsr	(a1)
 	lsl.w	#8,d0				* 上位バイト読み込み
 	move.b	(sp)+,d0			* 下位バイト読み込み
 	rts
 
 page_1_r16:
-	movea.l	page1-base(a3),a0
+	movea.l	page1,a0
 	andi.w	#$3fff,d0
 	cmpi.w	#$3fff,d0
 	beq	@f				* ページ境界をまたがって読み込む時
-	movea.l	rd16_sub_add_p1-base(a3),a1
+	movea.l	rd16_sub_add_p1,a1
 	jmp	(a1)				* rts を省略するために jmp にしてある
 @@:
-	movea.l	rd8_sub_add_p1-base(a3),a1
+	movea.l	rd8_sub_add_p1,a1
 	jsr	(a1)
 	move.b	d0,-(sp)
 	clr.w	d0				* ページ２の $0000番地を読む
-	movea.l	rd8_sub_add_p2-base(a3),a1
+	movea.l	rd8_sub_add_p2,a1
 	jsr	(a1)
 	lsl.w	#8,d0				* 上位バイト読み込み
 	move.b	(sp)+,d0			* 下位バイト読み込み
@@ -1492,36 +1568,36 @@ page_2or3_r16:
 	btst.l	#14,d0
 	bne	page_3_r16
 page_2_r16:
-	movea.l	page2-base(a3),a0
+	movea.l	page2,a0
 	andi.w	#$3fff,d0
 	cmpi.w	#$3fff,d0
 	beq	@f				* ページ境界をまたがって読み込む時
-	movea.l	rd16_sub_add_p2-base(a3),a1
+	movea.l	rd16_sub_add_p2,a1
 	jmp	(a1)				* rts を省略するために jmp にしてある
 @@:
-	movea.l	rd8_sub_add_p2-base(a3),a1
+	movea.l	rd8_sub_add_p2,a1
 	jsr	(a1)
 	move.b	d0,-(sp)
 	clr.w	d0				* ページ３の $0000番地を読む
-	movea.l	rd8_sub_add_p3-base(a3),a1
+	movea.l	rd8_sub_add_p3,a1
 	jsr	(a1)
 	lsl.w	#8,d0				* 上位バイト読み込み
 	move.b	(sp)+,d0			* 下位バイト読み込み
 	rts
 
 page_3_r16:
-	movea.l	page3-base(a3),a0
+	movea.l	page3,a0
 	andi.w	#$3fff,d0
 	move.w	d0,d2				* 0xffffか0xfffeからワード読み込みしよ 
 	addq.w	#2,d2				* うとしているか？
 	andi.w	#$4000,d2
 	bne	@f
-	movea.l	rd16_sub_add_p3-base(a3),a1
+	movea.l	rd16_sub_add_p3,a1
 	jmp	(a1)				* rts を省略するために jmp にしてある
 @@:
 	cmpi.w	#$3fff,d0
 	beq	@f
-	movea.l	rd8_sub_add_p3-base(a3),a1
+	movea.l	rd8_sub_add_p3,a1
 	jsr	(a1)
 	move.b	d0,-(sp)
 	bsr	exslotreg_read
@@ -1532,7 +1608,7 @@ page_3_r16:
 	bsr	exslotreg_read
 	move.b	d0,-(sp)
 	clr.w	d0
-	movea.l	rd8_sub_add_p0-base(a3),a1
+	movea.l	rd8_sub_add_p0,a1
 	jsr	(a1)
 	lsl.w	#8,d0				* 上位バイト読み込み
 	move.b	(sp)+,d0			* 下位バイト読み込み
@@ -1555,70 +1631,70 @@ write_mem_16:
 	btst.l	#14,d0
 	bne	page_1_w16
 page_0_w16:
-	movea.l	page0-base(a3),a0
+	movea.l	page0,a0
 	andi.w	#$3fff,d0
 	cmpi.w	#$3fff,d0
 	beq	@f				* ページ境界をまたがって読み込む時
-	movea.l	wt16_sub_add_p0-base(a3),a1
+	movea.l	wt16_sub_add_p0,a1
 	jmp	(a1)				* rts を省略するために jmp にしてある
 @@:
 	move.w	d1,-(sp)
-	movea.l	wt8_sub_add_p0-base(a3),a1
+	movea.l	wt8_sub_add_p0,a1
 	jsr	(a1)
 	clr.w	d0
 	move.b	(sp)+,d1			* d1.b = 上位バイト
-	movea.l	wt8_sub_add_p1-base(a3),a1
+	movea.l	wt8_sub_add_p1,a1
 	jmp	(a1)				* rts を省略するために jmp にしてある
 
 page_1_w16:
-	movea.l	page1-base(a3),a0
+	movea.l	page1,a0
 	andi.w	#$3fff,d0
 	cmpi.w	#$3fff,d0
 	beq	@f				* ページ境界をまたがって読み込む時
-	movea.l	wt16_sub_add_p1-base(a3),a1
+	movea.l	wt16_sub_add_p1,a1
 	jmp	(a1)				* rts を省略するために jmp にしてある
 @@:
 	move.w	d1,-(sp)
-	movea.l	wt8_sub_add_p1-base(a3),a1
+	movea.l	wt8_sub_add_p1,a1
 	jsr	(a1)
 	clr.w	d0
 	move.b	(sp)+,d1			* d1.b = 上位バイト
-	movea.l	wt8_sub_add_p2-base(a3),a1
+	movea.l	wt8_sub_add_p2,a1
 	jmp	(a1)				* rts を省略するために jmp にしてある
 
 page_2or3_w16:
 	btst.l	#14,d0
 	bne	page_3_w16
 page_2_w16:
-	movea.l	page2-base(a3),a0
+	movea.l	page2,a0
 	andi.w	#$3fff,d0
 	cmpi.w	#$3fff,d0
 	beq	@f				* ページ境界をまたがって読み込む時
-	movea.l	wt16_sub_add_p2-base(a3),a1
+	movea.l	wt16_sub_add_p2,a1
 	jmp	(a1)				* rts を省略するために jmp にしてある
 @@:
 	move.w	d1,-(sp)
-	movea.l	wt8_sub_add_p2-base(a3),a1
+	movea.l	wt8_sub_add_p2,a1
 	jsr	(a1)
 	clr.w	d0
 	move.b	(sp)+,d1			* d1.b = 上位バイト
-	movea.l	wt8_sub_add_p3-base(a3),a1
+	movea.l	wt8_sub_add_p3,a1
 	jmp	(a1)				* rts を省略するために jmp にしてある
 
 page_3_w16:
-	movea.l	page3-base(a3),a0
+	movea.l	page3,a0
 	andi.w	#$3fff,d0
 	move.w	d0,d2				* 0xffffか0xfffeからワード読み込みしよ 
 	addq.w	#2,d2				* うとしているか？
 	andi.w	#$4000,d2
 	bne	@f
-	movea.l	wt16_sub_add_p3-base(a3),a1
+	movea.l	wt16_sub_add_p3,a1
 	jmp	(a1)				* rts を省略するために jmp にしてある
 @@:
 	move.w	d1,-(sp)
 	cmpi.w	#$3fff,d0
 	beq	@f
-	movea.l	wt8_sub_add_p3-base(a3),a1
+	movea.l	wt8_sub_add_p3,a1
 	jsr	(a1)
 	move.b	(sp)+,d1			* d1.b = 上位バイト
 	bra	exslotreg_write			* rts を省略するために bra にしてある
@@ -1627,7 +1703,7 @@ page_3_w16:
 	bsr	exslotreg_write
 	clr.w	d0
 	move.b	(sp)+,d1			* d1.b = 上位バイト
-	movea.l	wt8_sub_add_p0-base(a3),a1
+	movea.l	wt8_sub_add_p0,a1
 	jmp	(a1)				* rts を省略するために jmp にしてある
 
 
@@ -4057,28 +4133,21 @@ CPL:	ori.w	#%00001010_00000000,d6	* N,HC mode を１に
 	PC_page_inc
 	bra	cpu_main
 
-DI:	move.b	#$80,interrupt_status-base(a3)
+DI:	move.b	#0,interrupt_enable
 	addq.w	#1,d7
 	andi.w	#$3fff,d7
 	bne	cpu_main
 	PC_page_inc
 	bra	cpu_main
 
-EI:	clr.b	interrupt_status-base(a3)
-*	bclr.b	#7,interrupt_status-base(a3)
-					* DI 状態の時にかかった割り込みは保持されるのか
-					* わからない。この方法だと保持される。
+EI:	move.b	#1,interrupt_enable
+	move.w	#1,cpu_yield		* DI中に割り込みがあった場合に割り込みをかけるようにする
 	addq.w	#1,d7
 	andi.w	#$3fff,d7
 	bne	1f
 	PC_page_inc
-1:					* EIは１命令おいて実行される
-	clr.w	d0			* d0 の上位ビットを０にクリア
-	move.b	0(a4,d7.w),d0		* 命令を読み込む
-	lea.l	instructions(pc),a0
-	movea.l	0(a0,d0.w*4),a0
-	jmp	(a0)
-
+1:					* EIは１命令おいて実行されるので、cpu_main_nextにジャンプして割り込みを1回無視
+	bra	cpu_main_next
 
 RST_00H:
 	move.l	d7,d1
@@ -4249,16 +4318,27 @@ RRA_2:	andi.w	#%11110100_11111111,d6	* Ｎ,Ｃ,HC mode をクリア
 	bra	cpu_main
 
 *	------ ＨＡＬＴ ------
-HALT:	addq.w	#1,d7			* PC += 1
+HALT:
+	pea.l	halt_msg
+	DOS	__PRINT
+	lea.l	4(sp),sp
+	addq.w	#1,d7			* PC += 1
 	andi.w	#$3fff,d7		* PC がページ境界をまたいだか？
 	bne	9f
 	PC_page_inc
-9:	move.b	interrupt_status-base(a3),d0
-	bgt	@f
-	bra	9b
 
-@@:	bra	cpu_main			* 割り込みがかかった時
+9:	cmpi.b	#1,interrupt_enable
+	bne	9b		* DIなら割り込まない(永遠に出られない？ NMIなら出られるようにすべき？)
+	; あらためてVDPのS_0の bit7を見て割り込み要求があるかどうかを見る
+	btst.b	#7,S_0
+	beq	9b
+	bsr	INT		* 割り込みがかかったので割り込み処理を実施
+	bra	cpu_main
 
+halt_msg:
+	.dc.b	'HALT',0x0d,0x0a,0x00,0x00
+
+	.even
 
 *************************** ここまで
 
@@ -5574,9 +5654,10 @@ ED_JPT:	.dc.l	IN_B_c			* $40
 none_ED:					* おかしな命令を実行しました
 	move.w	d0,d1
 	lsr.w	#4,d0
-	move.b	HEX(pc,d0.w),number_ed+0
+	lea.l	HEX,a0
+	move.b	(a0,d0.w),number_ed+0
 	andi.w	#$0f,d1
-	move.b	HEX(pc,d1.w),number_ed+1
+	move.b	(a0,d1.w),number_ed+1
 
 	pea.l	errms_ed
 	DOS	__PRINT
@@ -5713,13 +5794,13 @@ next_jp_call_68:
 	
 
 *	------ ＩＭ ------
-IM_0:	move.w	#0,interrupt_mode-base(a3)
+IM_0:	move.b	#0,interrupt_mode
 	bra	cpu_main
 
-IM_1:	move.w	#1,interrupt_mode-base(a3)
+IM_1:	move.b	#1,interrupt_mode
 	bra	cpu_main
 
-IM_2:	move.w	#2,interrupt_mode-base(a3)
+IM_2:	move.b	#2,interrupt_mode
 	bra	cpu_main
 
 *	------ ＬＤ ＸＸ,(nn) ------
@@ -6365,8 +6446,8 @@ LD_A_R:	andi.w	#%01110101_11111111,d6	* HC mode, N をクリア
 	move.b	d0,d4
 	move.b	d0,d6			* SZ をセット
 	move.b	d5,HC2(a3)		* HC を０に
-	btst.b	#7,interrupt_status	* IFF の設定
-	bne	cpu_main			* DI 状態の時 P/V <- 0
+	btst.b	#1,interrupt_enable	* IFF の設定
+	bne	cpu_main		* DI 状態の時 P/V <- 0
 	move.b	#0,PV(a3)		* PV をセット
 	bra	cpu_main
 
@@ -6380,8 +6461,8 @@ LD_A_I:	andi.w	#%01110101_11111111,d6	* HC mode, N をクリア
 	move.b	i(a3),d4
 	move.b	d4,d6			* SZ をセット
 	move.b	d5,HC2(a3)		* HC を０に
-	btst.b	#7,interrupt_status	* IFF の設定
-	bne	cpu_main			* DI 状態の時 P/V <- 0
+	btst.b	#1,interrupt_enable	* IFF の設定
+	bne	cpu_main		* DI 状態の時 P/V <- 0
 	move.b	#0,PV(a3)		* PV をセット
 	bra	cpu_main
 
@@ -6732,9 +6813,10 @@ DD_FD_JPT:
 none_DD_FD:					* おかしな命令を実行しました
 	move.w	d0,d1
 	lsr.w	#4,d0
-	move.b	HEX(pc,d0.w),number_ddfd+0
+	lea.l	HEX,a0
+	move.b	(a0,d0.w),number_ddfd+0
 	andi.w	#$0f,d1
-	move.b	HEX(pc,d1.w),number_ddfd+1
+	move.b	(a0,d1.w),number_ddfd+1
 
 	pea.l	errms_ddfd
 	DOS	__PRINT
@@ -8454,7 +8536,8 @@ OTDR:	ori.w	#%00000010_00000000,d6	* Nをセット
 input:
 	clr.w	d1
 	move.b	d0,d1				* 上位バイトを０でクリア
-	movea.l	input_table(pc,d1.w*4),a0	* d0 の値を変えちゃだめ（68000用にする
+	lea.l	input_table,a0
+	movea.l	(a0,d1.w*4),a0	* d0 の値を変えちゃだめ（68000用にする
 						* 時注意）
 	jmp	(a0)				* rts を省略するためジャンプにしてある
 
@@ -8465,9 +8548,10 @@ no_port_IN:
 no_port_IN_2:
 	move.w	d1,d0
 	lsr.w	#4,d0
-	move.b	HEX(pc,d0.w),number_r+0
+	lea.l	HEX,a0
+	move.b	(a0,d0.w),number_r+0
 	andi.w	#$0f,d1
-	move.b	HEX(pc,d1.w),number_r+1
+	move.b	(a0,d1.w),number_r+1
 
 	pea.l	errms_r
 	DOS	__PRINT
@@ -8475,6 +8559,7 @@ no_port_IN_2:
 	move.b	#$ff,d0
 	rts
 
+	.data
 errms_r:
 	.dc.b	'エミュレーションしていないポートを読み込みました。0x'
 number_r:
@@ -8567,6 +8652,7 @@ input_table:
 	.dc.l	no_port_IN,	no_port_IN,	no_port_IN,	no_port_IN
 	.dc.l	r_port_FC,	r_port_FD,	r_port_FE,	r_port_FF
 
+	.text
 
 *****************************************************************
 *
@@ -8582,8 +8668,8 @@ input_table:
 output:
 	clr.w	d2
 	move.b	d0,d2				* 上位バイトを０でクリア
-	movea.l	output_table(pc,d2.w*4),a0	* d0 の値を変えちゃだめ（68000用にする
-						* 時注意）
+	lea	output_table,a0
+	movea.l	(a0,d2.w*4),a0			* d0 の値を変えちゃだめ（68000用にする時注意）
 	jmp	(a0)				* rts を省略するためジャンプにしてある
 
 no_port_OUT:
@@ -8592,15 +8678,17 @@ no_port_OUT:
 no_port_OUT_2:
 	move.w	d2,d0				* d2.w ポート番号
 	lsr.w	#4,d0
-	move.b	HEX(pc,d0.w),number_w+0
+	lea.l	HEX,a0
+	move.b	(a0,d0.w),number_w+0
 	andi.w	#$0f,d2
-	move.b	HEX(pc,d2.w),number_w+1
+	move.b	(a0,d2.w),number_w+1
 
 	pea.l	errms_w
 	DOS	__PRINT
 	lea.l	4(sp),sp
 	rts
 
+	.data
 errms_w:
 	.dc.b	'エミュレーションしていないポートに書き込みました。0x'
 number_w:
@@ -8608,8 +8696,7 @@ number_w:
 	.dc.b	0x0d,0x0a,0x00
 
 	.even
-
-
+	
 output_table:
 *	0
 	.dc.l	no_port_OUT,	no_port_OUT,	no_port_OUT,	no_port_OUT
@@ -8692,6 +8779,7 @@ output_table:
 	.dc.l	no_port_OUT,	no_port_OUT,	no_port_OUT,	no_port_OUT
 	.dc.l	w_port_FC,	w_port_FD,	w_port_FE,	w_port_FF
 
+	.text
 
 ****************************************************************************
 *
@@ -8746,7 +8834,7 @@ exslotreg_write:
 	lsr.w	#2,d0				* d0 = 拡張スロット番号 * 16
 	add.w	d2,d0
 	movea.l	4*3(a1,d0.w),a0
-	move.l	a0,page3-base(a3)
+	move.l	a0,page3
 
 	move.b	slot_type(a0),d0		* スロットの種類に応じて読み書きルーチ
 	ext.w	d0				* ンを設定
@@ -8767,7 +8855,7 @@ exslotreg_write:
 	lsl.w	#4,d0				* d0 = 拡張スロット番号 * 16
 	add.w	d2,d0
 	movea.l	4*0(a1,d0.w),a0
-	move.l	a0,page0-base(a3)
+	move.l	a0,page0
 
 	move.b	slot_type(a0),d0		* スロットの種類に応じて読み書きルーチ
 	ext.w	d0				* ンを設定
@@ -8790,7 +8878,7 @@ not_exist0:
 	lsl.w	#2,d0				* d0 = 拡張スロット番号 * 16
 	add.w	d2,d0
 	movea.l	4*1(a1,d0.w),a0
-	move.l	a0,page1-base(a3)
+	move.l	a0,page1
 
 	move.b	slot_type(a0),d0		* スロットの種類に応じて読み書きルーチ
 	ext.w	d0				* ンを設定
@@ -8812,7 +8900,7 @@ not_exist1:
 	andi.w	#%00000000_00110000,d0		* d0 = 拡張スロット番号 * 16
 	add.w	d2,d0
 	movea.l	4*2(a1,d0.w),a0
-	move.l	a0,page2-base(a3)
+	move.l	a0,page2
 
 	move.b	slot_type(a0),d0		* スロットの種類に応じて読み書きルーチ
 	ext.w	d0				* ンを設定
@@ -8954,7 +9042,7 @@ w_port_FC:
 	lsl.w	#4,d2
 	lsl.w	#6,d0
 	add.w	d2,d0
-	move.w	4*0(a2,d0.w),page0-base(a3)
+	move.w	4*0(a2,d0.w),page0
 
 	swap	d7				* PC のベースポインタも変更
 	movea.l	page0-base(a3,d7.w*4),a4	* （変わってないかもしれないが、
@@ -8989,7 +9077,7 @@ w_port_FD:
 	lsl.w	#2,d2
 	lsl.w	#6,d0
 	add.w	d2,d0
-	move.w	4*1(a2,d0.w),page1-base(a3)
+	move.w	4*1(a2,d0.w),page1
 
 	swap	d7				* PC のベースポインタも変更
 	movea.l	page0-base(a3,d7.w*4),a4	* （変わってないかもしれないが、
@@ -9023,7 +9111,7 @@ w_port_FE:
 	andi.w	#%00110000,d2			* d2 = ページ２の拡張スロット番号
 	lsl.w	#6,d0
 	add.w	d2,d0
-	move.w	4*2(a2,d0.w),page2-base(a3)
+	move.w	4*2(a2,d0.w),page2
 
 	swap	d7				* PC のベースポインタも変更
 	movea.l	page0-base(a3,d7.w*4),a4	* （変わってないかもしれないが、
@@ -9058,7 +9146,7 @@ w_port_FF:
 	andi.w	#%11000000,d2			* d2 = ページ３の拡張スロット番号
 	lsr.w	#2,d2
 	add.w	d2,d1
-	move.w	4*3(a2,d1.w),page3-base(a3)
+	move.w	4*3(a2,d1.w),page3
 
 	swap	d7				* PC のベースポインタも変更
 	movea.l	page0-base(a3,d7.w*4),a4	* （変わってないかもしれないが、
@@ -9127,28 +9215,51 @@ PV_d_:	.dc.b	0
 d6_d_:	.dc.w	0	* d6 に対応する部分
 
 
-*	割り込み状態の設定
+; CPUのメインループを極力高速化するため、Z80の割り込みや、エミュレータの割り込み(キーボード処理など)を
+; yieldフラグを見て分岐するようにしています。
+; yieldフラグには cpu_yieldと、emu_yieldの2つがあり、どちらも0の場合は、CPUのメインループが
+; 割り込まれずに実行されます。
+; この2つのフラグは、以下のような動作をします。
+;
+; ● cpu_yield
+; cpu_yieldに1以上をセットすると、1命令処理するごとにカウントダウンし、0になるタイミングで、
+; 以下の動作をします:
+;   * EI状態で、VDPからの割り込み要求があるなら、割り込みを発生させる
+;   * DI状態なら無視する(割り込みは取りこぼされる)
+;
+; 通常はX68000側のVSYNC割り込みで1をセットし、即座にZ80側の割り込みがかかるようにしますが、
+; タイミング調整が必要になった場合は、このフラグを使って調整可能です。
+; 走査線割り込みをサポートする場合も、このフラグに1以上の値をセットして走査線割り込みのタイミングを
+; 調整することが可能です。
+; VSYNC割り込みでセットされたフラグのカウントダウンをしている最中に走査線割り込みによって cpu_yieldが
+; 書き潰される可能性はあるかもしれませんが、もともと両者の割り込みはZ80から見ると共有割り込みなので、
+; まあ問題ないかなと思っています。
+;
+; ● emu_yield
+; emu_yieldに1以上をセットすると、1命令処理するごとにカウントダウンし、0になるタイミングで、
+; 以下の動作をします:
+;    * X68000側のキーボード入力の処理を行う
+;
+; 通常はX68000側のVSYNC割り込みで cpu_yieldより100くらい大きめの値をセットします。これにより、
+; cpu_yieldの方が先に処理され、Z80の割り込み処理ルーチンが優先的に動くようになります。
+; emu_yieldの頻度を調整したい場合は、VSYNC割り込み以外のタイマー割り込みを使ってセットするように
+; しても良いです。
+cpu_emu_yield:			* cpu_yieldと emu_yieldの両方を同時にロングワードアクセスするときはこちらのラベルを使用する
+cpu_yield:
+	.dc.w	0
 emu_yield:
-	.dc.b	0		* CPUエミュレータの割り込み要求
-				* 0 なし
-				* 1 あり
+	.dc.w	0
 
-interrupt_status:
-	.dc.b	0		* 00000000
-				* |      +-- 0 割り込み無し
-				* |      +-- 1 割り込みあり
-				* |
-				* +--------- 0 ＥＩ
-				* +--------- 1 ＤＩ
-	.even
+*	割り込み許可状態を示すフラグ
+*	0 ・・・ DI
+*	1 ・・・ EI
+interrupt_enable:
+	.dc.b	0
 
 interrupt_mode:
-	.dc.w	0		* インタラプトモード 0, 1, 2
-special:
-	.dc.w	0		* ０・・の時何もなし
-				* １・・ＥＩをかける
-				* ２・・ＥＩがかかった
-				* ３・・割り込みがかかった
+	.dc.b	0		* インタラプトモード 0, 1, 2
+
+	.even
 
 *	スロットに関する情報
 slot_0_ex:			* slot 0 は拡張されているか？ 0・・No  1・・Yes

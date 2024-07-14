@@ -10,8 +10,8 @@
 	.include	doscall.equ
 
 	.xref	VideoRAM
-	.xref	writeSpritePattern
-	.xref	writeSpriteAttribute
+	.xref	_writeSpritePattern
+	.xref	_writeSpriteAttribute
 
 	.xdef	read_vdp_0
 	.xdef	read_vdp_1
@@ -23,8 +23,10 @@
 	.xdef	write_vdp_3
 
 	.xdef	S_0
+	.xdef	R_0
+	.xdef	R_1
 
-	.xdef	sprite_size
+	.xdef	_sprite_size
 	.xdef	active_page
 
 MFP_GPIP_6	equ	$000138		* 水平割り込みのベクタアドレス
@@ -105,11 +107,11 @@ read_vdp_1:				* ステータスレジスタの読みだし
 	andi.w	#%00001111,d0
 	add.w	d0,d0
 	add.w	d0,d0
-	*move.l	r_SReg_jpt(pc,d0.w),a0
-	lea		r_SReg_jpt,a0 
+	lea	r_SReg_jpt,a0 
 	move.l	(a0,d0.w),a0
 	jmp	(a0)
 
+	.data
 r_SReg_jpt:
 	.dc.l	r_SReg_0
 	.dc.l	r_SReg_1
@@ -128,53 +130,47 @@ r_SReg_jpt:
 	.dc.l	r_SReg_f
 	.dc.l	r_SReg_f
 
+	.text
 r_SReg_0:
-	*move.b	S_0(pc),d0
 	move.b	S_0,d0
 	bclr.b	#7,S_0			* ビット７は読み出すとリセットされる
 	rts
 r_SReg_1:
-	*move.b	S_1(pc),d0
 	move.b	S_1,d0
 	bclr.b	#1,S_1			* ビット１は読み出すとリセットされる
 	rts
 r_SReg_2:
-	*move.b	S_2(pc),d0
 	move.b	S_2,d0
-	move.b	GPIP,d1			* いったんレジスタに読んだ方がいいと思うから
-	btst.l	#7,d1			* 水平帰線期間かどうか
+	andi.b	#%10011111,d0
+	move.b	GPIP,d1			* いったんレジスタに読む
+	btst.l	#7,d1			* GPIP b7:水平帰線期間かどうか (0:水平帰線期間 1:水平帰線期間外(表示期間))
 	beq	@f
-	ori.b	#%00100000,d0
-@@:	btst.l	#4,d1			* 垂直帰線期間かどうか
+	ori.b	#%00100000,d0		* VDP S#2 b6:水平帰線期間(0:帰線期間,1:表示期間)
+
+@@:	btst.l	#4,d1			* GPIP b4:垂直帰線期間かどうか (0:垂直帰線期間 1:垂直帰線期間外(表示期間))
 	bne	@f
-	ori.b	#%01000000,d0
+	ori.b	#%01000000,d0		* VDP S#2 b4:垂直帰線期間(0:帰線期間,1:表示期間)
 @@:	rts
+
 r_SReg_3:
-	*move.b	S_3(pc),d0
 	move.b	S_3,d0
 	rts
 r_SReg_4:
-	*move.b	S_4(pc),d0
 	move.b	S_4,d0
 	rts
 r_SReg_5:
-	*move.b	S_5(pc),d0
 	move.b	S_5,d0
 	rts
 r_SReg_6:
-	*move.b	S_6(pc),d0
 	move.b	S_6,d0
 	rts
 r_SReg_7:
-	*move.b	S_7(pc),d0
 	move.b	S_7,d0
 	rts
 r_SReg_8:
-	*move.b	S_8(pc),d0
 	move.b	S_8,d0
 	rts
 r_SReg_9:
-	*move.b	S_9(pc),d0
 	move.b	S_9,d0
 	rts
 r_SReg_f:
@@ -224,7 +220,8 @@ write_vdp_2:				* パレットレジスタへの書き込み
 	rts
 @@:	andi.w	#%00000111,d1
 	add.w	d1,d1
-	move.w	b3_b5_table(pc,d1.w),d1
+	lea.l	b3_b5_table,a0
+	move.w	(a0,d1.w),d1
 	lsl.w	#8,d1
 	lsl.w	#3,d1			* d1 = %GGGGG000_00000000
 	move.b	first_bite_2,d0
@@ -232,12 +229,12 @@ write_vdp_2:				* パレットレジスタへの書き込み
 	andi.w	#%00000000_01110000,d0
 	lsr.w	#4,d0			* d0 = %00000000_00000RRR
 	add.w	d0,d0
-	move.w	b3_b5_table(pc,d0.w),d0
+	move.w	(a0,d0.w),d0
 	lsl.w	#6,d0			* d0 = %00000RRR_RR000000
 	or.w	d0,d1			* d1 = %GGGGGRRR_RR000000
 	andi.w	#%00000000_00000111,d2
 	add.w	d2,d2
-	move.w	b3_b5_table(pc,d2.w),d2
+	move.w	(a0,d2.w),d2
 	add.w	d2,d2			* d2 = %00000000_00BBBBB0
 	or.w	d2,d1			* d1 = %GGGGGRRR_RRBBBBB0
 	addq.w	#1,d1			* d1 = %GGGGGRRR_RRBBBBB1
@@ -252,10 +249,12 @@ write_vdp_2:				* パレットレジスタへの書き込み
 
 	move.w	display_mode,d0
 	add.w	d0,d0
-	move.w	w_PalSet_jpt(pc,d0.w),d0
-	jmp	w_PalSet_jpt(pc,d0.w)
+	add.w	d0,d0
+	lea	w_PalSet_jpt,a0	
+	move.l	(a0,d0.w),a0
+	jmp	(a0)
 
-
+	.data
 b3_b5_table:				* ３ビットのデータから５ビットのデータを得る
 	.dc.w	0			* 0
 	.dc.w	4
@@ -268,18 +267,20 @@ b3_b5_table:				* ３ビットのデータから５ビットのデータを得る
 
 
 w_PalSet_jpt:
-	.dc.w	s_p_TEXT1-w_PalSet_jpt
-	.dc.w	s_p_TEXT2-w_PalSet_jpt
-	.dc.w	s_p_MULTICOLOR-w_PalSet_jpt
-	.dc.w	s_p_GRAPHIC1-w_PalSet_jpt
-	.dc.w	s_p_GRAPHIC2-w_PalSet_jpt
-	.dc.w	s_p_GRAPHIC3-w_PalSet_jpt
-	.dc.w	s_p_GRAPHIC4-w_PalSet_jpt
-	.dc.w	s_p_GRAPHIC5-w_PalSet_jpt
-	.dc.w	s_p_GRAPHIC6-w_PalSet_jpt
-	.dc.w	s_p_GRAPHIC7-w_PalSet_jpt
-	.dc.w	s_p_SCREEN10-w_PalSet_jpt
-	.dc.w	s_p_SCREEN12-w_PalSet_jpt
+	.dc.l	s_p_TEXT1
+	.dc.l	s_p_TEXT2
+	.dc.l	s_p_MULTICOLOR
+	.dc.l	s_p_GRAPHIC1
+	.dc.l	s_p_GRAPHIC2
+	.dc.l	s_p_GRAPHIC3
+	.dc.l	s_p_GRAPHIC4
+	.dc.l	s_p_GRAPHIC5
+	.dc.l	s_p_GRAPHIC6
+	.dc.l	s_p_GRAPHIC7
+	.dc.l	s_p_SCREEN10
+	.dc.l	s_p_SCREEN12
+
+	.text
 
 s_p_TEXT1:
 s_p_TEXT2:
@@ -393,6 +394,8 @@ set_CReg_Direct:
 * 	サブルーチンへのコールテーブル
 *	.d0.w	レジスタ番号		* <-- ワードであることに注意
 *	.d1.b	書き込む値
+	.data
+
 w_CReg_jpt:
 	.dc.l	w_R0			* R#0
 	.dc.l	w_R1
@@ -459,6 +462,8 @@ MC_add:	.dc.l	w_CLR
 	.dc.l	noregister
 	.dc.l	noregister		* 63
 
+	.text
+
 noregister:
 	move.w	d0,d2
 	lsr.w	#4,d0
@@ -471,16 +476,19 @@ noregister:
 	lea.l	4(sp),sp
 	rts
 
+@@:	.dc.b	'0123456789ABCDEF'
+
+	.data
 errms_creg:
 	.dc.b	'おかしなコントロールレジスタに書き込みました。0x'
 number_creg:
 	.dc.b	'00'
 	.dc.b	0x0d,0x0a,0x00
 
-@@:	.dc.b	'0123456789ABCDEF'
 
 	.even
 
+	.text
 normal:
 	lea.l	Control_registers,a0
 	move.b	d1,0(a0,d0.w)
@@ -488,7 +496,18 @@ normal:
 
 *crtcras_:
 *	.dc.l	crtcras
+;
+; R#0	[ 0 ][ DG][IE2][IE1][ M5][ M4][ M3][ 0 ]
+;	DG  : カラーバスを入力モードにしてデータをＶＲＡＭへ取り込む
+;	IE2 : ライトペン割り込み
+;		０＝禁止
+;		１＝許可
+;	IE1 : 水平帰線(HSYNC)割り込み
+;		０＝禁止
+;		１＝許可
+;	M5-M1 : 画面モード(後述: set_CRT参照)
 w_R0:
+	move.b	d1,R_0
 	bclr.l	#4,d1			* IE1 のテスト
 	beq	@f
 					* 走査線割り込みを使用する
@@ -499,41 +518,57 @@ w_R0:
 	bra	1f
 @@:					* 走査線割り込みを使用しない
 1:	andi.w	#%00000000_00001110,d1	* 画面モードのセット
-	lsl.w	#1,d1
+	lsl.w	#1,d1			* M5,M4,M3を bit4,3,2の位置に
 	move.b	CRT_mode,d0
-	andi.w	#%00000000_00000011,d0
+	andi.w	#%00000000_00000011,d0	* M2,M1と混ぜる
 	or.w	d1,d0
 	bsr	set_CRT			* 画面の切り替え
 	rts
 
+; R#1	[ 0 ][ BL][IE0][ M1][ M2][ 0 ][ SI][MAG]	
+; 	BL  : 画面表示状態
+;		０＝非表示
+;		１＝表示
+;	IE0 : 垂直帰線(VSYNC)割り込み
+;		０＝禁止
+;		１＝許可
+;	SI  : スプライトサイズ
+; 		０＝８×８
+; 		１＝１６×１６
+;	MAG : スプライトの拡大
+; 	０＝拡大しない
+;		１＝拡大する
+;	M5-M1 : 画面モード(後述: set_CRT参照)
+;
 w_R1:					* ===== 完全ではない ======
+	move.b	d1,R_1
 	bclr.l	#6,d1			* BL = ブランク, 1の時画面表示ON
 	beq	@f
 	ori.w	#%00000000_01100001,VCRR_02
 	bra	1f
 @@:	andi.w	#%11111111_11100000,VCRR_02
 
-1:	bclr.l	#5,d1			* IE0 = 割り込み許可, 1の時許可
+1:	bclr.l	#5,d1			* IE0 = 垂直帰線期間割り込み許可, 1の時許可
 	beq	@f
-	ori.b	#%00100000,IERA
+	*ori.b	#%00100000,IERA
 	bra	1f
-@@:	andi.b	#%11011111,IERA		* 割り込み禁止
+@@:	*andi.b	#%11011111,IERA		* 割り込み禁止
 
 1:	bclr.l	#1,d1			* スプライトのサイズ, 0の時 8x8, 1の時 16x16
 	beq	@f
-	move.b	#1, sprite_size
+	move.b	#1, _sprite_size
 	bra	1f
-@@:	move.b	#0, sprite_size
+@@:	move.b	#0, _sprite_size
 
 1:	move.b	d1,d0
 	andi.w	#%00000000_00010000,d0
-	lsr.w	#4,d0
+	lsr.w	#4,d0			* M1をbit0に
 	move.b	d1,d2
 	andi.w	#%00000000_00001000,d2
-	lsr.w	#2,d2
+	lsr.w	#2,d2			* M2をbit1に
 	or.w	d2,d0
 	move.b	CRT_mode,d2
-	andi.w	#%00000000_00011100,d2
+	andi.w	#%00000000_00011100,d2	* M5,M4,M3と混ぜる
 	or.w	d2,d0
 	bsr	set_CRT
 	rts
@@ -548,8 +583,11 @@ w_R2:	andi.l	#%00000000_01111111,d1
 	move.w	display_mode,d0
 	add.w	d0,d0
 	add.w	d0,d0
-	movea.l	w_R2_jpt(pc,d0.w),a0
+	lea	w_R2_jpt,a0
+	movea.l	(a0,d0.w),a0
 	jmp	(a0)
+
+	.data
 
 w_R2_jpt:
 	.dc.l	w_R2_0
@@ -564,6 +602,8 @@ w_R2_jpt:
 	.dc.l	w_R2_gr6_7
 	.dc.l	w_R2_0
 	.dc.l	w_R2_0
+
+	.text
 
 w_R2_0:
 	move.l	d1,R_2
@@ -620,9 +660,11 @@ w_R3:	move.l	R_3,d0			* d0 = AAAAAAAA_AA000000
 	move.w	display_mode,d1
 	add.w	d1,d1
 	add.w	d1,d1
-	movea.l	w_R3_jpt(pc,d1.w),a0
+	lea	w_R3_jpt,a0
+	movea.l	(a0,d1.w),a0
 	jmp	(a0)
 
+	.data
 w_R3_jpt:
 	.dc.l	w_R3_0
 	.dc.l	w_R3_0
@@ -636,6 +678,8 @@ w_R3_jpt:
 	.dc.l	w_R3_0
 	.dc.l	w_R3_0
 	.dc.l	w_R3_0
+
+	.text
 
 w_R3_0:
 	move.l	d0,R_3
@@ -656,8 +700,11 @@ w_R4:	andi.l	#%00000000_00111111,d1
 	move.w	display_mode,d0
 	add.w	d0,d0
 	add.w	d0,d0
-	movea.l	w_R4_jpt(pc,d0.w),a0
+	lea	w_R4_jpt,a0
+	movea.l	(a0,d0.w),a0
 	jmp	(a0)
+
+	.data
 
 w_R4_jpt:
 	.dc.l	w_R4_0
@@ -672,6 +719,8 @@ w_R4_jpt:
 	.dc.l	w_R4_0
 	.dc.l	w_R4_0
 	.dc.l	w_R4_0
+
+	.text
 
 w_R4_0:
 	move.l	d1,R_4
@@ -693,8 +742,11 @@ w_R5:	move.l	R_5,d0			* d0 = A_AAAAAAAA_A0000000
 	move.w	display_mode,d1
 	add.w	d1,d1
 	add.w	d1,d1
-	movea.l	w_R5_jpt(pc,d1.w),a0
+	lea	w_R5_jpt,a0
+	movea.l	(a0,d1.w),a0
 	jmp	(a0)
+
+	.data
 
 w_R5_jpt:
 	.dc.l	w_R5_0
@@ -709,6 +761,8 @@ w_R5_jpt:
 	.dc.l	w_R5_0
 	.dc.l	w_R5_0
 	.dc.l	w_R5_0
+
+	.text
 
 w_R5_0:
 	move.l	d0,R_5
@@ -725,8 +779,11 @@ w_R6:	andi.l	#%00000000_00111111,d1	* 00000000_00000000_00AAAAAA
 	move.w	display_mode,d0
 	add.w	d0,d0
 	add.w	d0,d0
-	movea.l	w_R6_jpt(pc,d0.w),a0
+	lea	w_R6_jpt,a0
+	movea.l	(a0,d0.w),a0
 	jmp	(a0)
+
+	.data
 
 w_R6_jpt:
 	.dc.l	w_R6_0
@@ -741,6 +798,8 @@ w_R6_jpt:
 	.dc.l	w_R6_0
 	.dc.l	w_R6_0
 	.dc.l	w_R6_0
+
+	.text
 
 w_R6_0:
 	move.l	d1,R_6
@@ -885,6 +944,18 @@ w_R46:	movea.l	VDP_command_jpt_add,a0
 *
 *	d0.w	新しいＣＲＴＭＯＤＥレジスターの値
 *
+*		     | M5 | M4 | M3 | M2 | M1 |
+*	|SCREEN 0(40)|  0 |  0 |  0 |  0 |  1 |		0x01	TEXT1
+*	|SCREEN 0(80)|  0 |  1 |  0 |  0 |  1 |		0x09	TEXT2
+*	|SCREEN 1    |  0 |  0 |  0 |  0 |  0 |		0x00
+*	|SCREEN 2    |  0 |  0 |  1 |  0 |  0 |		0x04
+*	|SCREEN 3    |  0 |  0 |  0 |  1 |  0 |		0x02	MULTICOLOR
+*	|SCREEN 4    |  0 |  1 |  0 |  0 |  0 |		0x08
+*	|SCREEN 5    |  0 |  1 |  1 |  0 |  0 |		0x0c
+*	|SCREEN 6    |  1 |  0 |  0 |  0 |  0 |		0x10
+*	|SCREEN 7    |  1 |  0 |  1 |  0 |  0 |		0x14
+*	|SCREEN 8    |  1 |  1 |  1 |  0 |  0 |		0x1c
+*
 ***************************************************************
 set_CRT:
 	cmp.b	CRT_mode,d0		* 前と変わってなければ何もしない
@@ -892,42 +963,48 @@ set_CRT:
 	rts
 @@:	move.b	d0,CRT_mode		* ＣＲＴＭＯＤＥレジスターの更新
 	add.w	d0,d0
-	move.w	set_CRT_jpt(pc,d0.w),d0
-	jmp	set_CRT_jpt(pc,d0.w)
+	add.w	d0,d0
+	lea	set_CRT_jpt,a0
+	move.l	(a0,d0.w),a0
+	jmp	(a0)
+
+	.data
 
 set_CRT_jpt:
-	.dc.w	set_GRAPHIC1-set_CRT_jpt	* 0
-	.dc.w	set_TEXT1-set_CRT_jpt
-	.dc.w	set_MULTICOLOR-set_CRT_jpt
-	.dc.w	no_mode-set_CRT_jpt
-	.dc.w	set_GRAPHIC2-set_CRT_jpt	* 4
-	.dc.w	no_mode-set_CRT_jpt
-	.dc.w	no_mode-set_CRT_jpt
-	.dc.w	no_mode-set_CRT_jpt
-	.dc.w	set_GRAPHIC3-set_CRT_jpt	* 8
-	.dc.w	set_TEXT2-set_CRT_jpt
-	.dc.w	no_mode-set_CRT_jpt
-	.dc.w	no_mode-set_CRT_jpt
-	.dc.w	set_GRAPHIC4-set_CRT_jpt	* 12
-	.dc.w	no_mode-set_CRT_jpt
-	.dc.w	no_mode-set_CRT_jpt
-	.dc.w	no_mode-set_CRT_jpt
-	.dc.w	set_GRAPHIC5-set_CRT_jpt	* 16
-	.dc.w	no_mode-set_CRT_jpt
-	.dc.w	no_mode-set_CRT_jpt
-	.dc.w	no_mode-set_CRT_jpt
-	.dc.w	set_GRAPHIC6-set_CRT_jpt	* 20
-	.dc.w	no_mode-set_CRT_jpt
-	.dc.w	no_mode-set_CRT_jpt
-	.dc.w	no_mode-set_CRT_jpt
-	.dc.w	no_mode-set_CRT_jpt		* 24
-	.dc.w	no_mode-set_CRT_jpt
-	.dc.w	no_mode-set_CRT_jpt
-	.dc.w	no_mode-set_CRT_jpt
-	.dc.w	set_GRAPHIC7-set_CRT_jpt	* 28
-	.dc.w	no_mode-set_CRT_jpt
-	.dc.w	no_mode-set_CRT_jpt
-	.dc.w	no_mode-set_CRT_jpt
+	.dc.l	set_GRAPHIC1	* 0x00
+	.dc.l	set_TEXT1	* 0x01
+	.dc.l	set_MULTICOLOR	* 0x02
+	.dc.l	no_mode
+	.dc.l	set_GRAPHIC2	* 0x04
+	.dc.l	no_mode
+	.dc.l	no_mode
+	.dc.l	no_mode
+	.dc.l	set_GRAPHIC3	* 0x08
+	.dc.l	set_TEXT2	* 0x09
+	.dc.l	no_mode
+	.dc.l	no_mode
+	.dc.l	set_GRAPHIC4	* 0x0c
+	.dc.l	no_mode
+	.dc.l	no_mode
+	.dc.l	no_mode
+	.dc.l	set_GRAPHIC5	* 0x10
+	.dc.l	no_mode
+	.dc.l	no_mode
+	.dc.l	no_mode
+	.dc.l	set_GRAPHIC6	* 0x14
+	.dc.l	no_mode
+	.dc.l	no_mode
+	.dc.l	no_mode
+	.dc.l	no_mode
+	.dc.l	no_mode
+	.dc.l	no_mode
+	.dc.l	no_mode
+	.dc.l	set_GRAPHIC7	* 0x1c
+	.dc.l	no_mode
+	.dc.l	no_mode
+	.dc.l	no_mode
+
+	.text
 
 *	00000		GRAPHIC1
 *	00001		TEXT1
@@ -2037,7 +2114,7 @@ w_SP_attr:
 	move.l	VideoRAM,d0		* d0 = X68000上にあるVRAMのベースアドレス
 	add.l	R_5,d0			* d0 = X68000上におけるスプライトアトリビュートテーブルのアドレス
 	move.l	d0,-(sp)
-	jsr	writeSpriteAttribute
+	jsr	_writeSpriteAttribute
 	lea.l	4(sp),sp
 	move.l	(sp)+,d0
 	move.l	(sp)+,d1
@@ -2054,7 +2131,7 @@ w_SP_p_gene:
 	move.l	VideoRAM,d0		* d0 = X68000上にあるVRAMのベースアドレス
 	add.l	R_6,d0			* d0 = X68000上におけるスプライトパターンテーブルのアドレス
 	move.l	d0,-(sp)
-	jsr	writeSpritePattern
+	jsr	_writeSpritePattern
 	lea.l	4(sp),sp
 	move.l	(sp)+,d0
 	move.l	(sp)+,d1
@@ -2435,6 +2512,8 @@ w_GRAPHIC7:
 *	d1.b	書き込まれた値
 *
 ***************************************************************
+	.data
+
 VDP_NONE:				* VDP コマンドの使えない画面モードの時	
 	.dc.l	no_com
 	.dc.l	no_com
@@ -2525,6 +2604,8 @@ VDP_G7_jpt:
 	.dc.l	no_com
 	.dc.l	no_com
 	.dc.l	no_com
+
+	.text
 
 *
 *	ｎｏ ｃｏｍｍａｎｄ
@@ -2977,6 +3058,8 @@ get_D_gram_add_G5:
 *
 ***************************************************************
 
+	.data
+
 	.offset	0	*glineの引数構造
 *
 *X0:	.ds.w	1	*始点座標
@@ -3275,13 +3358,14 @@ P_15:	.dc.w	%1111_1111_1111_1111
 *	.dc.w	%11111			* 7
 
 *	特殊コントロールレジスタ
-*R_0:
-*R_1:
-CRT_mode:
+R_0:	.dc.b	0		* [ 0 ][ DG][IE2][IE1][ M5][ M4][ M3][ 0 ]
+R_1:	.dc.b	0		* [ 0 ][ BL][IE0][ M1][ M2][ 0 ][ SI][MAG]	
+
+CRT_mode:			* R_0,R_1の[ M5]～[ M0]
 	.dc.b	0		* M5～M0 がそれぞれビット５～０に入っている
-sprite_size:
+_sprite_size:			* R_1の[ SI]
 	.dc.b	0		* スプライトのサイズ ０・・８×８  １・・１６×１６
-sprite_zoom:
+sprite_zoom:			* R_1の[MAG]
 	.dc.b	0		* スプライトの拡大   ０・・なし    １・・あり
 
 	.even
