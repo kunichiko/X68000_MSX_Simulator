@@ -6,8 +6,16 @@ But I decided to make it public for my memorial.
 
 # How to use (in Japanese)
 
-実行は exe フォルダの下で行います。
-リポジトリには 0バイトのROMファイルしか置いてありませんので、以下のROMを自分でダンプするなどしてご用意ください。
+実行にはMC68030以上が必要です。Phantom Xをお使いの場合は、
+
+```
+> pxctl -e 3
+→その後物理リセット
+```
+
+などでCPUを030仕様に変更してください。(ワード境界を跨ぐアクセスなどをしているためですが、将来修正するかもしれません)
+
+実行は exe フォルダの下で行います。exe フォルダ以下には 0バイトのROMファイルしか置いてありませんので、以下のROMを自分でダンプするなどしてご用意ください。
 
 * MAINROM1.ROM - メインROM前半 16KB
 * MAINROM2.ROM - メインROM後半 16KB

@@ -119,7 +119,7 @@ _ms_init:
 	IOCS	__VDISPST
 	bra	@b
 @@:
-*	andi.b	#%00001110,$e9c001	* プリンタの割り込みを禁止
+	andi.b	#%00001110,$e9c001	* プリンタの割り込みを禁止
 
 	* ベクタ $4cは、MFP Receive Buffer Full (キーデータの受信データあり)
 	* (X68000 環境ハンドブック参照)
