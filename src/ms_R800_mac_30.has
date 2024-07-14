@@ -305,7 +305,6 @@ check_yield:
 1:	bsr	INT
 	move.l	emu_counter,emu_counter_latch
 	clr.l	emu_counter
-	rts
 
 	; emu_yield‚Ìˆ—
 @@:	cmpi.w	#0,emu_yield
