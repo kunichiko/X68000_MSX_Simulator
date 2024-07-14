@@ -173,7 +173,7 @@ interrupt:
 	beq	@f
 	bset.b	#7,S_0			* VDP ステータスレジスタ 0の bit7に、割り込み発生フラグを立てる。これがZ80のINT端子の状態を表している。
 @@:
-	move.l	#$0001_0100,cpu_emu_yield	* 上位: cpu_yield, 下位: emu_yield
+	move.l	#$0001_0020,cpu_emu_yield	* 上位: cpu_yield, 下位: emu_yield
 
 	rte
 
