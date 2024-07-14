@@ -30,10 +30,12 @@ copy_to_target_all: copy_to_target copy_to_target_debug
 
 copy_to_target: ${BUILD_DIR} ${BUILD_DIR}/ms.x
 	cp ${BUILD_DIR}/ms.x ${EXE_DIR}/
+	cp ${BUILD_DIR}/ms.x.elf ${EXE_DIR}/
 	cp ${BUILD_DIR}/ms.x /Users/ohnaka/work/XEiJ/HFS/MS.X/
 
 copy_to_target_debug: ${BUILD_DIR} ${BUILD_DIR}/ms_debug.x
 	cp ${BUILD_DIR}/ms_debug.x ${EXE_DIR}/
+	cp ${BUILD_DIR}/ms_debug.x.elf ${EXE_DIR}/
 	cp ${BUILD_DIR}/ms_debug.x /Users/ohnaka/work/XEiJ/HFS/MS.X/
 
 ${BUILD_DIR}/ms.x: $(BUILD_DIR)/ms.o $(BUILD_DIR)/ms_R800_mac_30.o $(BUILD_DIR)/ms_vdp_mac.o $(BUILD_DIR)/ms_sysvalue.o $(BUILD_DIR)/ms_sub_mac.o $(BUILD_DIR)/ms_IO_PORT.o $(BUILD_DIR)/ms_PSG_mac.o $(BUILD_DIR)/ms_readcart.o
