@@ -16,6 +16,7 @@
 #include <ctype.h>
 #include <iocslib.h>
 #include <doslib.h>
+#include <getopt.h>
 #include "ms.h"
 
 #define NUM_SEGMENTS 4
@@ -26,7 +27,7 @@ extern int readMemFromC(int address);
 
 void emulater_ini(void);
 int emulate( int(*)(unsigned int, unsigned int));
-void ms_init( int vsync_rate);
+void ms_init();
 void ms_exit( void);
 void MMemSet( void *, int);
 void VDPSet( void *);
@@ -61,10 +62,29 @@ void allocateAndSetROM(size_t size, const char* romFileName, int param1, int par
 void _toggleTextPlane(void);
 void _setTextPlane(int textPlaneMode);
 
+volatile extern unsigned short interrupt_tick;
+volatile extern unsigned short vsync_rate;
+volatile extern unsigned int int_block_count;
+volatile extern unsigned short host_rate;
+volatile extern unsigned short host_delay;
+volatile extern unsigned int int_skip_counter;
+volatile extern unsigned int int_exec_counter;
+volatile extern unsigned int* int_skip_history_ptr;
+volatile extern unsigned short int_skip_history_wr;
+volatile extern unsigned short int_skip_history_rd;
+
 void printHelpAndExit(char* progname) {
-	fprintf(stderr, "Usage: %s [-v N] [-m1 MAINROM1_PATH] [-m2 MAINROM2_PATH] [-r11 ROM1_PATH] [-r12 ROM2_PATH]\n", progname);
-	fprintf(stderr, " -v vsync rate (1-60)\n");
-	fprintf(stderr, "    1: default (every frame), 2: every 2 frames, ...\n");
+	fprintf(stderr, "Usage: %s [-m1 MAINROM1_PATH] [-m2 MAINROM2_PATH] [-r11 ROM1_PATH] [-r12 ROM2_PATH]\n", progname);
+	fprintf(stderr, " --vsrate vsync rate (1-60)\n");
+	fprintf(stderr, "    1: every frame, 2: every 2 frames, ...\n");
+	fprintf(stderr, "    default is 1.\n");
+	fprintf(stderr, " --intblock block cycle (1-9999)\n");
+	fprintf(stderr, "    default is 2048 cycles.\n");
+	fprintf(stderr, " --hostrate host key operation rate (1-60)\n");
+	fprintf(stderr, "    1: every frame, 2: every 2 frames, ...\n");
+	fprintf(stderr, "    default is 3.\n");
+	fprintf(stderr, " --hostdelay host key interruption delay cycle (1-999)\n");
+	fprintf(stderr, "    default is 20 cycles.\n");
 	exit(EXIT_FAILURE);
 }
 
@@ -92,8 +112,18 @@ int main(int argc, char *argv[]) {
 	char *mainrom1_path = "MAINROM1.ROM"; // デフォルトのMAIN ROM1パス
 	char *mainrom2_path = "MAINROM2.ROM"; // デフォルトのmAIN ROM2パス
 	char *cartridge_path[4][4]; // カートリッジのパス
-	int vsync_rate = 1;
 	int opt;
+    const char* optstring = "hm:r:" ; // optstringを定義します
+    const struct option longopts[] = {
+      //{       *name,           has_arg, *flag, val },
+        {    "vsrate", required_argument,     0, 'A' },
+        {  "intblock", required_argument,     0, 'B' },
+        {  "hostrate", required_argument,     0, 'C' },
+        { "hostdelay", required_argument,     0, 'D' },
+        {         0,                  0,     0,  0  }, // termination
+    };
+	const struct option* longopt;
+    int longindex = 0;
 
 	printf("[[ MSX Simulator MS.X]]\n");
 
@@ -103,11 +133,18 @@ int main(int argc, char *argv[]) {
 		}
 	}
 
+	for(i=0;i<32;i++) {
+		int_skip_history_ptr[i] = 0;
+	}
+
 	// コマンドラインオプションの解析
-	while ((opt = getopt(argc, argv, "m:r:v:")) != -1)
+	while ((opt = getopt_long(argc, argv, optstring, longopts, &longindex)) != -1)
 	{
 		switch (opt)
 		{
+		case 'h': // -h オプション
+			printHelpAndExit(argv[0]);
+			break;
 		case 'm': // -mN オプション
 			if (strlen(optarg) == 1 && isdigit(optarg[0]))
 			{ 
@@ -146,9 +183,10 @@ int main(int argc, char *argv[]) {
 				}
 			}
 			break;
-		case 'v': // -v N オプション
+		case 'A': // --vsrate N オプション
 			// VSYNCレートの設定
-			if (optarg != NULL) {
+			longopt = &longopts[longindex];
+			if (longopt->has_arg == required_argument & optarg != NULL) {
 				vsync_rate = atoi(optarg);
 				if (vsync_rate < 1 || vsync_rate > 61) {
 					printf("VSYNCレートが不正です\n");
@@ -156,6 +194,48 @@ int main(int argc, char *argv[]) {
 				}
 			} else {
 				printf("VSYNCレートが指定されていません\n");
+				printHelpAndExit(argv[0]);
+			}
+			break;
+		case 'B': // --intblock N オプション
+			// 割り込みブロックカウントの設定
+			longopt = &longopts[longindex];
+			if (longopt->has_arg == required_argument & optarg != NULL) {
+				int_block_count = atoi(optarg);
+				if (int_block_count < 1 || int_block_count > 9999) {
+					printf("割り込みブロックカウントが不正です\n");
+					printHelpAndExit(argv[0]);
+				}
+			} else {
+				printf("割り込みブロックカウントが指定されていません\n");
+				printHelpAndExit(argv[0]);
+			}
+			break;
+		case 'C': // --hostrate N オプション
+			// ホスト処理レートの設定
+			longopt = &longopts[longindex];
+			if (longopt->has_arg == required_argument & optarg != NULL) {
+				host_rate = atoi(optarg);
+				if (host_rate < 1 || host_rate > 61) {
+					printf("ホスト処理レートが不正です\n");
+					printHelpAndExit(argv[0]);
+				}
+			} else {
+				printf("ホスト処理レートが指定されていません\n");
+				printHelpAndExit(argv[0]);
+			}
+			break;
+		case 'D': // --hostdelay N オプション
+			// ホスト処理遅延カウントの設定
+			longopt = &longopts[longindex];
+			if (longopt->has_arg == required_argument & optarg != NULL) {
+				host_delay = atoi(optarg);
+				if (host_delay < 1 || host_delay > 999) {
+					printf("ホスト処理遅延カウントが不正です\n");
+					printHelpAndExit(argv[0]);
+				}
+			} else {
+				printf("ホスト処理遅延カウントが指定されていません\n");
 				printHelpAndExit(argv[0]);
 			}
 			break;
@@ -171,7 +251,7 @@ int main(int argc, char *argv[]) {
 		return -1;
 	}
 
-	ms_init(vsync_rate); /* システムの初期化				*/
+	ms_init(); /* システムの初期化				*/
 
 	MMem = new_malloc(64 * 1024 + 8 * NUM_SEGMENTS); /* ６４Ｋ + ８バイト＊総セグメント数	*/
 	if (MMem > (unsigned char *)0x81000000)
@@ -222,6 +302,30 @@ int main(int argc, char *argv[]) {
 
 	printf("X680x0 MSXシミュレーター with elf2x68k\n");
 
+	printf("VSYNCレート=%d, ホスト処理レート=%d\n", vsync_rate, host_rate);
+	printf("VSYNC計測中...\n");
+	{
+		volatile int date,lastdate;
+		volatile int start,end;
+
+		date = _iocs_timeget();
+		lastdate = date;
+		while(date == lastdate) {	// 秒が変わる瞬間を待つ
+			lastdate = date;
+			date = _iocs_timeget();
+		}
+		start = interrupt_tick;		// そのときのtickを取得
+		date = _iocs_timeget();
+		lastdate = date;
+		while(date == lastdate) {	// 秒が変わる瞬間を待つ
+			lastdate = date;
+			date = _iocs_timeget();
+		}
+		end = interrupt_tick;		// そのときのtickを取得
+
+		printf("VSYNC回数は %d です\n", end - start);
+	}
+
 	printf("emu-ini\n");
 	emulater_ini();
 	printf("emu-ini exit\n");
@@ -231,6 +335,8 @@ int main(int argc, char *argv[]) {
 	emulate(emuLoop);
 
 	printf("終了します\n");
+
+	_iocs_crtmod(0x10);
 
 	ms_exit();
 }
@@ -285,6 +391,7 @@ int divider = 0;
 void dump(unsigned int page, unsigned int pc);
 
 int emuLoop(unsigned int pc, unsigned int counter) {
+	static int emuLoopCounter = 0;
 	int i,j;
 	unsigned short map;
 	unsigned char X, Y;
@@ -293,6 +400,8 @@ int emuLoop(unsigned int pc, unsigned int counter) {
 	static int kigoKeyHitLast = 0;
 	static int helpKeyHit = 0;
 	static int helpKeyHitLast = 0;
+
+	emuLoopCounter++;
 
 	kigoKeyHit = 0;
 	helpKeyHit = 0;
@@ -347,7 +456,9 @@ int emuLoop(unsigned int pc, unsigned int counter) {
 
 	if (kigoKeyHit && !kigoKeyHitLast)
 	{
-		printf("COUNTER=%08x\n", counter);
+		printf("\n");
+		printf("emu loop counter=%08d\n", emuLoopCounter);
+		printf("COUNTER=%08x, inttick=%08d\n", counter, interrupt_tick);
 		dump(pc >> 16, pc & 0xffff);
 	}
 	kigoKeyHitLast = kigoKeyHit;
@@ -366,9 +477,23 @@ void dump(unsigned int page, unsigned int pc) {
 	int i,j;
 	int pcbase;
 	int data;
-	
+	unsigned int current_int_skip_counter = int_skip_counter;
+	static unsigned int last_int_skip_counter = 0;
+	int rd,wr;
+
+	wr = int_skip_history_wr;
+	for(i=0;i<32;i++) {
+		rd = (int_skip_history_rd + i) % 32;
+		if (rd == wr) {
+			break;
+		}
+		printf("%04d>",int_skip_history_ptr[rd]);
+	}
+	printf("\n");
+
 	pcbase = pc & 0xfff0;
-	printf("PAGE=%04x, PC=%04x\n", page, pc);
+	printf("PAGE=%04x, PC=%04x, EXEC=%04d SKIP=%04d (+%04d)\n", page, (pc&0xffff), int_exec_counter, current_int_skip_counter,current_int_skip_counter - last_int_skip_counter);
+	last_int_skip_counter = current_int_skip_counter;
 	for (i = -1; i < 2; i++)
 	{
 		printf("%04x: ", pcbase + i * 16);
@@ -391,16 +516,20 @@ void _toggleTextPlane(void) {
 	_setTextPlane(textPlaneMode);
 }
 
+extern short tx_active;
+
 void _setTextPlane(int textPlaneMode) {
 	switch (textPlaneMode)
 	{
 	case 0:
 		// テキスト表示OFF
 		*VCON_R02 &= 0xffdf;
+		tx_active = 0;
 		break;
 	case 1:
 		// テキスト表示ON
 		*VCON_R02 |= 0x0020;
+		tx_active = 1;
 		break;
 	}
 }

@@ -381,27 +381,29 @@ r_PSG_R13:
 	rts
 
 r_PSG_R14:				* ＰＯＲＴ Ａ
-	move.w	port_sel,d0
+	move.w	port_sel,d0		* R15のbit6に書き込んだ値で、ジョイスティックポート1と2の選択が切り替わる(0:JOY1, 1:JOY2)
+	bne	1f
+	move.b	portA_8255,d0
+	bra	@f
+1:	move.b	portB_8255,d0
 
-	lea.l	portA_8255,a0
-	add.w	d0,d0
-	move.b	0(a0,d0.w),d0
-
-	move.b	d0,d1
+@@:	move.b	d0,d1
 	lsr.b	#1,d1
 	andi.b	#%00001111,d0
 	andi.b	#%00110000,d1
 	or.b	d1,d0
-
+	ori.b	#%01000000,d0		* JIS配列キーボード固定
 *
-*	カセット処理とキーボード処理がまだやってない
+*	bit7のカセット処理は未実装
 *
 
 	rts
 
-r_PSG_R15:
+r_PSG_R15:				* R15は書き込みポートだが、どうやら読み出しもできるらしい
 	move.b	PSG_R15,d0
+	andi.b	#$f0,d0			* 下位4bitは0固定
 	rts
+
 
 ***************************************************************
 *
@@ -608,6 +610,9 @@ w_PSG_R13:
 	rts
 
 w_PSG_R14:
+	pea.l	errms_PSG_R14_wr
+	DOS	__PRINT
+	lea.l	4(sp),sp
 	rts
 
 w_PSG_R15:
@@ -625,7 +630,7 @@ w_PSG_R15:
 	moveq.l	#0,d1			* かな
 	IOCS	__LEDMOD
 
-@@:	move.w	(sp)+,d1
+@@:	move.w	(sp)+,d1		* R15のbit6に書き込んだ値で、ジョイスティックポート1と2の選択が切り替わる(0:JOY1, 1:JOY2)
 	btst.l	#6,d1
 	beq	1f
 	move.w	#1,port_sel
@@ -634,27 +639,35 @@ w_PSG_R15:
 1:	clr.w	port_sel
 
 @@:	move.b	d1,d0
-	move.b	d1,d2
+	move.b	#%1_00_10010,cont_8255	* port A,B を入力に
 
-	andi.b	#%00000011,d1
-	lsl.b	#5,d1
-	andi.b	#%00001100,d2
-	lsl.b	#3,d2
-
-	move.b	#%10000000,cont_8255	* port A,B を出力に 
-	move.b	d1,portA_8255
-	move.b	d2,portB_8255
-	move.b	#%10010010,cont_8255	* port A,B を入力にに 
-
-	move.b	d0,d1
-	andi.b	#%00010000,d1
-	lsr.b	#4,d1
-	or.b	#%00001000,d1		* ＰＯＲＴ Ｃのビット４にセット
+	move.b	d0,d1			*R15のbit0は、ジョイスティックポート1の6番端子の出力(0:L, 1:H)
+	andi.b	#%00000001,d1		*X68000は8255のPC6、つまりPORT Cの6番ピンで制御できるが論理が逆
+	eori.b	#%00000001,d1
+	or.b	#%0000_110_0,d1		* PC6(PORT Cのビット6)から出力
 	move.b	d1,cont_8255
 
-	andi.b	#%00100000,d0
-	lsr.b	#5,d0
-	or.b	#%00001010,d0		* ＰＯＲＴ Ｃのビット５にセット
+	move.b	d0,d1			*R15のbit1は、ジョイスティックポート1の7番端子の出力(0:L, 1:H)
+	andi.b	#%00000010,d1		*X68000は8255のPC7、つまりPORT Cの7番ピンで制御できるが論理が逆
+	lsr.b	#1,d1
+	eori.b	#%00000001,d1
+	or.b	#%0000_111_0,d1		* PC7(PORT Cのビット7)から出力
+	move.b	d1,cont_8255
+
+	* R15のbit2は、ジョイスティックポート2の6番端子の出力
+	* R15のbit3は、ジョイスティックポート2の7番端子の出力
+	* 上記2つは、X68000ではPORT Bを出力モードにしないと使えないのでサポートしない
+
+	move.b	d0,d1			* R15のbit4は、ジョイスティックポート1の8番端子の出力(0:L, 1:H)
+	andi.b	#%00010000,d1		* X68000は8255のPC4、つまりPORT Cの4番ピンで制御できる
+	lsr.b	#4,d1			* bit0の位置に移動
+	or.b	#%0000_100_0,d1		* PC4(PORT Cのビット4)から出力
+	move.b	d1,cont_8255
+
+					* R15のbit5は、ジョイスティックポート2の8番端子の出力(0:L, 1:H)
+	andi.b	#%00100000,d0		* X68000は8255のPC5、つまりPORT Cの5番ピンで制御できる
+	lsr.b	#5,d0			* bit0の位置に移動
+	or.b	#%0000_101_0,d0		* PC5(PORT Cのビット5)から出力
 	move.b	d0,cont_8255
 
 	rts
@@ -739,8 +752,14 @@ note_tbl:
 	.dc.b	$0,$1,$2,$4,$5,$6,$8,$9,$a,$c,$d,$e,$0,$0,$0,$0
 
 	.even
+
 errms_OPM_int:
 	.dc.b	'ＯＰＭのタイマＡを強制使用します。',0x0d,0x0a,0x00,0x00
+
+errms_PSG_R14_wr:
+	.dc.b	'ＰＳＧレジスターＲ１４は読み込み専用です。',0x0d,0x0a,0x00,0x00
+errms_PSG_R15_rd:
+	.dc.b	'ＰＳＧレジスターＲ１5は書き込み専用です。',0x0d,0x0a,0x00,0x00
 
 	.end
 

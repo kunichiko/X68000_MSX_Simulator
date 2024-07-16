@@ -637,9 +637,9 @@ fnamebuf2:
 filebuf:
 	.ds.b	53 
 
-errmesf:
+errmes_file:
 	.dc.b	"ファイルエラーです",$0d,$0a,$00
-errmes:
+errmes_memory:
 	.dc.b	"メモリが確保できません",$0d,$0a,$00
 
 	.end

@@ -12,7 +12,9 @@
 	.xref	VideoRAM
 	.xref	_writeSpritePattern
 	.xref	_writeSpriteAttribute
+	.xref	HEX
 
+	.xdef	_VDPSet
 	.xdef	read_vdp_0
 	.xdef	read_vdp_1
 	.xdef	read_vdp_2
@@ -22,12 +24,13 @@
 	.xdef	write_vdp_2
 	.xdef	write_vdp_3
 
-	.xdef	S_0
-	.xdef	R_0
-	.xdef	R_1
+	.xdef	VDP_S_00
+	.xdef	VDP_R_01
 
 	.xdef	_sprite_size
-	.xdef	active_page
+	.xdef	tx_active
+	.xdef	gr_active
+	.xdef	update_VCRR_02
 
 MFP_GPIP_6	equ	$000138		* 水平割り込みのベクタアドレス
 
@@ -59,24 +62,31 @@ g_palette	equ	$e82000		* グラフィックパレット
 t_palette	equ	$e82200		* テキストパレット	
 
 VCRR_00		equ	$e82400		* ビデオコントロールレジスタ０
+VCRR_01		equ	$e82500		* ビデオコントロールレジスタ１
 VCRR_02		equ	$e82600		* ビデオコントロールレジスタ２
 
 GPIP		equ	$e88001
 IERA		equ	$e88007
 
+SPCON_HTOTAL	equ	$eb080a		* スプライトコントローラ 画面モードレジスタ H-TOTAL
+SPCON_HDISP	equ	$eb080c		* スプライトコントローラ 画面モードレジスタ H-DISP
+SPCON_VDISP	equ	$eb080e		* スプライトコントローラ 画面モードレジスタ V-DISP
+SPCON_RES	equ	$eb0810		* スプライトコントローラ 画面モードレジスタ V-Res, H-Res
+
+
 *
 *	ＭＳＸの画面モードと６８の画面モードの対応
 *
 *	ＭＳＸ			６８
-*	screen0			16色	512*512
-*	screen1			16色	512*512
-*	screen2			16色	512*512
-*	screen3			16色	512*512
-*	screen4			16色	512*512
-*	screen5			16色	512*512
-*	screen6			16色	512*512
-*	screen7			16色	512*512
-*	screen8			256色	512*512
+*	screen0	(TEXT1,TEXT2)	16色	512*512
+*	screen1	(GRAPHIC1)	16色	512*512
+*	screen2	(GRAPHIC2)	16色	512*512
+*	screen3	(MULTICOLOR)	16色	512*512
+*	screen4	(GRAPHIC3)	16色	512*512
+*	screen5	(GRAPHIC4)	16色	512*512
+*	screen6	(GRAPHIC5)	16色	512*512
+*	screen7	(GRAPHIC6)	16色	512*512
+*	screen8	(GRAPHIC7)	256色	512*512
 *	screen10		65536色	512*512
 *	screen11		65536色	512*512
 *	screen12		65536色	512*512
@@ -88,6 +98,144 @@ IERA		equ	$e88007
 	.text
 	.even
 
+
+***************************************************************
+*
+*	ＶＤＰ設定ルーチン
+*
+*	void VDPSet( *VideoRAM);
+*
+***************************************************************
+_VDPSet:
+	link	a6,#0
+	movem.l	d3-d7/a0-a5,-(sp)
+
+	move.l	 8(a6),VideoRAM		* Sysvalue にセット
+
+	move.l	 8(a6),a0		* ＶＲＡＭのクリア
+	move.w	#$7fff,d0		* ＶＲＡＭ１２８Ｋは前提
+@@:	clr.l	(a0)+
+	dbra	d0,@b
+
+	move.b	#4,d1
+	IOCS	__CRTMOD
+
+	IOCS	__G_CLR_ON
+
+	IOCS	__SP_INIT
+	IOCS	__SP_ON
+*	move.l	#0,d1
+*	move.l	#0,d2
+*	move.l	#1,d3
+*	IOCS	__BGCTRLST
+
+* 512 x 424にする
+*	move.w	#91,CRTR_00
+*	move.w	#9,CRTR_01
+*	move.w	#17,CRTR_02
+*	move.w	#81,CRTRC_03
+*	move.w	#524,CRTR_04
+*	move.w	#5,CRTR_05
+*	move.w	#52,CRTR_06
+*	move.w	#476,CRTR_07
+*	move.w	#27,CRTR_08	* adjust
+*
+*	move.w	#$ff,SPCON_HTOTAL 	* 常に $ff
+*	move.w	#17+4,SPCON_HDISP	* CRTC R02 + 4の値
+*	move.w	#52,SPCON_VDISP		* CRTC R06 の値
+
+* 512 x 384にする
+	move.w	#91,CRTR_00
+	move.w	#9,CRTR_01
+	move.w	#17,CRTR_02
+	move.w	#81,CRTR_03
+	move.w	#524,CRTR_04
+	move.w	#5,CRTR_05
+	move.w	#40,CRTR_06
+	move.w	#424,CRTR_07
+	move.w	#27,CRTR_08	* adjust
+
+	move.w	#$ff,SPCON_HTOTAL 	* 常に $ff
+	move.w	#17+4,SPCON_HDISP	* CRTC R02 + 4の値
+	move.w	#40,SPCON_VDISP		* CRTC R06 の値
+
+	bsr	enable_backdrop			* バックドロップの設定
+
+	* プライオリティの設定
+	* b15:14 (NONE)
+	* b13:12 スプライト優先順位
+	* b11:10 テキスト優先順位
+	* b09:08 グラフィック優先順位
+	* b07:06 ┗グラフィックページ3の優先順位
+	* b05:04 ┗グラフィックページ2の優先順位
+	* b03:02 ┗グラフィックページ1の優先順位
+	* b01:00 ┗グラフィックページ0の優先順位
+	move.w	#%00_01_00_10__11_10_01_00,VCRR_01
+
+	move.w	#1,tx_active
+	move.w	#1,gr_active
+	bsr	update_VCRR_02
+
+	move.w	#0,$E82222
+
+	movem.l	(sp)+,d3-d7/a0-a5
+	unlk	a6
+
+	rts
+
+*
+* バックドロップ用のＢＧを設定
+*
+enable_backdrop:
+	lea.l	$EB8000,a0
+
+	move.l	#$11111111,d1			* パターンの定義
+	move.w	#32-1,d0
+@@:	move.l	d1,(a0)+
+	dbra	d0,@b
+
+	lea.l	$EBC000,a0			* ＢＧの定義
+	move.w	#%00000001_00000000,d1
+	move.w	#4096-1,d0
+@@:	move.w	d1,(a0)+
+	dbra	d0,@b
+
+*	ori.w	#%0000001_000_001_001,$EB0808			* BG ON
+	ori.w	#%0000001_000_000_000,$EB0808			* BG OFF
+	rts
+
+***************************************************************
+* VCC R02の更新
+* 	b7	
+*	b6	スプライト画面の表示
+*	b5	テキスト画面の表示
+*	b4	1024x1024時のグラフィック画面の表示(512x512なので使わない)
+*	b3	512x512時のグラフィック画面 GR3 の表示
+*	b2	512x512時のグラフィック画面 GR2 の表示
+*	b1	512x512時のグラフィック画面 GR1 の表示
+*	b0	512x512時のグラフィック画面 GR0 の表示
+***************************************************************
+update_VCRR_02:
+	link	a6,#0
+	movem.l	d0-d1,-(sp)
+
+	move.w	VCRR_02,d0
+	andi.w	#%11111111_11100000,d0
+
+	move.w	tx_active,d1
+	lsl.w	#5,d1
+	or.w	d1,d0
+	btst.b	#6,R_01			* VDP Mode register 1 (R#1) の bit6 (BL) が 0 の時は画面を表示しない
+*	beq	@f
+	or.w	gr_active,d0	
+	btst.b	#1,R_08			* VDP Mode register 2 (R#8) の bit1 (SPD) が 0 の時はスプライトを表示しない
+	beq	@f
+	or.w	#%00000000_01000000,d0
+@@:	move.w	d0,VCRR_02
+
+	movem.l	(sp)+,d0-d1
+	unlk	a6
+	rts
 
 ***************************************************************
 *
@@ -291,8 +439,8 @@ s_p_GRAPHIC3:
 s_p_GRAPHIC4:
 s_p_GRAPHIC6:
 *
-*	パレット０はバックドロップに使用された時のみ有効。－＞ＢＧのパレット１に
-*	セットする。
+*	パレット０はバックドロップに使用された時のみ有効。－＞ＢＧのパレット１にセットする。
+*	→TODO バックドロップにBGを使うのをやめたので考え直す
 *
 
 	lea.l	P_0,a0
@@ -480,7 +628,7 @@ noregister:
 
 	.data
 errms_creg:
-	.dc.b	'おかしなコントロールレジスタに書き込みました。0x'
+	.dc.b	'おかしなVDPコントロールレジスタに書き込みました。0x'
 number_creg:
 	.dc.b	'00'
 	.dc.b	0x0d,0x0a,0x00
@@ -507,7 +655,7 @@ normal:
 ;		１＝許可
 ;	M5-M1 : 画面モード(後述: set_CRT参照)
 w_R0:
-	move.b	d1,R_0
+	move.b	d1,R_00
 	bclr.l	#4,d1			* IE1 のテスト
 	beq	@f
 					* 走査線割り込みを使用する
@@ -536,31 +684,21 @@ w_R0:
 ; 		０＝８×８
 ; 		１＝１６×１６
 ;	MAG : スプライトの拡大
-; 	０＝拡大しない
+; 		０＝拡大しない
 ;		１＝拡大する
 ;	M5-M1 : 画面モード(後述: set_CRT参照)
 ;
-w_R1:					* ===== 完全ではない ======
-	move.b	d1,R_1
-	bclr.l	#6,d1			* BL = ブランク, 1の時画面表示ON
-	beq	@f
-	ori.w	#%00000000_00000001,VCRR_02
-	bra	1f
-@@:	andi.w	#%11111111_11111110,VCRR_02
+w_R1:
+	move.b	d1,R_01
 
-1:	bclr.l	#5,d1			* IE0 = 垂直帰線期間割り込み許可, 1の時許可
-	beq	@f
-	*ori.b	#%00100000,IERA
-	bra	1f
-@@:	*andi.b	#%11011111,IERA		* 割り込み禁止
+	bsr	update_VCRR_02
 
-1:	bclr.l	#1,d1			* スプライトのサイズ, 0の時 8x8, 1の時 16x16
-	beq	@f
-	move.b	#1, _sprite_size
-	bra	1f
-@@:	move.b	#0, _sprite_size
+	move.b	d1,d0			* スプライトのサイズ, 0の時 8x8, 1の時 16x16
+	andi.b	#%00000010,d0
+	lsr.b	#1,d0
+	move.b	d0,_sprite_size
 
-1:	move.b	d1,d0
+	move.b	d1,d0
 	andi.w	#%00000000_00010000,d0
 	lsr.w	#4,d0			* M1をbit0に
 	move.b	d1,d2
@@ -615,39 +753,24 @@ w_R2_tx2:
 w_R2_gr4_5:
 	andi.l	#%00000001_10000000_00000000,d1
 	move.l	d1,R_2
-	add.l	d1,d1
+	add.l	d1,d1			* 1ビット左シフト
 	swap	d1			* d1.l = アクティブページナンバー
-	move.w	active_page,d0
-	andi.w	#%11111111_11100000,d0
+	clr.w	d0
 	bset.l	d1,d0
-	move.w	d0,active_page
-	btst.b	#6,R_01
-	beq	@f
-	move.w	d0,VCRR_02
-	bra	1f
-@@:	andi.w	#%11111111_11100000,d0	* ＳＰを非表示にするとＢＧも消えちゃうので
-					* 別の方法をとる必用がある。
-	move.w	d0,VCRR_02
+	move.w	d0,gr_active
+	bsr	update_VCRR_02
+	rts
 
-1:	rts
 
 w_R2_gr6_7:
 	andi.l	#%00000001_00000000_00000000,d1
 	move.l	d1,R_2
 	swap	d1			* d1.l = アクティブページナンバー
-	move.w	active_page,d0
-	andi.w	#%11111111_11100000,d0
+	clr.w	d0
 	bset.l	d1,d0
-	move.w	d0,active_page
-	btst.b	#6,R_01
-	beq	@f
-	move.w	d0,VCRR_02
-	bra	1f
-@@:	andi.w	#%11111111_11100000,d0	* ＳＰを非表示にするとＢＧも消えちゃうので
-					* 別の方法をとる必用がある。
-	move.w	d0,VCRR_02
-
-1:	rts
+	move.w	d0,gr_active
+	bsr	update_VCRR_02
+	rts
 
 *
 *	システムにカラーテーブルが変更されたことを伝える必用がある
@@ -1055,19 +1178,10 @@ set_TEXT1:
 
 	bsr	s_p_TEXT1
 
-	move.w	active_page,d0
-	andi.w	#%11111111_11100000,d0
-	ori.w	#%00000000_00000001,d0
-	move.w	d0,active_page
-	btst.b	#6,R_01
-	beq	@f
-	move.w	d0,VCRR_02
-	bra	1f
-@@:	andi.w	#%11111111_11100000,d0	* ＳＰを非表示にするとＢＧも消えちゃうので
-					* 別の方法をとる必用がある。
-	move.w	d0,VCRR_02
+	move.w	#1,gr_active
+	bsr	update_VCRR_02
 
-1:	move.l	#s_TEXT1,set_gram_add_rot
+	move.l	#s_TEXT1,set_gram_add_rot
 	move.l	#w_TEXT1,write_rot
 	move.l	#r_TEXT1,read_rot
 	move.l	#VDP_NONE,VDP_command_jpt_add
@@ -1105,19 +1219,10 @@ set_TEXT2:
 
 	bsr	s_p_TEXT2
 
-	move.w	active_page,d0
-	andi.w	#%11111111_11100000,d0
-	ori.w	#%00000000_00000001,d0
-	move.w	d0,active_page
-	btst.b	#6,R_01
-	beq	@f
-	move.w	d0,VCRR_02
-	bra	1f
-@@:	andi.w	#%11111111_11100000,d0	* ＳＰを非表示にするとＢＧも消えちゃうので
-					* 別の方法をとる必用がある。
-	move.w	d0,VCRR_02
+	move.w	#1,gr_active
+	bsr	update_VCRR_02
 
-1:	move.l	#s_TEXT2,set_gram_add_rot
+	move.l	#s_TEXT2,set_gram_add_rot
 	move.l	#w_TEXT2,write_rot
 	move.l	#r_TEXT2,read_rot
 	move.l	#VDP_NONE,VDP_command_jpt_add
@@ -1143,19 +1248,10 @@ set_MULTICOLOR:
 
 	bsr	s_p_MULTICOLOR
 
-	move.w	active_page,d0
-	andi.w	#%11111111_11100000,d0
-	ori.w	#%00000000_00000001,d0
-	move.w	d0,active_page
-	btst.b	#6,R_01
-	beq	@f
-	move.w	d0,VCRR_02
-	bra	1f
-@@:	andi.w	#%11111111_11100000,d0	* ＳＰを非表示にするとＢＧも消えちゃうので
-					* 別の方法をとる必用がある。
-	move.w	d0,VCRR_02
+	move.w	#1,gr_active
+	bsr	update_VCRR_02
 
-1:	move.l	#s_MULTICOLOR,set_gram_add_rot
+	move.l	#s_MULTICOLOR,set_gram_add_rot
 	move.l	#w_MULTICOLOR,write_rot
 	move.l	#r_MULTICOLOR,read_rot
 	move.l	#VDP_NONE,VDP_command_jpt_add
@@ -1182,19 +1278,10 @@ set_GRAPHIC1:
 
 	bsr	s_p_GRAPHIC1
 
-	move.w	active_page,d0
-	andi.w	#%11111111_11100000,d0
-	ori.w	#%00000000_00000001,d0
-	move.w	d0,active_page
-	btst.b	#6,R_01
-	beq	@f
-	move.w	d0,VCRR_02
-	bra	1f
-@@:	andi.w	#%11111111_11100000,d0	* ＳＰを非表示にするとＢＧも消えちゃうので
-					* 別の方法をとる必用がある。
-	move.w	d0,VCRR_02
+	move.w	#1,gr_active
+	bsr	update_VCRR_02
 
-1:	move.l	#s_GRAPHIC1,set_gram_add_rot
+	move.l	#s_GRAPHIC1,set_gram_add_rot
 	move.l	#w_GRAPHIC1,write_rot
 	move.l	#r_GRAPHIC1,read_rot
 	move.l	#VDP_NONE,VDP_command_jpt_add
@@ -1220,19 +1307,10 @@ set_GRAPHIC2:
 
 	bsr	s_p_GRAPHIC2
 
-	move.w	active_page,d0
-	andi.w	#%11111111_11100000,d0
-	ori.w	#%00000000_00000001,d0
-	move.w	d0,active_page
-	btst.b	#6,R_01
-	beq	@f
-	move.w	d0,VCRR_02
-	bra	1f
-@@:	andi.w	#%11111111_11100000,d0	* ＳＰを非表示にするとＢＧも消えちゃうので
-					* 別の方法をとる必用がある。
-	move.w	d0,VCRR_02
+	move.w	#1,gr_active
+	bsr	update_VCRR_02
 
-1:	move.l	#s_GRAPHIC2,set_gram_add_rot
+	move.l	#s_GRAPHIC2,set_gram_add_rot
 	move.l	#w_GRAPHIC2,write_rot
 	move.l	#r_GRAPHIC2,read_rot
 	move.l	#VDP_NONE,VDP_command_jpt_add
@@ -1265,19 +1343,13 @@ set_GRAPHIC4:
 	add.l	d1,d1
 	swap	d1
 	andi.w	#%00000000_00000011,d1		* d1 = アクティブページナンバー
-	move.w	active_page,d0
-	andi.w	#%11111111_11100000,d0
-	bset.l	d1,d0
-	move.w	d0,active_page
-	btst.b	#6,R_01
-	beq	@f
-	move.w	d0,VCRR_02
-	bra	1f
-@@:	andi.w	#%11111111_11100000,d0	* ＳＰを非表示にするとＢＧも消えちゃうので
-					* 別の方法をとる必用がある。
-	move.w	d0,VCRR_02
 
-1:	move.l	#s_GRAPHIC4,set_gram_add_rot
+	clr.w	d0
+	bset.l	d1,d0
+	move.w	d0,gr_active
+	bsr	update_VCRR_02
+
+	move.l	#s_GRAPHIC4,set_gram_add_rot
 	move.l	#w_GRAPHIC4,write_rot
 	move.l	#r_GRAPHIC4,read_rot
 	move.l	#VDP_G4_jpt,VDP_command_jpt_add
@@ -1307,19 +1379,12 @@ set_GRAPHIC5:
 	add.l	d1,d1
 	swap	d1
 	andi.w	#%00000000_00000011,d1		* d1 = アクティブページナンバー
-	move.w	active_page,d0
-	andi.w	#%11111111_11100000,d0
+	clr.w	d0
 	bset.l	d1,d0
-	move.w	d0,active_page
-	btst.b	#6,R_01
-	beq	@f
-	move.w	d0,VCRR_02
-	bra	1f
-@@:	andi.w	#%11111111_11100000,d0	* ＳＰを非表示にするとＢＧも消えちゃうので
-					* 別の方法をとる必用がある。
-	move.w	d0,VCRR_02
+	move.w	d0,gr_active
+	bsr	update_VCRR_02
 
-1:	move.l	#s_GRAPHIC5,set_gram_add_rot
+	move.l	#s_GRAPHIC5,set_gram_add_rot
 	move.l	#w_GRAPHIC5,write_rot
 	move.l	#r_GRAPHIC5,read_rot
 	move.l	#VDP_G5_jpt,VDP_command_jpt_add
@@ -1348,19 +1413,12 @@ set_GRAPHIC6:
 	move.l	R_2,d1
 	swap	d1
 	andi.w	#%00000000_00000001,d1		* d1 = アクティブページナンバー
-	move.w	active_page,d0
-	andi.w	#%11111111_11100000,d0
+	clr.w	d0
 	bset.l	d1,d0
-	move.w	d0,active_page
-	btst.b	#6,R_01
-	beq	@f
-	move.w	d0,VCRR_02
-	bra	1f
-@@:	andi.w	#%11111111_11100000,d0	* ＳＰを非表示にするとＢＧも消えちゃうので
-					* 別の方法をとる必用がある。
-	move.w	d0,VCRR_02
+	move.w	d0,gr_active
+	bsr	update_VCRR_02
 
-1:	move.l	#s_GRAPHIC6,set_gram_add_rot
+	move.l	#s_GRAPHIC6,set_gram_add_rot
 	move.l	#w_GRAPHIC6,write_rot
 	move.l	#r_GRAPHIC6,read_rot
 	move.l	#VDP_G6_jpt,VDP_command_jpt_add
@@ -1390,20 +1448,13 @@ set_GRAPHIC7:
 
 	move.l	R_2,d1
 	swap	d1
-	andi.w	#%00000000_00000001,d1		* d1 = アクティブページナンバー
-	move.w	active_page,d0
-	andi.w	#%11111111_11100000,d0
+	andi.w	#%00000000_00000001,d1	* d1 = アクティブページナンバー
+	clr.w	d0
 	bset.l	d1,d0
-	move.w	d0,active_page
-	btst.b	#6,R_01
-	beq	@f
-	move.w	d0,VCRR_02
-	bra	1f
-@@:	andi.w	#%11111111_11100000,d0	* ＳＰを非表示にするとＢＧも消えちゃうので
-					* 別の方法をとる必用がある。
-	move.w	d0,VCRR_02
+	move.w	d0,gr_active
+	bsr	update_VCRR_02
 
-1:	move.l	#s_GRAPHIC7,set_gram_add_rot
+	move.l	#s_GRAPHIC7,set_gram_add_rot
 	move.l	#w_GRAPHIC7,write_rot
 	move.l	#r_GRAPHIC7,read_rot
 	move.l	#VDP_G7_jpt,VDP_command_jpt_add
@@ -1642,6 +1693,12 @@ r_GRAPHIC7:					* SCREEN 8
 *	d1.b に書き込む値を入れてコール
 *
 ***************************************************************
+
+* デバッグように描画量を削減するためのフラグ
+HALFDRAW	.equ	0		* 1:半分のみ描画 0:全て描画
+DRAWWIDTH_TX	.equ	6/(HALFDRAW+1)	* １ラインの描画回数
+DRAWWIDTH_GR	.equ	8/(HALFDRAW+1)	* １ラインの描画回数
+
 w_TEXT1:
 	movea.l	VideoRAM,a0
 	move.l	vram_add,d0			* D0 ・・書き込むアドレス
@@ -1731,7 +1788,7 @@ loop1_put_char:
 	move.w	(a0)+,d1		* d1 = フォントデータ
 
 
-	moveq.l	#6-1,d4			* ループカウンタ
+	moveq.l	#DRAWWIDTH_TX-1,d4	* ループカウンタ
 2:	lsl.w	#1,d1			* 最上位ビットを送り出す
 	bcc	1f			* 最上位ビットが１でなければ次へ	
 *	move.l	d2,1024(a1)		* 前景色を表示
@@ -1743,10 +1800,10 @@ loop1_put_char:
 	move.l	d3,(a1)+		* 背景色を表示
 	dbra	d4,2b
 
-@@:	adda.l	#1024+1024-24,a1	* １ライン下げる
+@@:	adda.l	#1024+1024-DRAWWIDTH_TX*4,a1	* １ライン下げる
 	lsl.w	#2,d1
 
-	moveq.l	#6-1,d4			* ループカウンタ
+	moveq.l	#DRAWWIDTH_TX-1,d4	* ループカウンタ
 2:	lsl.w	#1,d1			* 最上位ビットを送り出す
 	bcc	1f			* 最上位ビットが１でなければ次へ	
 *	move.l	d2,1024(a1)		* 前景色を表示
@@ -1758,7 +1815,7 @@ loop1_put_char:
 	move.l	d3,(a1)+		* 背景色を表示
 	dbra	d4,2b
 
-@@:	adda.l	#1024+1024-24,a1	* １ライン下げる
+@@:	adda.l	#1024+1024-DRAWWIDTH_TX*4,a1	* １ライン下げる
 
 	dbra	d0,loop1_put_char
 
@@ -1848,7 +1905,7 @@ w_p_name_tx2:
 	move.w	(a0)+,d1		* d1 = フォントデータ
 
 
-	moveq.l	#6-1,d4			* ループカウンタ
+	moveq.l	#DRAWWIDTH_TX-1,d4	* ループカウンタ
 2:
 	lsl.w	#1,d1			* 最上位ビットを送り出す
 	bcc	3f			* 最上位ビットが１でなければ次へ	
@@ -1861,7 +1918,7 @@ w_p_name_tx2:
 	move.w	d3,(a1)+		* 背景色を表示
 	dbra	d4,2b
 
-@@:	adda.l	#1024+1024-12,a1	* １ライン下げる
+@@:	adda.l	#1024+1024-DRAWWIDTH_TX*2,a1	* １ライン下げる
 	lsl.w	#2,d1
 
 	moveq.l	#6-1,d4			* ループカウンタ
@@ -1877,7 +1934,7 @@ w_p_name_tx2:
 	move.w	d3,(a1)+		* 背景色を表示
 	dbra	d4,2b
 
-@@:	adda.l	#1024+1024-12,a1	* １ライン下げる
+@@:	adda.l	#1024+1024-DRAWWIDTH_TX*2,a1	* １ライン下げる
 
 	dbra	d0,1b
 
@@ -1988,9 +2045,7 @@ w_p_name_GR1:
 
 	clr.w	d0
 	move.b	d1,d0
-	add.w	d0,d0
-	add.w	d0,d0
-	add.w	d0,d0
+	lsl.w	#3,d0
 	lea.l	0(a0,d0.w),a0		* a0 = 表示するフォントのアドレス
 
 	lsr.w	#6,d0
@@ -2007,7 +2062,7 @@ w_p_name_GR1:
 	moveq.l	#4-1,d0			* ループカウンタ
 3:	move.w	(a0)+,d1		* d1 = フォントデータ
 
-	moveq.l	#8-1,d4			* ループカウンタ
+	moveq.l	#DRAWWIDTH_GR-1,d4	* ループカウンタ
 2:	lsl.w	#1,d1			* 最上位ビットを送り出す
 	bcc	1f			* 最上位ビットが１でなければ次へ	
 *	move.l	d2,1024(a1)		* 前景色を表示
@@ -2019,9 +2074,9 @@ w_p_name_GR1:
 	move.l	d3,(a1)+		* 背景色を表示
 	dbra	d4,2b
 
-@@:	adda.l	#1024+1024-32,a1	* １ライン下げる
+@@:	adda.l	#1024+1024-DRAWWIDTH_GR*4,a1	* １ライン下げる
 
-	moveq.l	#8-1,d4			* ループカウンタ
+	moveq.l	#DRAWWIDTH_GR-1,d4	* ループカウンタ
 2:	lsl.w	#1,d1			* 最上位ビットを送り出す
 	bcc	1f			* 最上位ビットが１でなければ次へ	
 *	move.l	d2,1024(a1)		* 前景色を表示
@@ -2033,13 +2088,13 @@ w_p_name_GR1:
 	move.l	d3,(a1)+		* 背景色を表示
 	dbra	d4,2b
 
-@@:	adda.l	#1024+1024-32,a1	* １ライン下げる
+@@:	adda.l	#1024+1024-DRAWWIDTH_GR*4,a1	* １ライン下げる
 
 	dbra	d0,3b
 
-	suba.l	#1024*16-32,a1		* gram_add の更新
+	suba.l	#1024*16-4*8,a1		* gram_add が次の文字の位置を指すように更新
 	move.l	a1,d0
-	andi.w	#$03ff,d0		* 改行したかのチェック
+	andi.w	#$03ff,d0		* 改行したかどうかのチェック
 	bne	@f
 	adda.l	#1024*15,a1
 @@:	move.l	a1,gram_add
@@ -2218,7 +2273,7 @@ w_p_name_GR2:
 	swap	d2
 	move.w	d4,d2
 
-	moveq.l	#8-1,d4			* ループカウンタ
+	moveq.l	#DRAWWIDTH_GR-1,d4	* ループカウンタ
 2:	lsl.w	#1,d1			* 最上位ビットを送り出す
 	bcc	1f			* 最上位ビットが１でなければ次へ	
 *	move.l	d2,1024(a1)		* 前景色を表示
@@ -2230,7 +2285,7 @@ w_p_name_GR2:
 	move.l	d3,(a1)+		* 背景色を表示
 	dbra	d4,2b
 
-@@:	adda.l	#1024+1024-32,a1	* １ライン下げる
+@@:	adda.l	#1024+1024-DRAWWIDTH_GR*4,a1	* １ライン下げる
 	move.b	(a2)+,d3		* ２ドット同時書き込みするため
 	move.w	d3,d2
 	swap	d3
@@ -2240,7 +2295,7 @@ w_p_name_GR2:
 	swap	d2
 	move.w	d4,d2
 
-	moveq.l	#8-1,d4			* ループカウンタ
+	moveq.l	#DRAWWIDTH_GR-1,d4	* ループカウンタ
 2:	lsl.w	#1,d1			* 最上位ビットを送り出す
 	bcc	1f			* 最上位ビットが１でなければ次へ	
 *	move.l	d2,1024(a1)		* 前景色を表示
@@ -2252,11 +2307,11 @@ w_p_name_GR2:
 	move.l	d3,(a1)+		* 背景色を表示
 	dbra	d4,2b
 
-@@:	adda.l	#1024+1024-32,a1	* １ライン下げる
+@@:	adda.l	#1024+1024-DRAWWIDTH_GR*4,a1	* １ライン下げる
 
 	dbra	d0,3b
 
-	suba.l	#1024*16-32,a1		* gram_add の更新
+	suba.l	#1024*16-8*4,a1		* gram_add の更新
 	move.l	a1,d0
 	andi.w	#$03ff,d0		* 改行したかのチェック
 	bne	@f
@@ -3201,9 +3256,12 @@ vloop:	eor.w	d0,(a0)		*pset(x,y)
 	dbra	d3,vloop	*dy+1回繰り返す
 	bra	done
 
+**************************************************************
 *
 *		ワークエリア
 *
+**************************************************************
+
 	.data
 	.even
 
@@ -3256,15 +3314,18 @@ rewrite_f_7	.dc.l	0
 *	------ ＶＤＰ Ｒｅｇｉｓｔｅｒｓ ------
 *	コントロールレジスタ
 Control_registers:
-	.dc.b	0		* Mode register 0
+R_00:	.dc.b	0		* Mode register 0
+
+VDP_R_01:
 R_01:	.dc.b	0		* Mode register 1
-	.dc.b	0
+
+R_02:	.dc.b	0
 	.dc.b	0
 	.dc.b	0
 	.dc.b	0
 R_06:	.dc.b	0		* Sprite
 	.dc.b	0
-	.dc.b	0		* Mode register 2
+R_08:	.dc.b	0		* Mode register 2
 	.dc.b	0		* Mode register 3
 R_10:	.dc.b	0		* >> R#3
 R_11:	.dc.b	0		* >> R#5
@@ -3299,6 +3360,7 @@ ARG:	.dc.b	0
 R_46:	.dc.b	0
 
 *	ステータスレジスタ
+VDP_S_00:
 S_0:	.dc.b	0
 S_1:	.dc.b	%00000100		* V9958 のＩＤ
 S_2:	.dc.b	%10001100		* TR は常に１
@@ -3358,8 +3420,8 @@ P_15:	.dc.w	%1111_1111_1111_1111
 *	.dc.w	%11111			* 7
 
 *	特殊コントロールレジスタ
-R_0:	.dc.b	0		* [ 0 ][ DG][IE2][IE1][ M5][ M4][ M3][ 0 ]
-R_1:	.dc.b	0		* [ 0 ][ BL][IE0][ M1][ M2][ 0 ][ SI][MAG]	
+* R_00:	.dc.b	0		* [ 0 ][ DG][IE2][IE1][ M5][ M4][ M3][ 0 ]
+* R_01:	.dc.b	0		* [ 0 ][ BL][IE0][ M1][ M2][ 0 ][ SI][MAG]	
 
 CRT_mode:			* R_0,R_1の[ M5]～[ M0]
 	.dc.b	0		* M5～M0 がそれぞれビット５～０に入っている
@@ -3419,9 +3481,12 @@ display_mode:
 *	10100		GRAPHIC6
 *	11100		GRAPHIC7
 
-active_page:			* VCRR2に書き込む形式で格納
-	.dc.w	%00000000_01100001
-
+; テキスト画面の表示 ON/OF (0:OFF 1:ON)
+tx_active:
+	.dc.w	1
+; MSXの画面の表示状態を勘案し、X68000の表示するグラフィックページ番号(0:OFF, 0x1-0xf:対応するページのビットを1にする)
+gr_active:
+	.dc.w	1
 
 *gbase:	.dc.l	GPAGE0		* ラインルーチン内等で使用
 
@@ -3454,9 +3519,9 @@ pointptr:
 filebuf:
 	.ds.b	53 
 
-errmesf:
+errmes_file:
 	.dc.b	"ファイルエラーです",$0d,$0a,$00
-errmes:
+errmes_memory:
 	.dc.b	"メモリが確保できません",$0d,$0a,$00
 
 mes_screen:
@@ -3470,8 +3535,6 @@ mes_DO:
 number:
 	.dc.b	'00'
 	.dc.b	0x0d,0x0a,0x00
-
-HEX:	.dc.b	'0123456789ABCDEF'
 
 mes_w_GR1:
 	.dc.b	'SCREEN1に書き込みました。',0x0d,0x0a,0x00

@@ -17,11 +17,11 @@
 
 	.xref	slot_3_ex
 
-	.xref	S_0		* VDP ステータスレジスタ 0
-	.xref	R_1		* VDP コントロールレジスタ 1
+	.xref	VDP_S_00		* VDP ステータスレジスタ 0
+	.xref	VDP_R_01		* VDP コントロールレジスタ 1
 	.xref	cpu_emu_yield
-
-	.xref	active_page
+	.xref	cpu_yield
+	.xref	emu_yield
 
 	.xref	KEY_INT
 
@@ -31,7 +31,6 @@
 	.xdef	_ms_init
 	.xdef	_ms_exit
 	.xdef	_MMemSet
-	.xdef	_VDPSet
 
 	.xdef	_SetROM
 
@@ -39,6 +38,12 @@
 
 	.xdef	_new_malloc
 	.xdef	_new_read
+
+	.xdef	interrupt_tick
+	.xdef	vsync_rate
+	.xdef	int_block_count
+	.xdef	host_rate
+	.xdef	host_delay
 
 headerlength	equ	8
 
@@ -55,27 +60,7 @@ VR		equ	$e88017		* ベクタレジスタ
 
 GPAGE0		equ	$c00000		* ＧＲＡＭの先頭アドレス
 
-CRTC_0		equ	$e80000
-CRTC_1		equ	$e80002
-CRTC_2		equ $e80004
-CRTC_3		equ $e80006
-CRTC_4		equ	$e80008
-CRTC_5		equ	$e8000a
-CRTC_6		equ $e8000c
-CRTC_7		equ $e8000e
-CRTC_8		equ $e80010
-CRTR_9		equ	$e80012		* ＣＲＴＣレジスタ９
-CRTR_21		equ	$e8002a
-CRTR_23		equ	$e8002e
 pla0		equ	$e00000
-
-VCRR_1		equ	$e82500		* ビデオコントロールレジスタ１
-VCRR_2		equ	$e82600		* ビデオコントロールレジスタ２
-
-SPCON_HTOTAL	equ	$eb080a		* スプライトコントローラ 画面モードレジスタ H-TOTAL
-SPCON_HDISP	equ	$eb080c		* スプライトコントローラ 画面モードレジスタ H-DISP
-SPCON_VDISP	equ	$eb080e		* スプライトコントローラ 画面モードレジスタ V-DISP
-SPCON_RES	equ	$eb0810		* スプライトコントローラ 画面モードレジスタ V-Res, H-Res
 
 * ------ メッセージ表示マクロ ------------------
 print:		macro	msg
@@ -92,13 +77,11 @@ print:		macro	msg
 *
 *	movea.l	#0,a1	
 *	IOCS	__VDISPST
-*	void _ms_init(int vsync_rate);
+*	void _ms_init();
 *
 _ms_init:
 	link	a6,#0
 	movem.l	d3-d7/a0-a5,-(sp)
-
-	move.w	10(a6),vsync_rate
 
 	move.w	sr,d0
 	move.w	d0,-(sp)
@@ -169,13 +152,19 @@ _ms_exit:
 	DOS	__EXIT
 
 interrupt:
-	btst.b	#5,R_1			* VDP IE0 (R#1のbit5) をみて、割り込みが許可されているかを調べる
+	addq.w	#1,interrupt_tick
+	btst.b	#5,VDP_R_01			* VDP IE0 (R#1のbit5) をみて、割り込みが許可されているかを調べる
 	beq	@f
-	bset.b	#7,S_0			* VDP ステータスレジスタ 0の bit7に、割り込み発生フラグを立てる。これがZ80のINT端子の状態を表している。
+	bset.b	#7,VDP_S_00			* VDP ステータスレジスタ 0の bit7に、割り込み発生フラグを立てる。これがZ80のINT端子の状態を表している。
 @@:
-	move.l	#$0001_0020,cpu_emu_yield	* 上位: cpu_yield, 下位: emu_yield
-
+	move.w	#$0001,cpu_yield	* 上位: cpu_yield 
+	move.w	host_delay,emu_yield	* 下位: emu_yield
 	rte
+
+	.data
+interrupt_tick:
+	.dc.w	0
+	.text
 
 *
 *	メインメモリ設定ルーチン
@@ -213,110 +202,6 @@ _MMemSet:
 	move.b	#1,slot_3_ex		* スロット３は拡張されている
 	unlk	a6
 	rts	
-
-*
-*	ＶＤＰ設定ルーチン
-*
-*	void VDPSet( *VideoRAM);
-*
-_VDPSet:
-	link	a6,#0
-	movem.l	d3-d7/a0-a5,-(sp)
-
-	move.l	 8(a6),VideoRAM		* Sysvalue にセット
-
-	move.l	 8(a6),a0		* ＶＲＡＭのクリア
-	move.w	#$7fff,d0		* ＶＲＡＭ１２８Ｋは前提
-@@:	clr.l	(a0)+
-	dbra	d0,@b
-
-	move.b	#4,d1
-	IOCS	__CRTMOD
-
-	IOCS	__G_CLR_ON
-
-	IOCS	__SP_INIT
-	IOCS	__SP_ON
-*	move.l	#0,d1
-*	move.l	#0,d2
-*	move.l	#1,d3
-*	IOCS	__BGCTRLST
-
-* 512 x 424にする
-*	move.w	#91,CRTC_0
-*	move.w	#9,CRTC_1
-*	move.w	#17,CRTC_2
-*	move.w	#81,CRTC_3
-*	move.w	#524,CRTC_4
-*	move.w	#5,CRTC_5
-*	move.w	#52,CRTC_6
-*	move.w	#476,CRTC_7
-*	move.w	#27,CRTC_8	* adjust
-*
-*	move.w	#$ff,SPCON_HTOTAL 	* 常に $ff
-*	move.w	#17+4,SPCON_HDISP	* CRTC R02 + 4の値
-*	move.w	#52,SPCON_VDISP		* CRTC R06 の値
-
-* 512 x 384にする
-	move.w	#91,CRTC_0
-	move.w	#9,CRTC_1
-	move.w	#17,CRTC_2
-	move.w	#81,CRTC_3
-	move.w	#524,CRTC_4
-	move.w	#5,CRTC_5
-	move.w	#40,CRTC_6
-	move.w	#424,CRTC_7
-	move.w	#27,CRTC_8	* adjust
-
-	move.w	#$ff,SPCON_HTOTAL 	* 常に $ff
-	move.w	#17+4,SPCON_HDISP	* CRTC R02 + 4の値
-	move.w	#40,SPCON_VDISP		* CRTC R06 の値
-
-	bsr	enable_backdrop			* バックドロップの設定
-
-	move.w	VCRR_2,d0
-	ori.w	#%00000000_01100001,d0
-	move.w	d0,VCRR_2			* 最もプライオリティの高いＧ画面のみ表示
-	move.w	d0,active_page			*
-
-	move.w	#0,$E82222
-
-	* プライオリティの設定
-	* b15:14 (NONE)
-	* b13:12 スプライト優先順位
-	* b11:10 テキスト優先順位
-	* b09:08 グラフィック優先順位
-	* b07:06 ┗グラフィックページ3の優先順位
-	* b05:04 ┗グラフィックページ2の優先順位
-	* b03:02 ┗グラフィックページ1の優先順位
-	* b01:00 ┗グラフィックページ0の優先順位
-	move.w	#%00_01_00_10__11_10_01_00,VCRR_1
-
-	movem.l	(sp)+,d3-d7/a0-a5
-	unlk	a6
-
-	rts
-
-*
-* バックドロップ用のＢＧを設定
-*
-enable_backdrop:
-	lea.l	$EB8000,a0
-
-	move.l	#$11111111,d1			* パターンの定義
-	move.w	#32-1,d0
-@@:	move.l	d1,(a0)+
-	dbra	d0,@b
-
-	lea.l	$EBC000,a0			* ＢＧの定義
-	move.w	#%00000001_00000000,d1
-	move.w	#4096-1,d0
-@@:	move.w	d1,(a0)+
-	dbra	d0,@b
-
-*	ori.w	#%0000001_000_001_001,$EB0808			* BG ON
-	ori.w	#%0000001_000_000_000,$EB0808			* BG OFF
-	rts
 
 *
 *	ＲＯＭ読み込みルーチン
@@ -527,7 +412,13 @@ _new_read_210:
 	.data
 
 vsync_rate:
-	.dc.w	0
+	.dc.w	1
+int_block_count:
+	.dc.l	2048
+host_rate:
+	.dc.w	3
+host_delay:
+	.dc.w	$20
 original:
 	.dc.l	0
 f_handle:

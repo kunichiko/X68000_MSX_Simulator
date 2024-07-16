@@ -8,6 +8,8 @@
 	.xdef	PSG2OPM_tbl
 	.xdef	native_jpt_add
 
+	.xdef	HEX
+
 *
 *	ＭＳ に必用な値は、ここに格納される			値をセットする関数名
 *
@@ -20,3 +22,4 @@ PSG2OPM_tbl:
 native_jpt_add:		* ネイティブルーチンジャンプテーブルのあるアドレス
 	.dc.l	0						initialize
 
+HEX:	.dc.b	'0123456789ABCDEF'

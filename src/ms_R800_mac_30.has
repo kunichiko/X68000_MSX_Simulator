@@ -109,7 +109,12 @@
 
 	.xref	native_jpt_add		* ６８ネイティブルーチンのジャンプテーブル
 
-	.xref	S_0			* VDPのステータスレジスタ0
+	.xref	VDP_S_00			* VDPのステータスレジスタ0
+
+	.xref	HEX
+	.xref	vsync_rate
+	.xref	host_rate
+	.xref	int_block_count
 
 	.xdef	f
 	.xdef	HC2
@@ -119,8 +124,16 @@
 	.xdef	_emulate
 	.xdef	cpu_main
 	.xdef	cpu_emu_yield
+	.xdef	cpu_yield
+	.xdef	emu_yield
 	.xdef	_readMemFromC
+	.xdef	int_skip_counter
+	.xdef	int_exec_counter
+	.xdef	int_skip_history_ptr
+	.xdef	int_skip_history_wr
+	.xdef	int_skip_history_rd
 
+	.dc.w	0
 	.xdef	page0
 	.xdef	page1
 	.xdef	page2
@@ -256,7 +269,20 @@ emu_counter:
 	.dc.l	0
 emu_counter_latch:
 	.dc.l	0
+int_skip_counter:
+	.dc.l	0
+int_exec_counter:
+	.dc.l	0
 emu_yield_div:
+	.dc.w	0
+
+int_skip_history_ptr:
+	.dc.l	int_skip_history
+int_skip_history:
+	.ds.l	32
+int_skip_history_wr:
+	.dc.w	0
+int_skip_history_rd:
 	.dc.w	0
 
 	.text
@@ -272,6 +298,8 @@ _emulate:
 	clr.l	emu_counter
 	clr.l	emu_counter_latch
 	clr.w	emu_yield_div
+	clr.w	int_skip_history_wr
+	clr.w	int_skip_history_rd
 	lea.l	registers,a3
 cpu_main:
 	add.l	#1,emu_counter
@@ -287,54 +315,91 @@ cpu_main_next:
 
 ; cpu_yieldか emu_yieldのどちらかが0でない場合の中断処理
 check_yield:
+	move.w	sr,d0
+	move.w	d0,-(sp)
+	or.w	#%00000111_00000000,d0	* 一時的に割り込み禁止
+	move.w	d0,sr
+
 	; cpu_yieldの処理
 	cmpi.w	#0,cpu_yield
 	beq	@f
 	subq.w	#1,cpu_yield
 	bne	@f
-	; cpu_yieldが0になったので、割り込み判定を行う
+	; cpu_yieldが1→0になったので、割り込み判定を行う
 	cmpi.b	#1,interrupt_enable
 	bne	@f		* DIなら割り込まない
 	; あらためてVDPのS_0の bit7を見て割り込み要求があるかどうかを見る
-	btst.b	#7,S_0
+	btst.b	#7,VDP_S_00
 	beq	@f
-	; emu_counter が 0x1000 に達していなかったら割り込みを一回スキップ(実験)
-	cmpi.l	#$1000,emu_counter
+	; emu_counter が int_block_count に達していなかったら割り込みを一回スキップ(実験)
+	move.l	emu_counter,d0
+	cmp.l	int_block_count,d0
 	bgt	1f
-	rts
-1:	bsr	INT
+	; Skip処理
+	addq.l	#1,int_skip_counter
+	lea	int_skip_history,a0
+	move.w	int_skip_history_wr,d0
+	move.w	int_skip_history_rd,d1
+	move.l	emu_counter,(a0,d0.l*4)
+	addq.w	#1,d0
+	andi.w	#$1f,d0
+	cmp.w	d1,d0
+	bne	history_not_full
+	; 履歴が一杯になったので、読み出し開始位置をずらず
+	addq.w	#1,d1
+history_not_full:
+	andi.w	#$1f,d1
+	move.w	d0,int_skip_history_wr
+	move.w	d1,int_skip_history_rd
+
+	cmp.w	#0,cpu_yield	* 絶対に0のはず
+	beq	check_yield_rts
+	; サブルーチンを1段飛ばすために、SPをインクリメント
+	lea.l	4(sp),sp
+	bra	emu_end		* 強制終了
+
+1:
+	addq.l	#1,int_exec_counter
+	bsr	INT
 	move.l	emu_counter,emu_counter_latch
 	clr.l	emu_counter
+	bra	check_yield_rts
 
 	; emu_yieldの処理
 @@:	cmpi.w	#0,emu_yield
 	bne	@f
-	rts
+	bra	check_yield_rts
 @@:	subq.w	#1,emu_yield
 	beq	@f
-	rts	
+	bra	check_yield_rts
 
 	; emu_yieldが0になったので、C側の処理を呼び出す
-@@:	cmpi.w	#0,emu_yield_div	* さらに間引きを実施
-	beq	@f			* 0なら実行
+@@:	cmpi.w	#0,emu_yield_div		* さらに間引きを実施
+	beq	@f				* 0なら実行
 	subq.w	#1,emu_yield_div
-	rts
-@@:	move.w	#2,emu_yield_div	* 1 = 2回に一回実行, 2 = 3回に1回
+	bra	check_yield_rts
+@@:	move.w	host_rate,emu_yield_div		* 1 = 2回に一回実行, 2 = 3回に1回
+	subq.w	#1,emu_yield_div
 	movem.l	d1-d7/a0-a6,-(sp)
 	movea.l	emu_loop_func,a0
-	move.l	emu_counter_latch,-(sp)	* カウンタを引数として渡す
-	move.l	d7,-(sp)		* PCを引数として渡す
+	move.l	emu_counter_latch,-(sp)		* カウンタを引数として渡す
+	move.l	d7,-(sp)			* PCを引数として渡す
 	jsr	(a0)
 	lea.l	8(sp),sp
 	movem.l	(sp)+,d1-d7/a0-a6
 	move.l	d0,d0
 	bne	@f
-	rts
+	bra	check_yield_rts
 @@:	
 	; 0以外が帰ってきたのでエミュレータを終了
+	move.w	(sp)+,sr
 	; サブルーチンを1段飛ばすために、SPをインクリメント
 	lea.l	4(sp),sp
 	bra	emu_end
+
+check_yield_rts:
+	move.w	(sp)+,sr
+	rts
 
 emu_end:
 	movem.l	(sp)+,d3-d7/a0-a5
@@ -739,8 +804,8 @@ LD_A_lnnl:
 	move.b	2(a4,d7.w),d0		* nn の上位８ビットを読む 
 	lsl.w	#8,d0
 	move.b	1(a4,d7.w),d0		* nn の下位８ビットを読む 
-	addq.w	#3,d7
-	btst.l	#14,d7
+	addq.w	#3,d7			* PC += 3
+	btst.l	#14,d7			* PC がページ境界をまたいだか？
 	bne	1f
 	bsr	read_mem		*メモリから 8ビットのデータを d0に読み込む。
 	move.b	d0,d4
@@ -834,7 +899,7 @@ LD_B_n:	move.b	1(a4,d7.w),b(a3)
 	beq	cpu_main
 	PC_page_inc
 	andi.w	#$3fff,d7		* 命令がページ境界をまたぐ時
-	beq	cpu_main			* d7 = 0 の時
+	beq	cpu_main		* d7 = 0 の時
 	move.b	(a4),b(a3)		* d7 = 1 の時
 	bra	cpu_main
 
@@ -4140,7 +4205,7 @@ DI:	move.b	#0,interrupt_enable
 	bra	cpu_main
 
 EI:	move.b	#1,interrupt_enable
-	move.w	#1,cpu_yield		* DI中に割り込みがあった場合に割り込みをかけるようにする
+	;move.w	#1,cpu_yield		* DI中に割り込みがあった場合に割り込みをかけられるよう、yieldをセットする → 負荷高いので削除
 	addq.w	#1,d7
 	andi.w	#$3fff,d7
 	bne	1f
@@ -4329,7 +4394,7 @@ HALT:
 9:	cmpi.b	#1,interrupt_enable
 	bne	9b		* DIなら割り込まない(永遠に出られない？ NMIなら出られるようにすべき？)
 	; あらためてVDPのS_0の bit7を見て割り込み要求があるかどうかを見る
-	btst.b	#7,S_0
+	btst.b	#7,VDP_S_00
 	beq	9b
 	bsr	INT		* 割り込みがかかったので割り込み処理を実施
 	bra	cpu_main
@@ -8536,8 +8601,7 @@ input:
 	clr.w	d1
 	move.b	d0,d1				* 上位バイトを０でクリア
 	lea.l	input_table,a0
-	movea.l	(a0,d1.w*4),a0	* d0 の値を変えちゃだめ（68000用にする
-						* 時注意）
+	movea.l	(a0,d1.w*4),a0			* d0 の値を変えちゃだめ（68030用→68000用にする時注意）
 	jmp	(a0)				* rts を省略するためジャンプにしてある
 
 no_port_IN:
@@ -8566,8 +8630,6 @@ number_r:
 	.dc.b	0x0d,0x0a,0x00
 
 	.even
-
-HEX:	.dc.b	'0123456789ABCDEF'
 
 input_table:
 *	0
@@ -8668,7 +8730,7 @@ output:
 	clr.w	d2
 	move.b	d0,d2				* 上位バイトを０でクリア
 	lea	output_table,a0
-	movea.l	(a0,d2.w*4),a0			* d0 の値を変えちゃだめ（68000用にする時注意）
+	movea.l	(a0,d2.w*4),a0			* d0 の値を変えちゃだめ（68030用→68000用にする時注意）
 	jmp	(a0)				* rts を省略するためジャンプにしてある
 
 no_port_OUT:
@@ -9243,6 +9305,7 @@ d6_d_:	.dc.w	0	* d6 に対応する部分
 ; cpu_yieldの方が先に処理され、Z80の割り込み処理ルーチンが優先的に動くようになります。
 ; emu_yieldの頻度を調整したい場合は、VSYNC割り込み以外のタイマー割り込みを使ってセットするように
 ; しても良いです。
+	.quad
 cpu_emu_yield:			* cpu_yieldと emu_yieldの両方を同時にロングワードアクセスするときはこちらのラベルを使用する
 cpu_yield:
 	.dc.w	0

@@ -7,7 +7,7 @@
 *
 
 	.include	iocscall.equ
-	.include	doscall.equ
+*	.include	doscall.equ
 
 	.xdef	r_port_90
 	.xdef	r_port_A8
@@ -36,7 +36,6 @@
 	.xref	slot_reg
 	.xref	_ms_exit
 
-	.xdef	KEY_INT
 	.xdef	TOUROKU_int
 	.xdef	_KEYSNS_tbl_ptr
 
@@ -353,77 +352,6 @@ RTC1mask:
 	.dc.b	1
 	.dc.b	3
 	.dc.b	0
-
-	.text
-
-KEY_INT:
-	move.l	#$0000_0001,cpu_emu_yield
-	move.l	KEY_vector,-(sp)	* もともと設定されていたルーチンに処理を引き継ぐため、SPを介してrtsでジャンプ
-	rts
-
-KEY_INT_OLD:	
-	movem.l	d0-d1/a0,-(sp)
-	move.b	USART_data,d0
-
-	lea.l	_KEYSNS_tbl,a0
-	add.w	d0,d0
-	btst.l	#8,d0
-	bne	OFF
-
-ON:	andi.w	#$00ff,d0
-	move.w	TABLE(pc,d0.w),d0
-	bmi	INT			* 特殊 キーが押された
-	move.w	d0,d1
-	lsr.w	#8,d0
-	not.b	d1
-	and.b	d1,0(a0,d0.w)
-
-	movem.l	(sp)+,d0-d1/a0
-	
-	rte
-
-OFF:	andi.w	#$00ff,d0
-	move.w	TABLE(pc,d0.w),d0
-	move.w	d0,d1
-	lsr	#8,d0
-	or.b	d1,0(a0,d0.w)
-
-	movem.l	(sp)+,d0-d1/a0
-
-	rte
-
-INT:	cmpi.b	#1,d0
-
-	beq	TOUROKU
-
-HELP:	movem.l	(sp)+,d0-d1/a0		* HELP キーが押された
-	move.l	#_ms_exit,2(sp)
-	rte
-
-TOUROKU:				* 登録 キーが押された
-	movea.l	TOUROKU_int,a0
-	jmp	(a0)
-
-
-*	とりあえず記号入力をSELECTに割り当てた
-TABLE:
-	.dc.w	$0000,$0704,$0002,$0004,$0008,$0010,$0020,$0040	* 0
-	.dc.w	$0080,$0101,$0102,$0001,$0104,$0108,$0110,$0720
-	.dc.w	$0708,$0440,$0510,$0304,$0480,$0502,$0540,$0504	* 1
-	.dc.w	$0340,$0410,$0420,$0120,$0140,$0780,$0240,$0501
-	.dc.w	$0302,$0308,$0310,$0320,$0380,$0401,$0402,$0180	* 2
-	.dc.w	$0201,$0202,$0580,$0520,$0301,$0508,$0280,$0408
-	.dc.w	$0404,$0204,$0208,$0210,$0220,$0801,$0802,$0808	* 3
-	.dc.w	$0000,$0000,$0000,$0810,$0820,$0880,$0840,$0802
-	.dc.w	$0902,$0904,$0a20,$0a04,$0a08,$0a10,$0901,$0980	* 4
-	.dc.w	$0a01,$0a02,$0104,$0910,$0920,$0940,$0780,$0908
-	.dc.w	$0a40,$0a80,$0740,$8001,$8000,$0604,$0604,$0604	* 5
-	.dc.w	$0604,$0604,$0610,$0611,$0000,$0608,$0804,$0610
-	.dc.w	$0000,$0710,$0000,$0620,$0640,$0680,$0701,$0702	* 6
-	.dc.w	$0621,$0641,$0681,$0000,$0000,$0000,$0000,$0000
-	.dc.w	$0601,$0602,$0000,$0000,$0000,$0000,$0000,$0000	* 7
-	.dc.w	$0000,$0000,$0000,$0000,$0000,$0000,$0000,$0000
-
 
 	.data
 
