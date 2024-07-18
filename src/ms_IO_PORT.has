@@ -41,6 +41,7 @@
 
 	.xref	cpu_emu_yield
 	.xref	KEY_vector
+	.xref	debug_log_level
 
 	.68000
 
@@ -173,10 +174,12 @@ r_port_FF:
 *
 ****************************************************************************
 w_port_90:				* プリンタポート
+	rts
 	eori.b	#1,d1
 	move.b	d1,$E8C003		* プリンタ STROBE	(Inside p373)
 	rts
 w_port_91:				* プリンタポート
+	rts
 	move.b	d1,$E8C001		* プリンタ DATA		(Inside p373）	
 	rts
 

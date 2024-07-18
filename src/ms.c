@@ -65,13 +65,20 @@ void _setTextPlane(int textPlaneMode);
 volatile extern unsigned short interrupt_tick;
 volatile extern unsigned short vsync_rate;
 volatile extern unsigned int int_block_count;
+volatile extern unsigned short debug_log_level;
 volatile extern unsigned short host_rate;
 volatile extern unsigned short host_delay;
 volatile extern unsigned int int_skip_counter;
 volatile extern unsigned int int_exec_counter;
-volatile extern unsigned int* int_skip_history_ptr;
-volatile extern unsigned short int_skip_history_wr;
-volatile extern unsigned short int_skip_history_rd;
+typedef struct interrupt_history_st {
+    unsigned short int_tick;
+    unsigned short process_type;
+    unsigned long emu_counter;
+} interrupt_history_t;
+
+volatile extern interrupt_history_t* interrupt_history_ptr;
+volatile extern unsigned short interrupt_history_wr;
+volatile extern unsigned short interrupt_history_rd;
 
 void printHelpAndExit(char* progname) {
 	fprintf(stderr, "Usage: %s [-m1 MAINROM1_PATH] [-m2 MAINROM2_PATH] [-r11 ROM1_PATH] [-r12 ROM2_PATH]\n", progname);
@@ -85,6 +92,10 @@ void printHelpAndExit(char* progname) {
 	fprintf(stderr, "    default is 3.\n");
 	fprintf(stderr, " --hostdelay host key interruption delay cycle (1-999)\n");
 	fprintf(stderr, "    default is 20 cycles.\n");
+	fprintf(stderr, " --disablekey\n");
+	fprintf(stderr, "    disable key input for performance test.\n");
+//	fprintf(stderr, " --debuglevel N\n");
+//	fprintf(stderr, "    0: None, 1: Info, 2: Debug, 3: Fine.\n");
 	exit(EXIT_FAILURE);
 }
 
@@ -96,6 +107,8 @@ static unsigned char *SUBROM;
 static unsigned char *SLOT1_1;
 static unsigned char *SLOT1_2;
 static unsigned char *ROM;
+
+int disablekey = 0;
 
 /*
 	メイン関数
@@ -115,12 +128,13 @@ int main(int argc, char *argv[]) {
 	int opt;
     const char* optstring = "hm:r:" ; // optstringを定義します
     const struct option longopts[] = {
-      //{       *name,           has_arg, *flag, val },
-        {    "vsrate", required_argument,     0, 'A' },
-        {  "intblock", required_argument,     0, 'B' },
-        {  "hostrate", required_argument,     0, 'C' },
-        { "hostdelay", required_argument,     0, 'D' },
-        {         0,                  0,     0,  0  }, // termination
+      //{        *name,           has_arg,       *flag, val },
+        {     "vsrate", required_argument,           0, 'A' },
+        {   "intblock", required_argument,           0, 'B' },
+        {   "hostrate", required_argument,           0, 'C' },
+        {  "hostdelay", required_argument,           0, 'D' },
+		{ "disablekey",       no_argument, &disablekey,  1  },
+        {            0,                 0,           0,  0  }, // termination
     };
 	const struct option* longopt;
     int longindex = 0;
@@ -134,7 +148,9 @@ int main(int argc, char *argv[]) {
 	}
 
 	for(i=0;i<32;i++) {
-		int_skip_history_ptr[i] = 0;
+		interrupt_history_ptr[i].int_tick = 0;
+		interrupt_history_ptr[i].process_type = 0;
+		interrupt_history_ptr[i].emu_counter = 0;
 	}
 
 	// コマンドラインオプションの解析
@@ -142,6 +158,8 @@ int main(int argc, char *argv[]) {
 	{
 		switch (opt)
 		{
+		case 0: // フラグがセットされた場合
+			break;
 		case 'h': // -h オプション
 			printHelpAndExit(argv[0]);
 			break;
@@ -270,6 +288,7 @@ int main(int argc, char *argv[]) {
 	VDPSet(VideoRAM); /* アセンブラのルーチンへ引き渡し		*/
 					  /* 画面の初期化等						*/
 
+	printf("\n\n\n\n\n\n\n\n"); // TEXT画面を上に8ラインくらい上げているので、その分改行を入れる
 	printf("[[ MSX Simulator MS.X]]\n");
 	printf(" この画面は HELP キーで消せます\n");
 
@@ -332,7 +351,11 @@ int main(int argc, char *argv[]) {
 
 	initSprite();
 
-	emulate(emuLoop);
+	if (1) {
+		emulate(emuLoop);
+	} else {
+		debugger();
+	}
 
 	printf("終了します\n");
 
@@ -376,8 +399,8 @@ unsigned short KEY_MAP[][8] = {
 	{   0xf00,0xf00,0x610,0xf00,0xf00,0xf00,0x804,0xf00},
 	//c [ZENK][BRAK][COPY][ F1 ][ F2 ][ F3 ][ F4 ][ F5 ]  BRAK=STOP
 	{   0xf00,0x710,0xf00,0xf00,0xf00,0xf00,0xf00,0xf00},
-	//d [ F6 ][ F7 ][ F8 ][ F9 ][ F10][    ][    ][    ]
-	{   0xf00,0xf00,0xf00,0xf00,0xf00,0xf00,0xf00,0xf00},
+	//d [ F6 ][ F7 ][ F8 ][ F9 ][ F10][    ][    ][    ]  F6=DebugLevel
+	{   0xffc,0xf00,0xf00,0xf00,0xf00,0xf00,0xf00,0xf00},
 	//e [SHFT][CTRL][OPT1][OPT2][    ][    ][    ][    ]  OPT1=GRAPH
 	{   0x601,0x602,0x604,0xf00,0xf00,0xf00,0xf00,0xf00},
 	//f [    ][    ][    ][    ][    ][    ][    ][    ]
@@ -388,7 +411,7 @@ extern unsigned char* KEYSNS_tbl_ptr;
 
 int divider = 0;
 
-void dump(unsigned int page, unsigned int pc);
+void dump(unsigned int page, unsigned int pc_16k);
 
 int emuLoop(unsigned int pc, unsigned int counter) {
 	static int emuLoopCounter = 0;
@@ -396,10 +419,10 @@ int emuLoop(unsigned int pc, unsigned int counter) {
 	unsigned short map;
 	unsigned char X, Y;
 	int hitkey = 0;
-	static int kigoKeyHit = 0;
-	static int kigoKeyHitLast = 0;
-	static int helpKeyHit = 0;
-	static int helpKeyHitLast = 0;
+	static int f6KeyHit = 0, f6KeyHitLast = 0;
+	static int kigoKeyHit = 0, kigoKeyHitLast = 0;
+	static int helpKeyHit = 0, helpKeyHitLast = 0;
+	
 
 	emuLoopCounter++;
 
@@ -412,6 +435,10 @@ int emuLoop(unsigned int pc, unsigned int counter) {
 	}
 	for ( i = 0x00; i < 0x0f; i++)
 	{
+		if (disablekey == 1 && i != 0x0a)
+		{
+			continue;
+		}
 		int v = _iocs_bitsns(i);
 		for ( j = 0; j < 8; j++)
 		{
@@ -426,6 +453,9 @@ int emuLoop(unsigned int pc, unsigned int counter) {
 					// 特殊キー
 					switch (X)
 					{
+					case 0xfc: // F6キーを押すと、デバッグレベル変更
+						f6KeyHit = 1;
+						break;
 					case 0xfd: // 記号キーを押すと、PC周辺のメモリダンプ
 						kigoKeyHit = 1;
 						break;
@@ -454,12 +484,19 @@ int emuLoop(unsigned int pc, unsigned int counter) {
 		_dos_kflushio(0xff);
 	}
 
+	if (f6KeyHit && !f6KeyHitLast)
+	{
+		debug_log_level = (debug_log_level + 1) % 4;
+		printf("デバッグログレベル=%d\n", debug_log_level);
+	}
+	f6KeyHitLast = f6KeyHit;
+
 	if (kigoKeyHit && !kigoKeyHitLast)
 	{
 		printf("\n");
 		printf("emu loop counter=%08d\n", emuLoopCounter);
 		printf("COUNTER=%08x, inttick=%08d\n", counter, interrupt_tick);
-		dump(pc >> 16, pc & 0xffff);
+		dump(pc >> 16, pc & 0x3fff);
 	}
 	kigoKeyHitLast = kigoKeyHit;
 
@@ -473,25 +510,36 @@ int emuLoop(unsigned int pc, unsigned int counter) {
 }
 
 // メモリダンプ
-void dump(unsigned int page, unsigned int pc) {
+void dump(unsigned int page, unsigned int pc_16k) {
 	int i,j;
-	int pcbase;
+	int pcbase,pc;
 	int data;
 	unsigned int current_int_skip_counter = int_skip_counter;
 	static unsigned int last_int_skip_counter = 0;
 	int rd,wr;
+	char process_type_char[] = {'E','S','D','?'};
 
-	wr = int_skip_history_wr;
+	wr = interrupt_history_wr;
 	for(i=0;i<32;i++) {
-		rd = (int_skip_history_rd + i) % 32;
+		unsigned int tick;
+		unsigned int process_type; // 0: EI状態で割り込みがかかった, 1: EIだったがスキップ, 2: DI状態で割り込みがスキップ
+		unsigned int counter;
+		rd = (interrupt_history_rd + i) % 32;
 		if (rd == wr) {
 			break;
 		}
-		printf("%04d>",int_skip_history_ptr[rd]);
+		tick = interrupt_history_ptr[rd].int_tick;
+		process_type = interrupt_history_ptr[rd].process_type;
+		if (process_type > 2 ) {
+			process_type = 3;
+		}
+		counter = interrupt_history_ptr[rd].emu_counter;
+		printf("[%04x]%c:%06d >",tick,process_type_char[process_type],counter);
 	}
 	printf("\n");
 
-	pcbase = pc & 0xfff0;
+	pc = (page << 14) | (pc_16k & 0x3fff);
+	pcbase = (pc & 0xfff0);
 	printf("PAGE=%04x, PC=%04x, EXEC=%04d SKIP=%04d (+%04d)\n", page, (pc&0xffff), int_exec_counter, current_int_skip_counter,current_int_skip_counter - last_int_skip_counter);
 	last_int_skip_counter = current_int_skip_counter;
 	for (i = -1; i < 2; i++)

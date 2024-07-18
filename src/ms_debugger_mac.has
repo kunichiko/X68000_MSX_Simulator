@@ -103,25 +103,30 @@
 
 	.xref	TOUROKU_int
 
+	.xref	emu_counter
+	.xref	emu_counter_latch
+	.xref	emu_yield_div
+	.xref	interrupt_history_wr
+	.xref	interrupt_history_rd
+	.xref	emu_loop_func
+
+	.xref	HEX
+
 	.xdef	_debugger
 *
 *	void debugger();
 *
 _debugger:
-	jsr	_emulater_ini
-	movem.l	d4-d7/a3-a4,-(sp)
+	link	a6,#0
+	movem.l	d3-d7/a0-a5,-(sp)
 
-	move.w	#$4c,d1
-	movea.l	KEY_vector,a1
-	IOCS	__B_INTVCS
-	move.l	d0,key
+	move.l	8(a6),emu_loop_func	* 引数1のループ関数のポインタを保存しておく
 
-*	move.w	#$1f,d1			* NMI のフック
-*	lea.l	db_int,a1
-*	IOCS	__B_INTVCS
-*	move.l	d0,NMI_vector
-
-*	move.l	#db_int,TOUROKU_int	* 登録キーで、デバッガに制御がわたるようにする
+	clr.l	emu_counter
+	clr.l	emu_counter_latch
+	clr.w	emu_yield_div
+	clr.w	interrupt_history_wr
+	clr.w	interrupt_history_rd
 
 loop:
 	pea.l	prompt
@@ -209,7 +214,8 @@ command_X:
 2:
 	lsl.l	#4,d0
 	swap	d0
-	move.b	HEX2(pc,d0.w),(a0)
+	lea.l	HEX,a2
+	move.b	(a2,d0.w),(a0)
 	addq.l	#1,a0
 	clr.w	d0
 	swap	d0
@@ -224,17 +230,14 @@ command_X:
 
 	bra	loop
 
-HEX2:	.dc.b	'0123456789ABCDEF'
 *
 *	ＱＵＩＴ
 *
 command_Q:
-	movem.l	(sp)+,d4-d7/a3-a4
-
-	clr.l	a1	
-	IOCS	__VDISPST
-
-	DOS	__EXIT
+	movem.l	(sp)+,d3-d7/a0-a5
+	unlk	a6
+	moveq.l #-1,d0
+	rts
 
 *
 *	ＧＯ
@@ -378,7 +381,7 @@ command_B:
 	bra	loop
 
 char_hex:
-	lea.l	HEX(pc),a1
+	lea.l	HEX,a1
 	move.w	#16-1,d1
 @@:	cmp.b	(a1)+,d0	
 	beq	@f
@@ -394,8 +397,10 @@ char_hex:
 	lea.l	4(sp),sp
 	bra	loop
 
+	.data
 errms_ch:
 	.dc.b	'数値エラー  (注)英字は大文字で',$0D,$0A,$00
+	.text
 
 	.even
 
@@ -607,12 +612,12 @@ show_page1:
 	lsr.w	#2,d0
 	move.b	slot_0_ex-base(a3,d0.w),d0	* ページ１のスロットは拡張されているか
 	beq	@f
-	pea.l	yes
+	pea.l	yes_msg
 	DOS	__PRINT
 	lea.l	4(sp),sp
 	bra	1f
 
-@@:	pea.l	no
+@@:	pea.l	no_msg
 	DOS	__PRINT
 	lea.l	4(sp),sp
 
@@ -704,12 +709,12 @@ show_page0:
 	andi.w	#%00000011,d0
 	move.b	slot_0_ex-base(a3,d0.w),d0	* ページ０のスロットは拡張されているか
 	beq	@f
-	pea.l	yes
+	pea.l	yes_msg
 	DOS	__PRINT
 	lea.l	4(sp),sp
 	bra	1f
 
-@@:	pea.l	no
+@@:	pea.l	no_msg
 	DOS	__PRINT
 	lea.l	4(sp),sp
 
@@ -802,12 +807,12 @@ show_page2:
 	lsr.w	#4,d0
 	move.b	slot_0_ex-base(a3,d0.w),d0	* ページ２のスロットは拡張されているか
 	beq	@f
-	pea.l	yes
+	pea.l	yes_msg
 	DOS	__PRINT
 	lea.l	4(sp),sp
 	bra	1f
 
-@@:	pea.l	no
+@@:	pea.l	no_msg
 	DOS	__PRINT
 	lea.l	4(sp),sp
 
@@ -900,12 +905,12 @@ show_page3:
 	lsr.w	#6,d0
 	move.b	slot_0_ex-base(a3,d0.w),d0	* ページ３のスロットは拡張されているか
 	beq	@f
-	pea.l	yes
+	pea.l	yes_msg
 	DOS	__PRINT
 	lea.l	4(sp),sp
 	bra	1f
 
-@@:	pea.l	no
+@@:	pea.l	no_msg
 	DOS	__PRINT
 	lea.l	4(sp),sp
 
@@ -1105,6 +1110,8 @@ print_byte:
 
 	rts
 
+	.quad
+
 	.data
 
 current_dump_add:
@@ -1134,9 +1141,6 @@ registers:
 	.dc.b	'SP:0000 '
 	.dc.b	$0d,$0a,$00
 
-HEX:
-	.dc.b	'0123456789ABCDEF'
-
 	.even
 break_point:
 	.dc.w	0
@@ -1155,9 +1159,9 @@ sys_value1:
 	.dc.b	'   w16routin address:',0
 	.dc.b	'   r16routin address:',0
 
-no:
+no_msg:
 	.dc.b	'no ',$0d,$0a,$00
-yes:
+yes_msg:
 	.dc.b	'yes',$0d,$0a,$00
 
 slot_type:
@@ -1172,7 +1176,7 @@ slot_type:
 	.dc.b	'DOS ROM      ',$0d,$0a,0
 	.dc.b	'PAC          ',$0d,$0a,0
 
-	.even
+	.quad
 
 key:	.dc.l	0
 
