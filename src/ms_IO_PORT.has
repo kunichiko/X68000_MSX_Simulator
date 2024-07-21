@@ -10,7 +10,6 @@
 *	.include	doscall.equ
 
 	.xdef	r_port_90
-	.xdef	r_port_A8
 	.xdef	r_port_A9
 	.xdef	r_port_AA
 	.xdef	r_port_AB
@@ -34,9 +33,7 @@
 	.xdef	p_FF
 
 	.xref	slot_reg
-	.xref	_ms_exit
 
-	.xdef	TOUROKU_int
 	.xdef	_KEYSNS_tbl_ptr
 
 	.xref	cpu_emu_yield
@@ -63,11 +60,6 @@ r_port_90:				* プリンタ ＢＵＳＹ検出
 	andi.b	#%00100000,d0
 	lsr.b	#4,d0
 	rts
-
-r_port_A8:				* スロット選択レジスタの値
-	move.b	slot_reg,d0
-	rts
-
 
 r_port_A9:
 	move.b	p_AA,d0
@@ -369,6 +361,4 @@ p_FD:	.dc.b	2			* 初期値に意味はない。何となく。
 p_FE:	.dc.b	1
 p_FF:	.dc.b	0
 
-
-TOUROKU_int:
-	.dc.l	_ms_exit
+	.end

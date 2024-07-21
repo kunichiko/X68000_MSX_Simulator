@@ -80,8 +80,6 @@
 	.xdef	rd_VDP_2
 	.xdef	rd_VDP_3
 
-headerlength	equ	8		* 各ページの情報を示したヘッダーの長さ
-
 a	equ	0
 f	equ	1	
 b	equ	2	

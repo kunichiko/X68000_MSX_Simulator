@@ -17,7 +17,7 @@
 #define h_length 8
 
 void read_cartridge( char *, void *, int, int, int);
-void set_cartridge( void *, int, int, int);
+void ms_memmap_set_cartridge( void *, int, int, int);
 
 /*	カートリッジファイルを検索するルーチン			*/
 
@@ -82,7 +82,7 @@ void read_cartridge(char *path_crt, void *ccf_buff, int location, int page, int 
 			return;
 		}
 		read( crt_fh, crt_buff + h_length, crt_length);
-		set_cartridge( crt_buff, location, page, kind);	/* アセンブラのルーチンへ	*/
+		ms_memmap_set_cartridge( crt_buff, location, page, kind);	/* アセンブラのルーチンへ	*/
 
 		close( crt_fh);
 

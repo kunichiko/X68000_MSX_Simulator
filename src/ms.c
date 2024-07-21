@@ -27,15 +27,36 @@ extern int readMemFromC(int address);
 
 void emulater_ini(void);
 int emulate( int(*)(unsigned int, unsigned int));
-void ms_init();
+
 void ms_exit( void);
-void MMemSet( void *, int);
-void VDPSet( void *);
+
+// メモリ関連
+int mem_initialized = 0;
+int ms_memmap_init();
+void ms_memmap_deinit(void);
+
+void ms_memmap_set_main_mem( void *, int);
+
+// I/O関連
+int io_initialized = 0;
+int ms_iomap_init();
+void ms_iomap_deinit(void);
+
+// VDP関連
+int vdp_initialized = 0;
+int ms_vdp_init( void *);
+void ms_vdp_deinit(void);
+
 void initSprite(void);
+
+// PSG関連
+int psg_initialized = 0;
+int ms_psg_init( void);
+void ms_psg_deinit(void);
 
 /*
   SlotにROMをセットします。
-	int SetROM( (void *)address, (char *)filename, (int)kind, (int)slot, (int)page);
+	int ms_memmap_set_rom( (void *)address, (char *)filename, (int)kind, (int)slot, (int)page);
 
   引数：
 	void *ROM		: ROMのアドレス
@@ -53,8 +74,8 @@ void initSprite(void);
 		0	: 正常終了
 		-1	: エラー
 */
-void SetROM( void* address, const char* filename, int kind, int slot, int page);
-int PSG_INIT( void);
+void ms_memmap_set_rom( void* address, const char* filename, int kind, int slot, int page);
+
 
 int emuLoop(unsigned int pc, unsigned int counter);
 void allocateAndSetROM(size_t size, const char* romFileName, int param1, int param2, int param3);
@@ -62,8 +83,8 @@ void allocateAndSetROM(size_t size, const char* romFileName, int param1, int par
 void _toggleTextPlane(void);
 void _setTextPlane(int textPlaneMode);
 
-volatile extern unsigned short interrupt_tick;
-volatile extern unsigned short vsync_rate;
+volatile extern unsigned short ms_vdp_interrupt_tick;
+volatile extern unsigned short ms_vdp_vsync_rate;
 volatile extern unsigned int int_block_count;
 volatile extern unsigned short debug_log_level;
 volatile extern unsigned short host_rate;
@@ -205,8 +226,8 @@ int main(int argc, char *argv[]) {
 			// VSYNCレートの設定
 			longopt = &longopts[longindex];
 			if (longopt->has_arg == required_argument & optarg != NULL) {
-				vsync_rate = atoi(optarg);
-				if (vsync_rate < 1 || vsync_rate > 61) {
+				ms_vdp_vsync_rate = atoi(optarg);
+				if (ms_vdp_vsync_rate < 1 || ms_vdp_vsync_rate > 61) {
 					printf("VSYNCレートが不正です\n");
 					printHelpAndExit(argv[0]);
 				}
@@ -269,7 +290,15 @@ int main(int argc, char *argv[]) {
 		return -1;
 	}
 
-	ms_init(); /* システムの初期化				*/
+	/*
+	 メモリシステムの初期化
+	 */
+	mem_initialized = ms_memmap_init();
+	if (mem_initialized == 0)
+	{
+		printf("メモリシステムの初期化に失敗しました\n");
+		ms_exit();
+	}
 
 	MMem = new_malloc(64 * 1024 + 8 * NUM_SEGMENTS); /* ６４Ｋ + ８バイト＊総セグメント数	*/
 	if (MMem > (unsigned char *)0x81000000)
@@ -277,20 +306,52 @@ int main(int argc, char *argv[]) {
 		printf("メモリが確保できません\n");
 		ms_exit();
 	}
-	MMemSet(MMem, (int)NUM_SEGMENTS); /* アセンブラのルーチンへ引き渡し		*/
+	ms_memmap_set_main_mem(MMem, (int)NUM_SEGMENTS); /* アセンブラのルーチンへ引き渡し		*/
 
+	/*
+	 I/Oシステムの初期化
+	 */
+	io_initialized = ms_iomap_init();
+	if (io_initialized == 0)
+	{
+		printf("I/Oシステムの初期化に失敗しました\n");
+		ms_exit();
+	}
+
+	/*
+	 VDPシステムの初期化
+	*/
 	VideoRAM = new_malloc(128 * 1024); /* ＶＲＡＭ １２８Ｋ 					*/
 	if (VideoRAM > (unsigned char *)0x81000000)
 	{
 		printf("メモリが確保できません\n");
 		ms_exit();
 	}
-	VDPSet(VideoRAM); /* アセンブラのルーチンへ引き渡し		*/
-					  /* 画面の初期化等						*/
+	vdp_initialized = ms_vdp_init(VideoRAM);
+	if (vdp_initialized == 0)
+	{
+		printf("VDPシステムの初期化に失敗しました\n");
+		ms_exit();
+	}
 
 	printf("\n\n\n\n\n\n\n\n"); // TEXT画面を上に8ラインくらい上げているので、その分改行を入れる
 	printf("[[ MSX Simulator MS.X]]\n");
 	printf(" この画面は HELP キーで消せます\n");
+
+	/*
+	 PSGシステムの初期化
+	 */
+	psg_initialized = ms_psg_init();
+	if (psg_initialized == 0)
+	{
+		printf("ＰＳＧの初期化に失敗しました\n");
+		ms_exit();
+	}
+
+
+	/*
+	 ROMのセット
+	 */
 
 	/* ＭＡＩＮＲＯＭ（前半:16K, 後半:16K */
 	allocateAndSetROM(16 * 1024, mainrom1_path, 2, 0x00, 0);
@@ -312,16 +373,9 @@ int main(int argc, char *argv[]) {
 	}
 
 
-	printf("PSG\n");
-	if (PSG_INIT() != 0)
-	{
-		printf("ＰＳＧの初期化に失敗しました\n");
-		ms_exit();
-	}
-
 	printf("X680x0 MSXシミュレーター with elf2x68k\n");
 
-	printf("VSYNCレート=%d, ホスト処理レート=%d\n", vsync_rate, host_rate);
+	printf("VSYNCレート=%d, ホスト処理レート=%d\n", ms_vdp_vsync_rate, host_rate);
 	printf("VSYNC計測中...\n");
 	{
 		volatile int date,lastdate;
@@ -333,14 +387,14 @@ int main(int argc, char *argv[]) {
 			lastdate = date;
 			date = _iocs_timeget();
 		}
-		start = interrupt_tick;		// そのときのtickを取得
+		start = ms_vdp_interrupt_tick;		// そのときのtickを取得
 		date = _iocs_timeget();
 		lastdate = date;
 		while(date == lastdate) {	// 秒が変わる瞬間を待つ
 			lastdate = date;
 			date = _iocs_timeget();
 		}
-		end = interrupt_tick;		// そのときのtickを取得
+		end = ms_vdp_interrupt_tick;		// そのときのtickを取得
 
 		printf("VSYNC回数は %d です\n", end - start);
 	}
@@ -362,6 +416,22 @@ int main(int argc, char *argv[]) {
 	_iocs_crtmod(0x10);
 
 	ms_exit();
+}
+
+void ms_exit() {
+	if ( psg_initialized ) {
+		ms_psg_deinit();
+	}
+	if ( vdp_initialized ) {
+		ms_vdp_deinit();
+	}
+	if ( io_initialized ) {
+		ms_iomap_deinit();
+	}
+	if ( mem_initialized ) {
+		ms_memmap_deinit();
+	}
+	exit(0);
 }
 
 /*
@@ -495,7 +565,7 @@ int emuLoop(unsigned int pc, unsigned int counter) {
 	{
 		printf("\n");
 		printf("emu loop counter=%08d\n", emuLoopCounter);
-		printf("COUNTER=%08x, inttick=%08d\n", counter, interrupt_tick);
+		printf("COUNTER=%08x, inttick=%08d\n", counter, ms_vdp_interrupt_tick);
 		dump(pc >> 16, pc & 0x3fff);
 	}
 	kigoKeyHitLast = kigoKeyHit;
@@ -590,7 +660,7 @@ void allocateAndSetROM(size_t size, const char *romFileName, int kind, int slot,
 		printf("メモリが確保できません\n");
 		ms_exit();
 	}
-	SetROM(ROM, romFileName, kind, slot, page);
+	ms_memmap_set_rom(ROM, romFileName, kind, slot, page);
 }
 
 /*
@@ -614,6 +684,7 @@ extern unsigned char sprite_size;	// 0: 8x8, 1: 16x16
 
 /*
  スプライトの初期化
+ TODO: VDP関連のソースを分離する
  */
 void initSprite(void) {
 	int i;

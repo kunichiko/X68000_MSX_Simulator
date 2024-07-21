@@ -8,6 +8,8 @@
 	.include	doscall.mac
 	.include	src/himemcall.mac
 
+	.xref	ms_memmap_init
+
 	.xref	VideoRAM
 	.xref	slot_0_0
 	.xref	slot_3_0
@@ -17,8 +19,8 @@
 
 	.xref	slot_3_ex
 
-	.xref	VDP_S_00		* VDP ステータスレジスタ 0
 	.xref	VDP_R_01		* VDP コントロールレジスタ 1
+
 	.xref	cpu_emu_yield
 	.xref	cpu_yield
 	.xref	emu_yield
@@ -28,19 +30,11 @@
 	.xdef	KEY_vector
 	.xdef	NMI_vector
 
-	.xdef	_ms_init
-	.xdef	_ms_exit
-	.xdef	_MMemSet
-
-	.xdef	_SetROM
-
-	.xdef	_set_cartridge
-
 	.xdef	_new_malloc
 	.xdef	_new_read
 
-	.xdef	interrupt_tick
-	.xdef	vsync_rate
+	.xdef	ms_vdp_int
+	.xdef	ms_cpu_int
 	.xdef	int_block_count
 	.xdef	host_rate
 	.xdef	host_delay
@@ -69,219 +63,18 @@ print:		macro	msg
 		add.l	#4,sp
 		endm
 
-	.text
+	.data
 	.even
 
-*
-*	システムの設定
-*
-*	movea.l	#0,a1	
-*	IOCS	__VDISPST
-*	void _ms_init();
-*
-_ms_init:
-	link	a6,#0
-	movem.l	d3-d7/a0-a5,-(sp)
+; CPUコアのINT端子(割り込み受付)と、VDPのINT端子(割り込み要求)を接続するための変数
+ms_cpu_int:
+ms_vdp_int:
+	.dc.b	0
 
-	move.w	sr,d0
-	move.w	d0,-(sp)
-	or.w	#%00000111_00000000,d0	* 一時的に割り込み禁止
-	move.w	d0,sr
+	.even
 
-@@:
-	move.w	vsync_rate,d1
-	and.w	#$0_ff,d1			* 垂直帰線期間で、指定回数ごとに割り込み
-	lea.l	interrupt,a1
-	IOCS	__VDISPST
-	move.l	d0,d0
-	beq	@f
-	pea	errms_int
-	DOS	__PRINT
-	lea.l	4(sp),sp	
-	movea.l	#0,a1	
-	IOCS	__VDISPST
-	bra	@b
-@@:
-	andi.b	#%00001110,$e9c001	* プリンタの割り込みを禁止
-
-	* ベクタ $4cは、MFP Receive Buffer Full (キーデータの受信データあり)
-	* (X68000 環境ハンドブック参照)
-*	move.w	#$4c,d1
-*	lea.l	KEY_INT,a1
-*	IOCS	__B_INTVCS
-*	move.l	d0,KEY_vector		* 元のアドレスを保存
-
-*	move.w	#$1f,d1
-*	lea.l	NMI_INT,a1
-*	IOCS	__B_INTVCS
-*	move.l	d0,NMI_vector		* 元のアドレスを保存
-
-	move.w	(sp)+,sr		* 割り込み復帰
-
-	movem.l	(sp)+,d3-d7/a0-a5
-	unlk	a6
-
-	rts
-
-NMI_INT:
-	move.l	#_ms_exit,2(sp)
-	rte
-
-_ms_exit:
-	move.w	sr,d0
-	move.w	d0,-(sp)		* sr を保存
-	or.w	#%00000111_00000000,d0	* 一時的に割り込み禁止
-	move.w	d0,sr
-
-	clr.l	a1			* 垂直同期割り込みを禁止
-	IOCS	__VDISPST
-
-*	move.w	#$4c,d1
-*	movea.l	KEY_vector,a1
-*	IOCS	__B_INTVCS
-
-*	move.w	#$1f,d1
-*	movea.l	NMI_vector,a1
-*	IOCS	__B_INTVCS
-
-	clr.l	a1			* OPM割り込みを禁止
-	IOCS	__OPMINTST
-
-	move.w	(sp)+,sr		* sr を復元
-
-	DOS	__EXIT
-
-interrupt:
-	addq.w	#1,interrupt_tick
-	btst.b	#5,VDP_R_01			* VDP IE0 (R#1のbit5) をみて、割り込みが許可されているかを調べる
-	beq	@f
-	bset.b	#7,VDP_S_00			* VDP ステータスレジスタ 0の bit7に、割り込み発生フラグを立てる。これがZ80のINT端子の状態を表している。
-@@:
-	move.w	#$0001,cpu_yield	* 上位: cpu_yield 
-	move.w	host_delay,emu_yield	* 下位: emu_yield
-	rte
-
-	.data
-interrupt_tick:
-	.dc.w	0
 	.text
 
-*
-*	メインメモリ設定ルーチン
-*
-*	void MMemSet( void *MMem, int number_of_segments);
-*
-_MMemSet:
-	link	a6,#0
-
-	move.l	 8(a6),a0
-	move.l	12(a6),d0
-
-	subq.w	#1,d0
-	clr.w	d1
-@@:
-	move.b	#1,(a0)+		* スロットタイプ = マッパＲＡＭ
-	move.b	d0,(a0)+		* 総セグメント数 - 1
-	move.b	d1,(a0)+		* 自分のセグメント番号
-	adda.l	#1024*16+8-3,a0
-
-	addq.w	#1,d1
-	cmp.w	d0,d1
-	bls	@b			* d1 ≦ d0 の時ループ 
-
-	move.l	8(a6),d0
-	add.l	#8,d0
-	move.l	d0,slot_3_0+12		* とりあえず ページ３ - セグメント０
-	add.l	#1024*16+8,d0		*	     ページ２ - セグメント１
-	move.l	d0,slot_3_0+8		*	     ページ１ - セグメント２
-	add.l	#1024*16+8,d0		*	     ページ０ - セグメント３
-	move.l	d0,slot_3_0+4		* としてあるが実際はＲＯＭの初期化ルーチンで
-	add.l	#1024*16+8,d0		* セットされるので、ページごとの番号がぶつか
-	move.l	d0,slot_3_0+0		* ってなければよい。（ＭＳＸ１のＲＯＭを使っ
-					* た時に、番号がぶつかってるとまずい）
-	move.b	#1,slot_3_ex		* スロット３は拡張されている
-	unlk	a6
-	rts	
-
-*
-*	ＲＯＭ読み込みルーチン
-*
-*	int SetROM( (void *)address, (char *)filename, (int)kind, (int)slot, (int)page);
-*
-*	slot %0000ssxx
-*		  ||++--拡張スロット番号
-*		  ++----基本スロット番号
-*
-_SetROM:
-	link	a6,#0
-	movem.l	d3-d7/a0-a5,-(sp)
-
-	movea.l	8(a6),a0
-	move.b	16+3(a6),(a0)		* ROM の種類をセット
-	lea.l	headerlength(a0),a0
-	move.l	a0,-(sp)
-
-	move.w	#0,-(sp)
-	move.l	12(a6),-(sp)		* ファイル名をセット
-	DOS	__OPEN
-	lea.l	6(sp),sp
-	move.w	d0,f_handle
-
-	lea.l	slot_0_0,a0
-	move.l	20(a6),d0		* スロット番号
-	lsl.w	#4,d0			* d0 = d0 * 16
-	move.l	24(a6),d1		* ページ番号
-	lsl.w	#2,d1			* d1 = d1 * 4
-	add.w	d1,d0
-	move.l	(sp)+,d1		* 読み込むアドレスを得る
-	move.l	d1,0(a0,d0.w)
-
-	move.l	#$4000,-(sp)		* 16K バイト読み込み
-	move.l	d1,-(sp)		* アドレスセット
-	move.w	f_handle,-(sp)		* ファイルハンドル
-	bsr	_new_read
-	DOS	__CLOSE			* 前にセットしたファイルハンドルを流用
-	lea	10(sp),sp
-
-	movem.l	(sp)+,d3-d7/a0-a5
-	unlk	a6
-	rts
-
-*
-*	カートリッジ設定ルーチン
-*
-*	（機能）
-*		カートリッジファイルを実際にシステムに組み込む
-*
-*	int set_cartridge( crtridge_buff, location, page, kind);
-*
-*	location %0000ssxx
-*		      ||++--拡張スロット番号
-*		      ++----基本スロット番号
-*
-*
-_set_cartridge:
-	link	a6,#0
-	movem.l	d3-d7/a0-a5,-(sp)
-
-*	まだやってない
-
-	movea.l	8(a6),a0		* カートリッジバッファのアドレス
-	move.b	20+3(a6),(a0)		* ROM の種類をセット
-	lea.l	headerlength(a0),a0
-	move.l	a0,-(sp)
-
-	lea.l	slot_0_0,a0
-	move.l	12(a6),d0		* スロット番号
-	lsl.w	#4,d0			* d0 = d0 * 16
-	move.l	16(a6),d1		* ページ番号
-	lsl.w	#2,d1			* d1 = d1 * 4
-	add.w	d1,d0
-	move.l	(sp)+,0(a0,d0.w)
-
-	movem.l	(sp)+,d3-d7/a0-a5
-	unlk	a6
-	rts
 
 *
 *
@@ -411,8 +204,6 @@ _new_read_210:
 
 	.data
 
-vsync_rate:
-	.dc.w	1
 int_block_count:
 	.dc.l	2048
 host_rate:
@@ -421,11 +212,6 @@ host_delay:
 	.dc.w	$20
 original:
 	.dc.l	0
-f_handle:
-	.dc.w	0
-
-errms_int:
-	.dc.b	'タイマＡは使用中です',0,0
 
 msg00:	.dc.b	'メモリが足りません。',0,0
 

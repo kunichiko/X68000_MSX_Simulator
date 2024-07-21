@@ -5,7 +5,8 @@
 		"_types.h": "c",
 		"*.has": "platformio-debug.asm",
 		"doslib.h": "c",
-		"dos.h": "c"
+		"dos.h": "c",
+		"string.h": "c"
 	},
     "files.encoding": "shiftjis",
     "editor.detectIndentation": false,

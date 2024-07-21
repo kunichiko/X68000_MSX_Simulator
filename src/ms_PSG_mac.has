@@ -12,13 +12,14 @@
 
 	.xref	PSG2OPM_tbl
 
+	.xdef	ms_psg_init
+	.xdef	ms_psg_deinit
+
 	.xdef	r_port_A0		* アドレスセット
 	.xdef	r_port_A2		* レジスタリード
 
 	.xdef	w_port_A0
 	.xdef	w_port_A1
-
-	.xdef	_PSG_INIT
 
 OPM_regset	equ	$e90001		* ＯＰＭアクセスレジスタ設定ポート
 OPM_port	equ	$e90003		* ＯＰＭアクセスポート
@@ -51,14 +52,14 @@ w_OPM	macro	val,regnum
 *
 *	ＰＳＧ初期化ルーチン
 *
-*	int PSG_INIT();
+*	int ms_psg_init();
 *
 *	返り値
-*		０・・・・・正常終了
-*		０以外・・・異状終了
+*		1・・・・・正常終了
+*		0・・・異状終了
 *
 ***************************************************************
-_PSG_INIT:
+ms_psg_init:
 	movem.l	d3-d7/a0-a5,-(sp)
 
 *	レジスタ初期化
@@ -226,13 +227,23 @@ _PSG_INIT:
 
 	w_OPM	#%00000101,#$14			* 割り込み開始
 
-	clr.l	d0
 	movem.l	(sp)+,d3-d7/a0-a5
+	moveq.l	#1,d0
 
 	rts
 
 err_PSG_INIT:
-	moveq.l	#-1,d0
+	moveq.l	#0,d0
+	rts
+
+ms_psg_deinit:
+	move.w	sr,d0
+	move.w	d0,-(sp)		* sr を保存
+	or.w	#%00000111_00000000,d0	* 一時的に割り込み禁止
+	move.w	d0,sr
+	clr.l	a1			* OPM割り込みを禁止
+	IOCS	__OPMINTST
+	move.w	(sp)+,sr		* sr を復元
 	rts
 
 OPM_int:

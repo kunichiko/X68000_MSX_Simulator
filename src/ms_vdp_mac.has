@@ -6,15 +6,23 @@
 *				1995.9.24		by Kuni.
 *
 
-	.include	iocscall.equ
-	.include	doscall.equ
+	.include	iocscall.mac
+	.include	doscall.mac
 
 	.xref	VideoRAM
 	.xref	_writeSpritePattern
 	.xref	_writeSpriteAttribute
 	.xref	HEX
 
-	.xdef	_VDPSet
+	.xref	cpu_emu_yield
+	.xref	cpu_yield
+	.xref	emu_yield
+	.xref	host_delay
+
+	; functions
+	.xdef	ms_vdp_init
+	.xdef	ms_vdp_deinit
+
 	.xdef	read_vdp_0
 	.xdef	read_vdp_1
 	.xdef	read_vdp_2
@@ -24,7 +32,10 @@
 	.xdef	write_vdp_2
 	.xdef	write_vdp_3
 
-	.xdef	VDP_S_00
+	.xref	ms_vdp_int
+	.xdef	ms_vdp_interrupt_tick
+	.xdef	ms_vdp_vsync_rate
+
 	.xdef	VDP_R_01
 
 	.xdef	_sprite_size
@@ -105,10 +116,12 @@ SPCON_RES	equ	$eb0810		* スプライトコントローラ 画面モードレジスタ V-Res, H-Res
 *
 *	ＶＤＰ設定ルーチン
 *
-*	void VDPSet( *VideoRAM);
+*	int ms_vdp_init( *VideoRAM);
+*
+*	成功時は1を返す
 *
 ***************************************************************
-_VDPSet:
+ms_vdp_init:
 	link	a6,#0
 	movem.l	d3-d7/a0-a5,-(sp)
 
@@ -183,10 +196,71 @@ _VDPSet:
 
 	move.w	#0,$E82222
 
+	; 割り込み設定
+	move.w	sr,d0
+	move.w	d0,-(sp)
+	or.w	#%00000111_00000000,d0	* 一時的に割り込み禁止
+	move.w	d0,sr
+@@:
+	move.w	ms_vdp_vsync_rate,d1
+	and.w	#$0_ff,d1			* 垂直帰線期間で、指定回数ごとに割り込み
+	lea.l	vdp_interrupt,a1
+	IOCS	__VDISPST
+	move.l	d0,d0
+	beq	@f
+	pea	errms_timer_A_in_use
+	DOS	__PRINT
+	lea.l	4(sp),sp	
+	movea.l	#0,a1	
+	IOCS	__VDISPST
+	bra	@b
+@@:
+	move.w	(sp)+,sr		* 割り込み復帰
+
 	movem.l	(sp)+,d3-d7/a0-a5
 	unlk	a6
 
+	moveq.l	#1,d0
+
 	rts
+
+vdp_interrupt:
+	addq.w	#1,ms_vdp_interrupt_tick
+	btst.b	#5,VDP_R_01		* VDP IE0 (R#1のbit5) をみて、割り込みが許可されているかを調べる
+	beq	@f
+	bset.b	#7,S_0			* VDP ステータスレジスタ 0の bit7に、割り込み発生フラグを立てる。これがZ80のINT端子の状態を表している。
+	move.b	#1,ms_vdp_int		* 割り込み要求フラグを立てる
+@@:
+	move.w	#$0001,cpu_yield	* 上位: cpu_yield 
+	move.w	host_delay,emu_yield	* 下位: emu_yield
+	rte
+
+;
+; ＶＤＰの終了処理
+;
+ms_vdp_deinit:
+	move.w	sr,d0
+	move.w	d0,-(sp)		* sr を保存
+	or.w	#%00000111_00000000,d0	* 一時的に割り込み禁止
+	move.w	d0,sr
+
+	clr.l	a1			* 垂直同期割り込みを禁止
+	IOCS	__VDISPST
+
+	move.w	(sp)+,sr		* sr を復元
+	rts
+
+	.data
+	.even
+
+ms_vdp_vsync_rate:
+	.dc.w	1
+ms_vdp_interrupt_tick:
+	.dc.w	0
+errms_timer_A_in_use:
+	.dc.b	'タイマＡは使用中です',0,0
+
+	.text
 
 *
 * バックドロップ用のＢＧを設定
@@ -287,6 +361,7 @@ r_SReg_jpt:
 r_SReg_0:
 	move.b	S_0,d0
 	bclr.b	#7,S_0			* ビット７は読み出すとリセットされる
+	clr.b	ms_vdp_int		* 割り込み要求もクリア
 	rts
 r_SReg_1:
 	move.b	S_1,d0
@@ -625,7 +700,7 @@ noregister:
 	move.b	@f(pc,d2.w),number_creg+1
 
 	pea.l	errms_creg
-	DOS	_PRINT
+	DOS	__PRINT
 	lea.l	4(sp),sp
 	rts
 
@@ -2681,7 +2756,7 @@ no_com:
 	move.b	0(a0,d2.w),number+1
 
 	pea.l	mes_DO
-	DOS	_PRINT
+	DOS	__PRINT
 	lea.l	4(sp),sp
 
 	rts
@@ -2700,7 +2775,7 @@ POINT_G5:
 	move.b	0(a0,d2.w),number+1
 
 	pea.l	mes_DO
-	DOS	_PRINT
+	DOS	__PRINT
 	lea.l	4(sp),sp
 
 	rts
@@ -2738,7 +2813,7 @@ SRCH_G5:
 	move.b	0(a0,d2.w),number+1
 
 	pea.l	mes_DO
-	DOS	_PRINT
+	DOS	__PRINT
 	lea.l	4(sp),sp
 
 	rts
@@ -2817,7 +2892,7 @@ LMMV_G5:
 	move.b	0(a0,d2.w),number+1
 
 	pea.l	mes_DO
-	DOS	_PRINT
+	DOS	__PRINT
 	lea.l	4(sp),sp
 
 	rts
@@ -2836,7 +2911,7 @@ LMMM_G5:
 	move.b	0(a0,d2.w),number+1
 
 	pea.l	mes_DO
-	DOS	_PRINT
+	DOS	__PRINT
 	lea.l	4(sp),sp
 
 	rts
@@ -2855,7 +2930,7 @@ LMCM_G5:
 	move.b	0(a0,d2.w),number+1
 
 	pea.l	mes_DO
-	DOS	_PRINT
+	DOS	__PRINT
 	lea.l	4(sp),sp
 
 	rts
@@ -2986,7 +3061,7 @@ HMMV_G5:
 	move.b	0(a0,d2.w),number+1
 
 	pea.l	mes_DO
-	DOS	_PRINT
+	DOS	__PRINT
 	lea.l	4(sp),sp
 
 	rts
@@ -3005,7 +3080,7 @@ HMMM_G5:
 	move.b	0(a0,d2.w),number+1
 
 	pea.l	mes_DO
-	DOS	_PRINT
+	DOS	__PRINT
 	lea.l	4(sp),sp
 
 	rts
@@ -3024,7 +3099,7 @@ YMMM_G5:
 	move.b	0(a0,d2.w),number+1
 
 	pea.l	mes_DO
-	DOS	_PRINT
+	DOS	__PRINT
 	lea.l	4(sp),sp
 
 	rts
@@ -3043,7 +3118,7 @@ HMMC_G5:
 	move.b	0(a0,d2.w),number+1
 
 	pea.l	mes_DO
-	DOS	_PRINT
+	DOS	__PRINT
 	lea.l	4(sp),sp
 
 	rts

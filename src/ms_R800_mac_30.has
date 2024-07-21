@@ -76,27 +76,31 @@
 	.text
 	.even
 
-	.xref	io_input_table
-	.xref	io_output_table
+	.xref	page0		;暫定処理
 
-	.xref	p_FC
-	.xref	p_FD
-	.xref	p_FE
-	.xref	p_FF
+	.xref	ms_read_mem_8
+	.xref	ms_read_mem_16
+	.xref	ms_write_mem_8
+	.xref	ms_write_mem_16
+
+	.xref	ms_io_input_table
+	.xref	ms_io_output_table
 
 	.xref	native_jpt_add		* ６８ネイティブルーチンのジャンプテーブル
 
-	.xref	VDP_S_00			* VDPのステータスレジスタ0
+	; CPUコアに対する割り込み要求フラグ(実CPUのINT端子に相当する)
+	; この1バイトの値が1になるとCPUに対する割り込み要求となる
+	; このフラグ領域は本CPUコアは定義していないので、外部で定義する必要がある
+	; MSXの場合はVDPのステータスレジスタ0のbit7の値が割り込み要求フラグになる
+	.xref	ms_cpu_int
 
 	.xref	HEX
-	.xref	vsync_rate
 	.xref	host_rate
 	.xref	int_block_count
 
-	.xref	interrupt_tick
+	.xref	ms_vdp_interrupt_tick	; TODO VDP依存を除去
 
-	.xdef	w_port_A8
-	.xdef	w_port_FC,w_port_FD,w_port_FE,w_port_FF
+	.xref	w_port_A8
 
 	.xdef	f
 	.xdef	HC2
@@ -116,45 +120,7 @@
 	.xdef	interrupt_history_wr
 	.xdef	interrupt_history_rd
 
-	.dc.w	0
-	.xdef	page0
-	.xdef	page1
-	.xdef	page2
-	.xdef	page3
 	.xdef	base
-
-	.xdef	slot_0_0
-	.xdef	slot_3_0
-	.xdef	slot_3_1
-	.xdef	slot_3_2
-	.xdef	slot_3_3
-
-	.xdef	rd8_sub_add_p0
-	.xdef	rd8_sub_add_p1
-	.xdef	rd8_sub_add_p2
-	.xdef	rd8_sub_add_p3
-
-	.xdef	wt8_sub_add_p0
-	.xdef	wt8_sub_add_p1
-	.xdef	wt8_sub_add_p2
-	.xdef	wt8_sub_add_p3
-
-	.xdef	rd16_sub_add_p0
-	.xdef	wt16_sub_add_p0
-
-	.xdef	slot_3_ex
-
-	.xdef	slot_reg
-
-	.xdef	exslotreg_read
-	.xdef	exslotreg_write
-
-	.xdef	slot_0_ex
-
-headerlength	equ	8		* 各ページの情報を示したヘッダーの長さ
-slot_type	equ	0-headerlength
-total_segments	equ	1-headerlength	* マッパＲＡＭなどの時の総セグメント数
-my_segment_num	equ	2-headerlength	* マッパＲＡＭなどの時の自分のセグメント番号
 
 a	equ	0
 f	equ	1	
@@ -208,7 +174,8 @@ PC_page_inc	macro
 		swap	d7
 		addq.w	#1,d7
 		andi.w	#3,d7
-		movea.l	page0-base(a3,d7.w*4),a4
+		lea	page0,a4
+		movea.l	(a4,d7.w*4),a4
 		swap	d7
 		endm
 
@@ -220,7 +187,8 @@ PC_page_set	macro			* JP命令等で PCが変わった時の処理
 		lsl.l	#2,d7
 		move.w	d0,d7
 		swap	d7
-		movea.l	page0-base(a3,d7.w*4),a4
+		lea	page0,a4
+		movea.l	(a4,d7.w*4),a4
 		swap	d7
 		endm
 
@@ -232,9 +200,8 @@ _emulater_ini:
 	movem.l	d3-d7/a0-a5,-(sp)
 
 	lea.l	registers,a3
-	clr.l	exslot_reg_0		* 拡張スロット選択レジスタの値をクリア
 	clr.w	d1
-	bsr	w_port_A8		* スロットを０で初期化
+	jsr	w_port_A8		* スロットを０で初期化
 
 	clr.w	d7			* pc = 0
 	PC_page_set
@@ -324,8 +291,8 @@ check_yield:
 	; cpu_yieldが1→0になったので、割り込み判定を行う
 	cmpi.b	#1,interrupt_enable
 	bne	skip_by_di	* DIなら割り込まない
-	; あらためてVDPのS_0の bit7を見て割り込み要求があるかどうかを見る
-	btst.b	#7,VDP_S_00
+	; あらためて割り込み要求端子の値(ms_cpu_int)を見て割り込み要求があるかどうかを見る
+	cmpi.b	#0,ms_cpu_int
 	beq	@f
 	; emu_counter の増加量が int_block_count に達していなかったら割り込みを一回スキップ(実験)
 	move.l	emu_counter,d0
@@ -409,7 +376,7 @@ emu_end:
 add_interrupt_history:
 	lea	interrupt_history,a0
 	move.w	interrupt_history_wr,d1
-	move.w	interrupt_tick,(a0,d1.w*8)
+	move.w	ms_vdp_interrupt_tick,(a0,d1.w*8)
 	move.w	d0,2(a0,d1.w*8)
 	move.l	emu_counter,d0
 	sub.l	emu_counter_latch,d0
@@ -715,7 +682,7 @@ mode1:	move.l	d7,d1
 	or.w	d7,d1		* d1 = PC (R800)
 	subq.w	#2,sp_(a3)	* PUSH	
 	move.w	sp_(a3),d0
-	bsr	write_mem_16
+	jsr	ms_write_mem_16
 
 	move.w	#$0038,d7
 	PC_page_set
@@ -727,12 +694,12 @@ mode2:	move.l	d7,d1
 	or.w	d7,d1		* d1 = PC (R800)
 	subq.w	#2,sp_(a3)	* PUSH	
 	move.w	sp_(a3),d0
-	bsr	write_mem_16
+	jsr	ms_write_mem_16
 
 	move.b	i(a3),d0
 	lsl.w	#8,d0
 
-	bsr	read_mem_16
+	jsr	ms_read_mem_16
 	move.w	d0,d7
 	PC_page_set
 	rts
@@ -798,7 +765,7 @@ LD_A_L:
 	bra	cpu_main
 LD_A_lHLl:
 	move.w	hl(a3),d0
-	bsr	read_mem		*メモリから 8ビットのデータを d0に読み込む。
+	jsr	ms_read_mem_8		*メモリから 8ビットのデータを d0に読み込む。
 	move.b	d0,d4
 	addq.w	#1,d7			* PC += 1
 	andi.w	#$3fff,d7		* PC がページ境界をまたいだか？
@@ -807,7 +774,7 @@ LD_A_lHLl:
 	bra	cpu_main
 LD_A_lBCl:
 	move.w	bc(a3),d0
-	bsr	read_mem		*メモリから 8ビットのデータを d0に読み込む。
+	jsr	ms_read_mem_8		*メモリから 8ビットのデータを d0に読み込む。
 	move.b	d0,d4
 	addq.w	#1,d7			* PC += 1
 	andi.w	#$3fff,d7		* PC がページ境界をまたいだか？
@@ -816,7 +783,7 @@ LD_A_lBCl:
 	bra	cpu_main
 LD_A_lDEl:
 	move.w	de(a3),d0
-	bsr	read_mem		*メモリから 8ビットのデータを d0に読み込む。
+	jsr	ms_read_mem_8		*メモリから 8ビットのデータを d0に読み込む。
 	move.b	d0,d4
 	addq.w	#1,d7			* PC += 1
 	andi.w	#$3fff,d7		* PC がページ境界をまたいだか？
@@ -830,13 +797,13 @@ LD_A_lnnl:
 	addq.w	#3,d7			* PC += 3
 	btst.l	#14,d7			* PC がページ境界をまたいだか？
 	bne	1f
-	bsr	read_mem		*メモリから 8ビットのデータを d0に読み込む。
+	jsr	ms_read_mem_8		*メモリから 8ビットのデータを d0に読み込む。
 	move.b	d0,d4
 	bra	cpu_main
 1:	PC_page_inc
 	andi.w	#$3fff,d7		* 命令がページ境界をまたぐ時
 	bne	2f
-	bsr	read_mem		* d7 = 0 の時
+	jsr	ms_read_mem_8		* d7 = 0 の時
 	move.b	d0,d4
 	bra	cpu_main
 2:	cmpi.w	#2,d7			* d7 = 2 の時
@@ -845,13 +812,13 @@ LD_A_lnnl:
 	move.b	(a4),d0			* nn の上位８ビットを読む
 	lsl.w	#8,d0
 	move.b	d2,d0
-	bsr	read_mem		*メモリから 8ビットのデータを d0に読み込む。
+	jsr	ms_read_mem_8		*メモリから 8ビットのデータを d0に読み込む。
 	move.b	d0,d4
 	bra	cpu_main
 3:	move.b	1(a4),d0		* nn の上位８ビットを読む 
 	lsl.w	#8,d0
 	move.b	 (a4),d0		* nn の下位８ビットを読む 
-	bsr	read_mem		*メモリから 8ビットのデータを d0に読み込む。
+	jsr	ms_read_mem_8		*メモリから 8ビットのデータを d0に読み込む。
 	move.b	d0,d4
 	bra	cpu_main
 
@@ -909,7 +876,7 @@ LD_B_L:	move.b	l(a3),b(a3)
 	bra	cpu_main
 LD_B_lHLl:
 	move.w	hl(a3),d0
-	bsr	read_mem		*メモリから 8ビットのデータを d0に読み込む。
+	jsr	ms_read_mem_8		*メモリから 8ビットのデータを d0に読み込む。
 	move.b	d0,b(a3)
 	addq.w	#1,d7			* PC += 1
 	andi.w	#$3fff,d7		* PC がページ境界をまたいだか？
@@ -970,7 +937,7 @@ LD_C_L:	move.b	l(a3),c(a3)
 	bra	cpu_main
 LD_C_lHLl:
 	move.w	hl(a3),d0
-	bsr	read_mem		*メモリから 8ビットのデータを d0に読み込む。
+	jsr	ms_read_mem_8		*メモリから 8ビットのデータを d0に読み込む。
 	move.b	d0,c(a3)
 	addq.w	#1,d7			* PC += 1
 	andi.w	#$3fff,d7		* PC がページ境界をまたいだか？
@@ -1031,7 +998,7 @@ LD_D_L:	move.b	l(a3),d(a3)
 	bra	cpu_main
 LD_D_lHLl:
 	move.w	hl(a3),d0
-	bsr	read_mem		*メモリから 8ビットのデータを d0に読み込む。
+	jsr	ms_read_mem_8		*メモリから 8ビットのデータを d0に読み込む。
 	move.b	d0,d(a3)
 	addq.w	#1,d7			* PC += 1
 	andi.w	#$3fff,d7		* PC がページ境界をまたいだか？
@@ -1092,7 +1059,7 @@ LD_E_L:	move.b	l(a3),e(a3)
 	bra	cpu_main
 LD_E_lHLl:
 	move.w	hl(a3),d0
-	bsr	read_mem		*メモリから 8ビットのデータを d0に読み込む。
+	jsr	ms_read_mem_8		*メモリから 8ビットのデータを d0に読み込む。
 	move.b	d0,e(a3)
 	addq.w	#1,d7			* PC += 1
 	andi.w	#$3fff,d7		* PC がページ境界をまたいだか？
@@ -1153,7 +1120,7 @@ LD_H_L:	move.b	l(a3),h(a3)
 	bra	cpu_main
 LD_H_lHLl:
 	move.w	hl(a3),d0
-	bsr	read_mem		*メモリから 8ビットのデータを d0に読み込む。
+	jsr	ms_read_mem_8		*メモリから 8ビットのデータを d0に読み込む。
 	move.b	d0,h(a3)
 	addq.w	#1,d7			* PC += 1
 	andi.w	#$3fff,d7		* PC がページ境界をまたいだか？
@@ -1214,7 +1181,7 @@ LD_L_L:	addq.w	#1,d7			* PC += 1
 	bra	cpu_main
 LD_L_lHLl:
 	move.w	hl(a3),d0
-	bsr	read_mem		*メモリから 8ビットのデータを d0に読み込む。
+	jsr	ms_read_mem_8		*メモリから 8ビットのデータを d0に読み込む。
 	move.b	d0,l(a3)
 	addq.w	#1,d7			* PC += 1
 	andi.w	#$3fff,d7		* PC がページ境界をまたいだか？
@@ -1236,7 +1203,7 @@ LD_L_n:	move.b	1(a4,d7.w),l(a3)
 LD_lHLl_A:
 	move.w	hl(a3),d0
 	move.b	d4,d1
-	bsr	write_mem
+	jsr	ms_write_mem_8
 	addq.w	#1,d7			* PC += 1
 	andi.w	#$3fff,d7		* PC がページ境界をまたいだか？
 	bne	cpu_main
@@ -1245,7 +1212,7 @@ LD_lHLl_A:
 LD_lHLl_B:
 	move.w	hl(a3),d0
 	move.b	b(a3),d1
-	bsr	write_mem
+	jsr	ms_write_mem_8
 	addq.w	#1,d7			* PC += 1
 	andi.w	#$3fff,d7		* PC がページ境界をまたいだか？
 	bne	cpu_main
@@ -1254,7 +1221,7 @@ LD_lHLl_B:
 LD_lHLl_C:
 	move.w	hl(a3),d0
 	move.b	c(a3),d1
-	bsr	write_mem
+	jsr	ms_write_mem_8
 	addq.w	#1,d7			* PC += 1
 	andi.w	#$3fff,d7		* PC がページ境界をまたいだか？
 	bne	cpu_main
@@ -1263,7 +1230,7 @@ LD_lHLl_C:
 LD_lHLl_D:
 	move.w	hl(a3),d0
 	move.b	d(a3),d1
-	bsr	write_mem
+	jsr	ms_write_mem_8
 	addq.w	#1,d7			* PC += 1
 	andi.w	#$3fff,d7		* PC がページ境界をまたいだか？
 	bne	cpu_main
@@ -1272,7 +1239,7 @@ LD_lHLl_D:
 LD_lHLl_E:
 	move.w	hl(a3),d0
 	move.b	e(a3),d1
-	bsr	write_mem
+	jsr	ms_write_mem_8
 	addq.w	#1,d7			* PC += 1
 	andi.w	#$3fff,d7		* PC がページ境界をまたいだか？
 	bne	cpu_main
@@ -1281,7 +1248,7 @@ LD_lHLl_E:
 LD_lHLl_H:
 	move.w	hl(a3),d0
 	move.b	h(a3),d1
-	bsr	write_mem
+	jsr	ms_write_mem_8
 	addq.w	#1,d7			* PC += 1
 	andi.w	#$3fff,d7		* PC がページ境界をまたいだか？
 	bne	cpu_main
@@ -1290,7 +1257,7 @@ LD_lHLl_H:
 LD_lHLl_L:
 	move.w	hl(a3),d0
 	move.b	l(a3),d1
-	bsr	write_mem
+	jsr	ms_write_mem_8
 	addq.w	#1,d7			* PC += 1
 	andi.w	#$3fff,d7		* PC がページ境界をまたいだか？
 	bne	cpu_main
@@ -1302,18 +1269,18 @@ LD_lHLl_n:
 	addq.w	#2,d7			* PC += 2
 	btst.l	#14,d7			* PC がページ境界をまたいだか？
 	bne	1f
-	bsr	write_mem
+	jsr	ms_write_mem_8
 	bra	cpu_main
 1:	PC_page_inc
 	andi.w	#$3fff,d7		* 命令がページ境界をまたぐ時
 	beq	2f
 	move.b	(a4),d1			* d7 = 1 の時
-2:	bsr	write_mem
+2:	jsr	ms_write_mem_8
 	bra	cpu_main
 LD_lBCl_A:
 	move.w	bc(a3),d0
 	move.b	d4,d1
-	bsr	write_mem
+	jsr	ms_write_mem_8
 	addq.w	#1,d7			* PC += 1
 	andi.w	#$3fff,d7		* PC がページ境界をまたいだか？
 	bne	cpu_main
@@ -1322,7 +1289,7 @@ LD_lBCl_A:
 LD_lDEl_A:
 	move.w	de(a3),d0
 	move.b	d4,d1
-	bsr	write_mem
+	jsr	ms_write_mem_8
 	addq.w	#1,d7			* PC += 1
 	andi.w	#$3fff,d7		* PC がページ境界をまたいだか？
 	bne	cpu_main
@@ -1336,12 +1303,12 @@ LD_lnnl_A:
 	addq.w	#3,d7
 	btst.l	#14,d7
 	bne	1f
-	bsr	write_mem
+	jsr	ms_write_mem_8
 	bra	cpu_main
 1:	PC_page_inc			* 命令がページ境界をまたぐ時
 	andi.w	#$3fff,d7
 	bne	2f
-	bsr	write_mem		* d7 = 0 の時
+	jsr	ms_write_mem_8		* d7 = 0 の時
 	bra	cpu_main
 2:	cmpi.w	#2,d7			
 	beq	3f
@@ -1349,12 +1316,12 @@ LD_lnnl_A:
 	move.b	(a4),d0			* nn の上位８ビットを読む
 	lsl.w	#8,d0
 	move.b	d2,d0
-	bsr	write_mem
+	jsr	ms_write_mem_8
 	bra	cpu_main
 3:	move.b	1(a4),d0		* d7 = 2 の時
 	lsl.w	#8,d0
 	move.b	 (a4),d0 
-	bsr	write_mem
+	jsr	ms_write_mem_8
 	bra	cpu_main
 
 
@@ -1440,13 +1407,13 @@ LD_HL_lnnl:
 	addq.w	#3,d7
 	btst.l	#14,d7
 	bne	1f
-	bsr	read_mem_16
+	jsr	ms_read_mem_16
 	move.w	d0,hl(a3)
 	bra	cpu_main
 1:	PC_page_inc			* 命令がページ境界をまたぐ時
 	andi.w	#$3fff,d7
 	bne	2f
-	bsr	read_mem_16		* d7 = 0 の時
+	jsr	ms_read_mem_16		* d7 = 0 の時
 	move.w	d0,hl(a3)
 	bra	cpu_main
 2:	cmpi.w	#2,d7
@@ -1455,13 +1422,13 @@ LD_HL_lnnl:
 	move.b	(a4),d0			* nn の上位８ビットを読む
 	lsl.w	#8,d0
 	move.b	d2,d0
-	bsr	read_mem_16
+	jsr	ms_read_mem_16
 	move.w	d0,hl(a3)
 	bra	cpu_main
 3:	move.b	1(a3),d0		* d7 = 2 の時
 	lsl.w	#8,d0
 	move.b	 (a3),d0
-	bsr	read_mem_16
+	jsr	ms_read_mem_16
 	move.w	d0,hl(a3)
 	bra	cpu_main
 
@@ -1474,12 +1441,12 @@ LD_lnnl_HL:
 	addq.w	#3,d7
 	btst.l	#14,d7
 	bne	1f
-	bsr	write_mem_16
+	jsr	ms_write_mem_16
 	bra	cpu_main
 1:	PC_page_inc			* 命令がページ境界をまたぐ時
 	andi.w	#$3fff,d7
 	bne	2f
-	bsr	write_mem_16		* d7 = 0 の時
+	jsr	ms_write_mem_16		* d7 = 0 の時
 	bra	cpu_main
 2:	cmpi.w	#2,d7
 	beq	3f
@@ -1487,12 +1454,12 @@ LD_lnnl_HL:
 	move.b	(a4),d0			* nn の上位８ビットを読む
 	lsl.w	#8,d0
 	move.b	d2,d0
-	bsr	write_mem_16
+	jsr	ms_write_mem_16
 	bra	cpu_main
 3:	move.b	1(a3),d0		* d7 = 2 の時
 	lsl.w	#8,d0
 	move.b	 (a3),d0
-	bsr	write_mem_16
+	jsr	ms_write_mem_16
 	bra	cpu_main
 
 
@@ -1506,292 +1473,13 @@ _readMemFromC:
 	move.l	8(a6),d0	* 引数1のアドレスを取得
 
 	lea.l	registers,a3
-	bsr	read_mem	* メモリから 8ビットのデータを読み込む
+	jsr	ms_read_mem_8	* メモリから 8ビットのデータを読み込む
 
 	and.l	#$ff,d0		* 上位24ビットをクリア
 
 	movem.l	(sp)+,d1-d7/a0-a5
 	unlk	a6
 	rts
-
-*******************************************************************
-*
-*	メモリから 8ビットのデータを読み込むサブルーチン。
-*（引数）
-*	d0.w ・・・ アドレス
-*（動作）
-*	d0.b にメモリから読み込んだ値が入る
-*
-*******************************************************************
-read_mem:
-	tst.w	d0
-	bmi	page_2or3_r8
-	btst.l	#14,d0
-	bne	page_1_r8
-page_0_r8:
-	andi.w	#%00111111_11111111,d0
-	movea.l	page0,a0
-	movea.l	rd8_sub_add_p0,a1
-	jmp	(a1)				* rts を省略するために jmp にしてある
-page_1_r8:
-	andi.w	#%00111111_11111111,d0
-	movea.l	page1,a0
-	movea.l	rd8_sub_add_p1,a1
-	jmp	(a1)				* rts を省略するために jmp にしてある
-page_2or3_r8:
-	btst.l	#14,d0
-	bne	page_3_r8
-page_2_r8:
-	andi.w	#%00111111_11111111,d0
-	movea.l	page2,a0
-	movea.l	rd8_sub_add_p2,a1
-	jmp	(a1)				* rts を省略するために jmp にしてある
-page_3_r8:
-	andi.w	#%00111111_11111111,d0
-	movea.l	page3,a0
-	movea.l	rd8_sub_add_p3,a1
-	cmp.w	#$3fff,d0
-	beq	next_r8
-	jmp	(a1)				* rts を省略するために jmp にしてある
-next_r8:
-	bra	exslotreg_read			* rts を省略するために jmp にしてある
-
-*******************************************************************
-*
-*	メモリへ 8ビットのデータを書き込むサブルーチン。
-*（引数）
-*	d0.w ・・・ アドレス
-*	d1.b ・・・ 書き込む値
-*（動作）
-*	d0.w のアドレスに d1の値を書き込む。  
-*
-*	d2 破壊可能性あり
-*
-*******************************************************************
-write_mem:
-	tst.w	d0
-	bmi	page_2or3_w8
-	btst.l	#14,d0
-	bne	page_1_w8
-page_0_w8:
-	andi.w	#%00111111_11111111,d0
-	movea.l	page0,a0
-	movea.l	wt8_sub_add_p0,a1
-	jmp	(a1)				* rts を省略するために jmp にしてある
-page_1_w8:
-	andi.w	#%00111111_11111111,d0
-	movea.l	page1,a0
-	movea.l	wt8_sub_add_p1,a1
-	jmp	(a1)				* rts を省略するために jmp にしてある
-page_2or3_w8:
-	btst.l	#14,d0
-	bne	page_3_w8
-page_2_w8:
-	andi.w	#%00111111_11111111,d0
-	movea.l	page2,a0
-	movea.l	wt8_sub_add_p2,a1
-	jmp	(a1)				* rts を省略するために jmp にしてある
-page_3_w8:
-	andi.w	#%00111111_11111111,d0
-	movea.l	page3,a0
-	movea.l	wt8_sub_add_p3,a1
-	cmp.w	#$3fff,d0
-	beq	next_w8
-	jmp	(a1)				* rts を省略するために jmp にしてある
-next_w8:
-	bra	exslotreg_write			* rts を省略するために jmp にしてある
-
-*******************************************************************
-*
-*	メモリから 16ビットのデータを読み込むサブルーチン。
-*（引数）
-*	d0.w ・・・ アドレス
-*（動作）
-*	d0.w にメモリから読み込んだ値が入る
-*
-*******************************************************************
-read_mem_16:
-	tst.w	d0
-	bmi	page_2or3_r16
-	btst.l	#14,d0
-	bne	page_1_r16
-page_0_r16:
-	movea.l	page0,a0
-	andi.w	#$3fff,d0
-	cmpi.w	#$3fff,d0
-	beq	@f				* ページ境界をまたがって読み込む時
-	movea.l	rd16_sub_add_p0,a1
-	jmp	(a1)				* rts を省略するために jmp にしてある
-@@:
-	movea.l	rd8_sub_add_p0,a1
-	jsr	(a1)
-	move.b	d0,-(sp)
-	clr.w	d0				* ページ１の $0000番地を読む
-	movea.l	rd8_sub_add_p1,a1
-	jsr	(a1)
-	lsl.w	#8,d0				* 上位バイト読み込み
-	move.b	(sp)+,d0			* 下位バイト読み込み
-	rts
-
-page_1_r16:
-	movea.l	page1,a0
-	andi.w	#$3fff,d0
-	cmpi.w	#$3fff,d0
-	beq	@f				* ページ境界をまたがって読み込む時
-	movea.l	rd16_sub_add_p1,a1
-	jmp	(a1)				* rts を省略するために jmp にしてある
-@@:
-	movea.l	rd8_sub_add_p1,a1
-	jsr	(a1)
-	move.b	d0,-(sp)
-	clr.w	d0				* ページ２の $0000番地を読む
-	movea.l	rd8_sub_add_p2,a1
-	jsr	(a1)
-	lsl.w	#8,d0				* 上位バイト読み込み
-	move.b	(sp)+,d0			* 下位バイト読み込み
-	rts
-
-page_2or3_r16:
-	btst.l	#14,d0
-	bne	page_3_r16
-page_2_r16:
-	movea.l	page2,a0
-	andi.w	#$3fff,d0
-	cmpi.w	#$3fff,d0
-	beq	@f				* ページ境界をまたがって読み込む時
-	movea.l	rd16_sub_add_p2,a1
-	jmp	(a1)				* rts を省略するために jmp にしてある
-@@:
-	movea.l	rd8_sub_add_p2,a1
-	jsr	(a1)
-	move.b	d0,-(sp)
-	clr.w	d0				* ページ３の $0000番地を読む
-	movea.l	rd8_sub_add_p3,a1
-	jsr	(a1)
-	lsl.w	#8,d0				* 上位バイト読み込み
-	move.b	(sp)+,d0			* 下位バイト読み込み
-	rts
-
-page_3_r16:
-	movea.l	page3,a0
-	andi.w	#$3fff,d0
-	move.w	d0,d2				* 0xffffか0xfffeからワード読み込みしよ 
-	addq.w	#2,d2				* うとしているか？
-	andi.w	#$4000,d2
-	bne	@f
-	movea.l	rd16_sub_add_p3,a1
-	jmp	(a1)				* rts を省略するために jmp にしてある
-@@:
-	cmpi.w	#$3fff,d0
-	beq	@f
-	movea.l	rd8_sub_add_p3,a1
-	jsr	(a1)
-	move.b	d0,-(sp)
-	bsr	exslotreg_read
-	lsl.w	#8,d0				* 上位バイト読み込み
-	move.b	(sp)+,d0			* 下位バイト読み込み
-	rts
-@@:
-	bsr	exslotreg_read
-	move.b	d0,-(sp)
-	clr.w	d0
-	movea.l	rd8_sub_add_p0,a1
-	jsr	(a1)
-	lsl.w	#8,d0				* 上位バイト読み込み
-	move.b	(sp)+,d0			* 下位バイト読み込み
-	rts
-
-*******************************************************************
-*
-*	メモリへ 16ビットのデータを書き込むサブルーチン。
-*（引数）
-*	d0.w ・・・ アドレス
-*（動作）
-*	d1.w の内容をメモリに書き込む
-*
-*	d2 破壊可能性あり
-*
-*******************************************************************
-write_mem_16:
-	tst.w	d0
-	bmi	page_2or3_w16
-	btst.l	#14,d0
-	bne	page_1_w16
-page_0_w16:
-	movea.l	page0,a0
-	andi.w	#$3fff,d0
-	cmpi.w	#$3fff,d0
-	beq	@f				* ページ境界をまたがって読み込む時
-	movea.l	wt16_sub_add_p0,a1
-	jmp	(a1)				* rts を省略するために jmp にしてある
-@@:
-	move.w	d1,-(sp)
-	movea.l	wt8_sub_add_p0,a1
-	jsr	(a1)
-	clr.w	d0
-	move.b	(sp)+,d1			* d1.b = 上位バイト
-	movea.l	wt8_sub_add_p1,a1
-	jmp	(a1)				* rts を省略するために jmp にしてある
-
-page_1_w16:
-	movea.l	page1,a0
-	andi.w	#$3fff,d0
-	cmpi.w	#$3fff,d0
-	beq	@f				* ページ境界をまたがって読み込む時
-	movea.l	wt16_sub_add_p1,a1
-	jmp	(a1)				* rts を省略するために jmp にしてある
-@@:
-	move.w	d1,-(sp)
-	movea.l	wt8_sub_add_p1,a1
-	jsr	(a1)
-	clr.w	d0
-	move.b	(sp)+,d1			* d1.b = 上位バイト
-	movea.l	wt8_sub_add_p2,a1
-	jmp	(a1)				* rts を省略するために jmp にしてある
-
-page_2or3_w16:
-	btst.l	#14,d0
-	bne	page_3_w16
-page_2_w16:
-	movea.l	page2,a0
-	andi.w	#$3fff,d0
-	cmpi.w	#$3fff,d0
-	beq	@f				* ページ境界をまたがって読み込む時
-	movea.l	wt16_sub_add_p2,a1
-	jmp	(a1)				* rts を省略するために jmp にしてある
-@@:
-	move.w	d1,-(sp)
-	movea.l	wt8_sub_add_p2,a1
-	jsr	(a1)
-	clr.w	d0
-	move.b	(sp)+,d1			* d1.b = 上位バイト
-	movea.l	wt8_sub_add_p3,a1
-	jmp	(a1)				* rts を省略するために jmp にしてある
-
-page_3_w16:
-	movea.l	page3,a0
-	andi.w	#$3fff,d0
-	move.w	d0,d2				* 0xffffか0xfffeからワード読み込みしよ 
-	addq.w	#2,d2				* うとしているか？
-	andi.w	#$4000,d2
-	bne	@f
-	movea.l	wt16_sub_add_p3,a1
-	jmp	(a1)				* rts を省略するために jmp にしてある
-@@:
-	move.w	d1,-(sp)
-	cmpi.w	#$3fff,d0
-	beq	@f
-	movea.l	wt8_sub_add_p3,a1
-	jsr	(a1)
-	move.b	(sp)+,d1			* d1.b = 上位バイト
-	bra	exslotreg_write			* rts を省略するために bra にしてある
-@@:
-	move.w	d1,-(sp)
-	bsr	exslotreg_write
-	clr.w	d0
-	move.b	(sp)+,d1			* d1.b = 上位バイト
-	movea.l	wt8_sub_add_p0,a1
-	jmp	(a1)				* rts を省略するために jmp にしてある
 
 
 *------ ＡＤＤ ------
@@ -1930,7 +1618,7 @@ ADD_A_lHLl:
 	PC_page_inc
 1:	andi.w	#%01110100_11111111,d6	* Ｎ,Ｃ,HC mode をクリア
 	move.w	hl(a3),d0
-	bsr	read_mem
+	jsr	ms_read_mem_8
 	move.b	d0,HC2(a3)		* 足す数を HC2に
 	add.b	d0,d4
 	bvs	V_ADD_A			* オーバーフロー？
@@ -2168,7 +1856,7 @@ ADC_A_lHLl:
 9:	andi.w	#%01111100_00000000,d6	* Ｎ,Ｃ,HC mode,SZ,SZ mode をクリア
 	ori.w	#%00001000_00000000,d6	* HC モードをセット
 	move.w	hl(a3),d0
-	bsr	read_mem
+	jsr	ms_read_mem_8
 	subq.b	#1,d6			* X ビットをセット
 	move.b	d0,HC2(a3)		* 足す数を HC2に
 	addx.b	d0,d4
@@ -2328,7 +2016,7 @@ SUB_lHLl:
 9:	andi.w	#%01110110_11111111,d6	* Ｃ,HC mode をクリア
 	ori.w	#%00000010_00000000,d6	* Ｎをセット
 	move.w	hl(a3),d0
-	bsr	read_mem
+	jsr	ms_read_mem_8
 	move.b	d4,d5			* 引かれる数を HC1に
 	move.b	d0,HC2(a3)		* 引く数を HC2に
 	sub.b	d0,d4
@@ -2521,7 +2209,7 @@ SBC_A_lHLl:
 	PC_page_inc
 9:	ori.w	#%00001011_00000000,d6	* Ｎ,Ｃ, HC mode をセット
 	move.w	hl(a3),d0
-	bsr	read_mem
+	jsr	ms_read_mem_8
 	clr.b	d6			* X ビットをセット
 	subq.b	#1,d6
 	move.b	d4,d5			* 引かれる数を HC1に
@@ -2651,7 +2339,7 @@ AND_lHLl:
 	clr.b	d5			* HC を 1に
 	move.b	#1,HC2(a3)
 	move.w	hl(a3),d0
-	bsr	read_mem
+	jsr	ms_read_mem_8
 	and.b	d0,d4
 	move.b	d4,PV(a3)		* PV をセット
 	move.b	d4,d6			* SZ をセット
@@ -2764,7 +2452,7 @@ XOR_lHLl:
 9:	andi.w	#%01110100_11111111,d6	* Ｎ,Ｃ,HC mode をクリア
 	move.b	d5,HC2(a3)		* HC を 0に。( HC1 = HC2 の時, HCは０)
 	move.w	hl(a3),d0
-	bsr	read_mem
+	jsr	ms_read_mem_8
 	eor.b	d0,d4
 	move.b	d4,PV(a3)		* PV をセット
 	move.b	d4,d6			* SZ をセット
@@ -2870,7 +2558,7 @@ OR_lHLl:
 9:	andi.w	#%01110100_11111111,d6	* Ｎ,Ｃ,HC mode をクリア
 	move.b	d5,HC2(a3)		* HC を 0に。( HC1 = HC2 の時, HCは０)
 	move.w	hl(a3),d0
-	bsr	read_mem
+	jsr	ms_read_mem_8
 	or.b	d0,d4
 	move.b	d4,PV(a3)		* PV をセット
 	move.b	d4,d6			* SZ をセット
@@ -3012,7 +2700,7 @@ CP_lHLl:
 9:	andi.w	#%01110110_11111111,d6	* Ｃ,HC mode をクリア
 	ori.w	#%00000010_00000000,d6	* Ｎをセット
 	move.w	hl(a3),d0
-	bsr	read_mem
+	jsr	ms_read_mem_8
 	move.b	d4,d5			* 引かれる数を HC1に
 	move.b	d0,HC2(a3)		* 引く数を HC2に
 	move.b	d4,d6			* 比較かつ結果を SZ にセット		
@@ -3161,7 +2849,7 @@ INC_lHLl:
 9:	andi.w	#%01110101_11111111,d6	* Ｎ,HC modeをクリア
 	clr.b	PV(a3)			* PVをセット	
 	move.w	hl(a3),d0
-	bsr	read_mem
+	jsr	ms_read_mem_8
 	addq.b	#1,d0
 	bVS	1f
 	move.b	#1,PV(a3)		* PVをクリア
@@ -3170,7 +2858,7 @@ INC_lHLl:
 	move.b	#1,HC2(a3)
 	move.b	d0,d1
 	move.w	hl(a3),d0
-	bsr	write_mem
+	jsr	ms_write_mem_8
 	bra	cpu_main
 
 INC_BC:	addq.w	#1,bc(a3)
@@ -3328,7 +3016,7 @@ DEC_lHLl:
 	andi.w	#%01111111_11111111,d6	* SZ mode をクリア
 	clr.b	PV(a3)			* PVをセット	
 	move.w	hl(a3),d0
-	bsr	read_mem
+	jsr	ms_read_mem_8
 	move.b	d0,d5			* 引かれる数を HC1 に
 	subq.b	#1,d0
 	bVS	1f
@@ -3337,7 +3025,7 @@ DEC_lHLl:
 	clr.b	HC2(a3)
 	move.b	d0,d1
 	move.w	hl(a3),d0
-	bsr	write_mem
+	jsr	ms_write_mem_8
 	bra	cpu_main
 
 DEC_BC:	subq.w	#1,bc(a3)
@@ -3697,7 +3385,7 @@ CALL:	move.l	d7,d0
 	addq.w	#3,d1			* d1 = next Instruction
 	subq.w	#2,sp_(a3)		* PUSH	
 	move.w	sp_(a3),d0
-	bsr	write_mem_16
+	jsr	ms_write_mem_16
 
 	move.b	2(a4,d7.w),d0		* nn の上位８ビットを読む 
 	lsl.w	#8,d0
@@ -3846,7 +3534,7 @@ CALL_M:	btst.l	#15,d6		* SZ mode を調べる
 
 *	------ ＲＥＴ ------
 RET:	move.w	sp_(a3),d0
-	bsr	read_mem_16
+	jsr	ms_read_mem_16
 	addq.w	#2,sp_(a3)
 	move.w	d0,d7
 	PC_page_set
@@ -4006,7 +3694,7 @@ next_pushAF:
 	or.b	d0,d1
 	subq.w	#2,sp_(a3)
 	move.w	sp_(a3),d0
-	bsr	write_mem_16
+	jsr	ms_write_mem_16
 
 	move.w	(sp)+,d6
 
@@ -4018,7 +3706,7 @@ POP_AF:	addq.w	#1,d7
 	bne	9f
 	PC_page_inc
 9:	move.w	sp_(a3),d0
-	bsr	read_mem_16
+	jsr	ms_read_mem_16
 	addq.w	#2,sp_(a3)
 
 	move.w	d0,-(sp)		* Aレジスタをセット
@@ -4056,7 +3744,7 @@ PUSH_BC:
 	subq.w	#2,sp_(a3)
 	move.w	sp_(a3),d0
 	move.w	bc(a3),d1
-	bsr	write_mem_16
+	jsr	ms_write_mem_16
 	addq.w	#1,d7
 	andi.w	#$3fff,d7
 	bne	cpu_main
@@ -4064,7 +3752,7 @@ PUSH_BC:
 	bra	cpu_main
 POP_BC:
 	move.w	sp_(a3),d0
-	bsr	read_mem_16
+	jsr	ms_read_mem_16
 	addq.w	#2,sp_(a3)
 	move.w	d0,bc(a3)
 	addq.w	#1,d7
@@ -4077,7 +3765,7 @@ PUSH_DE:
 	subq.w	#2,sp_(a3)
 	move.w	sp_(a3),d0
 	move.w	de(a3),d1
-	bsr	write_mem_16
+	jsr	ms_write_mem_16
 	addq.w	#1,d7
 	andi.w	#$3fff,d7
 	bne	cpu_main
@@ -4085,7 +3773,7 @@ PUSH_DE:
 	bra	cpu_main
 POP_DE:
 	move.w	sp_(a3),d0
-	bsr	read_mem_16
+	jsr	ms_read_mem_16
 	addq.w	#2,sp_(a3)
 	move.w	d0,de(a3)
 	addq.w	#1,d7
@@ -4098,7 +3786,7 @@ PUSH_HL:
 	subq.w	#2,sp_(a3)
 	move.w	sp_(a3),d0
 	move.w	hl(a3),d1
-	bsr	write_mem_16
+	jsr	ms_write_mem_16
 	addq.w	#1,d7
 	andi.w	#$3fff,d7
 	bne	cpu_main
@@ -4106,7 +3794,7 @@ PUSH_HL:
 	bra	cpu_main
 POP_HL:
 	move.w	sp_(a3),d0
-	bsr	read_mem_16
+	jsr	ms_read_mem_16
 	addq.w	#2,sp_(a3)
 	move.w	d0,hl(a3)
 	addq.w	#1,d7
@@ -4118,11 +3806,11 @@ POP_HL:
 *	------ ＥＸ ------
 EX_lSPl_HL:
 	move.w	sp_(a3),d0
-	bsr	read_mem_16
+	jsr	ms_read_mem_16
 	move.w	hl(a3),d1
 	move.w	d0,hl(a3)
 	move.w	sp_(a3),d0
-	bsr	write_mem_16
+	jsr	ms_write_mem_16
 	addq.w	#1,d7
 	andi.w	#$3fff,d7
 	bne	cpu_main
@@ -4244,7 +3932,7 @@ RST_00H:
 	addq.w	#1,d1			* d1 = PC (R800) = next instruction
 	subq.w	#2,sp_(a3)		* PUSH	
 	move.w	sp_(a3),d0
-	bsr	write_mem_16
+	jsr	ms_write_mem_16
 	move.w	#$0000,d7
 	PC_page_set
 	bra	cpu_main
@@ -4256,7 +3944,7 @@ RST_08H:
 	addq.w	#1,d1			* d1 = PC (R800) = next instruction
 	subq.w	#2,sp_(a3)		* PUSH	
 	move.w	sp_(a3),d0
-	bsr	write_mem_16
+	jsr	ms_write_mem_16
 	move.w	#$0008,d7
 	PC_page_set
 	bra	cpu_main
@@ -4268,7 +3956,7 @@ RST_10H:
 	addq.w	#1,d1			* d1 = PC (R800) = next instruction
 	subq.w	#2,sp_(a3)		* PUSH	
 	move.w	sp_(a3),d0
-	bsr	write_mem_16
+	jsr	ms_write_mem_16
 	move.w	#$0010,d7
 	PC_page_set
 	bra	cpu_main
@@ -4280,7 +3968,7 @@ RST_18H:
 	addq.w	#1,d1			* d1 = PC (R800) = next instruction
 	subq.w	#2,sp_(a3)		* PUSH	
 	move.w	sp_(a3),d0
-	bsr	write_mem_16
+	jsr	ms_write_mem_16
 	move.w	#$0018,d7
 	PC_page_set
 	bra	cpu_main
@@ -4292,7 +3980,7 @@ RST_20H:
 	addq.w	#1,d1			* d1 = PC (R800) = next instruction
 	subq.w	#2,sp_(a3)		* PUSH	
 	move.w	sp_(a3),d0
-	bsr	write_mem_16
+	jsr	ms_write_mem_16
 	move.w	#$0020,d7
 	PC_page_set
 	bra	cpu_main
@@ -4304,7 +3992,7 @@ RST_28H:
 	addq.w	#1,d1			* d1 = PC (R800) = next instruction
 	subq.w	#2,sp_(a3)		* PUSH	
 	move.w	sp_(a3),d0
-	bsr	write_mem_16
+	jsr	ms_write_mem_16
 	move.w	#$0028,d7
 	PC_page_set
 	bra	cpu_main
@@ -4316,7 +4004,7 @@ RST_30H:
 	addq.w	#1,d1			* d1 = PC (R800) = next instruction
 	subq.w	#2,sp_(a3)		* PUSH	
 	move.w	sp_(a3),d0
-	bsr	write_mem_16
+	jsr	ms_write_mem_16
 	move.w	#$0030,d7
 	PC_page_set
 	bra	cpu_main
@@ -4328,7 +4016,7 @@ RST_38H:
 	addq.w	#1,d1			* d1 = PC (R800) = next instruction
 	subq.w	#2,sp_(a3)		* PUSH	
 	move.w	sp_(a3),d0
-	bsr	write_mem_16
+	jsr	ms_write_mem_16
 	move.w	#$0038,d7
 	PC_page_set
 	bra	cpu_main
@@ -4416,8 +4104,8 @@ HALT:
 
 9:	cmpi.b	#1,interrupt_enable
 	bne	9b		* DIなら割り込まない(永遠に出られない？ NMIなら出られるようにすべき？)
-	; あらためてVDPのS_0の bit7を見て割り込み要求があるかどうかを見る
-	btst.b	#7,VDP_S_00
+	; あらためて割り込み要求端子の値(ms_cpu_int)を見て割り込み要求があるかどうかを見る
+	cmpi.b	#0,ms_cpu_int
 	beq	9b
 	bsr	INT		* 割り込みがかかったので割り込み処理を実施
 	bra	cpu_main
@@ -4500,12 +4188,12 @@ SET_aorhl:
 set_lhll
 	move.w	d0,-(sp)
 	move.w	hl(a3),d0
-	bsr	read_mem
+	jsr	ms_read_mem_8
 	move.w	(sp)+,d1
 	bset.l	d1,d0				* (HL)の nビット目をセット
 	move.b	d0,d1
 	move.w	hl(a3),d0
-	bsr	write_mem		
+	jsr	ms_write_mem_8		
 	bra	cpu_main
 
 *	------ ＲＥＳ ------
@@ -4527,12 +4215,12 @@ RES_aorhl:
 RES_lhll
 	move.w	d0,-(sp)
 	move.w	hl(a3),d0
-	bsr	read_mem
+	jsr	ms_read_mem_8
 	move.w	(sp)+,d1
 	bclr.l	d1,d0				* (HL)の nビット目をセット
 	move.b	d0,d1
 	move.w	hl(a3),d0
-	bsr	write_mem		
+	jsr	ms_write_mem_8		
 	bra	cpu_main
 
 
@@ -4574,7 +4262,7 @@ BIT_lHLl:
 	move.b	#1,HC2(a3)
 	move.w	d0,-(sp)
 	move.w	hl(a3),d0
-	bsr	read_mem
+	jsr	ms_read_mem_8
 	move.w	(sp)+,d1
 	btst.l	d1,d0			* (HL)の nビット目をテスト
 	beq	cpu_main
@@ -4742,7 +4430,7 @@ RLC_lHLl:
 	andi.w	#%01110100_11111111,d6	* Ｎ,Ｃ HC modeをクリア
 	move.b	d5,HC2(a3)		* HC をクリア
 	move.w	hl(a3),d0
-	bsr	read_mem
+	jsr	ms_read_mem_8
 	rol.b	#1,d0
 	bcc	NC_RLC_hl
 	ori.w	#%00000001_00000000,d6	* キャリーフラグをセット
@@ -4752,7 +4440,7 @@ NC_RLC_hl:
 
 	move.b	d0,d1
 	move.w	hl(a3),d0
-	bsr	write_mem
+	jsr	ms_write_mem_8
 	bra	cpu_main
 
 
@@ -4836,7 +4524,7 @@ RRC_lHLl:
 	andi.w	#%01110100_11111111,d6	* Ｎ,Ｃ HC modeをクリア
 	move.b	d5,HC2(a3)		* HC をクリア
 	move.w	hl(a3),d0
-	bsr	read_mem
+	jsr	ms_read_mem_8
 	ror.b	#1,d0
 	bcc	@f
 	ori.w	#%00000001_00000000,d6	* キャリーフラグをセット
@@ -4845,7 +4533,7 @@ RRC_lHLl:
 
 	move.b	d0,d1
 	move.w	hl(a3),d0
-	bsr	write_mem
+	jsr	ms_write_mem_8
 	bra	cpu_main
 
 
@@ -4956,7 +4644,7 @@ RL_lHLl:
 	andi.w	#%01110100_11111111,d6	* Ｎ,Ｃ,HC mode をクリア
 	move.b	d5,HC2(a3)		* HC をクリア
 	move.w	hl(a3),d0
-	bsr	read_mem
+	jsr	ms_read_mem_8
 	lsl.b	#1,d0
 	bcc	@f
 	ori.w	#%00000001_00000000,d6	* ＣＹをセット
@@ -4966,7 +4654,7 @@ RL_lHLl:
 
 	move.b	d0,d1
 	move.w	hl(a3),d0
-	bsr	write_mem
+	jsr	ms_write_mem_8
 	bra	cpu_main
 
 *	------ ＲＲ ------
@@ -5077,7 +4765,7 @@ RR_lHLl:
 	andi.w	#%01110100_11111111,d6	* Ｎ,Ｃ,HC mode をクリア
 	move.b	d5,HC2(a3)		* HC をクリア
 	move.w	hl(a3),d0
-	bsr	read_mem
+	jsr	ms_read_mem_8
 	lsr.b	#1,d0
 	bcc	@f
 	ori.w	#%00000001_00000000,d6	* ＣＹをセット
@@ -5087,7 +4775,7 @@ RR_lHLl:
 	move.b	d0,PV(a3)
 	move.b	d0,d1
 	move.w	hl(a3),d0
-	bsr	write_mem
+	jsr	ms_write_mem_8
 	bra	cpu_main
 
 
@@ -5171,7 +4859,7 @@ SLA_lHLl:
 	andi.w	#%01110100_11111111,d6	* Ｎ,Ｃ,HC mode をクリア
 	move.b	d5,HC2(a3)		* HC をクリア
 	move.w	hl(a3),d0
-	bsr	read_mem
+	jsr	ms_read_mem_8
 	add.b	d0,d0
 	bcc	@f
 	ori.w	#%00000001_00000000,d6	* ＣＹをセット
@@ -5179,7 +4867,7 @@ SLA_lHLl:
 	move.b	d0,PV(a3)
 	move.b	d0,d1
 	move.w	hl(a3),d0
-	bsr	write_mem
+	jsr	ms_write_mem_8
 	bra	cpu_main
 
 
@@ -5263,7 +4951,7 @@ SRA_lHLl:
 	andi.w	#%01110100_11111111,d6	* Ｎ,Ｃ,HC mode をクリア
 	move.b	d5,HC2(a3)		* HC をクリア
 	move.w	hl(a3),d0
-	bsr	read_mem
+	jsr	ms_read_mem_8
 	asr.b	#1,d0
 	bcc	@f
 	ori.w	#%00000001_00000000,d6	* ＣＹをセット
@@ -5271,7 +4959,7 @@ SRA_lHLl:
 	move.b	d0,PV(a3)
 	move.b	d0,d1
 	move.w	hl(a3),d0
-	bsr	write_mem
+	jsr	ms_write_mem_8
 	bra	cpu_main
 
 
@@ -5355,7 +5043,7 @@ SRL_lHLl:
 	andi.w	#%01110100_11111111,d6	* Ｎ,Ｃ,HC mode をクリア
 	move.b	d5,HC2(a3)		* HC をクリア
 	move.w	hl(a3),d0
-	bsr	read_mem
+	jsr	ms_read_mem_8
 	lsr.b	#1,d0
 	bcc	@f
 	ori.w	#%00000001_00000000,d6	* ＣＹをセット
@@ -5363,7 +5051,7 @@ SRL_lHLl:
 	move.b	d0,PV(a3)
 	move.b	d0,d1
 	move.w	hl(a3),d0
-	bsr	write_mem
+	jsr	ms_write_mem_8
 	bra	cpu_main
 
 *	------ ＳＬＩ ------
@@ -5453,7 +5141,7 @@ SLI_lHLl:
 	andi.w	#%01110100_11111111,d6	* Ｎ,Ｃ,HC mode をクリア
 	move.b	d5,HC2(a3)		* HC をクリア
 	move.w	hl(a3),d0
-	bsr	read_mem
+	jsr	ms_read_mem_8
 	add.b	d0,d0
 	bcc	@f
 	ori.w	#%00000001_00000000,d6	* ＣＹをセット
@@ -5462,7 +5150,7 @@ SLI_lHLl:
 	move.b	d0,PV(a3)
 	move.b	d0,d1
 	move.w	hl(a3),d0
-	bsr	write_mem
+	jsr	ms_write_mem_8
 	bra	cpu_main
 
 
@@ -5473,7 +5161,7 @@ RLD_lHLl:
 	move.b	d5,HC2(a3)		* HC をクリア
 
 	move.w	hl(a3),d0		* d0.w = |00|00| (HL) |
-	bsr	read_mem
+	jsr	ms_read_mem_8
 	andi.w	#%00000000_11111111,d0
 
 	lsl.w	#4,d0			* d0.w = |00| (HL) |00|
@@ -5486,7 +5174,7 @@ RLD_lHLl:
 	add.b	d0,d4			* d4.b = |Ah| (H|
 
 	move.w	hl(a3),d0
-	bsr	write_mem
+	jsr	ms_write_mem_8
 
 	move.b	d4,d6			* SZ をセット
 	move.b	d4,PV(a3)
@@ -5497,7 +5185,7 @@ RRD_lHLl:
 	move.b	d5,HC2(a3)		* HC をクリア
 
 	move.w	hl(a3),d0		* d0.w = |?????| (HL) |
-	bsr	read_mem
+	jsr	ms_read_mem_8
 
 	move.b	d4,d1
 	lsl.w	#8,d1			* d1.w = |  A  |000000|
@@ -5509,7 +5197,7 @@ RRD_lHLl:
 	or.b	d0,d4			* d4.b =       | Ah|L)|
 
 	move.w	hl(a3),d0
-	bsr	write_mem
+	jsr	ms_write_mem_8
 
 	move.b	d4,d6			* SZ をセット
 	move.b	d4,PV(a3)
@@ -5898,20 +5586,20 @@ LD_BC_lnnl:
 	addq.w	#2,d7
 	btst.l	#14,d7
 	bne	1f
-	bsr	read_mem_16
+	jsr	ms_read_mem_16
 	move.w	d0,bc(a3)
 	bra	cpu_main
 1:	PC_page_inc
 	andi.w	#$3fff,d7		* 命令がページ境界をまたぐ時
 	bne	2f
-	bsr	read_mem_16		* d7 = 0 の時
+	jsr	ms_read_mem_16		* d7 = 0 の時
 	move.w	d0,bc(a3)
 	bra	cpu_main
 2:	move.b	d0,d2			* d7 = 1 の時
 	move.b	(a4),d0			* nn の上位８ビットを読む
 	lsl.w	#8,d0
 	move.b	d2,d0
-	bsr	read_mem_16
+	jsr	ms_read_mem_16
 	move.w	d0,bc(a3)
 	bra	cpu_main
 
@@ -5922,20 +5610,20 @@ LD_DE_lnnl:
 	addq.w	#2,d7
 	btst.l	#14,d7
 	bne	1f
-	bsr	read_mem_16
+	jsr	ms_read_mem_16
 	move.w	d0,de(a3)
 	bra	cpu_main
 1:	PC_page_inc
 	andi.w	#$3fff,d7		* 命令がページ境界をまたぐ時
 	bne	2f
-	bsr	read_mem_16
+	jsr	ms_read_mem_16
 	move.w	d0,de(a3)
 	bra	cpu_main
 2:	move.b	d0,d2			* d7 = 1 の時
 	move.b	(a4),d0			* nn の上位８ビットを読む
 	lsl.w	#8,d0
 	move.b	d2,d0
-	bsr	read_mem_16
+	jsr	ms_read_mem_16
 	move.w	d0,de(a3)
 	bra	cpu_main
 
@@ -5946,20 +5634,20 @@ LD_SP_lnnl:
 	addq.w	#2,d7
 	btst.l	#14,d7
 	bne	1f
-	bsr	read_mem_16
+	jsr	ms_read_mem_16
 	move.w	d0,sp_(a3)
 	bra	cpu_main
 1:	PC_page_inc
 	andi.w	#$3fff,d7		* 命令がページ境界をまたぐ時
 	bne	2f
-	bsr	read_mem_16
+	jsr	ms_read_mem_16
 	move.w	d0,sp_(a3)
 	bra	cpu_main
 2:	move.b	d0,d2			* d7 = 1 の時
 	move.b	(a4),d0			* nn の上位８ビットを読む
 	lsl.w	#8,d0
 	move.b	d2,d0
-	bsr	read_mem_16
+	jsr	ms_read_mem_16
 	move.w	d0,sp_(a3)
 	bra	cpu_main
 
@@ -5972,18 +5660,18 @@ LD_lnnl_BC:
 	addq.w	#2,d7
 	btst.l	#14,d7
 	bne	@f
-	bsr	write_mem_16
+	jsr	ms_write_mem_16
 	bra	cpu_main
 @@:	PC_page_inc
 	andi.w	#$3fff,d7		* 命令がページ境界をまたぐ時
 	bne	@f
-	bsr	write_mem_16
+	jsr	ms_write_mem_16
 	bra	cpu_main
 @@:	move.b	d0,d2			* d7 = 1 の時
 	move.b	(a4),d0			* nn の上位８ビットを読む
 	lsl.w	#8,d0
 	move.b	d2,d0
-	bsr	write_mem_16
+	jsr	ms_write_mem_16
 	bra	cpu_main
 
 LD_lnnl_DE:
@@ -5994,18 +5682,18 @@ LD_lnnl_DE:
 	addq.w	#2,d7
 	btst.l	#14,d7
 	bne	@f
-	bsr	write_mem_16
+	jsr	ms_write_mem_16
 	bra	cpu_main
 @@:	PC_page_inc
 	andi.w	#$3fff,d7		* 命令がページ境界をまたぐ時
 	bne	@f
-	bsr	write_mem_16
+	jsr	ms_write_mem_16
 	bra	cpu_main
 @@:	move.b	d0,d2			* d7 = 1 の時
 	move.b	(a4),d0			* nn の上位８ビットを読む
 	lsl.w	#8,d0
 	move.b	d2,d0
-	bsr	write_mem_16
+	jsr	ms_write_mem_16
 	bra	cpu_main
 
 LD_lnnl_SP:
@@ -6016,18 +5704,18 @@ LD_lnnl_SP:
 	addq.w	#2,d7
 	btst.l	#14,d7
 	bne	@f
-	bsr	write_mem_16
+	jsr	ms_write_mem_16
 	bra	cpu_main
 @@:	PC_page_inc			* 命令がページ境界をまたぐ時
 	andi.w	#$3fff,d7
 	bne	@f
-	bsr	write_mem_16		* d7 = 0 の時
+	jsr	ms_write_mem_16		* d7 = 0 の時
 	bra	cpu_main
 @@:	move.b	d0,d2			* d7 = 1 の時
 	move.b	(a4),d0			* nn の上位８ビットを読む
 	lsl.w	#8,d0
 	move.b	d2,d0
-	bsr	write_mem_16
+	jsr	ms_write_mem_16
 	bra	cpu_main
 
 ***************************** フラグの動きが正しいかわからない *********************
@@ -6181,10 +5869,10 @@ LDI:	andi.w	#%11110101_11111111,d6	* Ｎ,HC modeをクリア
 	move.b	d5,HC2(a3)		* Ｈを０に
 	move.b	#0,PV(a3)
 	move.w	hl(a3),d0
-	bsr	read_mem
+	jsr	ms_read_mem_8
 	move.b	d0,d1
 	move.w	de(a3),d0
-	bsr	write_mem
+	jsr	ms_write_mem_8
 	addq.w	#1,hl(a3)
 	addq.w	#1,de(a3)
 	subq.w	#1,bc(a3)
@@ -6198,10 +5886,10 @@ LDIR:	andi.w	#%11110101_11111111,d6	* Ｎ,HC modeをクリア
 	move.b	#1,PV(a3)
 loop_LDIR:
 	move.w	hl(a3),d0
-	bsr	read_mem
+	jsr	ms_read_mem_8
 	move.b	d0,d1
 	move.w	de(a3),d0
-	bsr	write_mem
+	jsr	ms_write_mem_8
 
 	addq.w	#1,hl(a3)
 	addq.w	#1,de(a3)
@@ -6213,10 +5901,10 @@ LDD:	andi.w	#%11110101_11111111,d6	* Ｎ,HC modeをクリア
 	move.b	d5,HC2(a3)		* Ｈを０に
 	move.b	#0,PV(a3)
 	move.w	hl(a3),d0
-	bsr	read_mem
+	jsr	ms_read_mem_8
 	move.b	d0,d1
 	move.w	de(a3),d0
-	bsr	write_mem
+	jsr	ms_write_mem_8
 	subq.w	#1,hl(a3)
 	subq.w	#1,de(a3)
 	subq.w	#1,bc(a3)
@@ -6230,10 +5918,10 @@ LDDR:	andi.w	#%11110101_11111111,d6	* Ｎ,HC modeをクリア
 	move.b	#1,PV(a3)
 loop_LDDR:
 	move.w	hl(a3),d0
-	bsr	read_mem
+	jsr	ms_read_mem_8
 	move.b	d0,d1
 	move.w	de(a3),d0
-	bsr	write_mem
+	jsr	ms_write_mem_8
 
 	subq.w	#1,hl(a3)
 	subq.w	#1,de(a3)
@@ -6247,7 +5935,7 @@ CPI:	andi.w	#%01110111_11111111,d6	* HC modeをクリア
 	ori.w	#%00000010_00000000,d6	* Ｎ をセット
 	clr.b	PV(a3)			* PV をセット		
 	move.w	hl(a3),d0
-	bsr	read_mem
+	jsr	ms_read_mem_8
 	move.b	d4,d5			* 引かれる数を HC1に
 	move.b	d0,HC2(a3)		* 引く数を HC2に
 	addq.w	#1,hl(a3)
@@ -6264,7 +5952,7 @@ CPIR:	andi.w	#%01110111_11111111,d6	* HC modeをクリア
 	clr.b	PV(a3)		* PV をセット		
 loop_CPIR:
 	move.w	hl(a3),d0
-	bsr	read_mem
+	jsr	ms_read_mem_8
 	addq.w	#1,hl(a3)
 	subq.w	#1,bc(a3)
 	beq	@f
@@ -6286,7 +5974,7 @@ CPD:	andi.w	#%01110111_11111111,d6	* HC modeをクリア
 	ori.w	#%00000010_00000000,d6	* Ｎ をセット
 	clr.b	PV(a3)			* PV をセット		
 	move.w	hl(a3),d0
-	bsr	read_mem
+	jsr	ms_read_mem_8
 	move.b	d4,d5			* 引かれる数を HC1に
 	move.b	d0,HC2(a3)		* 引く数を HC2に
 	subq.w	#1,hl(a3)
@@ -6303,7 +5991,7 @@ CPDR:	andi.w	#%01110111_11111111,d6	* HC modeをクリア
 	clr.b	PV(a3)			* PV をセット		
 loop_CPDR:
 	move.w	hl(a3),d0
-	bsr	read_mem
+	jsr	ms_read_mem_8
 	subq.w	#1,hl(a3)
 	subq.w	#1,bc(a3)
 	beq	@f
@@ -6564,7 +6252,7 @@ LD_I_A:	move.b	d4,i(a3)
 *	ちゃんとやってない
 *	------ ＲＥＴＮ ------
 RETN:	move.w	sp_(a3),d0
-	bsr	read_mem_16
+	jsr	ms_read_mem_16
 	addq.w	#2,sp_(a3)
 	move.w	d0,d7
 	PC_page_set
@@ -6572,7 +6260,7 @@ RETN:	move.w	sp_(a3),d0
 
 *	------ ＲＥＴＩ ------
 RETI:	move.w	sp_(a3),d0
-	bsr	read_mem_16
+	jsr	ms_read_mem_16
 	addq.w	#2,sp_(a3)
 	move.w	d0,d7
 	PC_page_set
@@ -7370,7 +7058,7 @@ ADD_A_lIdx_dl:
 	bne	@f
 	PC_page_inc
 @@:
-	bsr	read_mem
+	jsr	ms_read_mem_8
 	move.b	d0,HC2(a3)		* 足す数を HC2に
 	add.b	d0,d4
 	bvs	V_ADD_A			* オーバーフロー？
@@ -7395,7 +7083,7 @@ ADC_A_lIdx_dl:
 	bne	@f
 	PC_page_inc
 @@:
-	bsr	read_mem
+	jsr	ms_read_mem_8
 	subq.b	#1,d6			* X ビットをセット
 	move.b	d0,HC2(a3)		* 足す数を HC2に
 	addx.b	d0,d4
@@ -7419,7 +7107,7 @@ SUB_lIdx_dl:
 	bne	@f
 	PC_page_inc
 @@:
-	bsr	read_mem
+	jsr	ms_read_mem_8
 	move.b	d4,d5			* 引かれる数を HC1に
 	move.b	d0,HC2(a3)		* 引く数を HC2に
 	sub.b	d0,d4
@@ -7442,7 +7130,7 @@ SBC_A_lIdx_dl:
 	bne	@f
 	PC_page_inc
 @@:
-	bsr	read_mem
+	jsr	ms_read_mem_8
 	clr.b	d6			* X ビットをセット
 	subq.b	#1,d6
 	move.b	d4,d5			* 引かれる数を HC1に
@@ -7468,7 +7156,7 @@ AND_lIdx_dl:
 	bne	@f
 	PC_page_inc
 @@:
-	bsr	read_mem
+	jsr	ms_read_mem_8
 	and.b	d0,d4
 	move.b	d4,PV(a3)		* PV をセット
 	move.b	d4,d6			* SZ をセット
@@ -7486,7 +7174,7 @@ XOR_lIdx_dl:
 	bne	@f
 	PC_page_inc
 @@:
-	bsr	read_mem
+	jsr	ms_read_mem_8
 	eor.b	d0,d4
 	move.b	d4,PV(a3)		* PV をセット
 	move.b	d4,d6			* SZ をセット
@@ -7504,7 +7192,7 @@ OR_lIdx_dl:
 	bne	@f
 	PC_page_inc
 @@:
-	bsr	read_mem
+	jsr	ms_read_mem_8
 	or.b	d0,d4
 	move.b	d4,PV(a3)		* PV をセット
 	move.b	d4,d6			* SZ をセット
@@ -7522,7 +7210,7 @@ CP_lIdx_dl:
 	bne	@f
 	PC_page_inc
 @@:
-	bsr	read_mem
+	jsr	ms_read_mem_8
 	move.b	d4,d5			* 引かれる数を HC1に
 	move.b	d0,HC2(a3)		* 引く数を HC2に
 	move.b	d4,d6
@@ -7545,7 +7233,7 @@ INC_lIdx_dl:
 	PC_page_inc
 @@:
 	move.w	d0,-(sp)
-	bsr	read_mem
+	jsr	ms_read_mem_8
 	addq.b	#1,d0
 	bVS	@f			* オーバーフロー？
 	move.b	#1,PV(a3)		* PVをクリア
@@ -7556,7 +7244,7 @@ INC_lIdx_dl:
 
 	move.b	d0,d1
 	move.w	(sp)+,d0
-	bsr	write_mem
+	jsr	ms_write_mem_8
 	bra	cpu_main
 
 DEC_lIdx_dl:
@@ -7572,7 +7260,7 @@ DEC_lIdx_dl:
 	bne	@f
 	PC_page_inc
 @@:	move.w	d0,-(sp)
-	bsr	read_mem
+	jsr	ms_read_mem_8
 	move.b	d0,d5			* 引かれる数を HC1 に
 	subq.b	#1,d0
 	bVS	@f			* オーバーフロー？
@@ -7582,7 +7270,7 @@ DEC_lIdx_dl:
 
 	move.b	d0,d1
 	move.w	(sp)+,d0
-	bsr	write_mem
+	jsr	ms_write_mem_8
 	bra	cpu_main
 
 
@@ -7641,13 +7329,13 @@ LD_Idx_lnnl:
 	addq.w	#2,d7
 	btst.l	#14,d7
 	bne	@f
-	bsr	read_mem_16
+	jsr	ms_read_mem_16
 	move.w	d0,ix(a3,d1.w)
 	bra	cpu_main
 @@:	andi.w	#$3fff,d7		* 命令がページ境界をまたぐ時
 	bne	@f
 	PC_page_inc		* d7 = 0 の時
-	bsr	read_mem_16
+	jsr	ms_read_mem_16
 	move.w	d0,ix(a3,d1.w)
 	bra	cpu_main
 @@:
@@ -7656,7 +7344,7 @@ LD_Idx_lnnl:
 	move.b	(a4),d0			* nn の上位８ビットを読む
 	lsl.w	#8,d0
 	move.b	d2,d0
-	bsr	read_mem_16
+	jsr	ms_read_mem_16
 	move.w	d0,ix(a3,d1.w)
 	bra	cpu_main
 
@@ -7668,12 +7356,12 @@ LD_lnnl_Idx:
 	addq.w	#2,d7
 	btst.l	#14,d7
 	bne	@f
-	bsr	write_mem_16
+	jsr	ms_write_mem_16
 	bra	cpu_main
 @@:	andi.w	#$3fff,d7		* 命令がページ境界をまたぐ時
 	bne	@f
 	PC_page_inc		* d7 = 0 の時
-	bsr	write_mem_16
+	jsr	ms_write_mem_16
 	bra	cpu_main
 @@:
 	move.b	d0,d2			* d7 = 1 の時
@@ -7681,7 +7369,7 @@ LD_lnnl_Idx:
 	move.b	(a4),d0			* nn の上位８ビットを読む
 	lsl.w	#8,d0
 	move.b	d2,d0
-	bsr	write_mem_16
+	jsr	ms_write_mem_16
 	bra	cpu_main
 
 LD_SP_Idx:
@@ -7708,7 +7396,7 @@ LD_A_lIdx_dl:
 	bne	1f
 	PC_page_inc
 1:
-	bsr	read_mem		*メモリから 8ビットのデータを d0に読み込む。
+	jsr	ms_read_mem_8		*メモリから 8ビットのデータを d0に読み込む。
 	move.b	d0,d4
 	bra	cpu_main
 
@@ -7722,7 +7410,7 @@ LD_B_lIdx_dl:
 	bne	1f
 	PC_page_inc
 1:
-	bsr	read_mem		*メモリから 8ビットのデータを d0に読み込む。
+	jsr	ms_read_mem_8		*メモリから 8ビットのデータを d0に読み込む。
 	move.b	d0,b(a3)
 	bra	cpu_main
 
@@ -7736,7 +7424,7 @@ LD_C_lIdx_dl:
 	bne	1f
 	PC_page_inc
 1:
-	bsr	read_mem		*メモリから 8ビットのデータを d0に読み込む。
+	jsr	ms_read_mem_8		*メモリから 8ビットのデータを d0に読み込む。
 	move.b	d0,c(a3)
 	bra	cpu_main
 
@@ -7750,7 +7438,7 @@ LD_D_lIdx_dl:
 	bne	1f
 	PC_page_inc
 1:
-	bsr	read_mem		*メモリから 8ビットのデータを d0に読み込む。
+	jsr	ms_read_mem_8		*メモリから 8ビットのデータを d0に読み込む。
 	move.b	d0,d(a3)
 	bra	cpu_main
 
@@ -7764,7 +7452,7 @@ LD_E_lIdx_dl:
 	bne	1f
 	PC_page_inc
 1:
-	bsr	read_mem		*メモリから 8ビットのデータを d0に読み込む。
+	jsr	ms_read_mem_8		*メモリから 8ビットのデータを d0に読み込む。
 	move.b	d0,e(a3)
 	bra	cpu_main
 
@@ -7778,7 +7466,7 @@ LD_H_lIdx_dl:
 	bne	1f
 	PC_page_inc
 1:
-	bsr	read_mem		*メモリから 8ビットのデータを d0に読み込む。
+	jsr	ms_read_mem_8		*メモリから 8ビットのデータを d0に読み込む。
 	move.b	d0,h(a3)
 	bra	cpu_main
 
@@ -7792,7 +7480,7 @@ LD_L_lIdx_dl:
 	bne	1f
 	PC_page_inc
 1:
-	bsr	read_mem		*メモリから 8ビットのデータを d0に読み込む。
+	jsr	ms_read_mem_8		*メモリから 8ビットのデータを d0に読み込む。
 	move.b	d0,l(a3)
 	bra	cpu_main
 
@@ -7809,7 +7497,7 @@ LD_lIdx_dl_A:
 	PC_page_inc
 1:
 	move.b	d4,d1
-	bsr	write_mem
+	jsr	ms_write_mem_8
 	bra	cpu_main
 
 LD_lIdx_dl_B:
@@ -7823,7 +7511,7 @@ LD_lIdx_dl_B:
 	PC_page_inc
 1:
 	move.b	b(a3),d1
-	bsr	write_mem
+	jsr	ms_write_mem_8
 	bra	cpu_main
 
 LD_lIdx_dl_C:
@@ -7837,7 +7525,7 @@ LD_lIdx_dl_C:
 	PC_page_inc
 1:
 	move.b	c(a3),d1
-	bsr	write_mem
+	jsr	ms_write_mem_8
 	bra	cpu_main
 
 LD_lIdx_dl_D:
@@ -7851,7 +7539,7 @@ LD_lIdx_dl_D:
 	PC_page_inc
 1:
 	move.b	d(a3),d1
-	bsr	write_mem
+	jsr	ms_write_mem_8
 	bra	cpu_main
 
 LD_lIdx_dl_E:
@@ -7865,7 +7553,7 @@ LD_lIdx_dl_E:
 	PC_page_inc
 1:
 	move.b	e(a3),d1
-	bsr	write_mem
+	jsr	ms_write_mem_8
 	bra	cpu_main
 
 LD_lIdx_dl_H:
@@ -7879,7 +7567,7 @@ LD_lIdx_dl_H:
 	PC_page_inc
 1:
 	move.b	h(a3),d1
-	bsr	write_mem
+	jsr	ms_write_mem_8
 	bra	cpu_main
 
 LD_lIdx_dl_L:
@@ -7893,7 +7581,7 @@ LD_lIdx_dl_L:
 	PC_page_inc
 1:
 	move.b	l(a3),d1
-	bsr	write_mem
+	jsr	ms_write_mem_8
 	bra	cpu_main
 
 LD_lIdx_dl_n:
@@ -7905,12 +7593,12 @@ LD_lIdx_dl_n:
 	add.w	#2,d7
 	btst.l	#14,d7
 	bne	1f
-	bsr	write_mem
+	jsr	ms_write_mem_8
 	bra	cpu_main
 1:	andi.w	#$3fff,d7		* 命令がページ境界をまたぐ時
 	bne	1f
 	PC_page_inc		* d7 = 0 の時
-	bsr	write_mem
+	jsr	ms_write_mem_8
 	bra	cpu_main
 1:
 	move.b	d0,d2			* d7 = 1 の時
@@ -7918,7 +7606,7 @@ LD_lIdx_dl_n:
 	move.b	(a4),d0			* nn の上位８ビットを読む
 	lsl.w	#8,d0
 	move.b	d2,d0
-	bsr	write_mem
+	jsr	ms_write_mem_8
 	bra	cpu_main
 
 
@@ -7927,12 +7615,12 @@ PUSH_Idx:
 	subq.w	#2,sp_(a3)
 	move.w	sp_(a3),d0
 	move.w	ix(a3,d1.w),d1
-	bsr	write_mem_16
+	jsr	ms_write_mem_16
 	bra	cpu_main
 
 POP_Idx:
 	move.w	sp_(a3),d0
-	bsr	read_mem_16
+	jsr	ms_read_mem_16
 	addq.w	#2,sp_(a3)
 	move.w	d0,ix(a3,d1.w)
 	bra	cpu_main
@@ -7948,12 +7636,12 @@ JP_lIdxl:
 *	------ ＥＸ ------
 EX_lSPl_Idx:
 	move.w	sp_(a3),d0
-	bsr	read_mem_16
+	jsr	ms_read_mem_16
 	move.w	ix(a3,d1.w),d2
 	move.w	d0,ix(a3,d1.w)
 	move.w	d2,d1
 	move.w	sp_(a3),d0
-	bsr	write_mem_16
+	jsr	ms_write_mem_16
 	bra	cpu_main
 
 *	------ Ｓｙｓｔｅｍ Ｅｎｄ ------
@@ -8033,21 +7721,21 @@ DD_FD_CB_JPT:
 SET_lIdx_dl:
 	andi.w	#%00000000_00000111,d2		* BIT_n_? の n を d2にロード
 	move.w	d0,-(sp)			* Idx + d をプッシュ
-	bsr	read_mem
+	jsr	ms_read_mem_8
 	bset.l	d2,d0				* (Idx + d)の nビット目をセット
 	move.b	d0,d1
 	move.w	(sp)+,d0
-	bsr	write_mem		
+	jsr	ms_write_mem_8		
 	bra	cpu_main
 
 RES_lIdx_dl:
 	andi.w	#%00000000_00000111,d2		* BIT_n_? の n を d2にロード
 	move.w	d0,-(sp)			* Idx + d をプッシュ
-	bsr	read_mem
+	jsr	ms_read_mem_8
 	bclr.l	d2,d0				* (Idx + d)の nビット目をクリア
 	move.b	d0,d1
 	move.w	(sp)+,d0
-	bsr	write_mem		
+	jsr	ms_write_mem_8		
 	bra	cpu_main
 
 BIT_lIdx_dl:
@@ -8055,7 +7743,7 @@ BIT_lIdx_dl:
 	clr.b	d5				* HC を１に
 	move.b	#1,HC2(a3)
 	andi.w	#%00000000_00000111,d2		* BIT_n_? の n を d2にロード
-	bsr	read_mem
+	jsr	ms_read_mem_8
 	btst.l	d2,d0				* (Idx + d)の nビット目をテスト
 	beq	cpu_main
 	move.b	#1,d6
@@ -8065,7 +7753,7 @@ RLC_lIdx_dl:
 	andi.w	#%01110100_11111111,d6	* Ｎ,Ｃ HC modeをクリア
 	move.b	d5,HC2(a3)		* HC をクリア
 	move.w	d0,-(sp)		* Idx + d をプッシュ
-	bsr	read_mem
+	jsr	ms_read_mem_8
 	rol.b	#1,d0
 	bcc	@f
 	ori.w	#%00000001_00000000,d6	* キャリーフラグをセット
@@ -8075,14 +7763,14 @@ RLC_lIdx_dl:
 
 	move.b	d0,d1
 	move.w	(sp)+,d0
-	bsr	write_mem
+	jsr	ms_write_mem_8
 	bra	cpu_main
 
 RRC_lIdx_dl:
 	andi.w	#%01110100_11111111,d6	* Ｎ,Ｃ HC modeをクリア
 	move.b	d5,HC2(a3)		* HC をクリア
 	move.w	d0,-(sp)		* Idx + d をプッシュ
-	bsr	read_mem
+	jsr	ms_read_mem_8
 	ror.b	#1,d0
 	bcc	1f
 	ori.w	#%00000001_00000000,d6	* キャリーフラグをセット
@@ -8092,7 +7780,7 @@ RRC_lIdx_dl:
 
 	move.b	d0,d1
 	move.w	(sp)+,d0
-	bsr	write_mem
+	jsr	ms_write_mem_8
 	bra	cpu_main
 
 RL_lIdx_dl:
@@ -8101,7 +7789,7 @@ RL_lIdx_dl:
 	andi.w	#%01110100_11111111,d6	* Ｎ,Ｃ,HC mode をクリア
 	move.b	d5,HC2(a3)		* HC をクリア
 	move.w	d0,-(sp)		* Idx + d をプッシュ
-	bsr	read_mem
+	jsr	ms_read_mem_8
 	add.b	d0,d0
 	bcc	1f
 	ori.w	#%00000001_00000000,d6	* ＣＹをセット
@@ -8111,7 +7799,7 @@ RL_lIdx_dl:
 
 	move.b	d0,d1
 	move.w	(sp)+,d0
-	bsr	write_mem
+	jsr	ms_write_mem_8
 	bra	cpu_main
 
 
@@ -8121,7 +7809,7 @@ RR_lIdx_dl:
 	andi.w	#%01110100_11111111,d6	* Ｎ,Ｃ,HC mode をクリア
 	move.b	d5,HC2(a3)		* HC をクリア
 	move.w	d0,-(sp)		* Idx + d をプッシュ
-	bsr	read_mem
+	jsr	ms_read_mem_8
 	lsr.b	#1,d0
 	bcc	1f
 	ori.w	#%00000001_00000000,d6	* ＣＹをセット
@@ -8130,14 +7818,14 @@ RR_lIdx_dl:
 	move.b	d0,PV(a3)
 	move.b	d0,d1
 	move.w	(sp)+,d0
-	bsr	write_mem
+	jsr	ms_write_mem_8
 	bra	cpu_main
 
 SLA_lIdx_dl:
 	andi.w	#%01110100_11111111,d6	* Ｎ,Ｃ,HC mode をクリア
 	move.b	d5,HC2(a3)		* HC をクリア
 	move.w	d0,-(sp)		* Idx + d をプッシュ
-	bsr	read_mem
+	jsr	ms_read_mem_8
 	add.b	d0,d0
 	bcc	1f
 	ori.w	#%00000001_00000000,d6	* ＣＹをセット
@@ -8145,14 +7833,14 @@ SLA_lIdx_dl:
 	move.b	d0,PV(a3)
 	move.b	d0,d1
 	move.w	(sp)+,d0
-	bsr	write_mem
+	jsr	ms_write_mem_8
 	bra	cpu_main
 
 SRA_lIdx_dl:
 	andi.w	#%01110100_11111111,d6	* Ｎ,Ｃ,HC mode をクリア
 	move.b	d5,HC2(a3)		* HC をクリア
 	move.w	d0,-(sp)		* Idx + d をプッシュ
-	bsr	read_mem
+	jsr	ms_read_mem_8
 	asr.b	#1,d0
 	bcc	1f
 	ori.w	#%00000001_00000000,d6	* ＣＹをセット
@@ -8160,14 +7848,14 @@ SRA_lIdx_dl:
 	move.b	d0,PV(a3)
 	move.b	d0,d1
 	move.w	(sp)+,d0
-	bsr	write_mem
+	jsr	ms_write_mem_8
 	bra	cpu_main
 
 SRL_lIdx_dl:
 	andi.w	#%01110100_11111111,d6	* Ｎ,Ｃ,HC mode をクリア
 	move.b	d5,HC2(a3)		* HC をクリア
 	move.w	d0,-(sp)		* Idx + d をプッシュ
-	bsr	read_mem
+	jsr	ms_read_mem_8
 	lsr.b	#1,d0
 	bcc	1f
 	ori.w	#%00000001_00000000,d6	* ＣＹをセット
@@ -8175,14 +7863,14 @@ SRL_lIdx_dl:
 	move.b	d0,PV(a3)
 	move.b	d0,d1
 	move.w	(sp)+,d0
-	bsr	write_mem
+	jsr	ms_write_mem_8
 	bra	cpu_main
 
 SLI_lIdx_dl:
 	andi.w	#%01110100_11111111,d6	* Ｎ,Ｃ,HC mode をクリア
 	move.b	d5,HC2(a3)		* HC をクリア
 	move.w	d0,-(sp)		* Idx + d をプッシュ
-	bsr	read_mem
+	jsr	ms_read_mem_8
 	add.b	d0,d0
 	bcc	1f
 	ori.w	#%00000001_00000000,d6	* ＣＹをセット
@@ -8191,174 +7879,8 @@ SLI_lIdx_dl:
 	move.b	d0,PV(a3)
 	move.b	d0,d1
 	move.w	(sp)+,d0
-	bsr	write_mem
+	jsr	ms_write_mem_8
 	bra	cpu_main
-
-*****************************************************
-*
-*	８ビットメモリ読み込みサブルーチン
-*
-*	a0.l		ベースアドレス(68000)
-*	d0.w		アドレス  (R800)	
-* 返り値
-*	d0.b	 	メモリから読み込んだ値を入れる
-*
-*	d0 以外破壊してはならない
-*
-*******************************************************
-rd8_nothing:
-	move.b	#$ff,d0
-	rts
-
-rd8_normal:
-	move.b	0(a0,d0.w),d0
-	rts
-
-rd8_MEGA_ROM_8:			* まだやってない
-
-rd8_MEGA_ROM_16:		* まだやってない
-
-rd8_MEGA_ROM_SCC:		* まだやってない
-
-rd8_MEGA_ROM_PANA:		* まだやってない
-
-rd8_SOUND:
-	rts
-
-rd8_PAC:				* pac のレジスタは読み込み出来ない
-	cmpi.w	#$4d69,PAC_reg_0	* $5ffe に 4d, $5fff に 69 が書き込まれている
-	bne	rd8_nothing		* 時は Ｓ-ＲＡＭモード
-	move.b	0(a0,d0.w),d0
-	rts
-
-
-*****************************************************
-*
-*	８ビットメモリ書き込みルーチン
-*
-*	a0.l	ベースアドレス(68000)
-*	d0.w	アドレス  (R800)	
-*	d1.b	書き込む値
-*
-*******************************************************
-wt8_nothing:
-
-wt8_ROM:
-	rts
-
-wt8_RAM:
-	move.b	d1,0(a0,d0.w)
-	rts
-
-wt8_MEGA_ROM_8:		* まだやってない
-
-wt8_MEGA_ROM_16:		* まだやってない
-
-wt8_MEGA_ROM_SCC:		* まだやってない
-
-wt8_MEGA_ROM_PANA:		* まだやってない
-
-wt8_SOUND:		* まだやってない
-
-wt8_PAC:
-	cmpi.w	#$1ffe,d0
-	beq	set_reg_0
-	cmpi.w	#$1fff,d0
-	beq	set_reg_1
-	cmpi.w	#$4d69,PAC_reg_0	* $5ffe に 4d, $5fff に 69 が書き込まれている
-	bne	wt8_nothing		* 時は Ｓ-ＲＡＭモード
-	move.b	d1,0(a0,d0.w)
-	rts
-set_reg_0:
-	move.b	d1,PAC_reg_0
-	rts
-set_reg_1:
-	move.b	d1,PAC_reg_1
-	rts	
-
-wt8_DOS_ROM:
-	cmpi.w	#$3ff0,d0
-	bne	wt8_nothing
-					* ＤＯＳのページ切り替え（ローカルバンク）
-		* まだやってない
-	rts	
-
-*****************************************************
-*
-*	１６ビットメモリ読み込みサブルーチン
-*
-*	a0.l		ベースアドレス(68000)
-*	d0.w		アドレス  (R800)	
-* 返り値
-*	d0.w	 	メモリから読み込んだ値を入れる
-*
-*	d0 以外破壊してはならない
-*
-*******************************************************
-rd16_nothing:
-	move.w	#$ffff,d0
-	rts
-
-rd16_normal:
-	move.b	1(a0,d0.w),-(sp)
-	move.b	0(a0,d0.w),1(sp)
-	move.w	(sp)+,d0
-	rts
-
-rd16_MEGA_ROM_8:		* まだやってない
-
-rd16_MEGA_ROM_16:		* まだやってない
-
-rd16_MEGA_ROM_SCC:		* まだやってない
-
-rd16_MEGA_ROM_PANA:		* まだやってない
-
-rd16_SOUND:
-	rts
-
-rd16_PAC:				* pac のレジスタは読み込み出来ない
-	cmpi.w	#$4d69,PAC_reg_0	* $5ffe に 4d, $5fff に 69 が書き込まれている
-	bne	rd16_nothing		* 時は Ｓ-ＲＡＭモード
-	move.b	1(a0,d0.w),-(sp)
-	move.w	(sp)+,d0
-	move.b	0(a0,d0.w),d0
-	rts
-
-
-*****************************************************
-*
-*	１６ビットメモリ書き込みルーチン
-*
-*	a0.l	ベースアドレス(68000)
-*	d0.w	アドレス  (R800)	
-*	d1.w	書き込む値
-*
-*******************************************************
-wt16_nothing:
-
-wt16_ROM:
-	rts
-
-wt16_RAM:
-	move.b	d1,0(a0,d0.w)
-	lsr.w	#8,d1
-	move.b	d1,1(a0,d0.w)
-	rts
-
-wt16_MEGA_ROM_8:		* まだやってない
-
-wt16_MEGA_ROM_16:		* まだやってない
-
-wt16_MEGA_ROM_SCC:		* まだやってない
-
-wt16_MEGA_ROM_PANA:		* まだやってない
-
-wt16_SOUND:		* まだやってない
-
-wt16_DOS_ROM:		* まだやってない
-
-wt16_PAC:
-	rts
 
 *****************************************************
 *
@@ -8449,7 +7971,7 @@ INI:	ori.w	#%00000010_00000000,d6	* Nをセット
 	bsr	input
 	move.b	d0,d1
 	move.w	hl(a3),d0
-	bsr	write_mem
+	jsr	ms_write_mem_8
 	addq.w	#1,hl(a3)
 	subq.b	#1,b(a3)
 	move.b	b(a3),d6		* Z を設定
@@ -8462,7 +7984,7 @@ IND:	ori.w	#%00000010_00000000,d6	* Nをセット
 	bsr	input
 	move.b	d0,d1
 	move.w	hl(a3),d0
-	bsr	write_mem
+	jsr	ms_write_mem_8
 	subq.w	#1,hl(a3)
 	subq.b	#1,b(a3)
 	move.b	b(a3),d6		* Z を設定
@@ -8476,7 +7998,7 @@ INIR:	ori.w	#%00000010_00000000,d6	* Nをセット
 	bsr	input
 	move.b	d0,d1
 	move.w	hl(a3),d0
-	bsr	write_mem
+	jsr	ms_write_mem_8
 	addq.w	#1,hl(a3)
 	subq.b	#1,b(a3)
 	bne	@b
@@ -8491,7 +8013,7 @@ INDR:	ori.w	#%00000010_00000000,d6	* Nをセット
 	bsr	input
 	move.b	d0,d1
 	move.w	hl(a3),d0
-	bsr	write_mem
+	jsr	ms_write_mem_8
 	subq.w	#1,hl(a3)
 	subq.b	#1,b(a3)
 	bne	@b
@@ -8560,7 +8082,7 @@ OUT_c_L:
 OUTI:	ori.w	#%00000010_00000000,d6	* Nをセット
 	andi.w	#%01111111_11111111,d6
 	move.w	hl(a3),d0
-	bsr	read_mem
+	jsr	ms_read_mem_8
 	move.b	d0,d1			* 書き込む値
 	move.b	c(a3),d0		* 書き込むポート
 	bsr	output
@@ -8573,7 +8095,7 @@ OUTI:	ori.w	#%00000010_00000000,d6	* Nをセット
 OUTD:	ori.w	#%00000010_00000000,d6	* Nをセット
 	andi.w	#%01111111_11111111,d6
 	move.w	hl(a3),d0
-	bsr	read_mem
+	jsr	ms_read_mem_8
 	move.b	d0,d1			* 書き込む値
 	move.b	c(a3),d0		* 書き込むポート
 	bsr	output
@@ -8587,7 +8109,7 @@ OTIR:	ori.w	#%00000010_00000000,d6	* Nをセット
 	andi.w	#%01111111_11111111,d6
 @@:
 	move.w	hl(a3),d0
-	bsr	read_mem
+	jsr	ms_read_mem_8
 	move.b	d0,d1			* 書き込む値
 	move.b	c(a3),d0		* 書き込むポート
 	bsr	output
@@ -8602,7 +8124,7 @@ OTDR:	ori.w	#%00000010_00000000,d6	* Nをセット
 	andi.w	#%01111111_11111111,d6
 @@:
 	move.w	hl(a3),d0
-	bsr	read_mem
+	jsr	ms_read_mem_8
 	move.b	d0,d1			* 書き込む値
 	move.b	c(a3),d0		* 書き込むポート
 	bsr	output
@@ -8628,7 +8150,7 @@ OTDR:	ori.w	#%00000010_00000000,d6	* Nをセット
 input:
 	clr.w	d1
 	move.b	d0,d1				* 上位バイトを０でクリア
-	lea.l	io_input_table,a0
+	lea.l	ms_io_input_table,a0
 	movea.l	(a0,d1.w*4),a0			* d0 の値を変えちゃだめ（68030用→68000用にする時注意）
 	jmp	(a0)				* rts を省略するためジャンプにしてある
 
@@ -8649,7 +8171,7 @@ output:
 .endif
 	clr.w	d2
 	move.b	d0,d2				* 上位バイトを０でクリア
-	lea	io_output_table,a0
+	lea	ms_io_output_table,a0
 	movea.l	(a0,d2.w*4),a0			* d0 の値を変えちゃだめ（68030用→68000用にする時注意）
 	jmp	(a0)				* rts を省略するためジャンプにしてある
 
@@ -8689,381 +8211,6 @@ debug_out_value:
 	.dc.b	'00'
 	.dc.b	0x0d,0x0a,0x00
 
-
-	.text
-
-****************************************************************************
-*
-*
-*	スロット切り替えサブルーチン群
-*
-*
-****************************************************************************
-*
-*	拡張スロット選択レジスタの値の読み込み
-*
-*	d0.b 読み込んだ値
-*
-exslotreg_read:
-	move.b	slot_reg,d0			* page 3 のスロット番号を調べる
-	lsr.b	#6,d0
-	ext.w	d0
-	cmpi.b	#0,slot_0_ex-base(a3,d0.w)	* そのスロットは拡張されているか？
-	beq	not_extend_r
-	move.b	exslot_reg_0-base(a3,d0.w),d0	* 拡張スロット選択レジスタの値を読む
-	eori.b	#$ff,d0				* １の補数を取る
-	rts
-not_extend_r:					* 拡張されてなければそのまま読む
-	jmp	(a1)				* rts省略のため jmpにしてある
-
-*****************************************************************************
-*
-*	拡張スロット選択レジスタへの値の書き込み。切り替えたスロットが
-*	表に出ていればそれを切り替える。
-*
-*	d1.b ・・・ 書き込む値
-*
-*****************************************************************************
-exslotreg_write:
-	move.b	slot_reg,d2			* page 3 のスロット番号を調べる
-	lsr.b	#6,d2
-	ext.w	d2
-	cmpi.b	#0,slot_0_ex-base(a3,d2.w)	* そのスロットは拡張されているか？
-	beq	not_extend_w
-	move.b	d1,exslot_reg_0-base(a3,d2.w)	* 拡張スロット選択レジスタへ値を書く
-
-	move.l	a2,-(sp)
-	move.l	a1,-(sp)
-	lea.l	base2,a2
-	lea.l	slot_0_0,a1
-
-*	ページ３は当然表に出ているので切り替え
-	move.w	d2,-(sp)
-	lsl.w	#6,d2				* d2 = 切り替えたスロット番号 * 64
-	move.b	d1,d0
-	andi.w	#%00000000_11000000,d0
-	lsr.w	#2,d0				* d0 = 拡張スロット番号 * 16
-	add.w	d2,d0
-	movea.l	4*3(a1,d0.w),a0
-	move.l	a0,page3
-
-	move.b	slot_type(a0),d0		* スロットの種類に応じて読み書きルーチ
-	ext.w	d0				* ンを設定
-	move.l	 wt8_sub_add_0-base2(a2,d0.w*4), wt8_sub_add_p3-base2(a2)
-	move.l	wt16_sub_add_0-base2(a2,d0.w*4),wt16_sub_add_p3-base2(a2)
-	move.l	 rd8_sub_add_0-base2(a2,d0.w*4), rd8_sub_add_p3-base2(a2)
-	move.l	rd16_sub_add_0-base2(a2,d0.w*4),rd16_sub_add_p3-base2(a2)
-
-*	ページ０は表に出てるか？
-	move.b	slot_reg,d0
-	andi.w	#%00000000_00000011,d0
-	move.w	(sp),d2
-	cmp.w	d2,d0
-	bne	not_exist0
-	lsl.w	#6,d2				* d2 = 切り替えたスロット番号 * 64
-	move.b	d1,d0
-	andi.w	#%00000000_00000011,d0
-	lsl.w	#4,d0				* d0 = 拡張スロット番号 * 16
-	add.w	d2,d0
-	movea.l	4*0(a1,d0.w),a0
-	move.l	a0,page0
-
-	move.b	slot_type(a0),d0		* スロットの種類に応じて読み書きルーチ
-	ext.w	d0				* ンを設定
-	move.l	 wt8_sub_add_0-base2(a2,d0.w*4), wt8_sub_add_p0-base2(a2)
-	move.l	wt16_sub_add_0-base2(a2,d0.w*4),wt16_sub_add_p0-base2(a2)
-	move.l	 rd8_sub_add_0-base2(a2,d0.w*4), rd8_sub_add_p0-base2(a2)
-	move.l	rd16_sub_add_0-base2(a2,d0.w*4),rd16_sub_add_p0-base2(a2)
-
-*	ページ１は表に出てるか？
-not_exist0:
-	move.b	slot_reg,d0	
-	andi.w	#%00000000_00001100,d0
-	move.w	(sp),d2
-	lsl.w	#2,d2
-	cmp.w	d2,d0
-	bne	not_exist1
-	lsl.w	#4,d2				* d2 = 切り替えたスロット番号 * 64
-	move.b	d1,d0
-	andi.w	#%00000000_00001100,d0
-	lsl.w	#2,d0				* d0 = 拡張スロット番号 * 16
-	add.w	d2,d0
-	movea.l	4*1(a1,d0.w),a0
-	move.l	a0,page1
-
-	move.b	slot_type(a0),d0		* スロットの種類に応じて読み書きルーチ
-	ext.w	d0				* ンを設定
-	move.l	 wt8_sub_add_0-base2(a2,d0.w*4), wt8_sub_add_p1-base2(a2)
-	move.l	wt16_sub_add_0-base2(a2,d0.w*4),wt16_sub_add_p1-base2(a2)
-	move.l	 rd8_sub_add_0-base2(a2,d0.w*4), rd8_sub_add_p1-base2(a2)
-	move.l	rd16_sub_add_0-base2(a2,d0.w*4),rd16_sub_add_p1-base2(a2)
-
-*	ページ２は表に出てるか？
-not_exist1:
-	move.b	slot_reg,d0
-	andi.w	#%00000000_00110000,d0
-	move.w	(sp)+,d2
-	lsl.w	#4,d2
-	cmp.w	d2,d0
-	bne	not_exist2
-	lsl.w	#2,d2				* d2 = 切り替えたスロット番号 * 64
-	move.b	d1,d0
-	andi.w	#%00000000_00110000,d0		* d0 = 拡張スロット番号 * 16
-	add.w	d2,d0
-	movea.l	4*2(a1,d0.w),a0
-	move.l	a0,page2
-
-	move.b	slot_type(a0),d0		* スロットの種類に応じて読み書きルーチ
-	ext.w	d0				* ンを設定
-	move.l	 wt8_sub_add_0-base2(a2,d0.w*4), wt8_sub_add_p2-base2(a2)
-	move.l	wt16_sub_add_0-base2(a2,d0.w*4),wt16_sub_add_p2-base2(a2)
-	move.l	 rd8_sub_add_0-base2(a2,d0.w*4), rd8_sub_add_p2-base2(a2)
-	move.l	rd16_sub_add_0-base2(a2,d0.w*4),rd16_sub_add_p2-base2(a2)
-not_exist2:
-	move.l	(sp)+,a1
-	move.l	(sp)+,a2
-	rts
-
-not_extend_w:				* 拡張されてなければそのまま書き込む
-	jmp	(a1)			* rts省略のため jmpにしてある
-
-
-******************************************************************
-*
-*	基本スロットの切り替え
-*
-*		ＰＯＲＴ Ａ８ への書き込み
-*
-*	d1.b ・・・書き込む値
-*
-******************************************************************
-w_port_A8:
-	move.b	d1,slot_reg
-
-	lea.l	slot_0_0,a0
-	lea.l	base2,a2
-
-	move.b	d1,d0
-	andi.w	#%00000011,d0			* ページ０の切り替え
-	move.b	exslot_reg_0-base(a3,d0.w),d2	* 拡張スロット選択レジスタの値を読む
-	andi.w	#%00000011,d2			* d2 = ページ０の拡張スロット番号
-	lsl.w	#4,d2
-	lsl.w	#6,d0
-	add.w	d2,d0
-	movea.l	4*0(a0,d0.w),a1
-	move.l	a1,page0
-	move.b	slot_type(a1),d0		* スロットの種類に応じて読み書きルーチ
-						* ンを設定
-						* d0の上位バイトは０になってるはずだか
-						* ら、ext.w d0 はいらない
-	move.l	 wt8_sub_add_0-base2(a2,d0.w*4), wt8_sub_add_p0-base2(a2)
-	move.l	wt16_sub_add_0-base2(a2,d0.w*4),wt16_sub_add_p0-base2(a2)
-	move.l	 rd8_sub_add_0-base2(a2,d0.w*4), rd8_sub_add_p0-base2(a2)
-	move.l	rd16_sub_add_0-base2(a2,d0.w*4),rd16_sub_add_p0-base2(a2)
-
-	move.b	d1,d0
-	andi.w	#%00001100,d0			* ページ１の切り替え
-	lsr.w	#2,d0
-	move.b	exslot_reg_0-base(a3,d0.w),d2	* 拡張スロット選択レジスタの値を読む
-	andi.w	#%00001100,d2			* d2 = ページ１の拡張スロット番号
-	lsl.w	#2,d2
-	lsl.w	#6,d0
-	add.w	d2,d0
-	movea.l	4*1(a0,d0.w),a1
-	move.l	a1,page1
-	move.b	slot_type(a1),d0		* スロットの種類に応じて読み書きルーチ
-						* ンを設定
-	move.l	 wt8_sub_add_0-base2(a2,d0.w*4), wt8_sub_add_p1-base2(a2)
-	move.l	wt16_sub_add_0-base2(a2,d0.w*4),wt16_sub_add_p1-base2(a2)
-	move.l	 rd8_sub_add_0-base2(a2,d0.w*4), rd8_sub_add_p1-base2(a2)
-	move.l	rd16_sub_add_0-base2(a2,d0.w*4),rd16_sub_add_p1-base2(a2)
-
-
-	move.b	d1,d0
-	andi.w	#%00110000,d0			* ページ２の切り替え
-	lsr.w	#4,d0
-	move.b	exslot_reg_0-base(a3,d0.w),d2	* 拡張スロット選択レジスタの値を読む
-	andi.w	#%00110000,d2			* d2 = ページ２の拡張スロット番号
-	lsl.w	#6,d0
-	add.w	d2,d0
-	movea.l	4*2(a0,d0.w),a1
-	move.l	a1,page2
-	move.b	slot_type(a1),d0		* スロットの種類に応じて読み書きルーチ
-						* ンを設定
-	move.l	 wt8_sub_add_0-base2(a2,d0.w*4), wt8_sub_add_p2-base2(a2)
-	move.l	wt16_sub_add_0-base2(a2,d0.w*4),wt16_sub_add_p2-base2(a2)
-	move.l	 rd8_sub_add_0-base2(a2,d0.w*4), rd8_sub_add_p2-base2(a2)
-	move.l	rd16_sub_add_0-base2(a2,d0.w*4),rd16_sub_add_p2-base2(a2)
-
-
-	andi.w	#%11000000,d1			* ページ３の切り替え
-	move.w	d1,d0
-	lsr.w	#6,d1				* 68000 の時は rol.b #2,d1 の方が速い
-	move.b	exslot_reg_0-base(a3,d1.w),d2	* 拡張スロット選択レジスタの値を読む
-	andi.w	#%11000000,d2			* d2 = ページ３の拡張スロット番号
-	lsr.w	#2,d2
-	add.w	d2,d0
-	movea.l	4*3(a0,d0.w),a1
-	move.l	a1,page3
-	move.b	slot_type(a1),d0		* スロットの種類に応じて読み書きルーチ
-						* ンを設定
-	move.l	 wt8_sub_add_0-base2(a2,d0.w*4), wt8_sub_add_p3-base2(a2)
-	move.l	wt16_sub_add_0-base2(a2,d0.w*4),wt16_sub_add_p3-base2(a2)
-	move.l	 rd8_sub_add_0-base2(a2,d0.w*4), rd8_sub_add_p3-base2(a2)
-	move.l	rd16_sub_add_0-base2(a2,d0.w*4),rd16_sub_add_p3-base2(a2)
-
-	swap	d7				* PC のベースポインタも変更
-	movea.l	page0-base(a3,d7.w*4),a4	* （変わってないかもしれないが、
-	swap	d7				*   チェックするより常に変えるほ
-						*   うが早い）
-	rts	
-
-******************************************************************
-*
-*	マッパーセグメントの切り替え
-*
-*		ＰＯＲＴ 0xＦＣ～0xＦＦ への書き込み
-*
-*	d1.b ・・・書き込む値
-*
-******************************************************************
-w_port_FC:
-	move.b	d1,p_FC
-
-	lea.l	slot_0_0,a0
-	movea.l	a0,a2			* 下で使う
-	move.w	#16-1,d0
-@@:
-	movea.l	(a0),a1
-	cmp.b	#1,slot_type(a1)	* slot#x-x はマッパＲＡＭかどうか
-	bne	1f
-	move.b	total_segments(a1),d2	* 総セグメント数－１
-	and.b	d1,d2			* d2 ・・ 切り替えるセグメント番号
-	sub.b	my_segment_num(a1),d2	* d2 ・・ 現在のセグメント番号との差（符号あり）
-	ext.w	d2
-	muls.w	#16384+8,d2
-	add.l	d2,(a0)
-1:	lea.l	16(a0),a0
-	dbra	d0,@b
-
-	move.b	slot_reg,d0
-	andi.w	#%00000011,d0			* d0 = ページ０の基本スロット番号
-	move.b	exslot_reg_0-base(a3,d0.w),d2	* 拡張スロット選択レジスタの値を読む
-	andi.w	#%00000011,d2			* d2 = ページ０の拡張スロット番号
-	lsl.w	#4,d2
-	lsl.w	#6,d0
-	add.w	d2,d0
-	move.w	4*0(a2,d0.w),page0
-
-	swap	d7				* PC のベースポインタも変更
-	movea.l	page0-base(a3,d7.w*4),a4	* （変わってないかもしれないが、
-	swap	d7				*   チェックするより常に変えるほ
-						*   うが早い）
-	rts	
-
-w_port_FD:
-	move.b	d1,p_FD
-
-	lea.l	slot_0_0,a0
-	movea.l	a0,a2			* 下で使う
-	move.w	#16-1,d0
-@@:
-	movea.l	(a0),a1
-	cmp.b	#1,slot_type(a1)	* slot#x-x はマッパＲＡＭかどうか
-	bne	1f
-	move.b	total_segments(a1),d2	* 総セグメント数－１
-	and.b	d1,d2			* d2 ・・ 切り替えるセグメント番号
-	sub.b	my_segment_num(a1),d2	* d2 ・・ 現在のセグメント番号との差（符号あり）
-	ext.w	d2
-	muls.w	#16384+8,d2
-	add.l	d2,(a0)
-1:	lea.l	16(a0),a0
-	dbra	d0,@b
-
-	move.b	slot_reg,d0
-	andi.w	#%00001100,d0			* d0 = ページ１の基本スロット番号
-	lsr.w	#2,d0
-	move.b	exslot_reg_0-base(a3,d0.w),d2	* 拡張スロット選択レジスタの値を読む
-	andi.w	#%00001100,d2			* d2 = ページ１の拡張スロット番号
-	lsl.w	#2,d2
-	lsl.w	#6,d0
-	add.w	d2,d0
-	move.w	4*1(a2,d0.w),page1
-
-	swap	d7				* PC のベースポインタも変更
-	movea.l	page0-base(a3,d7.w*4),a4	* （変わってないかもしれないが、
-	swap	d7				*   チェックするより常に変えるほ
-						*   うが早い）
-	rts	
-
-w_port_FE:
-	move.b	d1,p_FE
-
-	lea.l	slot_0_0,a0
-	movea.l	a0,a2			* 下で使う
-	move.w	#16-1,d0
-@@:
-	movea.l	(a0),a1
-	cmp.b	#1,slot_type(a1)	* slot#x-x はマッパＲＡＭかどうか
-	bne	1f
-	move.b	total_segments(a1),d2	* 総セグメント数－１
-	and.b	d1,d2			* d2 ・・ 切り替えるセグメント番号
-	sub.b	my_segment_num(a1),d2	* d2 ・・ 現在のセグメント番号との差（符号あり）
-	ext.w	d2
-	muls.w	#16384+8,d2
-	add.l	d2,(a0)
-1:	lea.l	16(a0),a0
-	dbra	d0,@b
-
-	move.b	slot_reg,d0
-	andi.w	#%00110000,d0			* d0 = ページ２の基本スロット番号
-	lsr.w	#4,d0
-	move.b	exslot_reg_0-base(a3,d0.w),d2	* 拡張スロット選択レジスタの値を読む
-	andi.w	#%00110000,d2			* d2 = ページ２の拡張スロット番号
-	lsl.w	#6,d0
-	add.w	d2,d0
-	move.w	4*2(a2,d0.w),page2
-
-	swap	d7				* PC のベースポインタも変更
-	movea.l	page0-base(a3,d7.w*4),a4	* （変わってないかもしれないが、
-	swap	d7				*   チェックするより常に変えるほ
-						*   うが早い）
-	rts	
-
-w_port_FF:
-	move.b	d1,p_FF
-
-	lea.l	slot_0_0,a0
-	movea.l	a0,a2			* 下で使う
-	move.w	#16-1,d0
-@@:
-	movea.l	(a0),a1
-	cmp.b	#1,slot_type(a1)	* slot#x-x はマッパＲＡＭかどうか
-	bne	1f
-	move.b	total_segments(a1),d2	* 総セグメント数－１
-	and.b	d1,d2			* d2 ・・ 切り替えるセグメント番号
-	sub.b	my_segment_num(a1),d2	* d2 ・・ 現在のセグメント番号との差（符号あり）
-	ext.w	d2
-	muls.w	#16384+8,d2
-	add.l	d2,(a0)
-1:	lea.l	16(a0),a0
-	dbra	d0,@b
-
-	move.b	slot_reg,d0
-	andi.w	#%11000000,d0			* d0 = ページ３の基本スロット番号
-	move.w	d0,d1
-	lsr.w	#6,d0
-	move.b	exslot_reg_0-base(a3,d0.w),d2	* 拡張スロット選択レジスタの値を読む
-	andi.w	#%11000000,d2			* d2 = ページ３の拡張スロット番号
-	lsr.w	#2,d2
-	add.w	d2,d1
-	move.w	4*3(a2,d1.w),page3
-
-	swap	d7				* PC のベースポインタも変更
-	movea.l	page0-base(a3,d7.w*4),a4	* （変わってないかもしれないが、
-	swap	d7				*   チェックするより常に変えるほ
-						*   うが早い）
-	rts	
 
 
 
@@ -9174,267 +8321,5 @@ interrupt_enable:
 interrupt_mode:
 	.dc.b	0		* インタラプトモード 0, 1, 2
 
-	.even
-
-*	スロットに関する情報
-slot_0_ex:			* slot 0 は拡張されているか？ 0・・No  1・・Yes
-	.dc.b	0
-slot_1_ex:
-	.dc.b	0
-slot_2_ex:
-	.dc.b	0
-slot_3_ex:
-	.dc.b	0
-
-exslot_reg_0:			* slot 0 の拡張スロット選択レジスタ
-	.dc.b	0		* 拡張されてないスロットは０にしておくこと（必ず）
-exslot_reg_1:
-	.dc.b	0
-exslot_reg_2:
-	.dc.b	0
-exslot_reg_3:
-	.dc.b	0
-
-slot_reg:
-	.dc.b	0		* スロット選択レジスタ(I/O 0xA8)の値
-
-	.even
-
-page0:				* 現在 page 0 に選択されているページのアドレス
-	.dc.l	0		* 下の slot_x_x_pagex の値がそのままコピーされる
-page1:
-	.dc.l	0
-page2:
-	.dc.l	0
-page3:
-	.dc.l	0
-
-
-********************* まだちゃんとやってない（別紙参照） *********************
-*		 読み込みルーチン
-rd8_sub_add_0:			* ｎｏｔｈｉｎｇ		
-	.dc.l	rd8_nothing
-rd8_sub_add_1:			* マッパーＲＡＭ		
-	.dc.l	rd8_normal
-rd8_sub_add_2:			* ノーマルＲＯＭ
-	.dc.l	rd8_normal
-rd8_sub_add_3:			* メガＲＯＭ ( 8k)
-	.dc.l	rd8_MEGA_ROM_8
-rd8_sub_add_4:			* メガＲＯＭ (16k)
-	.dc.l	rd8_MEGA_ROM_16
-rd8_sub_add_5:			* コナミＳＣＣ付きメガロム
-	.dc.l	rd8_MEGA_ROM_SCC
-rd8_sub_add_6:			* コナミサウンドカートリッジ
-	.dc.l	rd8_SOUND
-rd8_sub_add_7:			* パナソニックメガロム ( A1-GT等の slot3-3)
-	.dc.l	rd8_MEGA_ROM_PANA
-rd8_sub_add_8:			* ＤＯＳ-ＲＯＭ (turbo R)
-	.dc.l	rd8_normal
-rd8_sub_add_9:			* ＰＡＣ
-	.dc.l	rd8_PAC
-
-rd8_sub_add_p0:			* 現在 page x に選択されているスロットから８ビットの読み
-	.dc.l	rd8_sub_add_0	* 込みを行う際の読み込みルーチンのアドレス。
-rd8_sub_add_p1:
-	.dc.l	rd8_sub_add_0
-rd8_sub_add_p2:
-	.dc.l	rd8_sub_add_0
-rd8_sub_add_p3:
-	.dc.l	rd8_sub_add_0
-
-*		 書き込みルーチン
-wt8_sub_add_0:			* ｎｏｔｈｉｎｇ		
-	.dc.l	wt8_nothing
-wt8_sub_add_1:			* マッパーＲＡＭ		
-	.dc.l	wt8_RAM
-wt8_sub_add_2:			* ノーマルＲＯＭ
-	.dc.l	wt8_ROM
-wt8_sub_add_3:			* メガＲＯＭ ( 8k)
-	.dc.l	wt8_MEGA_ROM_8
-wt8_sub_add_4:			* メガＲＯＭ (16k)
-	.dc.l	wt8_MEGA_ROM_16
-wt8_sub_add_5:			* コナミＳＣＣ付きメガロム
-	.dc.l	wt8_MEGA_ROM_SCC
-wt8_sub_add_6:			* コナミサウンドカートリッジ
-	.dc.l	wt8_SOUND
-wt8_sub_add_7:			* パナソニックメガロム ( A1-GT等の slot3-3)
-	.dc.l	wt8_MEGA_ROM_PANA
-wt8_sub_add_8:			* ＤＯＳ-ＲＯＭ (turbo R)
-	.dc.l	wt8_DOS_ROM
-wt8_sub_add_9:			* ＰＡＣ
-	.dc.l	wt8_PAC
-
-base2:
-
-wt8_sub_add_p0:			* 現在 page x に選択されているスロットに８ビットの書き
-	.dc.l	wt8_sub_add_0	* 込みを行う際の書き込みルーチンのアドレス。
-wt8_sub_add_p1:
-	.dc.l	wt8_sub_add_0
-wt8_sub_add_p2:
-	.dc.l	wt8_sub_add_0
-wt8_sub_add_p3:
-	.dc.l	wt8_sub_add_0
-
-*		 読み込みルーチン
-rd16_sub_add_0:			* ｎｏｔｈｉｎｇ		
-	.dc.l	rd16_nothing
-rd16_sub_add_1:			* マッパーＲＡＭ		
-	.dc.l	rd16_normal
-rd16_sub_add_2:			* ノーマルＲＯＭ
-	.dc.l	rd16_normal
-rd16_sub_add_3:			* メガＲＯＭ ( 8k)
-	.dc.l	rd16_MEGA_ROM_8
-rd16_sub_add_4:			* メガＲＯＭ (16k)
-	.dc.l	rd16_MEGA_ROM_16
-rd16_sub_add_5:			* コナミＳＣＣ付きメガロム
-	.dc.l	rd16_MEGA_ROM_SCC
-rd16_sub_add_6:			* コナミサウンドカートリッジ
-	.dc.l	rd16_SOUND
-rd16_sub_add_7:			* パナソニックメガロム ( A1-GT等の slot3-3)
-	.dc.l	rd16_MEGA_ROM_PANA
-rd16_sub_add_8:			* ＤＯＳ-ＲＯＭ (turbo R)
-	.dc.l	rd16_normal
-rd16_sub_add_9:			* ＰＡＣ
-	.dc.l	rd16_PAC
-
-
-rd16_sub_add_p0:		* 現在 page x に選択されているスロットから１６ビットの読
-	.dc.l	rd16_sub_add_0	* み込みを行う際の読み込みルーチンのアドレス。
-rd16_sub_add_p1:
-	.dc.l	rd16_sub_add_0
-rd16_sub_add_p2:
-	.dc.l	rd16_sub_add_0
-rd16_sub_add_p3:
-	.dc.l	rd16_sub_add_0
-
-*		 書き込みルーチン
-wt16_sub_add_0:			* ｎｏｔｈｉｎｇ		
-	.dc.l	wt16_nothing
-wt16_sub_add_1:			* マッパーＲＡＭ		
-	.dc.l	wt16_RAM
-wt16_sub_add_2:			* ノーマルＲＯＭ
-	.dc.l	wt16_ROM
-wt16_sub_add_3:			* メガＲＯＭ ( 8k)
-	.dc.l	wt16_MEGA_ROM_8
-wt16_sub_add_4:			* メガＲＯＭ (16k)
-	.dc.l	wt16_MEGA_ROM_16
-wt16_sub_add_5:			* コナミＳＣＣ付きメガロム
-	.dc.l	wt16_MEGA_ROM_SCC
-wt16_sub_add_6:			* コナミサウンドカートリッジ
-	.dc.l	wt16_SOUND
-wt16_sub_add_7:			* パナソニックメガロム ( A1-GT等の slot3-3)
-	.dc.l	wt16_MEGA_ROM_PANA
-wt16_sub_add_8:			* ＤＯＳ-ＲＯＭ (turbo R)
-	.dc.l	wt16_DOS_ROM
-wt16_sub_add_9:			* ＰＡＣ
-	.dc.l	wt16_PAC
-
-wt16_sub_add_p0:		* 現在 page x に選択されているスロットに１６ビットの書き
-	.dc.l	wt16_sub_add_0	* 込みを行う際の書き込みルーチンのアドレス。
-wt16_sub_add_p1:
-	.dc.l	wt16_sub_add_0
-wt16_sub_add_p2:
-	.dc.l	wt16_sub_add_0
-wt16_sub_add_p3:
-	.dc.l	wt16_sub_add_0
-
-*	このアドレスはヘッダ等を含まない部分を指す。よって、ヘッダは
-*	(アドレス) - 8 のアドレスから存在する。
-slot_0_0:
-	.dc.l	no_slot		* slot 0-0 page0 が存在するアドレス
-	.dc.l	no_slot		* slot 0-0 page1 が存在するアドレス
-	.dc.l	no_slot		* slot 0-0 page2 が存在するアドレス
-	.dc.l	no_slot		* slot 0-0 page3 が存在するアドレス
-slot_0_1:
-	.dc.l	no_slot
-	.dc.l	no_slot
-	.dc.l	no_slot
-	.dc.l	no_slot
-slot_0_2:
-	.dc.l	no_slot
-	.dc.l	no_slot
-	.dc.l	no_slot
-	.dc.l	no_slot
-slot_0_3:
-	.dc.l	no_slot
-	.dc.l	no_slot
-	.dc.l	no_slot
-	.dc.l	no_slot
-
-slot_1_0:
-	.dc.l	no_slot		* slot 1-0 page0 が存在するアドレス
-	.dc.l	no_slot
-	.dc.l	no_slot
-	.dc.l	no_slot
-slot_1_1:
-	.dc.l	no_slot
-	.dc.l	no_slot
-	.dc.l	no_slot
-	.dc.l	no_slot
-slot_1_2:
-	.dc.l	no_slot
-	.dc.l	no_slot
-	.dc.l	no_slot
-	.dc.l	no_slot
-slot_1_3:
-	.dc.l	no_slot
-	.dc.l	no_slot
-	.dc.l	no_slot
-	.dc.l	no_slot
-
-slot_2_0:
-	.dc.l	no_slot
-	.dc.l	no_slot
-	.dc.l	no_slot
-	.dc.l	no_slot
-slot_2_1:
-	.dc.l	no_slot
-	.dc.l	no_slot
-	.dc.l	no_slot
-	.dc.l	no_slot
-slot_2_2:
-	.dc.l	no_slot
-	.dc.l	no_slot
-	.dc.l	no_slot
-	.dc.l	no_slot
-slot_2_3:
-	.dc.l	no_slot
-	.dc.l	no_slot
-	.dc.l	no_slot
-	.dc.l	no_slot
-
-slot_3_0:
-	.dc.l	no_slot
-	.dc.l	no_slot
-	.dc.l	no_slot
-	.dc.l	no_slot
-slot_3_1:
-	.dc.l	no_slot
-	.dc.l	no_slot
-	.dc.l	no_slot
-	.dc.l	no_slot
-slot_3_2:
-	.dc.l	no_slot
-	.dc.l	no_slot
-	.dc.l	no_slot
-	.dc.l	no_slot
-slot_3_3:
-	.dc.l	no_slot
-	.dc.l	no_slot
-	.dc.l	no_slot
-	.dc.l	no_slot
-
-*	ＰＡＣのバンクセレクトレジスタ
-PAC_reg_0:			* PAC のバンク切り替え用レジスタ
-	.dc.b	0		* $5ffE 番地に対応
-PAC_reg_1:
-	.dc.b	0		* $5fff 番地に対応
-
-
-*	何もないスロットのためのダミーヘッダ
-	.dc.b	0		* slot type = nothing
-	.dc.b	0,0,0,0,0,0,0
-no_slot:
-	.dc.w	0		* dummy (なくてもいいけど一応)
 
 	.end

@@ -39,7 +39,7 @@ int a,i;
  		printf("メモリが確保できません\n");
 		ms_exit();
 	}
-	VDPSet( VideoRAM);						/* アセンブラのルーチンへ引き渡し		*/
+	ms_vdp_init( VideoRAM);						/* アセンブラのルーチンへ引き渡し		*/
 											/* 画面の初期化等						*/
 
 	MainROM1 = new_malloc( 16*1024+8);		/* ＭＡＩＮＲＯＭ（前半） １６Ｋ 		*/

@@ -324,11 +324,11 @@ next_pushAF:
 	move.w	break_point+0,d2
 	move.w	d2,d0				* セットしたアドレス
 	move.b	break_point+2,d1
-	jsr	write_mem
+	jsr	ms_write_mem_8
 	move.w	d2,d0				* セットするアドレス
 	addq.w	#1,d0
 	move.b	break_point+3,d1
-	jsr	write_mem
+	jsr	ms_write_mem_8
 
 	bra	command_X
 
@@ -363,20 +363,20 @@ command_B:
 
 	move.w	d2,break_point+0
 	move.w	d2,d0				* セットするアドレス
-	jsr	read_mem
+	jsr	ms_read_mem_8
 	move.b	d0,break_point+2
 	move.w	d2,d0				* セットするアドレス
 	addq.w	#1,d0
-	jsr	read_mem
+	jsr	ms_read_mem_8
 	move.b	d0,break_point+3
 
 	move.w	d2,d0				* セットするアドレス
 	move.w	#$DD,d1
-	jsr	write_mem
+	jsr	ms_write_mem_8
 	move.w	d2,d0				* セットするアドレス
 	addq.w	#1,d0
 	move.w	#$FE,d1
-	jsr	write_mem
+	jsr	ms_write_mem_8
 
 	bra	loop
 
@@ -420,20 +420,20 @@ command_S:
 
 	move.w	d2,break_point+0
 	move.w	d2,d0				* セットするアドレス
-	jsr	read_mem
+	jsr	ms_read_mem_8
 	move.b	d0,break_point+2
 	move.w	d2,d0				* セットするアドレス
 	addq.w	#1,d0
-	jsr	read_mem
+	jsr	ms_read_mem_8
 	move.b	d0,break_point+3
 
 	move.w	d2,d0				* セットするアドレス
 	move.w	#$DD,d1
-	jsr	write_mem
+	jsr	ms_write_mem_8
 	move.w	d2,d0				* セットするアドレス
 	addq.w	#1,d0
 	move.w	#$FE,d1
-	jsr	write_mem
+	jsr	ms_write_mem_8
 
 	movem.l	(sp)+,d4-d7/a3-a4
 	jsr	cpu_main
@@ -461,11 +461,11 @@ command_S:
 	move.w	break_point+0,d2
 	move.w	d2,d0				* セットしたアドレス
 	move.b	break_point+2,d1
-	jsr	write_mem
+	jsr	ms_write_mem_8
 	move.w	d2,d0				* セットするアドレス
 	addq.w	#1,d0
 	move.b	break_point+3,d1
-	jsr	write_mem
+	jsr	ms_write_mem_8
 
 	bra	command_X
 
@@ -1035,7 +1035,7 @@ no_param_D:
 @@:
 	move.w	d2,d0
 	move.w	d2,-(sp)
-	bsr	read_mem
+	jsr	ms_read_mem_8
 	move.w	(sp)+,d2
 	bsr	print_byte
 	addq.w	#1,d2	
@@ -1054,7 +1054,7 @@ no_param_D:
 @@:
 	move.w	d2,d0
 	move.w	d2,-(sp)
-	bsr	read_mem
+	jsr	ms_read_mem_8
 	move.w	(sp)+,d2
 	bsr	print_byte
 	addq.w	#1,d2	

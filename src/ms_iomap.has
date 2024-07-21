@@ -12,8 +12,10 @@
 	.include	iocscall.mac
 	.include	doscall.mac
 
-	.xdef	io_input_table
-	.xdef	io_output_table
+	.xdef	ms_iomap_init
+	.xdef	ms_iomap_deinit
+	.xdef	ms_io_input_table
+	.xdef	ms_io_output_table
 
 	.xref	r_port_90
 	.xref	w_port_90, w_port_91
@@ -38,12 +40,21 @@
 
 	.xref	HEX
 
+	.text
+
+ms_iomap_init:
+	moveq.l	#1,d0
+	rts
+
+ms_iomap_deinit:
+	rts
+
 	.data
 
 	.quad
 
 ; ****************************************************************************
-io_input_table:
+ms_io_input_table:
 *	0
 	.dc.l	no_port_IN,	no_port_IN,	no_port_IN,	no_port_IN
 	.dc.l	no_port_IN,	no_port_IN,	no_port_IN,	no_port_IN
@@ -126,7 +137,7 @@ io_input_table:
 	.dc.l	r_port_FC,	r_port_FD,	r_port_FE,	r_port_FF
 
 ; ****************************************************************************
-io_output_table:
+ms_io_output_table:
 *	0
 	.dc.l	no_port_OUT,	no_port_OUT,	no_port_OUT,	no_port_OUT
 	.dc.l	no_port_OUT,	no_port_OUT,	no_port_OUT,	no_port_OUT
