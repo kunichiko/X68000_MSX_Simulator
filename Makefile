@@ -39,10 +39,10 @@ copy_to_target_debug: ${BUILD_DIR} ${BUILD_DIR}/ms_debug.x
 	cp ${BUILD_DIR}/ms_debug.x.elf ${EXE_DIR}/
 	cp ${BUILD_DIR}/ms_debug.x /Users/ohnaka/work/XEiJ/HFS/MS.X/
 
-${BUILD_DIR}/ms.x: $(BUILD_DIR)/ms.o $(BUILD_DIR)/ms_R800_mac_30.o $(BUILD_DIR)/ms_vdp_mac.o $(BUILD_DIR)/ms_sysvalue.o $(BUILD_DIR)/ms_sub_mac.o $(BUILD_DIR)/ms_IO_PORT.o $(BUILD_DIR)/ms_PSG_mac.o $(BUILD_DIR)/ms_readcart.o #$(BUILD_DIR)/ms_debugger_mac.o
+${BUILD_DIR}/ms.x: $(BUILD_DIR)/ms.o $(BUILD_DIR)/ms_R800_mac_30.o $(BUILD_DIR)/ms_iomap.o $(BUILD_DIR)/ms_vdp_mac.o $(BUILD_DIR)/ms_sysvalue.o $(BUILD_DIR)/ms_sub_mac.o $(BUILD_DIR)/ms_IO_PORT.o $(BUILD_DIR)/ms_PSG_mac.o $(BUILD_DIR)/ms_readcart.o #$(BUILD_DIR)/ms_debugger_mac.o
 	$(LD) $(LDFLAGS) -o $@ $^
 
-${BUILD_DIR}/ms_debug.x: $(BUILD_DIR)/ms_debug.o $(BUILD_DIR)/ms_R800_mac_30_debug.o $(BUILD_DIR)/ms_vdp_mac_debug.o $(BUILD_DIR)/ms_sysvalue_debug.o $(BUILD_DIR)/ms_sub_mac_debug.o $(BUILD_DIR)/ms_IO_PORT_debug.o $(BUILD_DIR)/ms_PSG_mac_debug.o $(BUILD_DIR)/ms_readcart_debug.o #$(BUILD_DIR)/ms_debugger_mac_debug.o
+${BUILD_DIR}/ms_debug.x: $(BUILD_DIR)/ms_debug.o $(BUILD_DIR)/ms_R800_mac_30_debug.o $(BUILD_DIR)/ms_iomap_debug.o $(BUILD_DIR)/ms_vdp_mac_debug.o $(BUILD_DIR)/ms_sysvalue_debug.o $(BUILD_DIR)/ms_sub_mac_debug.o $(BUILD_DIR)/ms_IO_PORT_debug.o $(BUILD_DIR)/ms_PSG_mac_debug.o $(BUILD_DIR)/ms_readcart_debug.o #$(BUILD_DIR)/ms_debugger_mac_debug.o
 	$(LD) $(LDFLAGS) -o $@ $^
 
 ${BUILD_DIR}/%_debug.o: $(SRC_DIR)/%.c

@@ -1,0 +1,271 @@
+;
+;  MSXのI/Oポートマッピングを行うためのファイルです。
+;  
+;  CPUコアから、I/Oポートの処理を分離するために、ジャンプテーブルがこのファイル上に用意
+;  されています。CPUコアは、このファイル上のジャンプテーブルを参照して、I/Oポートの処理
+;  を行います。
+;  CPUコアのテストプログラムや、MSX以外の環境でのエミュレーションの時は、このファイルを
+;  適切な処理に書き換えることで、I/Oポートの処理を変更することができます。
+
+	.cpu 68030
+
+	.include	iocscall.mac
+	.include	doscall.mac
+
+	.xdef	io_input_table
+	.xdef	io_output_table
+
+	.xref	r_port_90
+	.xref	w_port_90, w_port_91
+
+	.xref	r_port_A0, r_port_A1, r_port_A2
+	.xref	w_port_A0, w_port_A1
+
+	.xref	r_port_A8, r_port_A9
+	.xref	w_port_A8
+
+	.xref	r_port_AA, r_port_AB
+	.xref	w_port_AA, w_port_AB
+
+	.xref	r_port_B4, r_port_B5	
+	.xref	w_port_B4, w_port_B5
+
+	.xref	r_port_FC,r_port_FD,r_port_FE,r_port_FF
+	.xref	w_port_FC,w_port_FD,w_port_FE,w_port_FF
+
+	.xref	read_vdp_0,	read_vdp_1,	read_vdp_2,	read_vdp_3
+	.xref	write_vdp_0,	write_vdp_1,	write_vdp_2,	write_vdp_3
+
+	.xref	HEX
+
+	.data
+
+	.quad
+
+; ****************************************************************************
+io_input_table:
+*	0
+	.dc.l	no_port_IN,	no_port_IN,	no_port_IN,	no_port_IN
+	.dc.l	no_port_IN,	no_port_IN,	no_port_IN,	no_port_IN
+	.dc.l	no_port_IN,	no_port_IN,	no_port_IN,	no_port_IN
+	.dc.l	no_port_IN,	no_port_IN,	no_port_IN,	no_port_IN
+*	1
+	.dc.l	no_port_IN,	no_port_IN,	no_port_IN,	no_port_IN
+	.dc.l	no_port_IN,	no_port_IN,	no_port_IN,	no_port_IN
+	.dc.l	no_port_IN,	no_port_IN,	no_port_IN,	no_port_IN
+	.dc.l	no_port_IN,	no_port_IN,	no_port_IN,	no_port_IN
+*	2
+	.dc.l	no_port_IN,	no_port_IN,	no_port_IN,	no_port_IN
+	.dc.l	no_port_IN,	no_port_IN,	no_port_IN,	no_port_IN
+	.dc.l	no_port_IN,	no_port_IN,	no_port_IN,	no_port_IN
+	.dc.l	no_port_IN,	no_port_IN,	no_port_IN,	no_port_IN
+*	3
+	.dc.l	no_port_IN,	no_port_IN,	no_port_IN,	no_port_IN
+	.dc.l	no_port_IN,	no_port_IN,	no_port_IN,	no_port_IN
+	.dc.l	no_port_IN,	no_port_IN,	no_port_IN,	no_port_IN
+	.dc.l	no_port_IN,	no_port_IN,	no_port_IN,	no_port_IN
+*	4
+	.dc.l	no_port_IN,	no_port_IN,	no_port_IN,	no_port_IN
+	.dc.l	no_port_IN,	no_port_IN,	no_port_IN,	no_port_IN
+	.dc.l	no_port_IN,	no_port_IN,	no_port_IN,	no_port_IN
+	.dc.l	no_port_IN,	no_port_IN,	no_port_IN,	no_port_IN
+*	5
+	.dc.l	no_port_IN,	no_port_IN,	no_port_IN,	no_port_IN
+	.dc.l	no_port_IN,	no_port_IN,	no_port_IN,	no_port_IN
+	.dc.l	no_port_IN,	no_port_IN,	no_port_IN,	no_port_IN
+	.dc.l	no_port_IN,	no_port_IN,	no_port_IN,	no_port_IN
+*	6
+	.dc.l	no_port_IN,	no_port_IN,	no_port_IN,	no_port_IN
+	.dc.l	no_port_IN,	no_port_IN,	no_port_IN,	no_port_IN
+	.dc.l	no_port_IN,	no_port_IN,	no_port_IN,	no_port_IN
+	.dc.l	no_port_IN,	no_port_IN,	no_port_IN,	no_port_IN
+*	7
+	.dc.l	no_port_IN,	no_port_IN,	no_port_IN,	no_port_IN
+	.dc.l	no_port_IN,	no_port_IN,	no_port_IN,	no_port_IN
+	.dc.l	no_port_IN,	no_port_IN,	no_port_IN,	no_port_IN
+	.dc.l	no_port_IN,	no_port_IN,	no_port_IN,	no_port_IN
+*	8
+	.dc.l	no_port_IN,	no_port_IN,	no_port_IN,	no_port_IN
+	.dc.l	no_port_IN,	no_port_IN,	no_port_IN,	no_port_IN
+	.dc.l	read_vdp_0,	read_vdp_1,	read_vdp_2,	read_vdp_3
+	.dc.l	no_port_IN,	no_port_IN,	no_port_IN,	no_port_IN
+*	9
+	.dc.l	r_port_90,	no_port_IN,	no_port_IN,	no_port_IN
+	.dc.l	no_port_IN,	no_port_IN,	no_port_IN,	no_port_IN
+	.dc.l	read_vdp_0,	read_vdp_1,	read_vdp_2,	read_vdp_3
+	.dc.l	no_port_IN,	no_port_IN,	no_port_IN,	no_port_IN
+*	a
+	.dc.l	r_port_A0,	no_port_IN,	r_port_A2,	no_port_IN
+	.dc.l	no_port_IN,	no_port_IN,	no_port_IN,	no_port_IN
+	.dc.l	r_port_A8,	r_port_A9,	r_port_AA,	r_port_AB
+	.dc.l	no_port_IN_2,	no_port_IN_2,	no_port_IN_2,	no_port_IN_2
+*	b
+	.dc.l	no_port_IN,	no_port_IN,	no_port_IN,	no_port_IN
+	.dc.l	r_port_B4,	r_port_B5,	no_port_IN,	no_port_IN
+	.dc.l	no_port_IN,	no_port_IN,	no_port_IN,	no_port_IN
+	.dc.l	no_port_IN,	no_port_IN,	no_port_IN,	no_port_IN
+*	c
+	.dc.l	no_port_IN,	no_port_IN,	no_port_IN,	no_port_IN
+	.dc.l	no_port_IN,	no_port_IN,	no_port_IN,	no_port_IN
+	.dc.l	no_port_IN,	no_port_IN,	no_port_IN,	no_port_IN
+	.dc.l	no_port_IN,	no_port_IN,	no_port_IN,	no_port_IN
+*	d
+	.dc.l	no_port_IN_2,	no_port_IN_2,	no_port_IN_2,	no_port_IN_2
+	.dc.l	no_port_IN_2,	no_port_IN_2,	no_port_IN_2,	no_port_IN_2
+	.dc.l	no_port_IN_2,	no_port_IN_2,	no_port_IN_2,	no_port_IN_2
+	.dc.l	no_port_IN,	no_port_IN,	no_port_IN,	no_port_IN
+*	e
+	.dc.l	no_port_IN,	no_port_IN,	no_port_IN,	no_port_IN
+	.dc.l	no_port_IN,	no_port_IN,	no_port_IN,	no_port_IN
+	.dc.l	no_port_IN,	no_port_IN,	no_port_IN,	no_port_IN
+	.dc.l	no_port_IN,	no_port_IN,	no_port_IN,	no_port_IN
+*	f
+	.dc.l	no_port_IN,	no_port_IN,	no_port_IN,	no_port_IN_2
+	.dc.l	no_port_IN_2,	no_port_IN_2,	no_port_IN,	no_port_IN
+	.dc.l	no_port_IN,	no_port_IN,	no_port_IN,	no_port_IN
+	.dc.l	r_port_FC,	r_port_FD,	r_port_FE,	r_port_FF
+
+; ****************************************************************************
+io_output_table:
+*	0
+	.dc.l	no_port_OUT,	no_port_OUT,	no_port_OUT,	no_port_OUT
+	.dc.l	no_port_OUT,	no_port_OUT,	no_port_OUT,	no_port_OUT
+	.dc.l	no_port_OUT,	no_port_OUT,	no_port_OUT,	no_port_OUT
+	.dc.l	no_port_OUT,	no_port_OUT,	no_port_OUT,	no_port_OUT
+*	1
+	.dc.l	no_port_OUT,	no_port_OUT,	no_port_OUT,	no_port_OUT
+	.dc.l	no_port_OUT,	no_port_OUT,	no_port_OUT,	no_port_OUT
+	.dc.l	no_port_OUT,	no_port_OUT,	no_port_OUT,	no_port_OUT
+	.dc.l	no_port_OUT,	no_port_OUT,	no_port_OUT,	no_port_OUT
+*	2
+	.dc.l	no_port_OUT,	no_port_OUT,	no_port_OUT,	no_port_OUT
+	.dc.l	no_port_OUT,	no_port_OUT,	no_port_OUT,	no_port_OUT
+	.dc.l	no_port_OUT,	no_port_OUT,	no_port_OUT,	no_port_OUT
+	.dc.l	no_port_OUT,	no_port_OUT,	no_port_OUT,	no_port_OUT
+*	3
+	.dc.l	no_port_OUT,	no_port_OUT,	no_port_OUT,	no_port_OUT
+	.dc.l	no_port_OUT,	no_port_OUT,	no_port_OUT,	no_port_OUT
+	.dc.l	no_port_OUT,	no_port_OUT,	no_port_OUT,	no_port_OUT
+	.dc.l	no_port_OUT,	no_port_OUT,	no_port_OUT,	no_port_OUT
+*	4
+	.dc.l	no_port_OUT,	no_port_OUT,	no_port_OUT,	no_port_OUT
+	.dc.l	no_port_OUT,	no_port_OUT,	no_port_OUT,	no_port_OUT
+	.dc.l	no_port_OUT,	no_port_OUT,	no_port_OUT,	no_port_OUT
+	.dc.l	no_port_OUT,	no_port_OUT,	no_port_OUT,	no_port_OUT
+*	5
+	.dc.l	no_port_OUT,	no_port_OUT,	no_port_OUT,	no_port_OUT
+	.dc.l	no_port_OUT,	no_port_OUT,	no_port_OUT,	no_port_OUT
+	.dc.l	no_port_OUT,	no_port_OUT,	no_port_OUT,	no_port_OUT
+	.dc.l	no_port_OUT,	no_port_OUT,	no_port_OUT,	no_port_OUT
+*	6
+	.dc.l	no_port_OUT,	no_port_OUT,	no_port_OUT,	no_port_OUT
+	.dc.l	no_port_OUT,	no_port_OUT,	no_port_OUT,	no_port_OUT
+	.dc.l	no_port_OUT,	no_port_OUT,	no_port_OUT,	no_port_OUT
+	.dc.l	no_port_OUT,	no_port_OUT,	no_port_OUT,	no_port_OUT
+*	7
+	.dc.l	no_port_OUT,	no_port_OUT,	no_port_OUT,	no_port_OUT
+	.dc.l	no_port_OUT,	no_port_OUT,	no_port_OUT,	no_port_OUT
+	.dc.l	no_port_OUT,	no_port_OUT,	no_port_OUT,	no_port_OUT
+	.dc.l	no_port_OUT,	no_port_OUT,	no_port_OUT,	no_port_OUT
+*	8
+	.dc.l	no_port_OUT,	no_port_OUT,	no_port_OUT,	no_port_OUT
+	.dc.l	no_port_OUT,	no_port_OUT,	no_port_OUT,	no_port_OUT
+	.dc.l	write_vdp_0,	write_vdp_1,	write_vdp_2,	write_vdp_3
+	.dc.l	no_port_OUT,	no_port_OUT,	no_port_OUT,	no_port_OUT
+*	9
+	.dc.l	w_port_90,	w_port_91,	no_port_OUT,	no_port_OUT
+	.dc.l	no_port_OUT,	no_port_OUT,	no_port_OUT,	no_port_OUT
+	.dc.l	write_vdp_0,	write_vdp_1,	write_vdp_2,	write_vdp_3
+	.dc.l	no_port_OUT,	no_port_OUT,	no_port_OUT,	no_port_OUT
+*	a
+	.dc.l	w_port_A0,	w_port_A1,	no_port_OUT,	no_port_OUT
+	.dc.l	no_port_OUT,	no_port_OUT,	no_port_OUT,	no_port_OUT
+	.dc.l	w_port_A8,	no_port_OUT,	w_port_AA,	no_port_OUT
+	.dc.l	no_port_OUT_2,	no_port_OUT_2,	no_port_OUT_2,	no_port_OUT_2
+*	b
+	.dc.l	no_port_OUT,	no_port_OUT,	no_port_OUT,	no_port_OUT
+	.dc.l	w_port_B4,	w_port_B5,	no_port_OUT_2,	no_port_OUT_2
+	.dc.l	no_port_OUT,	no_port_OUT,	no_port_OUT,	no_port_OUT
+	.dc.l	no_port_OUT,	no_port_OUT,	no_port_OUT,	no_port_OUT
+*	c
+	.dc.l	no_port_OUT,	no_port_OUT,	no_port_OUT,	no_port_OUT
+	.dc.l	no_port_OUT,	no_port_OUT,	no_port_OUT,	no_port_OUT
+	.dc.l	no_port_OUT,	no_port_OUT,	no_port_OUT,	no_port_OUT
+	.dc.l	no_port_OUT,	no_port_OUT,	no_port_OUT,	no_port_OUT
+*	d
+	.dc.l	no_port_OUT_2,	no_port_OUT_2,	no_port_OUT_2,	no_port_OUT_2
+	.dc.l	no_port_OUT_2,	no_port_OUT_2,	no_port_OUT_2,	no_port_OUT_2
+	.dc.l	no_port_OUT_2,	no_port_OUT_2,	no_port_OUT_2,	no_port_OUT_2
+	.dc.l	no_port_OUT,	no_port_OUT,	no_port_OUT,	no_port_OUT
+*	e
+	.dc.l	no_port_OUT,	no_port_OUT,	no_port_OUT,	no_port_OUT
+	.dc.l	no_port_OUT,	no_port_OUT,	no_port_OUT,	no_port_OUT
+	.dc.l	no_port_OUT,	no_port_OUT,	no_port_OUT,	no_port_OUT
+	.dc.l	no_port_OUT,	no_port_OUT,	no_port_OUT,	no_port_OUT
+*	f
+	.dc.l	no_port_OUT,	no_port_OUT,	no_port_OUT,	no_port_OUT_2
+	.dc.l	no_port_OUT_2,	no_port_OUT_2,	no_port_OUT,	no_port_OUT
+	.dc.l	no_port_OUT,	no_port_OUT,	no_port_OUT,	no_port_OUT
+	.dc.l	w_port_FC,	w_port_FD,	w_port_FE,	w_port_FF
+
+
+
+; ****************************************************************************
+;      デフォルトのI/Oポート処理
+; ****************************************************************************
+
+	.text
+
+no_port_IN:
+	move.b	#$ff,d0
+	rts
+
+no_port_IN_2:
+	move.w	d1,d0
+	lsr.w	#4,d0
+	lea.l	HEX,a0
+	move.b	(a0,d0.w),number_r+0
+	andi.w	#$0f,d1
+	move.b	(a0,d1.w),number_r+1
+
+	pea.l	errms_r
+	DOS	__PRINT
+	lea.l	4(sp),sp
+	move.b	#$ff,d0
+	rts
+
+	.data
+errms_r:
+	.dc.b	'エミュレーションしていないポートを読み込みました。0x'
+number_r:
+	.dc.b	'00'
+	.dc.b	0x0d,0x0a,0x00
+
+
+; ****************************************************************************
+
+	.text
+	.even
+
+no_port_OUT:
+	rts
+
+no_port_OUT_2:
+	move.w	d2,d0				* d2.w ポート番号
+	lsr.w	#4,d0
+	lea.l	HEX,a0
+	move.b	(a0,d0.w),number_w+0
+	andi.w	#$0f,d2
+	move.b	(a0,d2.w),number_w+1
+
+	pea.l	errms_w
+	DOS	__PRINT
+	lea.l	4(sp),sp
+	rts
+
+	.data
+errms_w:
+	.dc.b	'エミュレーションしていないポートに書き込みました。0x'
+number_w:
+	.dc.b	'00'
+	.dc.b	0x0d,0x0a,0x00
