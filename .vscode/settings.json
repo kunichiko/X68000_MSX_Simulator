@@ -6,7 +6,11 @@
 		"*.has": "platformio-debug.asm",
 		"doslib.h": "c",
 		"dos.h": "c",
-		"string.h": "c"
+		"string.h": "c",
+		"cstdint": "c",
+		"getopt.h": "c",
+		"stdio.h": "c",
+		"ms_r800.h": "c"
 	},
     "files.encoding": "shiftjis",
     "editor.detectIndentation": false,

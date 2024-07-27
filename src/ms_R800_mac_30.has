@@ -39,10 +39,19 @@
 *	保存しておき、フラグを見るタイミングで評価するようにしています。例えば、SUB A,B の命令の結果、
 *	演算結果が -1 ($FF) だった場合、マイナスなのでSフラグを立て、Zフラグは0にする必要がありますが、
 *	演算結果の $FFを d6に保存するだけにしています。
+*	ただ、それだとSフラグ(負の場合に1)とZフラグ(0の場合に1)の両方を1にすることができません。しかし、
+*	Z80はFレジスタに直接値をロードすることができるので、この状態を表現できるようにする必要があり、
+*	あとから、SZモードという概念を作って、「SZモードが1のときは、S,Zの両方が1の場合に1にする」という
+*	処理を行うようにし他のだと記憶しています。
+*	これはちょっと場当たりすぎるので、もしリファクタリングするのであれば、
+*	 * 本来のFレジスタの値をそのまま保持する領域
+*	 * 再判定が必要かどうかを表すフラグ(dirtyフラグ)と、計算結果を保持する領域
+*	にして、dirtyフラグが立っていたら再計算をしたのちに、判定はFレジスタを直接使うというようにしたいです。
+*
 *
 *	registers:
 *	a:	.dc.b	0	* Aレジスタは d4 を使うから使わない
-*	f:	.dc.b	0	* Fレジスタは d5 を使うから使わない
+*	f:	.dc.b	0	* Fレジスタは d5,d6 を使うから使わない
 *	b:	.dc.b	0
 *	c:	.dc.b	0
 *	d:	.dc.b	0
@@ -78,6 +87,8 @@
 
 	.xref	page0		;暫定処理
 
+	.xref	dumpsp_c
+
 	.xref	ms_read_mem_8
 	.xref	ms_read_mem_16
 	.xref	ms_write_mem_8
@@ -106,9 +117,14 @@
 	.xdef	HC2
 	.xdef	PV
 
-	.xdef	_emulater_ini
-	.xdef	_emulate
-	.xdef	cpu_main
+	.xdef	ms_cpu_init
+	.xdef	ms_cpu_emulate
+	.xdef	ms_cpu_step
+	.xdef	ms_cpu_step_break
+	.xdef	ms_instructions_ptr
+	.xdef	ms_cpu_registers_ptr
+
+	;.xdef	cpu_main
 	.xdef	cpu_emu_yield
 	.xdef	cpu_yield
 	.xdef	emu_yield
@@ -193,9 +209,9 @@ PC_page_set	macro			* JP命令等で PCが変わった時の処理
 		endm
 
 *
-*	int emulater_ini();
+*	int ms_cpu_init();
 *
-_emulater_ini:
+ms_cpu_init:
 	link	a6,#0
 	movem.l	d3-d7/a0-a5,-(sp)
 
@@ -250,9 +266,9 @@ interrupt_history_rd:
 
 	.text
 *
-*	void emulate(emu_loop_func);
+*	void ms_cpu_emulate(emu_loop_func);
 *
-_emulate:
+ms_cpu_emulate:
 	link	a6,#0
 	movem.l	d3-d7/a0-a5,-(sp)
 	
@@ -377,6 +393,242 @@ emu_end:
 	unlk	a6
 	moveq.l #-1,d0
 	rts
+dumpsp:
+	movem.l	d0-d7/a0-a6,-(sp)
+	move.l	d6,-(sp)
+	move.l	d4,-(sp)
+	move.l	d7,-(sp)
+	move.l	a4,-(sp)
+	move.l	a0,-(sp)
+	move.w	sp_(a3),-(sp)
+	move.w	#0,-(sp)
+	move.l	a3,-(sp)
+	jsr	dumpsp_c
+	lea	28(sp),sp
+	movem.l	(sp)+,d0-d7/a0-a6
+	rts
+
+*
+*	void step(ms_cpu_state* context, int count);
+*
+ms_cpu_step_break:
+	.dc.l	0
+
+ms_cpu_step:
+	link	a6,#0
+	movem.l	d3-d7/a0-a5,-(sp)
+	
+	move.l	8(a6),a5	* 引数1のcpu contextへのポインタを取得
+	move.l  12(a6),d0	* 引数2のステップ数を取得
+
+	move.l	d0,-(sp)
+
+;	 31     16 15 8 7  0
+;	|         |    | A  |  d4	Ａレジスタ
+;	|         |    |HC1 |  d5	フラグ
+;	|         |flag| SZ |  d6	フラグ
+;	| PC page | PC(16k) |  d7
+;	|     registers     |  a3	a3 = レジスターの格納されているアドレス
+;	|    PC Base ADD    |  a4	a4 = PC
+;
+; struct ms_cpu_state {
+;	void* pc_base_addr;
+; 	uint16_t pc, sp, ix, iy;
+; 	uint8_t a, b, c, d, e, h, l;
+; 	uint8_t a_, b_, c_, d_, e_, h_, l_, f_;
+; 	uint8_t i, r;
+;
+; 	uint8_t f;
+;
+; 	uint8_t iff_delay;
+; 	uint8_t interrupt_mode;  // 0: IM0, 1: IM1, 2: IM2
+;
+; 	uint8_t halted;	// 0: normal, 1: halted
+; };
+
+	clr.l	d4
+	clr.l	d5
+	clr.l	d6
+	clr.l	d7
+	lea.l	registers,a3
+	;movea.l	(a5),a4			* PC Base ADD
+	move.w	4(a5),d7		* PC(64k)
+	PC_page_set			* 64kのPCをページ番号と16kのPCに分解
+	move.w	6(a5),sp_(a3)		* SP
+	move.w	8(a5),ix_h(a3)		* IX
+	move.w	10(a5),iy_h(a3)		* IY
+	move.b	12(a5),d4		* A register
+	move.b	d4,a(a3)		* f5,f3の値などはメモリ上に保持。その他フラグは各種レジスタに保持
+	move.b	13(a5),b(a3)		* B
+	move.b	14(a5),c(a3)		* C
+	move.b	15(a5),d(a3)		* D
+	move.b	16(a5),e(a3)		* E
+	move.b	17(a5),h(a3)		* H
+	move.b	18(a5),l(a3)		* L
+	move.b	19(a5),a_(a3)
+	move.b	20(a5),b_(a3)
+	move.b	21(a5),c_(a3)
+	move.b	22(a5),d_(a3)
+	move.b	23(a5),e_(a3)
+	move.b	24(a5),h_(a3)
+	move.b	25(a5),l_(a3)
+	move.b	26(a5),f_(a3)
+
+	move.b	27(a5),i(a3)
+	move.b	28(a5),r(a3)
+
+	;	flag = 00000000
+	;	       |   | |+--Cy
+	;	       |   | +---N
+	;	       |   +-----HC のモード。0の時通常モード。1の時 ADC,SBC モード。
+	;	       +---------SZ のモード。0の時通常モード。1の時S,Zどちらも１になる。
+	; フラグレジスタの書き戻し処理
+	; まず、f3とf5ビットの値の処理があるので、メモリ上のf(a3)への書き戻しは必要です。
+	; 次に、d6が保持すべきS,Z,N,Cyの値を書き戻します
+	clr.w	d0
+	move.b	29(a5),d0		* F
+	move.b	d0,f(a3)
+	move.w	d0,d6
+	lsl.w	#8,d6
+	andi.w	#%00000011_00000000,d6	* N,Cyのみ残す
+	btst.l	#7,d0
+	bne	1f
+	; SZフラグが 0? の場合
+	btst.l	#6,d0
+	bne	2f
+	; SZフラグが 00 の場合
+	move.b	#1,d6			* d6の SZ領域に1を入れておけばSもZも0になる
+	bra	@f
+2:	; SZフラグが 01 の場合
+	move.b	#0,d6			* d6の SZ領域に0を入れておけばSが0、Zが1になる
+	bra	@f
+1:	; Sフラグが 1? の場合
+	btst.l	#6,d0
+	bne	2f
+	; SZフラグが 10 の場合
+	move.b	#$ff,d6			* d6の SZ領域にffを入れておけばSが1、Zが0になる
+	bra	@f
+2:	; SZフラグが 11 の場合
+	ori.w	#%10000000_00000000,d6	* SZが両方1の場合は SZモードを1にする
+
+@@:	; 次に、HCフラグの処理をする
+	; この時点でHCモードは0になっているので、HC1を0にしたうえで、
+	; HC=0 なら HC2=0
+	; HC=1 なら HC2=1
+	; とすればいい(はず)
+	clr.b	d5			* HC1=0
+	clr.b	HC2(a3)			* HC2=0
+	btst.l	#4,d0			* HC フラグを調べる
+	beq	@f
+	move.b	#1,HC2(a3)
+
+@@:	; 次に、PVフラグの処理をする
+	move.b	#0,PV(a3)		* PV=1にする(偶数ならPV＝1)
+	btst.l	#2,d0
+	bne	@f
+	move.b	#1,PV(a3)		* PV=0の場合は奇数にする
+
+	;
+	;	d0個の命令を実行
+	clr.l	ms_cpu_step_break
+@@:
+	move.l	(sp)+,d0
+@@:	move.l	d0,-(sp)
+	clr.w	d0			* d0 の上位ビットを０にクリア
+	move.b	0(a4,d7.w),d0		* 命令を読み込む
+	lea.l	instructions,a0
+	movea.l	(a0,d0.w*4),a0
+	move.l	#1f,-(sp)		* 戻り先をスタックに積む
+ms_cpu_step_jmp:
+	jmp	(a0)
+1:					* rtsでここに戻ってくる
+	;bsr	dumpsp
+
+	move.l	(sp)+,d0
+	tst.l	ms_cpu_step_break
+	bne	@f
+	subq.l	#1,d0
+	bne	@b
+
+@@:	
+	;	実行後の結果を書き戻す
+	;move.l	a4,(a5)			* PC Base ADD
+	move.l	d7,d0
+	lsr.l	#2,d0
+	and.w	#$c000,d0
+	and.w	#$3fff,d7
+	or.w	d0,d7
+	move.w	d7,4(a5)		* PC(64k)
+	move.w	sp_(a3),6(a5)		* SP
+	move.w	ix_h(a3),8(a5)		* IX
+	move.w	iy_h(a3),10(a5)		* IY	
+	move.b	d4,12(a5)		* A
+	move.b	b(a3),13(a5)		* B
+	move.b	c(a3),14(a5)		* C
+	move.b	d(a3),15(a5)		* D
+	move.b	e(a3),16(a5)		* E
+	move.b	h(a3),17(a5)		* H
+	move.b	l(a3),18(a5)		* L
+	move.b	a_(a3),19(a5)
+	move.b	b_(a3),20(a5)
+	move.b	c_(a3),21(a5)
+	move.b	d_(a3),22(a5)
+	move.b	e_(a3),23(a5)
+	move.b	h_(a3),24(a5)
+	move.b	l_(a3),25(a5)
+	move.b	f_(a3),26(a5)
+
+	move.b	i(a3),27(a5)
+	move.b	r(a3),28(a5)
+
+	; フラグの書き戻し処理
+	clr.w	d0
+	move.b	f(a3),d0
+	andi.b	#%00101000,d0		* f3,f5の値を取り出す
+	move.w	d6,d1
+	lsr.w	#8,d1
+	andi.b	#%00000011,d1		* N,Cyの値を取り出す
+	or.b	d1,d0
+	btst.l	#15,d6			* SZモードの判定
+	beq	1f
+	; SZモード=1の場合
+	ori.b	#%11000000,d0		* S,Zを1にする
+	bra	@f
+1:	; SZモード=0の場合
+	cmp.b	#0,d6			* SZに保存されている値を0と比較
+	bpl	1f
+	ori.b	#%10000000,d0		* mi(マイナス)ならSを1にする, Zは0
+	bra	@f
+1:	bne	@f			* pl(プラス)の場合、さらに0だったかどうかを調べる
+	ori.b	#%01000000,d0		* eq(ゼロ)なら、Zを1にする
+
+@@:	; HCフラグの処理
+	move.w	d6,d1
+	andi.w	#%00001000_00000000,d1	* HC mode を調べる
+	rol.w	#5,d1			* bit0に持ってくる
+	move.b	HC2(a3),d2		
+	andi.w	#$000f,d5		* HC1 HC2 を４ビットのみ有効にする
+	andi.w	#$000f,d2
+	add.w	d1,d2
+	cmp.w	d2,d5			* HC1-(HC2 + HC mode)
+	bcc	@f
+	ori.b	#%00010000,d0		* H フラグをセット
+
+@@:	; PVフラグの処理
+	move.b	d0,-(sp)
+	bsr	eval_PV			* d6にPVフラグを反映
+	move.b	(sp)+,d0
+	andi.b	#%11111011,d0		* PVフラグをクリア
+	btst	#2+8,d6
+	beq	@f
+	ori.b	#%00000100,d0
+@@:
+	move.b	d0,29(a5)
+
+	movem.l	(sp)+,d3-d7/a0-a5
+	unlk	a6
+	moveq.l #0,d0
+	rts
 
 *
 * 割り込みヒストリに情報を追記します
@@ -406,6 +658,11 @@ history_not_full:
 	rts
 
 	.data
+	.quad
+
+ms_instructions_ptr:
+	.dc.l	instructions
+
 instructions:
 	.dc.l	nop				* $00
 	.dc.l	LD_BC_nn
@@ -2616,7 +2873,7 @@ CP_B:	addq.w	#1,d7			* PC += 1
 	andi.w	#$3fff,d7		* PC がページ境界をまたいだか？
 	bne	9f
 	PC_page_inc
-9:	andi.w	#%01110110_11111111,d6	* Ｃ,HC mode をクリア
+9:	andi.w	#%01110110_00000000,d6	* Ｃ,HC mode をクリア。SZ,SZ modeを０に
 	ori.w	#%00000010_00000000,d6	* Ｎをセット
 	move.b	d4,d5			* 引かれる数を HC1に
 	move.b	b(a3),HC2(a3)		* 引く数を HC2に
@@ -2631,7 +2888,7 @@ CP_C:	addq.w	#1,d7			* PC += 1
 	andi.w	#$3fff,d7		* PC がページ境界をまたいだか？
 	bne	9f
 	PC_page_inc
-9:	andi.w	#%01110110_11111111,d6	* Ｃ,HC mode をクリア
+9:	andi.w	#%01110110_00000000,d6	* Ｃ,HC mode をクリア。SZ,SZ modeを０に
 	ori.w	#%00000010_00000000,d6	* Ｎをセット
 	move.b	d4,d5			* 引かれる数を HC1に
 	move.b	c(a3),HC2(a3)		* 引く数を HC2に
@@ -2646,7 +2903,7 @@ CP_D:	addq.w	#1,d7			* PC += 1
 	andi.w	#$3fff,d7		* PC がページ境界をまたいだか？
 	bne	9f
 	PC_page_inc
-9:	andi.w	#%01110110_11111111,d6	* Ｃ,HC mode をクリア
+9:	andi.w	#%01110110_00000000,d6	* Ｃ,HC mode をクリア。SZ,SZ modeを０に
 	ori.w	#%00000010_00000000,d6	* Ｎをセット
 	move.b	d4,d5			* 引かれる数を HC1に
 	move.b	d(a3),HC2(a3)		* 引く数を HC2に
@@ -2661,7 +2918,7 @@ CP_E:	addq.w	#1,d7			* PC += 1
 	andi.w	#$3fff,d7		* PC がページ境界をまたいだか？
 	bne	9f
 	PC_page_inc
-9:	andi.w	#%01110110_11111111,d6	* Ｃ,HC mode をクリア
+9:	andi.w	#%01110110_00000000,d6	* Ｃ,HC mode をクリア。SZ,SZ modeを０に
 	ori.w	#%00000010_00000000,d6	* Ｎをセット
 	move.b	d4,d5			* 引かれる数を HC1に
 	move.b	e(a3),HC2(a3)		* 引く数を HC2に
@@ -2676,7 +2933,7 @@ CP_H:	addq.w	#1,d7			* PC += 1
 	andi.w	#$3fff,d7		* PC がページ境界をまたいだか？
 	bne	9f
 	PC_page_inc
-9:	andi.w	#%01110110_11111111,d6	* Ｃ,HC mode をクリア
+9:	andi.w	#%01110110_00000000,d6	* Ｃ,HC mode をクリア。SZ,SZ modeを０に
 	ori.w	#%00000010_00000000,d6	* Ｎをセット
 	move.b	d4,d5			* 引かれる数を HC1に
 	move.b	h(a3),HC2(a3)		* 引く数を HC2に
@@ -2691,7 +2948,7 @@ CP_L:	addq.w	#1,d7			* PC += 1
 	andi.w	#$3fff,d7		* PC がページ境界をまたいだか？
 	bne	9f
 	PC_page_inc
-9:	andi.w	#%01110110_11111111,d6	* Ｃ,HC mode をクリア
+9:	andi.w	#%01110110_00000000,d6	* Ｃ,HC mode をクリア。SZ,SZ modeを０に
 	ori.w	#%00000010_00000000,d6	* Ｎをセット
 	move.b	d4,d5			* 引かれる数を HC1に
 	move.b	l(a3),HC2(a3)		* 引く数を HC2に
@@ -2707,7 +2964,7 @@ CP_lHLl:
 	andi.w	#$3fff,d7		* PC がページ境界をまたいだか？
 	bne	9f
 	PC_page_inc
-9:	andi.w	#%01110110_11111111,d6	* Ｃ,HC mode をクリア
+9:	andi.w	#%01110110_00000000,d6	* Ｃ,HC mode をクリア。SZ,SZ modeを０に
 	ori.w	#%00000010_00000000,d6	* Ｎをセット
 	move.w	hl(a3),d0
 	jsr	ms_read_mem_8
@@ -2720,7 +2977,7 @@ CP_lHLl:
 	move.b	#1,PV(a3)		* PVをクリア
 	rts
 
-CP_n:	andi.w	#%01110110_11111111,d6	* Ｃ,HC mode をクリア
+CP_n:	andi.w	#%01110110_00000000,d6	* Ｃ,HC mode をクリア。SZ,SZ modeを０に
 	ori.w	#%00000010_00000000,d6	* Ｎをセット
 	move.b	1(a4,d7.w),d0
 	addq.w	#2,d7			* PC += 2
@@ -3462,7 +3719,11 @@ CALL_NZ:
 	PC_page_inc
 	rts
 
-CALL_PE:
+;
+; PVフラグの値を評価し、flagに反映します
+; d0,d1,d2が破壊されます
+;
+eval_PV:
 	move.b	PV(a3),d0
 	clr.w	d1
 	clr.w	d2
@@ -3482,8 +3743,19 @@ CALL_PE:
 	addx.w	d1,d2
 	lsr.b	#1,d0
 	addx.w	d1,d2
-	andi.b	#1,d2	
-	beq	CALL		* 偶数だからコール
+	andi.b	#1,d2
+	beq	eval_PV_even
+eval_PV_odd:
+	bclr	#2+8,d6
+	rts
+eval_PV_even:
+	bset	#2+8,d6
+	rts
+
+CALL_PE:
+	bsr	eval_PV
+	btst.l	#2+8,d6
+	bne	CALL		* PVフラグ=1 (偶数) だからコール
 	addq.w	#3,d7		* 奇数だからコールしない
 	btst.l	#14,d7
 	beq	rts_common
@@ -3492,27 +3764,9 @@ CALL_PE:
 	rts
 
 CALL_PO:
-	move.b	PV(a3),d0
-	clr.w	d1
-	clr.w	d2
-	lsr.b	#1,d0
-	addx.w	d1,d2
-	lsr.b	#1,d0
-	addx.w	d1,d2
-	lsr.b	#1,d0
-	addx.w	d1,d2
-	lsr.b	#1,d0
-	addx.w	d1,d2
-	lsr.b	#1,d0
-	addx.w	d1,d2
-	lsr.b	#1,d0
-	addx.w	d1,d2
-	lsr.b	#1,d0
-	addx.w	d1,d2
-	lsr.b	#1,d0
-	addx.w	d1,d2
-	andi.b	#1,d2	
-	bne	CALL		* 奇数だからコール
+	bsr	eval_PV
+	btst.l	#2+8,d6
+	beq	CALL		* PVフラグ=0 (奇数) だからコール
 	addq.w	#3,d7		* 偶数だからコールしない
 	btst.l	#14,d7
 	beq	rts_common
@@ -3610,15 +3864,15 @@ RET_PE:	move.b	PV(a3),d0
 	moveq.l	#8,d1		* ループカウンタ
 loop_RET_PE_Even:
 	lsr.b	#1,d0
-	bcs	loop_RET_PO_Odd	* 奇数へ
+	bcs	loop_RET_PE_Odd	* 奇数へ
 	subq.w	#1,d1
-	bne	loop_RET_PO_Even
+	bne	loop_RET_PE_Even
 	bra	RET		* 最終的にこっちに来た時は、偶数だからリターン
 loop_RET_PE_Odd:
 	lsr.b	#1,d0
-	bcs	loop_RET_PO_Even	* 奇数へ
+	bcs	loop_RET_PE_Even	* 奇数へ
 	subq.w	#1,d1
-	bne	loop_RET_PO_Odd
+	bne	loop_RET_PE_Odd
 	addq.w	#1,d7		* PC += 1
 	andi.w	#$3fff,d7	* PC がページ境界をまたいだか？
 	bne	rts_common
@@ -3720,12 +3974,12 @@ POP_AF:	addq.w	#1,d7
 	addq.w	#2,sp_(a3)
 
 	move.w	d0,-(sp)		* Aレジスタをセット
-	move.b	(sp)+,d4
+	move.b	(sp)+,d4		* ワードプッシュ>バイトポップで上位8ビットをd4にセット
 	move.b	d0,f(a3)		* フラグのロード
-	clr.b	PV(a3)
+	clr.b	PV(a3)			* P/V = 1 (偶数)
 	btst.l	#2,d0			* P/V フラグを調べる
 	bne	@f
-	move.b	#1,PV(a3)		* 奇数にする
+	move.b	#1,PV(a3)		* P/V = 0 (奇数)
 @@:
 	move.b	d0,d6
 	lsl.w	#8,d6			* フラグのロード
@@ -3736,18 +3990,20 @@ POP_AF:	addq.w	#1,d7
 	btst.l	#4,d0			* HC フラグを調べる
 	beq	@f
 	move.b	#1,HC2(a3)
-@@:	andi.b	#%11000000,d0
-	beq	plus_popAF		* 全部立っていなければプラス
-	bpl	rts_common			* S フラグが立っていなければゼロ
-	cmpi.b	#%11000000,d0		* どっちも立ってる？
+	; sz フラグの確認
+@@:	; この時点で d6の下位8ビットは 0になっている
+	andi.b	#%11000000,d0
+	beq	plus_popAF		* S=0、Z=0なので、プラス(1以上)
+	bpl	rts_common		* S=0、Z=1なので、ゼロ(d6.bに0が入った状態でリターン)
+	cmpi.b	#%11000000,d0		* どっちも立ってるならSZモードを1に
 	beq	@f
-	move.b	#-1,d6
+	move.b	#-1,d6			* S=1、Z=0なので、マイナス
 	rts
 
-@@:	ori.w	#%10000000_00000000,d6	* SZ mode をセット
+@@:	ori.w	#%10000000_00000000,d6	* S=1、Z=1なので、SZ mode を1にセット
 	rts
 plus_popAF:
-	move.b	#1,d6
+	move.b	#1,d6			* S=0、Z=0なので、プラス
 	rts
 
 PUSH_BC:
@@ -7208,7 +7464,7 @@ OR_lIdx_dl:
 	rts	
 
 CP_lIdx_dl:
-	andi.w	#%01110110_11111111,d6	* Ｃ,HC mode をクリア
+	andi.w	#%01110110_00000000,d6	* Ｃ,HC mode をクリア。SZ,SZ modeを０に
 	ori.w	#%00000010_00000000,d6	* Ｎをセット
 	move.w	ix(a3,d1.w),d0
 	move.b	0(a4,d7.w),d1		* d を加える
@@ -7230,7 +7486,7 @@ CP_lIdx_dl:
 	rts
 
 INC_lIdx_dl:
-	andi.w	#%01110101_11111111,d6	* Ｎ,HC modeをクリア
+	andi.w	#%01110101_00000000,d6	* Ｎ,HC modeをクリア。SZ,SZ modeを０に
 	clr.b	PV(a3)			* PVをセット	
 	move.w	ix(a3,d1.w),d0
 	move.b	0(a4,d7.w),d1		* d を加える
@@ -8157,11 +8413,17 @@ OTDR:	ori.w	#%00000010_00000000,d6	* Nをセット
 *
 *****************************************************************	
 input:
+	movem.l	d2-d7/a0-a5,-(sp)
 	clr.w	d1
 	move.b	d0,d1				* 上位バイトを０でクリア
 	lea.l	ms_io_input_table,a0
 	movea.l	(a0,d1.w*4),a0			* d0 の値を変えちゃだめ（68030用→68000用にする時注意）
-	jmp	(a0)				* rts を省略するためジャンプにしてある
+	move.b	d0,-(sp)			* Cの関数でも呼べるように引数をセット
+	move.l	#@f,-(sp)			* 戻り先アドレスをセット
+	jmp	(a0)
+@@:	lea	2(sp),sp
+	movem.l	(sp)+,d2-d7/a0-a5
+	rts
 
 *****************************************************************
 *
@@ -8175,6 +8437,7 @@ input:
 *
 *****************************************************************	
 output:
+	movem.l	d2-d7/a0-a5,-(sp)
 .if 1
 	bsr	print_debug_out
 .endif
@@ -8182,8 +8445,13 @@ output:
 	move.b	d0,d2				* 上位バイトを０でクリア
 	lea	ms_io_output_table,a0
 	movea.l	(a0,d2.w*4),a0			* d0 の値を変えちゃだめ（68030用→68000用にする時注意）
+	move.b	d1,-(sp)			* Cの関数でも呼べるように引数をセット
+	move.b	d0,-(sp)			* Cの関数でも呼べるように引数をセット
+	move.l	#@f,-(sp)			* 戻り先アドレスをセット
 	jmp	(a0)				* rts を省略するためジャンプにしてある
-
+@@:	lea	4(sp),sp
+	movem.l	(sp)+,d2-d7/a0-a5
+	rts
 
 print_debug_out:
 	cmp.w	#1,debug_log_level
@@ -8232,6 +8500,9 @@ PC_page:
 
 emu_loop_func:
 	.dc.l	0	* エミュレータのループ関数のアドレス
+
+ms_cpu_registers_ptr:
+	.dc.l	registers
 
 base:			* a3 の指すアドレス
 registers:

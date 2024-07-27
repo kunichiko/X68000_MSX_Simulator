@@ -1,0 +1,157 @@
+	.cpu 68030
+
+	.include	iocscall.mac
+	.include	doscall.mac
+
+	.xdef	ms_memmap_init
+	.xdef	ms_memmap_deinit
+
+	.xdef	ms_read_mem_8
+	.xdef	ms_read_mem_16
+	.xdef	ms_write_mem_8
+	.xdef	ms_write_mem_16
+
+	.xdef	ms_mainmem_ptr
+
+	.xdef	page0		; 暫定処理
+	.xdef	page1
+	.xdef	page2
+	.xdef	page3
+
+	; 暫定
+	.xdef	HEX
+	.xdef	native_jpt_add
+	.xdef	ms_cpu_int
+	.xdef	host_rate
+	.xdef	int_block_count
+	.xdef	ms_vdp_interrupt_tick
+
+	.text
+
+;
+;	メモリマッピングの初期化
+;
+ms_memmap_init:
+	rts
+
+ms_memmap_deinit:
+	; TODO ほんとはここで、セットされたROMやメモリの解放処理を入れたい
+	rts
+
+	.data
+
+ms_mainmem_ptr:
+	.dc.l	ms_mainmem
+	
+ms_mainmem:
+ms_mainmem_page0:
+	.ds.b	16384
+ms_mainmem_page1:
+	.ds.b	16384
+ms_mainmem_page2:
+	.ds.b	16384
+ms_mainmem_page3:
+	.ds.b	16384
+
+page0:
+	.dc.l	ms_mainmem_page0
+page1:
+	.dc.l	ms_mainmem_page1
+page2:
+	.dc.l	ms_mainmem_page2
+page3:
+	.dc.l	ms_mainmem_page3
+
+; 暫定
+ms_cpu_int:
+	.dc.b	0
+native_jpt_add:		* ネイティブルーチンジャンプテーブルのあるアドレス
+	.dc.l	0	
+HEX:	.dc.b	'0123456789ABCDEF'
+int_block_count:
+	.dc.l	2048
+host_rate:
+	.dc.w	3
+ms_vdp_interrupt_tick:
+	.dc.w	0
+
+
+	.text
+
+
+*******************************************************************
+*
+*	メモリから 8ビットのデータを読み込むサブルーチン。
+*（引数）
+*	d0.w ・・・ アドレス
+*（動作）
+*	d0.b にメモリから読み込んだ値が入る
+*
+*******************************************************************
+ms_read_mem_8:
+	move.l	a0,-(sp)
+	lea	ms_mainmem,a0
+	and.l	#$ffff,d0
+	move.b	(a0,d0.l),d0
+	move.l	(sp)+,a0
+	rts
+
+*******************************************************************
+*
+*	メモリへ 8ビットのデータを書き込むサブルーチン。
+*（引数）
+*	d0.w ・・・ アドレス
+*	d1.b ・・・ 書き込む値
+*（動作）
+*	d0.w のアドレスに d1の値を書き込む。  
+*
+*	d2 破壊可能性あり
+*
+*******************************************************************
+ms_write_mem_8:
+	move.l	a0,-(sp)
+	lea	ms_mainmem,a0
+	and.l	#$ffff,d0
+	move.b	d1,(a0,d0.l)
+	move.l	(sp)+,a0
+	rts
+
+*******************************************************************
+*
+*	メモリから 16ビットのデータを読み込むサブルーチン。
+*（引数）
+*	d0.w ・・・ アドレス
+*（動作）
+*	d0.w にメモリから読み込んだ値が入る
+*
+*******************************************************************
+ms_read_mem_16:
+	move.l	a0,-(sp)
+	lea	ms_mainmem,a0
+	and.l	#$ffff,d0
+	move.w	(a0,d0.l),d0
+	ror.w	#8,d0		; エンディアンを逆にする
+	move.l	(sp)+,a0
+	rts
+
+*******************************************************************
+*
+*	メモリへ 16ビットのデータを書き込むサブルーチン。
+*（引数）
+*	d0.w ・・・ アドレス
+*（動作）
+*	d1.w の内容をメモリに書き込む
+*
+*	d2 破壊可能性あり
+*
+*******************************************************************
+ms_write_mem_16:
+	move.l	a0,-(sp)
+	lea	ms_mainmem,a0
+	ror.w	#8,d1		; エンディアンを逆にする
+	and.l	#$ffff,d0
+	move.w	d1,(a0,d0.l)
+	move.l	(sp)+,a0
+	rts
+
+	.end

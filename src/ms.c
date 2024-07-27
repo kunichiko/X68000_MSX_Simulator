@@ -18,15 +18,13 @@
 #include <doslib.h>
 #include <getopt.h>
 #include "ms.h"
+#include "ms_R800.h"
 
 #define NUM_SEGMENTS 4
 
 extern void writeSpritePattern(unsigned char* p, int offset, unsigned int pattern);
 extern void writeSpriteAttribute(unsigned char* p, int offset, unsigned int attribute);
 extern int readMemFromC(int address);
-
-void emulater_ini(void);
-int emulate( int(*)(unsigned int, unsigned int));
 
 void ms_exit( void);
 
@@ -400,13 +398,13 @@ int main(int argc, char *argv[]) {
 	}
 
 	printf("emu-ini\n");
-	emulater_ini();
+	ms_cpu_init();
 	printf("emu-ini exit\n");
 
 	initSprite();
 
 	if (1) {
-		emulate(emuLoop);
+		ms_cpu_emulate(emuLoop);
 	} else {
 		debugger();
 	}

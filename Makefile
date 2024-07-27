@@ -24,6 +24,9 @@ all: copy_to_target_all
 
 debug: copy_to_target_debug
 
+test: src/z80test/exe/ms_z80tests.x
+	cd src/z80test/exe ; run68 ms_z80tests.x
+
 $(BUILD_DIR):
 	mkdir -p $(BUILD_DIR)
 
@@ -42,18 +45,18 @@ copy_to_target_debug: ${BUILD_DIR} ${BUILD_DIR}/ms_debug.x
 ${BUILD_DIR}/ms.x: $(BUILD_DIR)/ms.o $(BUILD_DIR)/ms_R800_mac_30.o $(BUILD_DIR)/ms_iomap.o $(BUILD_DIR)/ms_memmap.o $(BUILD_DIR)/ms_vdp_mac.o $(BUILD_DIR)/ms_sysvalue.o $(BUILD_DIR)/ms_sub_mac.o $(BUILD_DIR)/ms_IO_PORT.o $(BUILD_DIR)/ms_PSG_mac.o $(BUILD_DIR)/ms_readcart.o #$(BUILD_DIR)/ms_debugger_mac.o
 	$(LD) $(LDFLAGS) -o $@ $^
 
-${BUILD_DIR}/ms_debug.x: $(BUILD_DIR)/ms_debug.o $(BUILD_DIR)/ms_R800_mac_30_debug.o $(BUILD_DIR)/ms_iomap_debug.o $(BUILD_DIR)/ms_memmap_debug.o $(BUILD_DIR)/ms_vdp_mac_debug.o $(BUILD_DIR)/ms_sysvalue_debug.o $(BUILD_DIR)/ms_sub_mac_debug.o $(BUILD_DIR)/ms_IO_PORT_debug.o $(BUILD_DIR)/ms_PSG_mac_debug.o $(BUILD_DIR)/ms_readcart_debug.o #$(BUILD_DIR)/ms_debugger_mac_debug.o
+${BUILD_DIR}/ms_debug.x: $(BUILD_DIR)/ms_d.o $(BUILD_DIR)/ms_R800_mac_30_d.o $(BUILD_DIR)/ms_iomap_d.o $(BUILD_DIR)/ms_memmap_d.o $(BUILD_DIR)/ms_vdp_mac_d.o $(BUILD_DIR)/ms_sysvalue_d.o $(BUILD_DIR)/ms_sub_mac_d.o $(BUILD_DIR)/ms_IO_PORT_d.o $(BUILD_DIR)/ms_PSG_mac_d.o $(BUILD_DIR)/ms_readcart_d.o #$(BUILD_DIR)/ms_debugger_mac_d.o
 	$(LD) $(LDFLAGS) -o $@ $^
 
-${BUILD_DIR}/%_debug.o: $(SRC_DIR)/%.c
+${BUILD_DIR}/%_d.o: $(SRC_DIR)/%.c $(SRC_DIR)/ms_R800.h
 	$(CC) $(CFLAGS_DEBUG) $< -o $@
 
-${BUILD_DIR}/%_debug.o: $(SRC_DIR)/%.has
+${BUILD_DIR}/%_d.o: $(SRC_DIR)/%.has
 	$(AS) $(ASFLAGS_DEBUG) $< -o $@.tmp
 	x68k2elf.py $@.tmp $@
 	rm $@.tmp
 
-${BUILD_DIR}/%.o: $(SRC_DIR)/%.c
+${BUILD_DIR}/%.o: $(SRC_DIR)/%.c $(SRC_DIR)/ms_R800.h
 	$(CC) $(CFLAGS) $< -o $@
 
 ${BUILD_DIR}/%.o: $(SRC_DIR)/%.has
@@ -61,5 +64,10 @@ ${BUILD_DIR}/%.o: $(SRC_DIR)/%.has
 	x68k2elf.py $@.tmp $@
 	rm $@.tmp
 
+# Test program
+src/z80test/exe/ms_z80tests.x:
+	make -C src/z80test
+
 clean:
 	rm -rf $(BUILD_DIR)
+	make -C src/z80test clean
