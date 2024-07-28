@@ -3,7 +3,7 @@
 #include "../../src/ms_R800.h"
 
 extern ms_z80* context;
-extern int test_finished;
+extern int ms_test_finished;
 
 ms_io_input_func_ptr ms_io_input_table[256];
 ms_io_output_func_ptr ms_io_output_table[256];
@@ -27,7 +27,7 @@ void output_default(unsigned char port, unsigned char data) {
 		context->d = ms_cpu_registers_ptr->d;
 		context->e = ms_cpu_registers_ptr->e;
 		context->port_out(context, port, data);
-		if (test_finished) {
+		if (ms_test_finished) {
 			ms_cpu_step_break = 1;
 		}
 	}
