@@ -102,6 +102,7 @@ void dotest()
 	ms_cpu.pf = sz_cpu.pf;
 	ms_cpu.nf = sz_cpu.nf;
 	ms_cpu.cf = sz_cpu.cf;
+	ms_cpu.mem_ptr = sz_cpu.mem_ptr;
 
 	for (int i = 0; i < 0x200; i++)
 	{
@@ -255,6 +256,11 @@ int compare(char* result)
 	if (sz_cpu.cf != ms_cpu.cf)
 	{
 		sprintf(result, "cf: %d != %d\n", sz_cpu.cf, ms_cpu.cf);
+		return 1;
+	}
+	if (sz_cpu.mem_ptr != ms_cpu.mem_ptr)
+	{
+		sprintf(result, "mem_ptr (WZ): %04X != %04X\n", sz_cpu.mem_ptr, ms_cpu.mem_ptr);
 		return 1;
 	}
 

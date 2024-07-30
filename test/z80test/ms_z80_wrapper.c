@@ -45,6 +45,7 @@ void ms_z80_step(ms_z80* const z) {
 	state.sp = z->sp;
 	state.ix = z->ix;
 	state.iy = z->iy;
+	state.wz = z->mem_ptr;
 	state.a = z->a;
 	state.b = z->b;
 	state.c = z->c;
@@ -70,6 +71,7 @@ void ms_z80_step(ms_z80* const z) {
 	z->sp = state.sp;
 	z->ix = state.ix;
 	z->iy = state.iy;
+	z->mem_ptr = state.wz;
 	z->a = state.a;
 	z->b = state.b;
 	z->c = state.c;
