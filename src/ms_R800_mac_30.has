@@ -3478,11 +3478,7 @@ Rot_Sft_JPT:
 ; * C : ローテーションによってはみ出た値
 ;
 RXX_	macro	target, isLeft, isCircular
-	addq.w	#1,d7			* PC += 1
-	andi.w	#$3fff,d7		* PC がページ境界をまたいだか？
-	bne	1f
-	PC_page_inc
-1:	bsr	eval_flag_HC_C		* HC,C フラグを再評価
+	bsr	eval_flag_HC_C		* HC,C フラグを再評価
 	move.b	target,d0
 	.if isCircular
 	  ; キャリーを経由せずにローテート
@@ -3618,7 +3614,7 @@ RR_lHLl:
 	rts
 
 ;
-; RLC, RRC, RL, RR のローテーション(最後にAがついてない方)をまとめたマクロ
+; SLA, SRA, SLI, SRL のシフトをまとめたマクロ
 ;
 ; フラグの挙動は以下の通り
 ; * S : 結果の最上位ビット
@@ -3628,44 +3624,45 @@ RR_lHLl:
 ; * F3: 結果のbit3
 ; * PV: 結果のパリティ
 ; * N : 0
-; * C : ローテーションによってはみ出た値
+; * C : 命令による(SLA:はみ出た値、SRA:はみ出た値、SLI:はみ出た値、SRL:はみ出た値)
 ;
-RXX_	macro	target, isLeft, isCircular
-	addq.w	#1,d7			* PC += 1
-	andi.w	#$3fff,d7		* PC がページ境界をまたいだか？
-	bne	1f
-	PC_page_inc
-1:	bsr	eval_flag_HC_C		* HC,C フラグを再評価
+; RXXほどの対称性はないのでちょっと分かりづらいが、以下のような動作をする
+; * SLA: 左に1ビットシフト、bit0には0が入る、はみ出た値は C フラグにセット
+; * SRA: 右に1ビットシフト、bit7は元の値の最上位ビット、はみ出た値は C フラグにセット
+; * SLI: 左に1ビットシフト、bit0には1が入る、はみ出た値は C フラグにセット(未定義命令)
+; * SRL: 右に1ビットシフト、bit7は0、はみ出た値は C フラグにセット
+;
+; 以上を１つのマクロで実現するため、isLeft, insert という２つの引数を使っている
+; * isLeft: 1の時は左シフト、0の時は右シフト
+; * insert : 0の時は0を挿入、1の時は1を挿入、2の時は 最上位ビットの値を挿入
+SXX	macro	target, isLeft, insert
+	bsr	eval_flag_HC_C		* HC,C フラグを再評価
 	move.b	target,d0
-	.if isCircular
-	  ; キャリーを経由せずにローテート
-	  .if isLeft
-	    rol.b	#1,d0
-	  .else
-	    ror.b	#1,d0
-	  .endif
+	.if insert == 0
+	  andi.b	#%11101111,ccr	; Xフラグをリセット
+	.elseif insert == 1
+	  ori.b		#%00010000,ccr	; Xフラグをセット
 	.else
-	  ; キャリーを経由してローテート
-	  ; Xフラグにキャリーをセットし、rox命令を使う
-	  btst.l	#0,d0
+	  btst	#7,d0
 	  bne	1f
 	  andi.b	#%11101111,ccr	; Xフラグをリセット
 	  bra	2f
-1:  	  ori.b		#%00010000,ccr	; Xフラグをセット
+1: 	  ori.b		#%00010000,ccr	; Xフラグをセット
 2:
-	  .if isLeft
-	    roxl.b	#1,d0
-	  .else
-	    roxr.b	#1,d0
-	  .endif
 	.endif
+	.if isLeft
+	  roxl.b	#1,d0			; Xフラグを使えるのはローテートだけなのでローテートを使う
+	.else
+	  roxr.b	#1,d0			; Xフラグを使えるのはローテートだけなのでローテートを使う	
+	.endif
+
 	; はみ出したキャリーをCフラグにセット
 	bcs	1f
 	; b18 : don't care
 	; b17 : 論理演算なので1
 	; b16 : don't care
 	andi.l	#%000_11101100_11101100,d6	* HC,N,Cをクリア
-	ori.l	#%010_11000100_00000001,d6	* Cは0、SZとPVはダーティビットを立てる
+	ori.l	#%010_11000100_00000000,d6	* Cは0、SZとPVはダーティビットを立てる
 	bra	2f
 1:
 	andi.l	#%000_11101100_11101100,d6	* HC,N,Cをクリア
@@ -3675,427 +3672,184 @@ RXX_	macro	target, isLeft, isCircular
 	endm
 
 *	------ ＳＬＡ ------
-SLA_A:	andi.w	#%01110100_11111111,d6	* Ｎ,Ｃ,HC mode をクリア
-	move.b	d5,HC2(a3)		* HC をクリア
-	add.b	d4,d4
-	bcc	@f
-	ori.w	#%00000001_00000000,d6	* CY をセット
-@@:	move.b	d4,d6
-	move.b	d4,PV(a3)
+SLA_A:
+	SXX	d4, 1, 0
 	rts
-
-SLA_B:	andi.w	#%01110100_11111111,d6	* Ｎ,Ｃ,HC mode をクリア
-	move.b	d5,HC2(a3)		* HC をクリア
-	move.b	b(a3),d0
-	add.b	d0,d0
-	bcc	@f
-	ori.w	#%00000001_00000000,d6	* CY をセット
-@@:	move.b	d0,b(a3)
-	move.b	d0,d6
-	move.b	d0,PV(a3)
+SLA_B:
+	SXX	b(a3), 1, 0
 	rts
-
-SLA_C:	andi.w	#%01110100_11111111,d6	* Ｎ,Ｃ,HC mode をクリア
-	move.b	d5,HC2(a3)		* HC をクリア
-	move.b	c(a3),d0
-	add.b	d0,d0
-	bcc	@f
-	ori.w	#%00000001_00000000,d6	* CY をセット
-@@:	move.b	d0,c(a3)
-	move.b	d0,d6
-	move.b	d0,PV(a3)
+SLA_C:
+	SXX	c(a3), 1, 0
 	rts
-
-SLA_D:	andi.w	#%01110100_11111111,d6	* Ｎ,Ｃ,HC mode をクリア
-	move.b	d5,HC2(a3)		* HC をクリア
-	move.b	d(a3),d0
-	add.b	d0,d0
-	bcc	@f
-	ori.w	#%00000001_00000000,d6	* CY をセット
-@@:	move.b	d0,d(a3)
-	move.b	d0,d6
-	move.b	d0,PV(a3)
+SLA_D:
+	SXX	d(a3), 1, 0
 	rts
-
-SLA_E:	andi.w	#%01110100_11111111,d6	* Ｎ,Ｃ,HC mode をクリア
-	move.b	d5,HC2(a3)		* HC をクリア
-	move.b	e(a3),d0
-	add.b	d0,d0
-	bcc	@f
-	ori.w	#%00000001_00000000,d6	* CY をセット
-@@:	move.b	d0,e(a3)
-	move.b	d0,d6
-	move.b	d0,PV(a3)
+SLA_E:
+	SXX	e(a3), 1, 0
 	rts
-
-SLA_H:	andi.w	#%01110100_11111111,d6	* Ｎ,Ｃ,HC mode をクリア
-	move.b	d5,HC2(a3)		* HC をクリア
-	move.b	h(a3),d0
-	add.b	d0,d0
-	bcc	@f
-	ori.w	#%00000001_00000000,d6	* CY をセット
-@@:	move.b	d0,h(a3)
-	move.b	d0,d6
-	move.b	d0,PV(a3)
+SLA_H:
+	SXX	h(a3), 1, 0
 	rts
-
-SLA_L:	andi.w	#%01110100_11111111,d6	* Ｎ,Ｃ,HC mode をクリア
-	move.b	d5,HC2(a3)		* HC をクリア
-	move.b	l(a3),d0
-	add.b	d0,d0
-	bcc	@f
-	ori.w	#%00000001_00000000,d6	* CY をセット
-@@:	move.b	d0,l(a3)
-	move.b	d0,d6
-	move.b	d0,PV(a3)
+SLA_L:
+	SXX	l(a3), 1, 0
 	rts
-
 SLA_lHLl:
-	andi.w	#%01110100_11111111,d6	* Ｎ,Ｃ,HC mode をクリア
-	move.b	d5,HC2(a3)		* HC をクリア
 	move.w	hl(a3),d0
 	jsr	ms_read_mem_8
-	add.b	d0,d0
-	bcc	@f
-	ori.w	#%00000001_00000000,d6	* ＣＹをセット
-@@:	move.b	d0,d6
-	move.b	d0,PV(a3)
+	SXX	d0, 1, 0
 	move.b	d0,d1
 	move.w	hl(a3),d0
 	jsr	ms_write_mem_8
 	rts
-
 
 *	------ ＳＲＡ ------
-SRA_A:	andi.w	#%01110100_11111111,d6	* Ｎ,Ｃ,HC mode をクリア
-	move.b	d5,HC2(a3)		* HC をクリア
-	asr.b	#1,d4
-	bcc	@f
-	ori.w	#%00000001_00000000,d6	* CY をセット
-@@:	move.b	d4,d6
-	move.b	d4,PV(a3)
+SRA_A:
+	SXX	d4, 0, 2
 	rts
-
-SRA_B:	andi.w	#%01110100_11111111,d6	* Ｎ,Ｃ,HC mode をクリア
-	move.b	d5,HC2(a3)		* HC をクリア
-	move.b	b(a3),d0
-	asr.b	#1,d0
-	bcc	@f
-	ori.w	#%00000001_00000000,d6	* CY をセット
-@@:	move.b	d0,b(a3)
-	move.b	d0,d6
-	move.b	d0,PV(a3)
+SRA_B:
+	SXX	b(a3), 0, 2
 	rts
-
-SRA_C:	andi.w	#%01110100_11111111,d6	* Ｎ,Ｃ,HC mode をクリア
-	move.b	d5,HC2(a3)		* HC をクリア
-	move.b	c(a3),d0
-	asr.b	#1,d0
-	bcc	@f
-	ori.w	#%00000001_00000000,d6	* CY をセット
-@@:	move.b	d0,c(a3)
-	move.b	d0,d6
-	move.b	d0,PV(a3)
+SRA_C:
+	SXX	c(a3), 0, 2
 	rts
-
-SRA_D:	andi.w	#%01110100_11111111,d6	* Ｎ,Ｃ,HC mode をクリア
-	move.b	d5,HC2(a3)		* HC をクリア
-	move.b	d(a3),d0
-	asr.b	#1,d0
-	bcc	@f
-	ori.w	#%00000001_00000000,d6	* CY をセット
-@@:	move.b	d0,d(a3)
-	move.b	d0,d6
-	move.b	d0,PV(a3)
+SRA_D:
+	SXX	d(a3), 0, 2
 	rts
-
-SRA_E:	andi.w	#%01110100_11111111,d6	* Ｎ,Ｃ,HC mode をクリア
-	move.b	d5,HC2(a3)		* HC をクリア
-	move.b	e(a3),d0
-	asr.b	#1,d0
-	bcc	@f
-	ori.w	#%00000001_00000000,d6	* CY をセット
-@@:	move.b	d0,e(a3)
-	move.b	d0,d6
-	move.b	d0,PV(a3)
+SRA_E:
+	SXX	e(a3), 0, 2
 	rts
-
-SRA_H:	andi.w	#%01110100_11111111,d6	* Ｎ,Ｃ,HC mode をクリア
-	move.b	d5,HC2(a3)		* HC をクリア
-	move.b	h(a3),d0
-	asr.b	#1,d0
-	bcc	@f
-	ori.w	#%00000001_00000000,d6	* CY をセット
-@@:	move.b	d0,h(a3)
-	move.b	d0,d6
-	move.b	d0,PV(a3)
+SRA_H:
+	SXX	h(a3), 0, 2
 	rts
-
-SRA_L:	andi.w	#%01110100_11111111,d6	* Ｎ,Ｃ,HC mode をクリア
-	move.b	d5,HC2(a3)		* HC をクリア
-	move.b	l(a3),d0
-	asr.b	#1,d0
-	bcc	@f
-	ori.w	#%00000001_00000000,d6	* CY をセット
-@@:	move.b	d0,l(a3)
-	move.b	d0,d6
-	move.b	d0,PV(a3)
+SRA_L:
+	SXX	l(a3), 0, 2
 	rts
-
 SRA_lHLl:
-	andi.w	#%01110100_11111111,d6	* Ｎ,Ｃ,HC mode をクリア
-	move.b	d5,HC2(a3)		* HC をクリア
 	move.w	hl(a3),d0
 	jsr	ms_read_mem_8
-	asr.b	#1,d0
-	bcc	@f
-	ori.w	#%00000001_00000000,d6	* ＣＹをセット
-@@:	move.b	d0,d6
-	move.b	d0,PV(a3)
+	SXX	d0, 0, 2
 	move.b	d0,d1
 	move.w	hl(a3),d0
 	jsr	ms_write_mem_8
 	rts
 
-
 *	------ ＳＲＬ ------
-SRL_A:	andi.w	#%01110100_11111111,d6	* Ｎ,Ｃ,HC mode をクリア
-	move.b	d5,HC2(a3)		* HC をクリア
-	lsr.b	#1,d4
-	bcc	@f
-	ori.w	#%00000001_00000000,d6	* CY をセット
-@@:	move.b	d4,d6
-	move.b	d4,PV(a3)
+SRL_A:
+	SXX	d4, 0, 0
 	rts
-
-SRL_B:	andi.w	#%01110100_11111111,d6	* Ｎ,Ｃ,HC mode をクリア
-	move.b	d5,HC2(a3)		* HC をクリア
-	move.b	b(a3),d0
-	lsr.b	#1,d0
-	bcc	@f
-	ori.w	#%00000001_00000000,d6	* CY をセット
-@@:	move.b	d0,b(a3)
-	move.b	d0,d6
-	move.b	d0,PV(a3)
+SRL_B:
+	SXX	b(a3), 0, 0
 	rts
-
-SRL_C:	andi.w	#%01110100_11111111,d6	* Ｎ,Ｃ,HC mode をクリア
-	move.b	d5,HC2(a3)		* HC をクリア
-	move.b	c(a3),d0
-	lsr.b	#1,d0
-	bcc	@f
-	ori.w	#%00000001_00000000,d6	* CY をセット
-@@:	move.b	d0,c(a3)
-	move.b	d0,d6
-	move.b	d0,PV(a3)
+SRL_C:
+	SXX	c(a3), 0, 0
 	rts
-
-SRL_D:	andi.w	#%01110100_11111111,d6	* Ｎ,Ｃ,HC mode をクリア
-	move.b	d5,HC2(a3)		* HC をクリア
-	move.b	d(a3),d0
-	lsr.b	#1,d0
-	bcc	@f
-	ori.w	#%00000001_00000000,d6	* CY をセット
-@@:	move.b	d0,d(a3)
-	move.b	d0,d6
-	move.b	d0,PV(a3)
+SRL_D:
+	SXX	d(a3), 0, 0
 	rts
-
-SRL_E:	andi.w	#%01110100_11111111,d6	* Ｎ,Ｃ,HC mode をクリア
-	move.b	d5,HC2(a3)		* HC をクリア
-	move.b	e(a3),d0
-	lsr.b	#1,d0
-	bcc	@f
-	ori.w	#%00000001_00000000,d6	* CY をセット
-@@:	move.b	d0,e(a3)
-	move.b	d0,d6
-	move.b	d0,PV(a3)
+SRL_E:
+	SXX	e(a3), 0, 0
 	rts
-
-SRL_H:	andi.w	#%01110100_11111111,d6	* Ｎ,Ｃ,HC mode をクリア
-	move.b	d5,HC2(a3)		* HC をクリア
-	move.b	h(a3),d0
-	lsr.b	#1,d0
-	bcc	@f
-	ori.w	#%00000001_00000000,d6	* CY をセット
-@@:	move.b	d0,h(a3)
-	move.b	d0,d6
-	move.b	d0,PV(a3)
+SRL_H:
+	SXX	h(a3), 0, 0
 	rts
-
-SRL_L:	andi.w	#%01110100_11111111,d6	* Ｎ,Ｃ,HC mode をクリア
-	move.b	d5,HC2(a3)		* HC をクリア
-	move.b	l(a3),d0
-	lsr.b	#1,d0
-	bcc	@f
-	ori.w	#%00000001_00000000,d6	* CY をセット
-@@:	move.b	d0,l(a3)
-	move.b	d0,d6
-	move.b	d0,PV(a3)
+SRL_L:
+	SXX	l(a3), 0, 0
 	rts
-
 SRL_lHLl:
-	andi.w	#%01110100_11111111,d6	* Ｎ,Ｃ,HC mode をクリア
-	move.b	d5,HC2(a3)		* HC をクリア
 	move.w	hl(a3),d0
 	jsr	ms_read_mem_8
-	lsr.b	#1,d0
-	bcc	@f
-	ori.w	#%00000001_00000000,d6	* ＣＹをセット
-@@:	move.b	d0,d6
-	move.b	d0,PV(a3)
+	SXX	d0, 0, 0
 	move.b	d0,d1
 	move.w	hl(a3),d0
 	jsr	ms_write_mem_8
 	rts
 
 *	------ ＳＬＩ ------
-SLI_A:	andi.w	#%01110100_11111111,d6	* Ｎ,Ｃ,HC mode をクリア
-	move.b	d5,HC2(a3)		* HC をクリア
-	add.b	d4,d4
-	bcc	@f
-	ori.w	#%00000001_00000000,d6	* CY をセット
-@@:	addq.b	#1,d4			* ビット１をセット
-	move.b	d4,d6
-	move.b	d4,PV(a3)
+SLI_A:
+	SXX	d4, 1, 1
 	rts
-
-SLI_B:	andi.w	#%01110100_11111111,d6	* Ｎ,Ｃ,HC mode をクリア
-	move.b	d5,HC2(a3)		* HC をクリア
-	move.b	b(a3),d0
-	add.b	d0,d0
-	bcc	@f
-	ori.w	#%00000001_00000000,d6	* CY をセット
-@@:	addq.b	#1,d0			* ビット１をセット
-	move.b	d0,b(a3)
-	move.b	d0,d6
-	move.b	d0,PV(a3)
+SLI_B:
+	SXX	b(a3), 1, 1
 	rts
-
-SLI_C:	andi.w	#%01110100_11111111,d6	* Ｎ,Ｃ,HC mode をクリア
-	move.b	d5,HC2(a3)		* HC をクリア
-	move.b	c(a3),d0
-	add.b	d0,d0
-	bcc	@f
-	ori.w	#%00000001_00000000,d6	* CY をセット
-@@:	addq.b	#1,d0			* ビット１をセット
-	move.b	d0,c(a3)
-	move.b	d0,d6
-	move.b	d0,PV(a3)
+SLI_C:
+	SXX	c(a3), 1, 1
 	rts
-
-SLI_D:	andi.w	#%01110100_11111111,d6	* Ｎ,Ｃ,HC mode をクリア
-	move.b	d5,HC2(a3)		* HC をクリア
-	move.b	d(a3),d0
-	add.b	d0,d0
-	bcc	@f
-	ori.w	#%00000001_00000000,d6	* CY をセット
-@@:	addq.b	#1,d0			* ビット１をセット
-	move.b	d0,d(a3)
-	move.b	d0,d6
-	move.b	d0,PV(a3)
+SLI_D:
+	SXX	d(a3), 1, 1
 	rts
-
-SLI_E:	andi.w	#%01110100_11111111,d6	* Ｎ,Ｃ,HC mode をクリア
-	move.b	d5,HC2(a3)		* HC をクリア
-	move.b	e(a3),d0
-	add.b	d0,d0
-	bcc	@f
-	ori.w	#%00000001_00000000,d6	* CY をセット
-@@:	addq.b	#1,d0			* ビット１をセット
-	move.b	d0,e(a3)
-	move.b	d0,d6
-	move.b	d0,PV(a3)
+SLI_E:
+	SXX	e(a3), 1, 1
 	rts
-
-SLI_H:	andi.w	#%01110100_11111111,d6	* Ｎ,Ｃ,HC mode をクリア
-	move.b	d5,HC2(a3)		* HC をクリア
-	move.b	h(a3),d0
-	add.b	d0,d0
-	bcc	@f
-	ori.w	#%00000001_00000000,d6	* CY をセット
-@@:	addq.b	#1,d0			* ビット１をセット
-	move.b	d0,h(a3)
-	move.b	d0,d6
-	move.b	d0,PV(a3)
+SLI_H:
+	SXX	h(a3), 1, 1
 	rts
-
-SLI_L:	andi.w	#%01110100_11111111,d6	* Ｎ,Ｃ,HC mode をクリア
-	move.b	d5,HC2(a3)		* HC をクリア
-	move.b	l(a3),d0
-	add.b	d0,d0
-	bcc	@f
-	ori.w	#%00000001_00000000,d6	* CY をセット
-@@:	addq.b	#1,d0			* ビット１をセット
-	move.b	d0,l(a3)
-	move.b	d0,d6
-	move.b	d0,PV(a3)
+SLI_L:
+	SXX	l(a3), 1, 1
 	rts
-
 SLI_lHLl:
-	andi.w	#%01110100_11111111,d6	* Ｎ,Ｃ,HC mode をクリア
-	move.b	d5,HC2(a3)		* HC をクリア
 	move.w	hl(a3),d0
 	jsr	ms_read_mem_8
-	add.b	d0,d0
-	bcc	@f
-	ori.w	#%00000001_00000000,d6	* ＣＹをセット
-@@:	addq.b	#1,d0			* ビット１をセット
-	move.b	d0,d6
-	move.b	d0,PV(a3)
+	SXX	d0, 1, 1
 	move.b	d0,d1
 	move.w	hl(a3),d0
 	jsr	ms_write_mem_8
 	rts
 
 
-
 *	------ ＲＬＤ,ＲＲＤ ------
+;
+; RLD, RRD の挙動は以下の通り
+; * S : 結果の最上位ビット
+; * Z : 結果が0なら1。それ以外の時は0
+; * F5: 結果のAレジスタのbit5
+; * H : 0
+; * F3: 結果のAレジスタのbit3
+; * PV: 結果のAレジスタのパリティ
+; * N : 0
+; * C : 変化しない
 RLD_lHLl:
-	andi.w	#%01110101_11111111,d6	* Ｎ,HC modeをクリア
-	move.b	d5,HC2(a3)		* HC をクリア
-
-	move.w	hl(a3),d0		* d0.w = |00|00| (HL) |
+	move.w	hl(a3),d0		* d0.w = |00|00|(H|L)|
 	jsr	ms_read_mem_8
 	andi.w	#%00000000_11111111,d0
 
-	lsl.w	#4,d0			* d0.w = |00| (HL) |00|
+	lsl.w	#4,d0			* d0.w = |00|(H|L)|00|
 	move.b	d4,d1
 	andi.w 	#%00000000_00001111,d1
-	or.b	d0,d1			* d1.w = |00| (HL) |Al|
+	or.b	d0,d1			* d1.w = |00|(H|L)|Al|
 
-	andi.b	#%11110000,d4
-	lsr.w	#8,d0
-	add.b	d0,d4			* d4.b = |Ah| (H|
+	andi.b	#%11110000,d4		* d4.b = |Ah|00|
+	lsr.w	#8,d0			* d0.b = |00|(H|
+	or.b	d0,d4			* d4.b = |Ah|(H|
 
 	move.w	hl(a3),d0
 	jsr	ms_write_mem_8
 
-	move.b	d4,d6			* SZ をセット
-	move.b	d4,PV(a3)
+	andi.l	#%000_11101101_11101101,d6	* HC,Nをクリア
+	ori.l	#%010_11000100_00000000,d6	* SZとPVはダーティビットを立てる
+	move.b	d4,d5			* 論理演算結果を保存
 	rts
 
 RRD_lHLl:
-	andi.w	#%01110101_11111111,d6	* Ｎ,HC modeをクリア
-	move.b	d5,HC2(a3)		* HC をクリア
-
-	move.w	hl(a3),d0		* d0.w = |?????| (HL) |
+	move.w	hl(a3),d0		* d0.w = |??|??|(H|L)|
 	jsr	ms_read_mem_8
 
 	move.b	d4,d1
-	lsl.w	#8,d1			* d1.w = |  A  |000000|
-	move.b	d0,d1			* d1.w = |  A  | (HL) |
+	lsl.w	#8,d1			* d1.w = |Ah|Al|00|00|
+	move.b	d0,d1			* d1.w = |Ah|Al|(H|L)|
 
-	lsr.w	#4,d1			* d1.w = |00|  A   |(H|
-	andi.w 	#%00000000_00001111,d0	* d0.w = |000000000|L)| 
-	andi.b	#%11110000,d4		* d4.b =       | Ah|00|
-	or.b	d0,d4			* d4.b =       | Ah|L)|
+	lsr.w	#4,d1			* d1.w = |00|Ah|Al|(H|
+	andi.w 	#%00000000_00001111,d0	
+					* d0.w = |00|00|00|L)| 
+	andi.b	#%11110000,d4		* d4.b =       |Ah|00|
+	or.b	d0,d4			* d4.b =       |Ah|L)|
 
 	move.w	hl(a3),d0
 	jsr	ms_write_mem_8
 
-	move.b	d4,d6			* SZ をセット
-	move.b	d4,PV(a3)
+	andi.l	#%000_11101101_11101101,d6	* HC,Nをクリア
+	ori.l	#%010_11000100_00000000,d6	* SZとPVはダーティビットを立てる
+	move.b	d4,d5			* 論理演算結果を保存
+
 	rts
 
 ********************************************************************
@@ -4113,7 +3867,7 @@ ED:	clr.w	d0
 	beq	@f
 	move.b	(a4),d0			* 読み直し
 @@:	subi.w	#$40,d0
-	bcs	other				* ＄３ｆ以下の時は特殊命令へ
+	bcs	other			* ＄３ｆ以下の時は特殊命令へ
 	movea.l	ED_JPT(pc,d0.w*4),a0
 	jmp	(a0)
 
@@ -4321,7 +4075,7 @@ ED_JPT:	.dc.l	IN_B_c			* $40
 	.dc.l	none_ED
 	.dc.l	none_ED			* $ff
 
-none_ED:					* おかしな命令を実行しました
+none_ED:				* おかしな命令を実行しました
 	move.w	d0,d1
 	lsr.w	#4,d0
 	lea.l	HEX,a0
@@ -4348,58 +4102,28 @@ number_ed:
 *
 *
 other:					* ＭＳ用に拡張した命令
-*	AF レジスタをセット
+	; この時点の d0 には、0x00-0x3f の値に -0x40 した値が入っている
+	move.b	d0,-(sp)
+	move.l	native_jpt_add,d1
+	beq	none_ED			* ネイティブルーチンがセットされていなければ未定義エラー
+	;	AF レジスタをセット
+	bsr	eval_flag_all
+	move.b	d4,a(a3)
+	move.b	d6,f(a3)
 
-	move.w	d6,-(sp)
-	move.b	PV(a3),d2
-	ori.w	#%00000100_00000000,d6	* P/V フラグをセット
-	move.w	#8-1,d1
-@@:	lsr.b	#1,d2
-	bcc	1f
-	eori.w	#%00000100_00000000,d6	* P/V フラグを反転
-1:	dbra	d1,@b
-	andi.w	#%10101111_11111111,d6	* SZH フラグをリセット
-	move.w	d6,d2			* ハーフキャリーフラグを調べる
-	andi.w	#%00001000_00000000,d2	* HC mode を調べる
-	rol.w	#5,d2
-	move.b	HC2(a3),d1		
-	andi.w	#$000f,d5		* HC1 HC2 を４ビットのみ有効にする
-	andi.w	#$000f,d1
-	add.w	d2,d1
-	cmp.w	d1,d5			* HC1-(HC2 + HC mode)
-	bcc	1f
-	ori.w	#%00010000_00000000,d6	* H フラグをセット
-1:	bclr.l	#15,d6			* SZ mode をテスト
-	bne	1f
-	tst.b	d6
-	bmi	2f
-	bne	3f
-	ori.w	#%01000000_00000000,d6	* Z フラグをセット
-	bra	3f
-2:	ori.w	#%10000000_00000000,d6	* S フラグをセット
-	bra	3f
-1:	ori.w	#%11000000_00000000,d6
-3:	move.b	d4,a(a3)		* A レジスタをロード
-	move.w	d6,d1
-	lsr.w	#8,d1			* フラグのロード
-	andi.b	#%11010111,d1		* フラグと関係無い部分の削除
-	move.b	f(a3),d2
-	andi.b	#%00101000,d2		* フラグと関係無い部分のロード
-	or.b	d2,d1
-	move.b	d1,f(a3)
-
-	add.w	#$20,d0
+	move.b	(sp)+,d0
+	add.w	#$20,d0			* 0x20を足してプラスの場合、つまり元々0x20-0x3fの時は CALL
 	bpl	CALL68
 
-JP68:	add.w	#$20,d0
-	lsl.w	#8,d0
-	move.b	0(a4,d7.w),d0		* d0 = ルーチン番号
+JP68:	add.w	#$20,d0			* 0x20を足すと、元々の0x00-0x1fの値が得られる
+	lsl.w	#8,d0			* d0 = d0 * 256
+	move.b	0(a4,d7.w),d0		* d0 = ルーチン番号 (0x0000-0x1fff)
 	addq.w	#1,d7
 	andi.w	#$3fff,d7		* PC がページ境界をまたいだか？
 	bne	@f
 	PC_page_inc
 @@:
-	lsl.w	#2,d1			* d0 = d0 * 4
+	lsl.w	#2,d0			* d0 = d0 * 4
 	movea.l	native_jpt_add,a1
 	move.l	0(a1,d0.w),a1
 
@@ -4411,10 +4135,9 @@ JP68:	add.w	#$20,d0
 	PC_page_set
 	bra	next_jp_call_68
 
-CALL68:	add.w	#$20,d0
-	move.b	d0,-(sp)
-	move.b	(sp)+,d0
-	move.b	0(a4,d7.w),d0		* d0 = ルーチン番号
+CALL68:	add.w	#$20,d0			* d0には、元々の0x20-0x3fが入っている
+	lsl.w	#8,d0			* d0 = d0 * 256
+	move.b	0(a4,d7.w),d0		* d0 = ルーチン番号 (0x2000-0x3fff)
 	addq.w	#1,d7
 	andi.w	#$3fff,d7		* PC がページ境界をまたいだか？
 	bne	@f
@@ -4429,37 +4152,12 @@ CALL68:	add.w	#$20,d0
 	movem.l	(sp)+,d4-d6/a3-a4
 
 *
-*	フラグのセット
+*	フラグの描き戻しなどの後処理
 *
 next_jp_call_68:
 	move.b	a(a3),d4		* Aレジスタをセット
-	move.b	f(a3),d0		* フラグのロード
-	clr.b	PV(a3)
-	btst.l	#2,d0			* P/V フラグを調べる
-	bne	@f
-	move.b	#1,PV(a3)		* 奇数にする
-
-@@:	move.b	d0,d6
-	lsl.w	#8,d6			* フラグのロード
-	andi.w	#%00000011_00000000,d6	* N,Cのみ有効に。SZ, HC mode を０に
-	clr.b	d5			* HC1
-	clr.b	HC2(a3)
-
-	btst.l	#4,d0			* HC フラグを調べる
-	beq	@f
-	move.b	#1,HC2(a3)
-@@:	andi.b	#%11000000,d0
-	beq	1f			* 全部立っていなければプラス
-	bpl	rts_common			* S フラグが立っていなければゼロ
-	cmpi.b	#%11000000,d0		* どっちも立ってる？
-	beq	@f
-	move.b	#-1,d6
-	rts
-
-@@:	ori.w	#%10000000_00000000,d6	* SZ mode をセット
-	rts
-
-1:	move.b	#1,d6
+	move.b	f(a3),d6		* フラグのロード
+	andi.l	#000_00000000_11111111,d6	* フラグのダーティビットをクリア
 	rts
 	
 
