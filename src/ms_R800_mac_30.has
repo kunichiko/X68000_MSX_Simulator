@@ -1740,17 +1740,27 @@ ADD_A_n:
 	move.b	d4,d5			* 結果を保存
 	rts
 
+; ADD HL,XX の挙動は以下の通り
+; * S : 変化しない
+; * Z : 変化しない
+; * F5: 上位8bitの加算の結果のbit5
+; * H : 上位8bitの加算の実行によるハーフキャリー
+; * F3: 上位8bitの加算の結果のbit5
+; * PV: 変化しない
+; * N : 0
+; * C : 上位8bitの加算の実行によるキャリー
 ADD_HL_XX macro	target
 	addq.w	#1,d7			* PC += 1
 	andi.w	#$3fff,d7		* PC がページ境界をまたいだか？
 	bne	1f
 	PC_page_inc
-1:	; b18 : 加算なので0
+1:	bsr	eval_flag_all
+	; b18 : 加算なので0
 	; b17 : 算術演算なので0
 	; b16 : キャリーなしなので0
 	; b1  : 加算なのでN=0
-	andi.l	#%000_10111101_10111101,d6	* 16bit演算の時は Zフラグを直接セットするので、Zのダーティビットを立てずに0に初期化する
-	ori.l	#%000_10111101_00000000,d6	* S,F5,H,F3,PV,Cのダーティビットを立てる
+	andi.l	#%000_00000000_11000100,d6	* S,Z,PVのみ保存
+	ori.l	#%000_00111001_00000000,d6	* F5,H,F3,Cのダーティビットを立てる
 	move.w	hl(a3),d0
 	move.w	target,d1
 	add.b	d1,d0			* 下位８ビットを加算
@@ -1770,12 +1780,7 @@ ADD_HL_XX macro	target
 1:	addx.b	d1,d0			* 演算実行
 	move.b	d0,d5			* 結果を保存
 	move.b	d0,h(a3)		* 上位８ビットを保存
-	move.w	hl(a3),d0
-	bne	1f
-	ori.l	#%000_00000000_01000000,d6	* Zフラグをセット
-1:
 	endm
-
 
 ADD_HL_BC:
 	ADD_HL_XX bc(a3)
@@ -4311,151 +4316,150 @@ LD_lnnl_SP:
 	jsr	ms_write_mem_16
 	rts
 
-***************************** フラグの動きが正しいかわからない *********************
+
 *	------ ＡＤＣ ------
-ADC_HL_BC:
-	sub.w	d0,d0			* C,X ビットを０に
-	move.b	#1,PV(a3)		* PV をクリア
-	btst.l	#8,d6			* Cy を調べる
-	beq	NC_adchlbc
-	subq.w	#1,d0			* X ビットを１に
-NC_adchlbc:
+
+; ADC HL,XX の挙動は以下の通り
+; * S : 結果のHLのbit15
+; * Z : 結果のHLが0の時1、それ以外の時0
+; * F5: 上位8bitの加算の結果のbit5
+; * H : 上位8bitの加算の実行によるハーフキャリー
+; * F3: 上位8bitの加算の結果のbit5
+; * PV: 上位8bitの加算の実行によるオーバーフロー
+; * N : 0
+; * C : 上位8bitの加算の実行によるキャリー
+ADC_HL_XX macro	target
+	addq.w	#1,d7			* PC += 1
+	andi.w	#$3fff,d7		* PC がページ境界をまたいだか？
+	bne	1f
+	PC_page_inc
+1:	bsr	eval_flag_HC_C
+	; b18 : 加算なので0
+	; b17 : 算術演算なので0
+	; b16 : キャリーなしなので0
+	; b1  : 加算なのでN=0
+	andi.l	#%000_10111101_10111101,d6	* 16bit演算の時は Zフラグを直接セットするので、Zのダーティビットを立てずに0に初期化する
+	ori.l	#%000_10111101_00000000,d6	* S,F5,H,F3,PV,Cのダーティビットを立てる
 	move.w	hl(a3),d0
-	move.w	bc(a3),d1
-	addx.w	d1,d0
+	move.w	target,d1
+	; Xフラグにキャリーをセットし、addx命令を使う
+	btst.l	#0,d0
+	bne	1f
+	andi.b	#%11101111,ccr		* Xフラグをクリア
+	bra	2f
+1:  	ori.b	#%00010000,ccr		* Xフラグをセット
+2:
+	addx.b	d1,d0			* 下位８ビット+キャリーを加算
+	bcc	@f			* キャリーが発生していない場合はスキップ
+	ori.l	#%001_00000000_00000000,d6	* 再計算用キャリーをセット
+@@:	move.b	d0,l(a3)		* 下位８ビットを保存
+	lsr.w	#8,d0
+	lsr.w	#8,d1
+	move.b	d0,d5			* 第1項
+	lsl.w	#8,d5
+	move.b	d1,d5			* 足す数を 第2項に
+	swap	d5
+	btst	#16,d6
+	bne	1f
+	and.b	#%11101111,ccr		* Xフラグをクリア
+	bra	2f
+1:	or.b	#%00010000,ccr		* Xフラグをセット
+2:	addx.b	d1,d0			* 演算実行
+	move.b	d0,d5			* 結果を保存
+	move.b	d0,h(a3)		* 上位８ビットを保存
+	move.w	hl(a3),d0
+	bne	1f
+	ori.l	#%000_00000000_01000000,d6	* Zフラグをセット
+1:
+	endm
 
-F_set_adchl:
-	bcs	C_adchl
-	bvc	1f
-	clr.b	PV(a3)
-1:	andi.w	#%01111100_11111111,d6	* Ｎ,Ｃ を０に
-	bra	next_adchl
-
-C_adchl:
-	bvc	1f
-	clr.b	PV(a3)
-1:	andi.w	#%01111101_11111111,d6	* Ｎ を０に
-	ori.w	#%00000001_00000000,d6	* Ｃ を１に
-
-next_adchl:
-	move.w	d0,hl(a3)
-	tst.w	d0
-	bmi	minus_adchl
-	beq	zero_adchl
-	move.b	#1,d6			* プラス
-	rts
-zero_adchl:
-	clr.b	d6			* ゼロ
-	rts
-minus_adchl:
-	move.b	#-1,d6			* マイナス
+ADC_HL_BC:
+	ADC_HL_XX	bc(a3)
 	rts
 
 ADC_HL_DE:
-	sub.w	d0,d0			* C,X ビットを０に
-	move.b	#1,PV(a3)		* PV をクリア
-	btst.l	#8,d6			* Cy を調べる
-	beq	NC_adchlde
-	subq.w	#1,d0			* X ビットを１に
-NC_adchlde:
-	move.w	hl(a3),d0
-	move.w	de(a3),d1
-	addx.w	d1,d0
-	bra	F_set_adchl
+	ADC_HL_XX	de(a3)
+	rts
 
 ADC_HL_HL:
-	sub.w	d0,d0			* C,X ビットを０に
-	move.b	#1,PV(a3)		* PV をクリア
-	btst.l	#8,d6			* Cy を調べる
-	beq	NC_adchlhl
-	subq.w	#1,d0			* X ビットを１に
-NC_adchlhl:
-	move.w	hl(a3),d0
-	addx.w	d0,d0
-	bra	F_set_adchl
+	ADC_HL_XX	hl(a3)
+	rts
 
 ADC_HL_SP:
-	sub.w	d0,d0			* C,X ビットを０に
-	move.b	#1,PV(a3)		* PV をクリア
-	btst.l	#8,d6			* Cy を調べる
-	beq	NC_adchlsp
-	subq.w	#1,d0			* X ビットを１に
-NC_adchlsp:
-	move.w	hl(a3),d0
-	move.w	sp_(a3),d1
-	addx.w	d1,d0
-	bra	F_set_adchl
+	ADC_HL_XX	sp_(a3)
+	rts
 
 *	------ ＳＢＣ ------
+
+; SBC HL,XX の挙動は以下の通り
+; * S : 結果のHLのbit15
+; * Z : 結果のHLが0の時1、それ以外の時0
+; * F5: 上位8bitの減算の結果のbit5
+; * H : 上位8bitの減算の実行によるハーフキャリー
+; * F3: 上位8bitの減算の結果のbit5
+; * PV: 上位8bitの減算の実行によるオーバーフロー
+; * N : 1
+; * C : 上位8bitの減算の実行によるキャリー
+SBC_HL_XX macro	target
+	addq.w	#1,d7			* PC += 1
+	andi.w	#$3fff,d7		* PC がページ境界をまたいだか？
+	bne	1f
+	PC_page_inc
+1:	; b18 : 減算なので1
+	; b17 : 算術演算なので0
+	; b16 : キャリーなしなので0
+	; b1  : 減算なのでN=1
+	andi.l	#%100_10111101_10111101,d6	* 16bit演算の時は Zフラグを直接セットするので、Zのダーティビットを立てずに0に初期化する
+	ori.l	#%100_10111101_00000010,d6	* S,F5,H,F3,PV,Cのダーティビットを立てる、N=1にする
+	move.w	hl(a3),d0
+	move.w	target,d1
+	; Xフラグにキャリーをセットし、addx命令を使う
+	btst.l	#0,d0
+	bne	1f
+	andi.b	#%11101111,ccr		* Xフラグをクリア
+	bra	2f
+1:  	ori.b	#%00010000,ccr		* Xフラグをセット
+2:
+	subx.b	d1,d0			* 下位８ビット+キャリーを減算
+	bcc	@f			* キャリーが発生していない場合はスキップ
+	ori.l	#%001_00000000_00000000,d6	* 再計算用キャリーをセット
+@@:	move.b	d0,l(a3)		* 下位８ビットを保存
+	lsr.w	#8,d0
+	lsr.w	#8,d1
+	move.b	d0,d5			* 第1項
+	lsl.w	#8,d5
+	move.b	d1,d5			* 引く数を 第2項に
+	swap	d5
+	btst	#16,d6
+	bne	1f
+	and.b	#%11101111,ccr		* Xフラグをクリア
+	bra	2f
+1:
+	or.b	#%00010000,ccr		* Xフラグをセット
+2:	subx.b	d1,d0			* 演算実行
+	move.b	d0,d5			* 結果を保存
+	move.b	d0,h(a3)		* 上位８ビットを保存
+	move.w	hl(a3),d0
+	bne	1f
+	ori.l	#%000_00000000_01000000,d6	* Zフラグをセット
+1:
+	endm
+
 SBC_HL_BC:
-	sub.w	d0,d0			* C,X ビットを０に
-	move.b	#1,PV(a3)		* PV をクリア
-	btst.l	#8,d6			* Cy を調べる
-	beq	@f			* Cyが０のとき
-	subq.w	#1,d0			* X ビットを１に
-@@:	move.w	hl(a3),d0
-	move.w	bc(a3),d1
-	subx.w	d1,d0
-
-F_set_sbchl:
-	bcs	C_sbchl
-	bvc	@f
-	clr.b	PV(a3)
-@@:	andi.w	#%01111110_11111111,d6	* Ｃ を０に
-	ori.w	#%00000010_00000000,d6	* Ｎ を１に
-	bra	next_sbchl
-
-C_sbchl:
-	bvc	@f
-	clr.b	PV(a3)
-@@:	andi.w	#%01111111_11111111,d6	* SZ mode を０に
-	ori.w	#%00000011_00000000,d6	* Ｎ,Ｃ を１に
-
-next_sbchl:
-	move.w	d0,hl(a3)
-	bmi	minus_sbchl
-	beq	zero_sbchl
-	move.b	#1,d6			* プラス
-	rts
-zero_sbchl:
-	clr.b	d6			* ゼロ
-	rts
-minus_sbchl:
-	move.b	#-1,d6			* マイナス
+	SBC_HL_XX	bc(a3)
 	rts
 
 SBC_HL_DE:
-	sub.w	d0,d0			* C,X ビットを０に
-	move.b	#1,PV(a3)		* PV をクリア
-	btst.l	#8,d6			* Cy を調べる
-	beq	@f
-	subq.w	#1,d0			* X ビットを１に
-@@:	move.w	hl(a3),d0
-	move.w	de(a3),d1
-	subx.w	d1,d0
-	bra	F_set_sbchl
+	SBC_HL_XX	de(a3)
+	rts
 
 SBC_HL_HL:
-	sub.w	d0,d0			* C,X ビットを０に
-	move.b	#1,PV(a3)		* PV をクリア
-	btst.l	#8,d6			* Cy を調べる
-	beq	@f
-	subq.w	#1,d0			* X ビットを１に
-@@:	move.w	hl(a3),d0
-	subx.w	d0,d0
-	bra	F_set_sbchl
+	SBC_HL_XX	hl(a3)
+	rts
 
 SBC_HL_SP:
-	sub.w	d0,d0			* C,X ビットを０に
-	move.b	#1,PV(a3)		* PV をクリア
-	btst.l	#8,d6			* Cy を調べる
-	beq	@f
-	subq.w	#1,d0			* X ビットを１に
-@@:	move.w	hl(a3),d0
-	move.w	sp_(a3),d1
-	subx.w	d1,d0
-	bra	F_set_sbchl
-
+	SBC_HL_XX	sp_(a3)
+	rts
 
 *	------ ＬＤＩ ------
 LDI:	andi.w	#%11110101_11111111,d6	* Ｎ,HC modeをクリア
@@ -4472,6 +4476,8 @@ LDI:	andi.w	#%11110101_11111111,d6	* Ｎ,HC modeをクリア
 	bne	rts_common
 	move.b	#1,PV(a3)
 	rts
+
+ここまで
 
 ******** もっと高速化したい。 read mem, write mem の展開等 ***********
 LDIR:	andi.w	#%11110101_11111111,d6	* Ｎ,HC modeをクリア
