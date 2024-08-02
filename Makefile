@@ -65,9 +65,9 @@ ${BUILD_DIR}/%.o: $(SRC_DIR)/%.has
 	rm $@.tmp
 
 # Test program
-src/z80test/exe/ms_z80tests.x:
-	make -C src/z80test
+test/z80test/exe/ms_z80tests.x:
+	make -C test/z80test
 
 clean:
 	rm -rf $(BUILD_DIR)
-	make -C src/z80test clean
+	make -C test/z80test clean
