@@ -175,10 +175,21 @@ wz	equ	wz_-base
 w	equ	w_-base
 z	equ	z_-base
 
+target_16 equ	target_16_-base
+target_8 equ	target_8_-base
 
 PC_page_inc	macro
 		swap	d7
 		addq.w	#1,d7
+		andi.w	#3,d7
+		lea	page0,a4
+		movea.l	(a4,d7.w*4),a4
+		swap	d7
+		endm
+
+PC_page_dec	macro
+		swap	d7
+		subq.w	#1,d7
 		andi.w	#3,d7
 		lea	page0,a4
 		movea.l	(a4,d7.w*4),a4
@@ -1662,7 +1673,7 @@ _readMemFromC:
 
 
 *------ ＡＤＤ ------
-ADD_A_X macro	target
+ADD_A_X macro
 	addq.w	#1,d7			* PC += 1
 	andi.w	#$3fff,d7		* PC がページ境界をまたいだか？
 	bne	1f
@@ -1673,7 +1684,7 @@ ADD_A_X macro	target
 	; b1  : 加算なのでN=0
 	andi.l	#%000_11111101_11111101,d6
 	ori.l	#%000_11111101_00000000,d6	* S,Z,F5,H,F3,PV,Cのダーティビットを立てる
-	move.b	target,d0
+	move.b	target_8(a3),d0
 	move.b	d4,d5			* 第1項
 	lsl.w	#8,d5
 	move.b	d0,d5			* 足す数を 第2項に
@@ -1683,37 +1694,45 @@ ADD_A_X macro	target
 	endm
 
 ADD_A_A:
-	ADD_A_X	d4
+	move.b	d4,target_8(a3)
+	ADD_A_X
 	rts
 
 ADD_A_B:
-	ADD_A_X b(a3)
+	move.b	b(a3),target_8(a3)
+	ADD_A_X
 	rts
 
 ADD_A_C:
-	ADD_A_X c(a3)
+	move.b	c(a3),target_8(a3)
+	ADD_A_X
 	rts
 
 ADD_A_D:
-	ADD_A_X d(a3)
+	move.b	d(a3),target_8(a3)
+	ADD_A_X
 	rts
 
 ADD_A_E:
-	ADD_A_X e(a3)
+	move.b	e(a3),target_8(a3)
+	ADD_A_X
 	rts
 
 ADD_A_H:
-	ADD_A_X h(a3)
+	move.b	h(a3),target_8(a3)
+	ADD_A_X
 	rts
 
 ADD_A_L:
-	ADD_A_X l(a3)
+	move.b	l(a3),target_8(a3)
+	ADD_A_X
 	rts
 
 ADD_A_lHLl:
 	move.w	hl(a3),d0
 	jsr	ms_read_mem_8
-	ADD_A_X d0
+	move.b	d0,target_8(a3)
+	ADD_A_X
 	rts
 
 ADD_A_n:
@@ -1749,7 +1768,7 @@ ADD_A_n:
 ; * PV: 変化しない
 ; * N : 0
 ; * C : 上位8bitの加算の実行によるキャリー
-ADD_HL_XX macro	target
+ADD_HL_XX macro
 	addq.w	#1,d7			* PC += 1
 	andi.w	#$3fff,d7		* PC がページ境界をまたいだか？
 	bne	1f
@@ -1762,7 +1781,7 @@ ADD_HL_XX macro	target
 	andi.l	#%000_00000000_11000100,d6	* S,Z,PVのみ保存
 	ori.l	#%000_00111001_00000000,d6	* F5,H,F3,Cのダーティビットを立てる
 	move.w	hl(a3),d0
-	move.w	target,d1
+	move.w	target_16(a3),d1
 	add.b	d1,d0			* 下位８ビットを加算
 	bcc	@f			* キャリーが発生していない場合はスキップ
 	ori.l	#%001_00000000_00000000,d6	* 再計算用キャリーをセット
@@ -1783,25 +1802,31 @@ ADD_HL_XX macro	target
 	endm
 
 ADD_HL_BC:
-	ADD_HL_XX bc(a3)
+	move.w	bc(a3),target_16(a3)
+	ADD_HL_XX
 	rts
 
 ADD_HL_DE:
-	ADD_HL_XX de(a3)
+	move.w	de(a3),target_16(a3)
+	ADD_HL_XX
 	rts
 
 ADD_HL_HL:
-	ADD_HL_XX hl(a3)
+	move.w	hl(a3),target_16(a3)
+	ADD_HL_XX
 	rts
 
 ADD_HL_SP:
-	ADD_HL_XX sp_(a3)
+	move.w	sp_(a3),target_16(a3)
+	ADD_HL_XX
 	rts
 
 
 *	------ ＡＤＣ ------
-ADC_A_X macro	target, fallback
+ADC_A_X macro	fallback
+	move.w	d0,-(sp)
 	bsr	eval_flag_HC_C		* HC,C フラグを再評価
+	move.w	(sp)+,d0
 	btst.l	#0,d6
 	beq	fallback		* Cy が０の時 ADD と同じ
 	addq.w	#1,d7			* PC += 1
@@ -1814,7 +1839,7 @@ ADC_A_X macro	target, fallback
 	; b1  : 加算なのでN=0
 	andi.l	#%000_11111101_11111101,d6
 	ori.l	#%001_11111101_00000000,d6	* S,Z,F5,H,F3,PV,Cのダーティビットを立てる
-	move.b	target,d0
+	move.b	target_8(a3),d0
 	move.b	d4,d5			* 第1項
 	lsl.w	#8,d5
 	move.b	d0,d5			* 足す数を 第2項に
@@ -1825,37 +1850,45 @@ ADC_A_X macro	target, fallback
 	endm
 
 ADC_A_A:
-	ADC_A_X	d4, ADD_A_A
+	move.b	d4,target_8(a3)
+	ADC_A_X	ADD_A_A
 	rts
 
 ADC_A_B:
-	ADC_A_X	b(a3), ADD_A_B
+	move.b	b(a3),target_8(a3)
+	ADC_A_X	ADD_A_B
 	rts
 
 ADC_A_C:
-	ADC_A_X	c(a3), ADD_A_C
+	move.b	c(a3),target_8(a3)
+	ADC_A_X	ADD_A_C
 	rts
 
 ADC_A_D:
-	ADC_A_X	d(a3), ADD_A_D
+	move.b	d(a3),target_8(a3)
+	ADC_A_X	ADD_A_D
 	rts
 
 ADC_A_E:
-	ADC_A_X	e(a3), ADD_A_E
+	move.b	e(a3),target_8(a3)
+	ADC_A_X	ADD_A_E
 	rts
 
 ADC_A_H:
-	ADC_A_X	h(a3), ADD_A_H
+	move.b	h(a3),target_8(a3)
+	ADC_A_X	ADD_A_H
 	rts
 
 ADC_A_L:
-	ADC_A_X	l(a3), ADD_A_L
+	move.b	l(a3),target_8(a3)
+	ADC_A_X	ADD_A_L
 	rts
 
 ADC_A_lHLl:
 	move.w	hl(a3),d0
 	jsr	ms_read_mem_8
-	ADC_A_X	d0, ADD_A_lHLl
+	move.b	d0,target_8(a3)
+	ADC_A_X	ADD_A_lHLl
 	rts
 
 ADC_A_n:
@@ -1886,7 +1919,7 @@ ADC_A_n:
 	rts
 
 *	------ ＳＵＢ ------
-SUB_A_X macro	target
+SUB_A_X macro
 	addq.w	#1,d7			* PC += 1
 	andi.w	#$3fff,d7		* PC がページ境界をまたいだか？
 	bne	1f
@@ -1897,7 +1930,7 @@ SUB_A_X macro	target
 	; b1  : 減算なのでN=1
 	andi.l	#%000_11111101_11111101,d6
 	ori.l	#%100_11111101_00000010,d6	* S,Z,F5,H,F3,PV,Cのダーティビットを立てる
-	move.b	target,d0
+	move.b	target_8(a3),d0
 	move.b	d4,d5			* 第1項
 	lsl.w	#8,d5
 	move.b	d0,d5			* 引く数を 第2項に
@@ -1906,31 +1939,39 @@ SUB_A_X macro	target
 	move.b	d4,d5			* 結果を保存
 	endm
 
-SUB_A:	SUB_A_X	d4
+SUB_A:	move.b	d4,target_8(a3)
+	SUB_A_X
 	rts
 
-SUB_B:	SUB_A_X	b(a3)
+SUB_B:	move.b	b(a3),target_8(a3)
+	SUB_A_X
 	rts
 
-SUB_C:	SUB_A_X	c(a3)
+SUB_C:	move.b	c(a3),target_8(a3)
+	SUB_A_X
 	rts
 
-SUB_D:	SUB_A_X	d(a3)
+SUB_D:	move.b	d(a3),target_8(a3)
+	SUB_A_X
 	rts
 
-SUB_E:	SUB_A_X	e(a3)
+SUB_E:	move.b	e(a3),target_8(a3)
+	SUB_A_X
 	rts
 
-SUB_H:	SUB_A_X	h(a3)
+SUB_H:	move.b	h(a3),target_8(a3)
+	SUB_A_X
 	rts
 
-SUB_L:	SUB_A_X	l(a3)
+SUB_L:	move.b	l(a3),target_8(a3)
+	SUB_A_X
 	rts
 
 SUB_lHLl:
 	move.w	hl(a3),d0
 	jsr	ms_read_mem_8
-	SUB_A_X	d0
+	move.b	d0,target_8(a3)
+	SUB_A_X
 	rts
 
 SUB_n:
@@ -1957,7 +1998,7 @@ SUB_n:
 	rts
 
 *	------ ＳＢＣ ------
-SBC_A_X macro	target, fallback
+SBC_A_X macro	fallback
 	bsr	eval_flag_HC_C		* HC,C フラグを再評価
 	btst.l	#0,d6
 	beq	fallback		* Cy が０の時 SUB と同じ
@@ -1971,7 +2012,7 @@ SBC_A_X macro	target, fallback
 	; b1  : 減算なのでN=1
 	andi.l	#%000_11111101_11111101,d6
 	ori.l	#%101_11111101_00000010,d6	* S,Z,F5,H,F3,PV,Cのダーティビットを立てる。
-	move.b	target,d0
+	move.b	target_8(a3),d0
 	move.b	d4,d5			* 第1項
 	lsl.w	#8,d5
 	move.b	d0,d5			* 引く数を 第2項に
@@ -1982,37 +2023,45 @@ SBC_A_X macro	target, fallback
 	endm
 
 SBC_A_A:
-	SBC_A_X	d4, SUB_A
+	move.b	d4,target_8(a3)
+	SBC_A_X	SUB_A
 	rts
 
 SBC_A_B:
-	SBC_A_X	b(a3), SUB_B
+	move.b	b(a3),target_8(a3)
+	SBC_A_X	SUB_B
 	rts
 
 SBC_A_C:
-	SBC_A_X	c(a3), SUB_C
+	move.b	c(a3),target_8(a3)
+	SBC_A_X	SUB_C
 	rts
 
 SBC_A_D:
-	SBC_A_X	d(a3), SUB_D
+	move.b	d(a3),target_8(a3)
+	SBC_A_X	SUB_D
 	rts
 
 SBC_A_E:
-	SBC_A_X	e(a3), SUB_E
+	move.b	e(a3),target_8(a3)
+	SBC_A_X	SUB_E
 	rts
 
 SBC_A_H:
-	SBC_A_X	h(a3), SUB_H
+	move.b	h(a3),target_8(a3)
+	SBC_A_X	SUB_H
 	rts
 
 SBC_A_L:
-	SBC_A_X	l(a3), SUB_L
+	move.b	l(a3),target_8(a3)
+	SBC_A_X	SUB_L
 	rts
 
 SBC_A_lHLl:
 	move.w	hl(a3),d0
 	jsr	ms_read_mem_8
-	SBC_A_X	d0, SUB_lHLl
+	move.b	d0,target_8(a3)
+	SBC_A_X	SUB_lHLl
 	rts
 
 SBC_A_n:
@@ -2044,7 +2093,7 @@ SBC_A_n:
 
 
 *	------ ＡＮＤ ------
-AND_X	macro	target
+AND_X	macro
 	addq.w	#1,d7			* PC += 1
 	andi.w	#$3fff,d7		* PC がページ境界をまたいだか？
 	bne	1f
@@ -2057,7 +2106,7 @@ AND_X	macro	target
 	; b0  : AND演算時はC=0固定
 	andi.l	#%000_11101100_11101100,d6
 	ori.l	#%010_11101100_00010000,d6	* S,Z,F5,F3,PV,Cのダーティビットを立てる
-	move.b	target,d0
+	move.b	target_8(a3),d0
 	move.b	d4,d5			* 第1項
 	lsl.w	#8,d5
 	move.b	d0,d5			* 演算対象を 第2項に
@@ -2066,31 +2115,39 @@ AND_X	macro	target
 	move.b	d4,d5			* 結果を保存
 	endm
 
-AND_A:	AND_X	d4
+AND_A:	move.b	d4,target_8(a3)
+	AND_X
 	rts
 
-AND_B:	AND_X	b(a3)
+AND_B:	move.b	b(a3),target_8(a3)
+	AND_X
 	rts
 
-AND_C:	AND_X	c(a3)
+AND_C:	move.b	c(a3),target_8(a3)
+	AND_X
 	rts
 
-AND_D:	AND_X	d(a3)
+AND_D:	move.b	d(a3),target_8(a3)
+	AND_X
 	rts
 
-AND_E:	AND_X	e(a3)
+AND_E:	move.b	e(a3),target_8(a3)
+	AND_X
 	rts
 
-AND_H:	AND_X	h(a3)
+AND_H:	move.b	h(a3),target_8(a3)
+	AND_X
 	rts
 
-AND_L:	AND_X	l(a3)
+AND_L:	move.b	l(a3),target_8(a3)
+	AND_X
 	rts
 
 AND_lHLl:
 	move.w	hl(a3),d0
 	jsr	ms_read_mem_8
-	AND_X	d0
+	move.b	d0,target_8(a3)
+	AND_X
 	rts
 
 AND_n:	move.b	1(a4,d7.w),d0
@@ -2118,7 +2175,7 @@ AND_n:	move.b	1(a4,d7.w),d0
 	rts
 
 *	------ ＸＯＲ ------
-_OR_X	macro	opname, target
+_OR_X	macro	opname
 	addq.w	#1,d7			* PC += 1
 	andi.w	#$3fff,d7		* PC がページ境界をまたいだか？
 	bne	1f
@@ -2131,7 +2188,7 @@ _OR_X	macro	opname, target
 	; b0  : AND演算時はC=0固定
 	andi.l	#%000_11101100_11101100,d6
 	ori.l	#%010_11101100_00000000,d6	* S,Z,F5,F3,PV,Cのダーティビットを立てる
-	move.b	target,d0
+	move.b	target_8(a3),d0
 	move.b	d4,d5			* 第1項
 	lsl.w	#8,d5
 	move.b	d0,d5			* 演算対象を 第2項に
@@ -2164,69 +2221,85 @@ _OR_n	macro	opname
 	opname.b	d0,d4			* 演算実行
 	endm
 
-XOR_A:	_OR_X	eor, d4
+XOR_A:	move.b	d4,target_8(a3)
+	_OR_X	eor
 	rts	
 
-XOR_B:	_OR_X	eor, b(a3)
+XOR_B:	move.b	b(a3),target_8(a3)
+	_OR_X	eor
 	rts
 
-XOR_C:	_OR_X	eor, c(a3)
+XOR_C:	move.b	c(a3),target_8(a3)
+	_OR_X	eor
 	rts
 
-XOR_D:	_OR_X	eor, d(a3)
+XOR_D:	move.b	d(a3),target_8(a3)
+	_OR_X	eor
 	rts
 
-XOR_E:	_OR_X	eor, e(a3)
+XOR_E:	move.b	e(a3),target_8(a3)
+	_OR_X	eor
 	rts
 
-XOR_H:	_OR_X	eor, h(a3)
+XOR_H:	move.b	h(a3),target_8(a3)
+	_OR_X	eor
 	rts
 
-XOR_L:	_OR_X	eor, l(a3)
+XOR_L:	move.b	l(a3),target_8(a3)
+	_OR_X	eor
 	rts
 
 XOR_lHLl:
 	move.w	hl(a3),d0
 	jsr	ms_read_mem_8
-	_OR_X	eor, d0
+	move.b	d0,target_8(a3)
+	_OR_X	eor
 	rts
 
 XOR_n:	_OR_n	eor
 	rts
 
 *	------ ＯＲ ------
-OR_A:	_OR_X	or, d4
+OR_A:	move.b	d4,target_8(a3)
+	_OR_X	or
 	rts
 
-OR_B:	_OR_X	or, b(a3)
+OR_B:	move.b	b(a3),target_8(a3)
+	_OR_X	or
 	rts
 
-OR_C:	_OR_X	or, c(a3)
+OR_C:	move.b	c(a3),target_8(a3)
+	_OR_X	or
 	rts
 
-OR_D:	_OR_X	or, d(a3)
+OR_D:	move.b	d(a3),target_8(a3)
+	_OR_X	or
 	rts
 
-OR_E:	_OR_X	or, e(a3)
+OR_E:	move.b	e(a3),target_8(a3)
+	_OR_X	or
 	rts
 
-OR_H:	_OR_X	or, h(a3)
+OR_H:	move.b	h(a3),target_8(a3)
+	_OR_X	or
 	rts
 
-OR_L:	_OR_X	or, l(a3)
+OR_L:	move.b	l(a3),target_8(a3)
+	_OR_X	or
 	rts
 
 OR_lHLl:
 	move.w	hl(a3),d0
 	jsr	ms_read_mem_8
-	_OR_X	or, d0
+	move.b	d0,target_8(a3)
+	_OR_X	or
 	rts
 
 OR_n:	_OR_n	or
 	rts
 
 *	------ ＣＰ ------
-CP_A_X	macro	target
+CP_A_X	macro
 	addq.w	#1,d7			* PC += 1
 	andi.w	#$3fff,d7		* PC がページ境界をまたいだか？
 	bne	1f
@@ -2237,7 +2310,7 @@ CP_A_X	macro	target
 	; b1  : 減算なのでN=1
 	andi.l	#%000_11111101_11111101,d6
 	ori.l	#%100_11111101_00000010,d6	* S,Z,F5,H,F3,PV,Cのダーティビットを立てる
-	move.b	target,d0
+	move.b	target_8(a3),d0
 	move.b	d4,d5			* 第1項
 	lsl.w	#8,d5
 	move.b	d0,d5			* 引く数を 第2項に
@@ -2246,31 +2319,39 @@ CP_A_X	macro	target
 	sub.b	d0,d5			* 比較(減算)演算の結果をd5のみに反映(Aレジスタ(d4)は破壊されない)
 	endm
 
-CP_A:	CP_A_X	d4
+CP_A:	move.b	d4,target_8(a3)
+	CP_A_X
 	rts
 
-CP_B:	CP_A_X	b(a3)
+CP_B:	move.b	b(a3),target_8(a3)
+	CP_A_X
 	rts
 
-CP_C:	CP_A_X	c(a3)
+CP_C:	move.b	c(a3),target_8(a3)
+	CP_A_X
 	rts
 
-CP_D:	CP_A_X	d(a3)
+CP_D:	move.b	d(a3),target_8(a3)
+	CP_A_X
 	rts
 
-CP_E:	CP_A_X	e(a3)
+CP_E:	move.b	e(a3),target_8(a3)
+	CP_A_X
 	rts
 
-CP_H:	CP_A_X	h(a3)
+CP_H:	move.b	h(a3),target_8(a3)
+	CP_A_X
 	rts
 
-CP_L:	CP_A_X	l(a3)
+CP_L:	move.b	l(a3),target_8(a3)
+	CP_A_X
 	rts
 
 CP_lHLl:
 	move.w	hl(a3),d0
 	jsr	ms_read_mem_8
-	CP_A_X	d0
+	move.b	d0,target_8(a3)
+	CP_A_X
 	rts
 
 CP_n:	move.b	1(a4,d7.w),d0
@@ -2296,7 +2377,7 @@ CP_n:	move.b	1(a4,d7.w),d0
 	rts
 
 *	------ ＩＮＣ ------
-INC_X	macro	target
+INC_X	macro
 	bsr	eval_flag_HC_C		* incでCフラグは変化しないので、この時点のHC,C フラグを再評価
 	addq.w	#1,d7			* PC += 1
 	andi.w	#$3fff,d7		* PC がページ境界をまたいだか？
@@ -2308,68 +2389,89 @@ INC_X	macro	target
 	; b1  : 加算なのでN=0
 	andi.l	#%000_11111100_11111101,d6	* Cのダーティビットをクリア(再評価したのでクリアされているはず)
 	ori.l	#%000_11111100_00000000,d6	* S,Z,F5,H,F3,PVのダーティビットを立てる
-	move.b	target,d0
+	move.b	target_8(a3),d0
 	move.b	d0,d5			* 第1項がターゲットの値
 	lsl.w	#8,d5
 	move.b	#1,d5			* 足す数=1を 第2項に
 	swap	d5
 	addq.b	#1,d0			* 演算実行
 	move.b	d0,d5			* 結果を保存
-	move.b	d0,target		* 結果を反映
 	endm
 
-INC_A:	INC_X	d4
+INC_A:	move.b	d4,target_8(a3)
+	INC_X
+	move.b	d0,d4			* 結果を反映
 	rts
 
-INC_B:	INC_X	b(a3)
+INC_B:	move.b	b(a3),target_8(a3)
+	INC_X
+	move.b	d0,b(a3)		* 結果を反映
 	rts
 
-INC_C:	INC_X	c(a3)
+INC_C:	move.b	c(a3),target_8(a3)
+	INC_X
+	move.b	d0,c(a3)		* 結果を反映
 	rts
 
-INC_D:	INC_X	d(a3)
+INC_D:	move.b	d(a3),target_8(a3)
+	INC_X
+	move.b	d0,d(a3)		* 結果を反映
 	rts
 
-INC_E:	INC_X	e(a3)
+INC_E:	move.b	e(a3),target_8(a3)
+	INC_X
+	move.b	d0,e(a3)		* 結果を反映
 	rts
 
-INC_H:	INC_X	h(a3)
+INC_H:	move.b	h(a3),target_8(a3)
+	INC_X
+	move.b	d0,h(a3)		* 結果を反映
 	rts
 
-INC_L:	INC_X	l(a3)
+INC_L:	move.b	l(a3),target_8(a3)
+	INC_X
+	move.b	d0,l(a3)		* 結果を反映
 	rts
 
 INC_lHLl:
 	move.w	hl(a3),d0		* d0にHLの値をロード
 	jsr	ms_read_mem_8
-	INC_X	d0			* D0 には (HL)の値が入っている
+	move.b	d0,target_8(a3)		* D0 には (HL)の値が入っている
+	INC_X
 	move.b	d0,d1			* インクリメントした結果が d0に入っているので d1 に退避
 	move.w	hl(a3),d0		* d0 には HL の値が入っている
 	jsr	ms_write_mem_8		* (HL) に結果を書き込む
 	rts
 
-INC_XX	macro	target
+INC_XX	macro
 	addq.w	#1,d7			* PC += 1
 	andi.w	#$3fff,d7		* PC がページ境界をまたいだか？
 	bne	1f
 	PC_page_inc
-1:	addq.w	#1,target
+1:	addq.w	#1,target_16(a3)
 	endm
 
-INC_BC:	INC_XX	bc(a3)
+INC_BC:	move.w	bc(a3),target_16(a3)
+	INC_XX
 	rts
 
-INC_DE:	INC_XX	de(a3)
+INC_DE:	move.w	de(a3),target_16(a3)
+	INC_XX
+	move.w	target_16(a3),de(a3)
 	rts
 
-INC_HL:	INC_XX	hl(a3)
+INC_HL:	move.w	hl(a3),target_16(a3)
+	INC_XX
+	move.w	target_16(a3),hl(a3)
 	rts
 
-INC_SP:	INC_XX	sp_(a3)
+INC_SP:	move.w	sp_(a3),target_16(a3)
+	INC_XX
+	move.w	target_16(a3),sp_(a3)
 	rts
 
 *	------ ＤＥＣ ------
-DEC_X	macro	target
+DEC_X	macro
 	bsr	eval_flag_HC_C		* incでCフラグは変化しないので、この時点のHC,C フラグを再評価
 	addq.w	#1,d7			* PC += 1
 	andi.w	#$3fff,d7		* PC がページ境界をまたいだか？
@@ -2381,64 +2483,86 @@ DEC_X	macro	target
 	; b1  : 減算なのでN=1
 	andi.l	#%000_11111100_11111101,d6	* Cのダーティビットをクリア(再評価したのでクリアされているはず)
 	ori.l	#%100_11111100_00000010,d6	* S,Z,F5,H,F3,PVのダーティビットを立てる
-	move.b	target,d0
+	move.b	target_8(a3),d0
 	move.b	d0,d5			* 第1項がターゲットの値
 	lsl.w	#8,d5
 	move.b	#1,d5			* 引く数=1を 第2項に
 	swap	d5
 	subq.b	#1,d0			* 演算実行
 	move.b	d0,d5			* 結果を保存
-	move.b	d0,target		* 結果を反映
 	endm
 
-DEC_A:	DEC_X	d4
+DEC_A:	move.b	d4,target_8(a3)
+	DEC_X
+	move.b	d0,d4			* 結果を反映
 	rts
 
-DEC_B:	DEC_X	b(a3)
+DEC_B:	move.b	b(a3),target_8(a3)
+	DEC_X
+	move.b	d0,b(a3)		* 結果を反映
 	rts
 
-DEC_C:	DEC_X	c(a3)
+DEC_C:	move.b	c(a3),target_8(a3)
+	DEC_X
+	move.b	d0,c(a3)		* 結果を反映
 	rts
 
-DEC_D:	DEC_X	d(a3)
+DEC_D:	move.b	d(a3),target_8(a3)
+	DEC_X
+	move.b	d0,d(a3)		* 結果を反映
 	rts
 
-DEC_E:	DEC_X	e(a3)
+DEC_E:	move.b	e(a3),target_8(a3)
+	DEC_X
+	move.b	d0,e(a3)		* 結果を反映
 	rts
 
-DEC_H:	DEC_X	h(a3)
+DEC_H:	move.b	h(a3),target_8(a3)
+	DEC_X
+	move.b	d0,h(a3)		* 結果を反映
 	rts
 
-DEC_L:	DEC_X	l(a3)
+DEC_L:	move.b	l(a3),target_8(a3)
+	DEC_X
+	move.b	d0,l(a3)		* 結果を反映
 	rts
 
 DEC_lHLl:
 	move.w	hl(a3),d0		* d0にHLの値をロード
 	jsr	ms_read_mem_8
-	DEC_X	d0			* d0 には (HL)の値が入っている
+	move.b	d0,target_8(a3)		* d0 には (HL)の値が入っている
+	DEC_X
 	move.b	d0,d1			* デクリメントした結果が d0に入っているので d1 に退避
 	move.w	hl(a3),d0		* d0 には HL の値が入っている
 	jsr	ms_write_mem_8		* (HL) に結果を書き込む
 	rts
 
-DEC_XX	macro	target
+DEC_XX	macro
 	addq.w	#1,d7			* PC += 1
 	andi.w	#$3fff,d7		* PC がページ境界をまたいだか？
 	bne	1f
 	PC_page_inc
-1:	subq.w	#1,target
+1:	subq.w	#1,target_16(a3)
 	endm
 
-DEC_BC:	DEC_XX	bc(a3)
+DEC_BC:	move.w	bc(a3),target_16(a3)
+	DEC_XX
+	move.w	target_16(a3),bc(a3)
 	rts
 
-DEC_DE:	DEC_XX	de(a3)
+DEC_DE:	move.w	de(a3),target_16(a3)
+	DEC_XX
+	move.w	target_16(a3),de(a3)
 	rts
 
-DEC_HL:	DEC_XX	hl(a3)
+DEC_HL:	move.w	hl(a3),target_16(a3)
+	DEC_XX
+	move.w	target_16(a3),hl(a3)
 	rts
 
-DEC_SP:	DEC_XX	sp_(a3)
+DEC_SP:	move.w	sp_(a3),target_16(a3)
+	DEC_XX
+	move.w	target_16(a3),sp_(a3)
 	rts
 
 
@@ -2919,18 +3043,18 @@ DJNZ:	subq.b	#1,b(a3)	* b = b-1
 
 
 *	------ ＰＵＳＨ  ＰＯＰ ------
-PUSH_XX	macro	target
+PUSH_XX	macro
 	addq.w	#1,d7
 	andi.w	#$3fff,d7
 	bne	1f
 	PC_page_inc
 1:	subq.w	#2,sp_(a3)		; スタックを2バイト減らす
 	move.w	sp_(a3),d0
-	move.w	target,d1
+	move.w	target_16(a3),d1
 	jsr	ms_write_mem_16		; スタックに書き込む
 	endm
 
-POP_XX	macro	target
+POP_XX	macro
 	addq.w	#1,d7
 	andi.w	#$3fff,d7
 	bne	1f
@@ -2938,7 +3062,6 @@ POP_XX	macro	target
 1:	move.w	sp_(a3),d0		; スタックから読み込む
 	jsr	ms_read_mem_16
 	addq.w	#2,sp_(a3)		; スタックを2バイト増やす
-	move.w	d0,target		; Aレジスタのロード
 	endm
 
 PUSH_AF:
@@ -2946,10 +3069,11 @@ PUSH_AF:
 	move.b	d4,d1
 	lsl.w	#8,d1
 	move.b	d6,d1
+	move.w	d1,target_16(a3)
 	PUSH_XX	d1
 	rts
 POP_AF:
-	POP_XX	d0
+	POP_XX
 	move.w	d0,d4			; Aレジスタのロード
 	lsr.w	#8,d4			; 位置合わせ
 	move.b	d0,d6			; フラグのロード
@@ -2957,24 +3081,30 @@ POP_AF:
 	rts
 
 PUSH_BC:
-	PUSH_XX	bc(a3)
+	move.w	bc(a3),target_16(a3)
+	PUSH_XX
 	rts
 POP_BC:
-	POP_XX	bc(a3)
+	POP_XX
+	move.w	d0,bc(a3)
 	rts
 
 PUSH_DE:
-	PUSH_XX	de(a3)
+	move.w	de(a3),target_16(a3)
+	PUSH_XX
 	rts
 POP_DE:
 	POP_XX	de(a3)
+	move.w	d0,de(a3)
 	rts
 
 PUSH_HL:
-	PUSH_XX	hl(a3)
+	move.w	hl(a3),target_16(a3)
+	PUSH_XX
 	rts
 POP_HL:
 	POP_XX	hl(a3)
+	move.w	d0,hl(a3)
 	rts
 
 *	------ ＥＸ ------
@@ -3355,21 +3485,23 @@ case2:
 ; * N : 0
 ; * C : 変化しない
 ; ただし、対象が(HL)の場合だけ、F5,F3は内部のWZレジスタの上位8bitの値(bit13,11)が入るらしい
-BIT:	bsr	eval_flag_HC_C		* HC,C フラグを再評価
+BIT:	move.w	d0,-(sp)
+	bsr	eval_flag_HC_C		* HC,C フラグを再評価
 	andi.l	#%000_00000000_00000001,d6	* Cフラグ以外をクリア
 	ori.l	#%000_00000000_00010000,d6	* Hフラグをセット
+	move.w	(sp)+,d0
 	move.w	d0,d1
 	andi.w	#%00000000_00111000,d0	* BIT_n_? の n を d0にロード
 	lsr.w	#3,d0
 	moveq.l	#1,d2
-	lsrl	d0,d2			* 対象位置のビットをセット
+	lsl	d0,d2			* 対象位置のビットをセット
 
 	andi.w	#%00000000_00000111,d1
 	addq.w	#2,d1
 	andi.w	#%00000111,d1
 	cmpi.w	#1,d1
 	beq	BIT_a			* BIT Aの時
-	blt	BIT_lHLl		* BIT (HL)の時
+	blt	BIT_lhll		* BIT (HL)の時
 	move.b	a(a3,d1.w),d0		* B,C,D,E,H,Lのいずれかのレジスタの値をロード
 	move.b	d0,d1			* F5,F3に反映させるレジスタ値をd1にロード
 	bra	@f
@@ -3452,7 +3584,7 @@ Rot_Sft_JPT:
 	.dc.w	SRA_lHLl-Rot_Sft_JPT
 	.dc.w	SRA_A-Rot_Sft_JPT	* $2f
 
-	.dc.w	SLI_B-Rot_Sft_JPT	* $30	SLI 未定義命令(Shift Left ?????)
+	.dc.w	SLI_B-Rot_Sft_JPT	* $30	SLI 未定義命令(Shift Left Increment)
 	.dc.w	SLI_C-Rot_Sft_JPT	*	ビット０に１が入る左シフト
 	.dc.w	SLI_D-Rot_Sft_JPT
 	.dc.w	SLI_E-Rot_Sft_JPT
@@ -3482,9 +3614,9 @@ Rot_Sft_JPT:
 ; * N : 0
 ; * C : ローテーションによってはみ出た値
 ;
-RXX_	macro	target, isLeft, isCircular
+RXX_	macro	isLeft, isCircular
 	bsr	eval_flag_HC_C		* HC,C フラグを再評価
-	move.b	target,d0
+	move.b	target_8(a3),d0
 	.if isCircular
 	  ; キャリーを経由せずにローテート
 	  .if isLeft
@@ -3519,100 +3651,159 @@ RXX_	macro	target, isLeft, isCircular
 	andi.l	#%000_11101100_11101100,d6	* HC,N,Cをクリア
 	ori.l	#%010_11000100_00000001,d6	* Cは1、SZとPVはダーティビットを立てる
 2:	move.b	d0,d5				* 論理演算結果を保存
-	move.b	d0,target
 	endm
 
 *	------ ＲＬＣ ------
-RLC_A:	RXX_	d4, 1, 1
+RLC_A:	move.b	d4,target_8(a3)
+	RXX_	1, 1
+	move.b	d0,d4
 	rts
-RLC_B:	RXX_	b(a3), 1, 1
+RLC_B:	move.b	b(a3),target_8(a3)
+	RXX_	1, 1
+	move.b	d0,b(a3)
 	rts
-RLC_C:	RXX_	c(a3), 1, 1
+RLC_C:	move.b	c(a3),target_8(a3)
+	RXX_	1, 1
+	move.b	d0,c(a3)
 	rts
-RLC_D:	RXX_	d(a3), 1, 1
+RLC_D:	move.b	d(a3),target_8(a3)
+	RXX_	1, 1
+	move.b	d0,d(a3)
 	rts
-RLC_E:	RXX_	e(a3), 1, 1
+RLC_E:	move.b	e(a3),target_8(a3)
+	RXX_	1, 1
+	move.b	d0,e(a3)
 	rts
-RLC_H:	RXX_	h(a3), 1, 1
+RLC_H:	move.b	h(a3),target_8(a3)
+	RXX_	1, 1
+	move.b	d0,h(a3)
 	rts
-RLC_L:	RXX_	l(a3), 1, 1
+RLC_L:	move.b	l(a3),target_8(a3)
+	RXX_	1, 1
+	move.b	d0,l(a3)
 	rts
 RLC_lHLl:
 	move.w	hl(a3),d0
 	jsr	ms_read_mem_8
-	RXX_	d0, 1, 1
+	move.b	d0,target_8(a3)
+	RXX_	1, 1
 	move.b	d0,d1
 	move.w	hl(a3),d0
 	jsr	ms_write_mem_8
 	rts
 
 *	------ ＲＲＣ ------
-RRC_A:	RXX_	d4, 0, 1
+RRC_A:	move.b	d4,target_8(a3)
+	RXX_	0, 1
+	move.b	d0,d4
 	rts
-RRC_B:	RXX_	b(a3), 0, 1
+RRC_B:	move.b	b(a3),target_8(a3)
+	RXX_	0, 1
+	move.b	d0,b(a3)
 	rts
-RRC_C:	RXX_	c(a3), 0, 1
+RRC_C:	move.b	c(a3),target_8(a3)
+	RXX_	0, 1
+	move.b	d0,c(a3)
 	rts
-RRC_D:	RXX_	d(a3), 0, 1
+RRC_D:	move.b	d(a3),target_8(a3)
+	RXX_	0, 1
+	move.b	d0,d(a3)
 	rts
-RRC_E:	RXX_	e(a3), 0, 1
+RRC_E:	move.b	e(a3),target_8(a3)
+	RXX_	0, 1
+	move.b	d0,e(a3)
 	rts
-RRC_H:	RXX_	h(a3), 0, 1
+RRC_H:	move.b	h(a3),target_8(a3)
+	RXX_	0, 1
+	move.b	d0,h(a3)
 	rts
-RRC_L:	RXX_	l(a3), 0, 1
+RRC_L:	move.b	l(a3),target_8(a3)
+	RXX_	0, 1
+	move.b	d0,l(a3)
 	rts
 RRC_lHLl:
 	move.w	hl(a3),d0
 	jsr	ms_read_mem_8
-	RXX_	d0, 0, 1
+	move.b	d0,target_8(a3)
+	RXX_	0, 1
 	move.b	d0,d1
 	move.w	hl(a3),d0
 	jsr	ms_write_mem_8
 	rts
 
 *	------ ＲＬ ------
-RL_A:	RXX_	d4, 1, 0
+RL_A:	move.b	d4,target_8(a3)
+	RXX_	1, 0
+	move.b	d0,d4
 	rts
-RL_B:	RXX_	b(a3), 1, 0
+RL_B:	move.b	b(a3),target_8(a3)
+	RXX_	1, 0
+	move.b	d0,b(a3)
 	rts
-RL_C:	RXX_	c(a3), 1, 0
+RL_C:	move.b	c(a3),target_8(a3)
+	RXX_	1, 0
+	move.b	d0,c(a3)
 	rts
-RL_D:	RXX_	d(a3), 1, 0
+RL_D:	move.b	d(a3),target_8(a3)
+	RXX_	1, 0
+	move.b	d0,d(a3)
 	rts
-RL_E:	RXX_	e(a3), 1, 0
+RL_E:	move.b	e(a3),target_8(a3)
+	RXX_	1, 0
+	move.b	d0,e(a3)
 	rts
-RL_H:	RXX_	h(a3), 1, 0
+RL_H:	move.b	h(a3),target_8(a3)
+	RXX_	1, 0
+	move.b	d0,h(a3)
 	rts
-RL_L:	RXX_	l(a3), 1, 0
+RL_L:	move.b	l(a3),target_8(a3)
+	RXX_	1, 0
+	move.b	d0,l(a3)
 	rts
 RL_lHLl:
 	move.w	hl(a3),d0
 	jsr	ms_read_mem_8
-	RXX_	d0, 1, 0
+	move.b	d0,target_8(a3)
+	RXX_	1, 0
 	move.b	d0,d1
 	move.w	hl(a3),d0
 	jsr	ms_write_mem_8
 	rts
 
 *	------ ＲＲ ------
-RR_A:	RXX_	d4, 0, 0
+RR_A:	move.b	d4,target_8(a3)
+	RXX_	0, 0
+	move.b	d0,d4
 	rts
-RR_B:	RXX_	b(a3), 0, 0
+RR_B:	move.b	b(a3),target_8(a3)
+	RXX_	0, 0
+	move.b	d0,b(a3)
 	rts
-RR_C:	RXX_	c(a3), 0, 0
+RR_C:	move.b	c(a3),target_8(a3)
+	RXX_	0, 0
+	move.b	d0,c(a3)
 	rts
-RR_D:	RXX_	d(a3), 0, 0
+RR_D:	move.b	d(a3),target_8(a3)
+	RXX_	0, 0
+	move.b	d0,d(a3)
 	rts
-RR_E:	RXX_	e(a3), 0, 0
+RR_E:	move.b	e(a3),target_8(a3)
+	RXX_	0, 0
+	move.b	d0,e(a3)
 	rts
-RR_H:	RXX_	h(a3), 0, 0
+RR_H:	move.b	h(a3),target_8(a3)
+	RXX_	0, 0
+	move.b	d0,h(a3)
 	rts
-RR_L:	RXX_	l(a3), 0, 0
+RR_L:	move.b	l(a3),target_8(a3)
+	RXX_	0, 0
+	move.b	d0,l(a3)
 	rts
 RR_lHLl:
 	move.w	hl(a3),d0
 	jsr	ms_read_mem_8
-	RXX_	d0, 0, 0
+	move.b	d0,target_8(a3)
+	RXX_	0, 0
 	move.b	d0,d1
 	move.w	hl(a3),d0
 	jsr	ms_write_mem_8
@@ -3640,9 +3831,9 @@ RR_lHLl:
 ; 以上を１つのマクロで実現するため、isLeft, insert という２つの引数を使っている
 ; * isLeft: 1の時は左シフト、0の時は右シフト
 ; * insert : 0の時は0を挿入、1の時は1を挿入、2の時は 最上位ビットの値を挿入
-SXX	macro	target, isLeft, insert
+SXX	macro	isLeft, insert
 	bsr	eval_flag_HC_C		* HC,C フラグを再評価
-	move.b	target,d0
+	move.b	target_8(a3),d0
 	.if insert == 0
 	  andi.b	#%11101111,ccr	; Xフラグをリセット
 	.elseif insert == 1
@@ -3673,35 +3864,49 @@ SXX	macro	target, isLeft, insert
 	andi.l	#%000_11101100_11101100,d6	* HC,N,Cをクリア
 	ori.l	#%010_11000100_00000001,d6	* Cは1、SZとPVはダーティビットを立てる
 2:	move.b	d0,d5				* 論理演算結果を保存
-	move.b	d0,target
 	endm
 
 *	------ ＳＬＡ ------
 SLA_A:
-	SXX	d4, 1, 0
+	move.b	d4,target_8(a3)
+	SXX	1, 0
+	move.b	d0,d4
 	rts
 SLA_B:
-	SXX	b(a3), 1, 0
+	move.b	b(a3),target_8(a3)
+	SXX	1, 0
+	move.b	d0,b(a3)
 	rts
 SLA_C:
-	SXX	c(a3), 1, 0
+	move.b	c(a3),target_8(a3)
+	SXX	1, 0
+	move.b	d0,c(a3)
 	rts
 SLA_D:
-	SXX	d(a3), 1, 0
+	move.b	d(a3),target_8(a3)
+	SXX	1, 0
+	move.b	d0,d(a3)
 	rts
 SLA_E:
-	SXX	e(a3), 1, 0
+	move.b	e(a3),target_8(a3)
+	SXX	1, 0
+	move.b	d0,e(a3)
 	rts
 SLA_H:
-	SXX	h(a3), 1, 0
+	move.b	h(a3),target_8(a3)
+	SXX	1, 0
+	move.b	d0,h(a3)
 	rts
 SLA_L:
-	SXX	l(a3), 1, 0
+	move.b	l(a3),target_8(a3)
+	SXX	1, 0
+	move.b	d0,l(a3)
 	rts
 SLA_lHLl:
 	move.w	hl(a3),d0
 	jsr	ms_read_mem_8
-	SXX	d0, 1, 0
+	move.b	d0,target_8(a3)
+	SXX	1, 0
 	move.b	d0,d1
 	move.w	hl(a3),d0
 	jsr	ms_write_mem_8
@@ -3709,30 +3914,45 @@ SLA_lHLl:
 
 *	------ ＳＲＡ ------
 SRA_A:
-	SXX	d4, 0, 2
+	move.b	d4,target_8(a3)
+	SXX	0, 2
+	move.b	d0,d4
 	rts
 SRA_B:
-	SXX	b(a3), 0, 2
+	move.b	b(a3),target_8(a3)
+	SXX	0, 2
+	move.b	d0,b(a3)
 	rts
 SRA_C:
-	SXX	c(a3), 0, 2
+	move.b	c(a3),target_8(a3)
+	SXX	0, 2
+	move.b	d0,c(a3)
 	rts
 SRA_D:
-	SXX	d(a3), 0, 2
+	move.b	d(a3),target_8(a3)
+	SXX	0, 2
+	move.b	d0,d(a3)
 	rts
 SRA_E:
-	SXX	e(a3), 0, 2
+	move.b	e(a3),target_8(a3)
+	SXX	0, 2
+	move.b	d0,e(a3)
 	rts
 SRA_H:
-	SXX	h(a3), 0, 2
+	move.b	h(a3),target_8(a3)
+	SXX	0, 2
+	move.b	d0,h(a3)
 	rts
 SRA_L:
-	SXX	l(a3), 0, 2
+	move.b	l(a3),target_8(a3)
+	SXX	0, 2
+	move.b	d0,l(a3)
 	rts
 SRA_lHLl:
 	move.w	hl(a3),d0
 	jsr	ms_read_mem_8
-	SXX	d0, 0, 2
+	move.b	d0,target_8(a3)
+	SXX	0, 2
 	move.b	d0,d1
 	move.w	hl(a3),d0
 	jsr	ms_write_mem_8
@@ -3740,30 +3960,45 @@ SRA_lHLl:
 
 *	------ ＳＲＬ ------
 SRL_A:
-	SXX	d4, 0, 0
+	move.b	d4,target_8(a3)
+	SXX	0, 0
+	move.b	d0,d4
 	rts
 SRL_B:
-	SXX	b(a3), 0, 0
+	move.b	b(a3),target_8(a3)
+	SXX	0, 0
+	move.b	d0,b(a3)
 	rts
 SRL_C:
-	SXX	c(a3), 0, 0
+	move.b	c(a3),target_8(a3)
+	SXX	0, 0
+	move.b	d0,c(a3)
 	rts
 SRL_D:
-	SXX	d(a3), 0, 0
+	move.b	d(a3),target_8(a3)
+	SXX	0, 0
+	move.b	d0,d(a3)
 	rts
 SRL_E:
-	SXX	e(a3), 0, 0
+	move.b	e(a3),target_8(a3)
+	SXX	0, 0
+	move.b	d0,e(a3)
 	rts
 SRL_H:
-	SXX	h(a3), 0, 0
+	move.b	h(a3),target_8(a3)
+	SXX	0, 0
+	move.b	d0,h(a3)
 	rts
 SRL_L:
-	SXX	l(a3), 0, 0
+	move.b	l(a3),target_8(a3)
+	SXX	0, 0
+	move.b	d0,l(a3)
 	rts
 SRL_lHLl:
 	move.w	hl(a3),d0
 	jsr	ms_read_mem_8
-	SXX	d0, 0, 0
+	move.b	d0,target_8(a3)
+	SXX	0, 0
 	move.b	d0,d1
 	move.w	hl(a3),d0
 	jsr	ms_write_mem_8
@@ -3771,30 +4006,45 @@ SRL_lHLl:
 
 *	------ ＳＬＩ ------
 SLI_A:
-	SXX	d4, 1, 1
+	move.b	d4,target_8(a3)
+	SXX	1, 1
+	move.b	d0,d4
 	rts
 SLI_B:
-	SXX	b(a3), 1, 1
+	move.b	b(a3),target_8(a3)
+	SXX	1, 1
+	move.b	d0,b(a3)
 	rts
 SLI_C:
-	SXX	c(a3), 1, 1
+	move.b	c(a3),target_8(a3)
+	SXX	1, 1
+	move.b	d0,c(a3)
 	rts
 SLI_D:
-	SXX	d(a3), 1, 1
+	move.b	d(a3),target_8(a3)
+	SXX	1, 1
+	move.b	d0,d(a3)
 	rts
 SLI_E:
-	SXX	e(a3), 1, 1
+	move.b	e(a3),target_8(a3)
+	SXX	1, 1
+	move.b	d0,e(a3)
 	rts
 SLI_H:
-	SXX	h(a3), 1, 1
+	move.b	h(a3),target_8(a3)
+	SXX	1, 1
+	move.b	d0,h(a3)
 	rts
 SLI_L:
-	SXX	l(a3), 1, 1
+	move.b	l(a3),target_8(a3)
+	SXX	1, 1
+	move.b	d0,l(a3)
 	rts
 SLI_lHLl:
 	move.w	hl(a3),d0
 	jsr	ms_read_mem_8
-	SXX	d0, 1, 1
+	move.b	d0,target_8(a3)
+	SXX	1, 1
 	move.b	d0,d1
 	move.w	hl(a3),d0
 	jsr	ms_write_mem_8
@@ -4328,7 +4578,7 @@ LD_lnnl_SP:
 ; * PV: 上位8bitの加算の実行によるオーバーフロー
 ; * N : 0
 ; * C : 上位8bitの加算の実行によるキャリー
-ADC_HL_XX macro	target
+ADC_HL_XX macro
 	addq.w	#1,d7			* PC += 1
 	andi.w	#$3fff,d7		* PC がページ境界をまたいだか？
 	bne	1f
@@ -4341,7 +4591,7 @@ ADC_HL_XX macro	target
 	andi.l	#%000_10111101_10111101,d6	* 16bit演算の時は Zフラグを直接セットするので、Zのダーティビットを立てずに0に初期化する
 	ori.l	#%000_10111101_00000000,d6	* S,F5,H,F3,PV,Cのダーティビットを立てる
 	move.w	hl(a3),d0
-	move.w	target,d1
+	move.w	target_16(a3),d1
 	; Xフラグにキャリーをセットし、addx命令を使う
 	btst.l	#0,d0
 	bne	1f
@@ -4374,19 +4624,23 @@ ADC_HL_XX macro	target
 	endm
 
 ADC_HL_BC:
-	ADC_HL_XX	bc(a3)
+	move.w	bc(a3),target_16(a3)
+	ADC_HL_XX
 	rts
 
 ADC_HL_DE:
-	ADC_HL_XX	de(a3)
+	move.w	de(a3),target_16(a3)
+	ADC_HL_XX
 	rts
 
 ADC_HL_HL:
-	ADC_HL_XX	hl(a3)
+	move.w	hl(a3),target_16(a3)
+	ADC_HL_XX
 	rts
 
 ADC_HL_SP:
-	ADC_HL_XX	sp_(a3)
+	move.w	sp_(a3),target_16(a3)
+	ADC_HL_XX
 	rts
 
 *	------ ＳＢＣ ------
@@ -4400,7 +4654,7 @@ ADC_HL_SP:
 ; * PV: 上位8bitの減算の実行によるオーバーフロー
 ; * N : 1
 ; * C : 上位8bitの減算の実行によるキャリー
-SBC_HL_XX macro	target
+SBC_HL_XX macro
 	addq.w	#1,d7			* PC += 1
 	andi.w	#$3fff,d7		* PC がページ境界をまたいだか？
 	bne	1f
@@ -4412,7 +4666,7 @@ SBC_HL_XX macro	target
 	andi.l	#%100_10111101_10111101,d6	* 16bit演算の時は Zフラグを直接セットするので、Zのダーティビットを立てずに0に初期化する
 	ori.l	#%100_10111101_00000010,d6	* S,F5,H,F3,PV,Cのダーティビットを立てる、N=1にする
 	move.w	hl(a3),d0
-	move.w	target,d1
+	move.w	target_16(a3),d1
 	; Xフラグにキャリーをセットし、addx命令を使う
 	btst.l	#0,d0
 	bne	1f
@@ -4446,366 +4700,385 @@ SBC_HL_XX macro	target
 	endm
 
 SBC_HL_BC:
-	SBC_HL_XX	bc(a3)
+	move.w	bc(a3),target_16(a3)
+	SBC_HL_XX
 	rts
 
 SBC_HL_DE:
-	SBC_HL_XX	de(a3)
+	move.w	de(a3),target_16(a3)
+	SBC_HL_XX
 	rts
 
 SBC_HL_HL:
-	SBC_HL_XX	hl(a3)
+	move.w	hl(a3),target_16(a3)
+	SBC_HL_XX
 	rts
 
 SBC_HL_SP:
-	SBC_HL_XX	sp_(a3)
+	move.w	sp_(a3),target_16(a3)
+	SBC_HL_XX
 	rts
 
 *	------ ＬＤＩ ------
-LDI:	andi.w	#%11110101_11111111,d6	* Ｎ,HC modeをクリア
-	move.b	d5,HC2(a3)		* Ｈを０に
-	move.b	#0,PV(a3)
+; LDI の挙動は以下の通り
+; (de) <= (hl)
+; hl += 1, de += 1, bc -= 1
+; フラグ変化は以下の通り
+; * S : 変化しない
+; * Z : 変化しない
+; * F5: (転送された値にAレジスタを足した値)のbit1 (5ではなく1)
+; * H : 0
+; * F3: (転送された値にAレジスタを足した値)のbit3
+; * PV: bc が 0 の時0、それ以外の時1
+; * N : 0
+; * C : 変化しない
+LDI:	andi.l	#%111_11000001_11000001,d6	* S,Z,C以外をクリア
 	move.w	hl(a3),d0
 	jsr	ms_read_mem_8
 	move.b	d0,d1
+	add.b	d4,d0			* 転送値にAレジスタを足す
+	move.b	d0,d2
+	andi.b	#%00001000,d0
+	or.b	d0,d6			* F3をセット
+	andi.b	#%00000010,d2
+	lsl.b	#4,d2
+	or.b	d2,d6			* F5をセット
 	move.w	de(a3),d0
 	jsr	ms_write_mem_8
 	addq.w	#1,hl(a3)
 	addq.w	#1,de(a3)
 	subq.w	#1,bc(a3)
 	bne	rts_common
-	move.b	#1,PV(a3)
+	ori.b	#%00000100,d6		* PVをセット
 	rts
 
-ここまで
 
-******** もっと高速化したい。 read mem, write mem の展開等 ***********
-LDIR:	andi.w	#%11110101_11111111,d6	* Ｎ,HC modeをクリア
-	move.b	d5,HC2(a3)		* Ｈを０に
-	move.b	#1,PV(a3)
-loop_LDIR:
+; LDIR の挙動は以下の通り
+; LDI実行後、
+; if bc != 0 then
+;     PC -=2 (LDIRを繰り返す)
+; else
+;     終了
+;
+; LDIRの命令内で転送を繰り返すのではなく、PCを-2するというのがポイント
+; なのでLDIRの実行中に割り込みが入ることも想定される(はず)
+LDIR:
+	bsr	LDI
+	cmpi.w	#0,bc(a3)
+	bne	@f
+	rts
+@@:	subq.w	#2,d7
+	btst.l	#14,d7
+	beq	@f			* PC -2 でページ境界をまたいだか？
+	PC_page_dec			* またいだ時
+	andi.w	#$3fff,d7
+@@:	rts
+
+; LDD の挙動は以下の通り
+; (de) <= (hl)
+; hl -= 1, de -= 1, bc -= 1
+; フラグ変化は以下の通り
+; * S : 変化しない
+; * Z : 変化しない
+; * F5: (転送された値にAレジスタを足した値)のbit1 (5ではなく1)
+; * H : 0
+; * F3: (転送された値にAレジスタを足した値)のbit3
+; * PV: bc が 0 の時0、それ以外の時1
+; * N : 0
+; * C : 変化しない
+LDD:	andi.l	#%111_11000001_11000001,d6	* S,Z,C以外をクリア
 	move.w	hl(a3),d0
 	jsr	ms_read_mem_8
 	move.b	d0,d1
-	move.w	de(a3),d0
-	jsr	ms_write_mem_8
-
-	addq.w	#1,hl(a3)
-	addq.w	#1,de(a3)
-	subq.w	#1,bc(a3)
-	bne	loop_LDIR
-	rts
-
-LDD:	andi.w	#%11110101_11111111,d6	* Ｎ,HC modeをクリア
-	move.b	d5,HC2(a3)		* Ｈを０に
-	move.b	#0,PV(a3)
-	move.w	hl(a3),d0
-	jsr	ms_read_mem_8
-	move.b	d0,d1
+	add.b	d4,d0			* 転送値にAレジスタを足す
+	move.b	d0,d2
+	andi.b	#%00001000,d0
+	or.b	d0,d6			* F3をセット
+	andi.b	#%00000010,d2
+	lsl.b	#4,d2
+	or.b	d2,d6			* F5をセット
 	move.w	de(a3),d0
 	jsr	ms_write_mem_8
 	subq.w	#1,hl(a3)
 	subq.w	#1,de(a3)
 	subq.w	#1,bc(a3)
 	bne	rts_common
-	move.b	#1,PV(a3)
+	ori.b	#%00000100,d6		* PVをセット
 	rts
 
-******** もっと高速化したい。 read mem, write mem の展開等 ***********
-LDDR:	andi.w	#%11110101_11111111,d6	* Ｎ,HC modeをクリア
-	move.b	d5,HC2(a3)		* Ｈを０に
-	move.b	#1,PV(a3)
-loop_LDDR:
-	move.w	hl(a3),d0
-	jsr	ms_read_mem_8
-	move.b	d0,d1
-	move.w	de(a3),d0
-	jsr	ms_write_mem_8
-
-	subq.w	#1,hl(a3)
-	subq.w	#1,de(a3)
-	subq.w	#1,bc(a3)
-	bne	loop_LDDR
+; LDDR の挙動は以下の通り
+; LDD実行後、
+; if bc != 0 then
+;     PC -=2 (LDDRを繰り返す)
+; else
+;     終了
+;
+; LDDRの命令内で転送を繰り返すのではなく、PCを-2するというのがポイント
+; なのでLDDRの実行中に割り込みが入ることも想定される(はず)
+LDDR:
+	bsr	LDD
+	cmpi.w	#0,bc(a3)
+	bne	@f
 	rts
+@@:	subq.w	#2,d7
+	btst.l	#14,d7
+	beq	@f			* PC -2 でページ境界をまたいだか？
+	PC_page_dec			* またいだ時
+	andi.w	#$3fff,d7
+@@:	rts
 
 
-*	------ ＣＰＩ , ＣＰＤ ------
-CPI:	andi.w	#%01110111_11111111,d6	* HC modeをクリア
-	ori.w	#%00000010_00000000,d6	* Ｎ をセット
-	clr.b	PV(a3)			* PV をセット		
+*	------ ＣＰＩ ------
+; CPI の挙動は以下の通り
+; A - (HL) を実行した結果をフラグに反映(S,Z,HC)
+; hl += 1, bc -= 1
+; フラグ変化は以下の通り
+; * S : 結果のbit7
+; * Z : 結果が0の時1、それ以外の時0
+; * F5: (A - (HL) - HC)のbit1 (5ではなく1)
+; * H : 結果のハーフキャリー
+; * F3: (A - (HL) - HC)のbit3
+; * PV: BC が 0 の時0、それ以外の時1
+; * N : 1
+; * C : 変化しない
+CPI:	bsr	eval_flag_HC_C		* HC,Cの再評価
 	move.w	hl(a3),d0
 	jsr	ms_read_mem_8
-	move.b	d4,d5			* 引かれる数を HC1に
-	move.b	d0,HC2(a3)		* 引く数を HC2に
+	; b18 : 減算なので1
+	; b17 : 算術演算なので0
+	; b16 : 事前キャリーなしなので0
+	; b1  : 減算なのでN=1
+	andi.l	#%000_00000000_00010001,d6	* C, HC以外のフラグクリア
+	ori.l	#%100_11111000_00000010,d6	* S,Z,F5,HC,F3のダーティビットを立てる、N=1にする
+	move.b	d4,d5			* 第1項
+	lsl.w	#8,d5
+	move.b	d0,d5			* 足す数を 第2項に
+	swap	d5
+	move.b	d4,d1
+	sub.b	d0,d1			* A - (HL)を実行
+	move.b	d1,d5			* 結果を保存
+	btst.l	#4,d6			* HCを評価
+	beq	1f
+	sub.b	#1,d1			* HCが立っている場合はさらに1を引く(F5,F3の評価のため)
+1:	move.b	d1,d2			* 結果のbit3を取り出す
+	andi.b	#%00001000,d2
+	or.b	d2,d6			* F3をセット
+	andi.b	#%00000010,d1
+	lsl.b	#4,d1
+	or.b	d1,d6			* F5をセット
 	addq.w	#1,hl(a3)
 	subq.w	#1,bc(a3)
-	bne	@f
-	move.b	#1,PV(a3)		* PV をクリア
-@@:
-	move.b	d4,d6
-	sub.b	d0,d6			* 比較 かつ 結果を SZ にセット
 	rts
 
-CPIR:	andi.w	#%01110111_11111111,d6	* HC modeをクリア
-	ori.w	#%00000010_00000000,d6	* Ｎ をセット
-	clr.b	PV(a3)		* PV をセット		
-loop_CPIR:
-	move.w	hl(a3),d0
-	jsr	ms_read_mem_8
-	addq.w	#1,hl(a3)
-	subq.w	#1,bc(a3)
-	beq	@f
-	move.b	d4,d6
-	sub.b	d0,d6			* 比較 かつ 結果を SZ にセット
-	bne	loop_CPIR
-	move.b	d4,d5			* 引かれる数を HC1に
-	move.b	d0,HC2(a3)		* 引く数を HC2に
-	rts	
-@@:
-	move.b	#1,PV(a3)		* PV をクリア
-	move.b	d4,d6
-	sub.b	d0,d6			* 比較 かつ 結果を SZ にセット
-	move.b	d4,d5			* 引かれる数を HC1に
-	move.b	d0,HC2(a3)		* 引く数を HC2に
-	rts	
+CPIR:	bsr	CPI
+	cmpi.w	#0,bc(a3)
+	bne	@f
+	rts
+@@:	bsr	eval_flag_SZ
+	btst.l	#6,d6			* Zフラグを評価
+	bne	@f
+	rts
+@@:	subq.w	#2,d7
+	btst.l	#14,d7
+	beq	@f			* PC -2 でページ境界をまたいだか？
+	PC_page_dec			* またいだ時
+	andi.w	#$3fff,d7
+@@:	rts
 
-CPD:	andi.w	#%01110111_11111111,d6	* HC modeをクリア
-	ori.w	#%00000010_00000000,d6	* Ｎ をセット
-	clr.b	PV(a3)			* PV をセット		
+*	------ ＣＰＤ ------
+; CPD の挙動は以下の通り
+; A - (HL) を実行した結果をフラグに反映(S,Z,HC)
+; hl -= 1, bc -= 1
+; フラグ変化は以下の通り
+; * S : 結果のbit7
+; * Z : 結果が0の時1、それ以外の時0
+; * F5: (A - (HL) - HC)のbit1 (5ではなく1)
+; * H : 結果のハーフキャリー
+; * F3: (A - (HL) - HC)のbit3
+; * PV: BC が 0 の時0、それ以外の時1
+; * N : 1
+; * C : 変化しない
+CPD:	bsr	eval_flag_HC_C		* HC,Cの再評価
 	move.w	hl(a3),d0
 	jsr	ms_read_mem_8
-	move.b	d4,d5			* 引かれる数を HC1に
-	move.b	d0,HC2(a3)		* 引く数を HC2に
+	; b18 : 減算なので1
+	; b17 : 算術演算なので0
+	; b16 : 事前キャリーなしなので0
+	; b1  : 減算なのでN=1
+	andi.l	#%000_00000000_00010001,d6	* C, HC以外のフラグクリア
+	ori.l	#%100_11111000_00000010,d6	* S,Z,F5,HC,F3のダーティビットを立てる、N=1にする
+	move.b	d4,d5			* 第1項
+	lsl.w	#8,d5
+	move.b	d0,d5			* 足す数を 第2項に
+	swap	d5
+	move.b	d4,d1
+	sub.b	d0,d1			* A - (HL)を実行
+	move.b	d1,d5			* 結果を保存
+	btst.l	#4,d6			* HCを評価
+	beq	1f
+	sub.b	#1,d1			* HCが立っている場合はさらに1を引く(F5,F3の評価のため)
+1:	move.b	d1,d2			* 結果のbit3を取り出す
+	andi.b	#%00001000,d2
+	or.b	d2,d6			* F3をセット
+	andi.b	#%00000010,d1
+	lsl.b	#4,d1
+	or.b	d1,d6			* F5をセット
 	subq.w	#1,hl(a3)
 	subq.w	#1,bc(a3)
-	bne	@f
-	move.b	#1,PV(a3)		* PV をクリア
-@@:
-	move.b	d4,d6
-	sub.b	d0,d6			* 比較 かつ 結果を SZ にセット
 	rts
 
-CPDR:	andi.w	#%01110111_11111111,d6	* HC modeをクリア
-	ori.w	#%00000010_00000000,d6	* Ｎ をセット
-	clr.b	PV(a3)			* PV をセット		
-loop_CPDR:
-	move.w	hl(a3),d0
-	jsr	ms_read_mem_8
-	subq.w	#1,hl(a3)
-	subq.w	#1,bc(a3)
-	beq	@f
-	move.b	d4,d6
-	sub.b	d0,d6			* 比較 かつ 結果を SZ にセット
-	bne	loop_CPDR
-	move.b	d4,d5			* 引かれる数を HC1に
-	move.b	d0,HC2(a3)		* 引く数を HC2に
-	rts	
-@@:	move.b	#1,PV(a3)		* PV をクリア
-	move.b	d4,d6
-	sub.b	d0,d6			* 比較 かつ 結果を SZ にセット
-	move.b	d4,d5			* 引かれる数を HC1に
-	move.b	d0,HC2(a3)		* 引く数を HC2に
-	rts	
 
-*****************  フラグの動きが怪しい（たぶん大丈夫っぽいけど）***************
+
+CPDR:	bsr	CPD
+	cmpi.w	#0,bc(a3)
+	bne	@f
+	rts
+@@:	bsr	eval_flag_SZ
+	btst.l	#6,d6			* Zフラグを評価
+	bne	@f
+	rts
+@@:	subq.w	#2,d7
+	btst.l	#14,d7
+	beq	@f			* PC -2 でページ境界をまたいだか？
+	PC_page_dec			* またいだ時
+	andi.w	#$3fff,d7
+@@:	rts
+
+
+
 *	------ ＮＥＧ ------
-NEG:	ori.w	#%00001011_00000000,d6	* Ｎ,Ｃ,HC modeをセット
-	andi.w	#%01111111_11111111,d6	* SZ mode をクリア
-	move.b	#1,PV(a3)		* PVをクリア
-	neg.b	d4
-	bvs	V_NEG
-	bcs	C_NEG_1
-	andi.w	#%11111110_11111111,d6	* Ｃをクリア
-C_NEG_1:
-	move.b	d4,d6			* SZ を設定
-	move.b	d4,d5
-	clr.b	HC2(a3)			* HC mode を１にしたから
-	rts
-V_NEG:
-	bcs	C_NEG_2
-	andi.w	#%11111110_11111111,d6	* Ｃをクリア
-C_NEG_2:
-	clr.b	PV(a3)			* PVをセット
-	move.b	d4,d6			* SZ を設定
-	move.b	d4,d5
-	clr.b	HC2(a3)			* HC mode を１にしたから
+; NEG の挙動は以下の通り
+; A = 0 - A
+; フラグ変化は以下の通り
+; * S : 結果のbit7
+; * Z : 結果が0の時1、それ以外の時0
+; * F5: 結果のbit5
+; * H : 結果のハーフキャリー
+; * F3: 結果のbit3
+; * PV: 結果がオーバーフローした時1、それ以外の時0
+; * N : 1
+; * C : 結果がキャリーした時1、それ以外の時0
+NEG:
+	; b18 : 減算なので1
+	; b17 : 算術演算なので0
+	; b16 : 事前キャリーなしなので0
+	; b1  : 減算なのでN=1
+	andi.l	#%000_11111101_11111101,d6
+	ori.l	#%100_11111101_00000010,d6	* S,Z,F5,H,F3,PV,Cのダーティビットを立てる、N=1にする
+	move.b	#0,d5			* 第1項
+	lsl.w	#8,d5
+	move.b	d4,d5			* 引く数を 第2項に
+	swap	d5
+	moveq.l	#0,d0
+	sub.b	d4,d0			* 演算実行
+	move.b	d0,d5			* 結果を保存
+	move.b	d0,d4			* 結果をAレジスタに保存
 	rts
 
 *	------ 掛け算命令 ------
+; MULB A,X の挙動は以下の通り https://www.msx.org/forum/development/msx-development/r800-multiply-instruction
+; HL <= A * X
+; ※ ただしXがb,c,d,eのとき以外は動作が保証されないという仕様がある
+; フラグ変化は以下の通り
+; * S : 0
+; * Z : 結果が0の時1、それ以外の時0
+; * F5: 変化しない
+; * H : 変化しない
+; * F3: 変化しない
+; * PV: 0
+; * N : 変化しない
+; * C : 掛け算の結果が8bitを超えた時1、それ以外の時0
+;
+MULB_A_X macro
+	andi.l	#%000_00111010_00111010,d6	* F5,H,H3,N以外をクリア
+	clr.w	d0
+	clr.w	d1
+	move.b	d4,d0			* d0 <- A
+	move.b	target_8(a3),d1		* d1 <- target
+	mulu.w	d1,d0
+	bne	@f
+	ori.w	#%01000000,d6		* Zフラグをセット
+@@:	move.w	d0,hl(a3)		* 結果をHLに保存
+	andi.w	#$ff00,d0
+	beq	@f
+	ori.w	#%00000001,d6		* Cフラグをセット
+@@:
+	endm
+
 MULB_A_A:
-	andi.w	#%01111110_00000000,d6	* Ｃ,SZ をクリア
-	move.b	#1,PV(a3)		* PV をクリア
-	clr.w	d0
-	move.b	d4,d0			* d0 <- A
-	mulu.w	d0,d0
-	beq	@f
-	move.b	#1,d6			* S フラグは常にクリアされるため
-@@:	move.w	d0,hl(a3)		* このようにしないとダメ
-	andi.w	#$ff00,d0
-	beq	rts_common
-	ori.w	#%00000001_00000000,d6
+	move.b	d4,target_8(a3)
+	MULB_A_X
 	rts
-
 MULB_A_B:
-	andi.w	#%01111110_00000000,d6	* Ｃ,SZ をクリア
-	move.b	#1,PV(a3)		* PV をクリア
-	clr.w	d0
-	clr.w	d1
-	move.b	d4,d0			* d0 <- A
-	move.b	b(a3),d1		* d1 <- B
-	mulu.w	d1,d0
-	beq	@f
-	move.b	#1,d6			* S フラグは常にクリアされるため
-@@:
-	move.w	d0,hl(a3)		* このようにしないとダメ
-	andi.w	#$ff00,d0
-	beq	rts_common
-	ori.w	#%00000001_00000000,d6
+	move.b	b(a3),target_8(a3)
+	MULB_A_X
 	rts
-
 MULB_A_C:
-	andi.w	#%01111110_00000000,d6	* Ｃ,SZ をクリア
-	move.b	#1,PV(a3)		* PV をクリア
-	clr.w	d0
-	clr.w	d1
-	move.b	d4,d0			* d0 <- A
-	move.b	c(a3),d1		* d1 <- B
-	mulu.w	d1,d0
-	beq	@f
-	move.b	#1,d6			* S フラグは常にクリアされるため
-@@:
-	move.w	d0,hl(a3)		* このようにしないとダメ
-	andi.w	#$ff00,d0
-	beq	rts_common
-	ori.w	#%00000001_00000000,d6
+	move.b	c(a3),target_8(a3)
+	MULB_A_X
 	rts
-
 MULB_A_D:
-	andi.w	#%01111110_00000000,d6	* Ｃ,SZ をクリア
-	move.b	#1,PV(a3)		* PV をクリア
-	clr.w	d0
-	clr.w	d1
-	move.b	d4,d0			* d0 <- A
-	move.b	d(a3),d1		* d1 <- B
-	mulu.w	d1,d0
-	beq	@f
-	move.b	#1,d6			* S フラグは常にクリアされるため
-@@:
-	move.w	d0,hl(a3)		* このようにしないとダメ
-	andi.w	#$ff00,d0
-	beq	rts_common
-	ori.w	#%00000001_00000000,d6
+	move.b	d(a3),target_8(a3)
+	MULB_A_X
 	rts
-
 MULB_A_E:
-	andi.w	#%01111110_00000000,d6	* Ｃ,SZ をクリア
-	move.b	#1,PV(a3)		* PV をクリア
-	clr.w	d0
-	clr.w	d1
-	move.b	d4,d0			* d0 <- A
-	move.b	e(a3),d1		* d1 <- B
-	mulu.w	d1,d0
-	beq	@f
-	move.b	#1,d6			* S フラグは常にクリアされるため
-@@:
-	move.w	d0,hl(a3)		* このようにしないとダメ
-	andi.w	#$ff00,d0
-	beq	rts_common
-	ori.w	#%00000001_00000000,d6
+	move.b	e(a3),target_8(a3)
+	MULB_A_X
 	rts
-
 MULB_A_H:
-	andi.w	#%01111110_00000000,d6	* Ｃ,SZ をクリア
-	move.b	#1,PV(a3)		* PV をクリア
-	clr.w	d0
-	clr.w	d1
-	move.b	d4,d0			* d0 <- A
-	move.b	h(a3),d1		* d1 <- B
-	mulu.w	d1,d0
-	beq	@f
-	move.b	#1,d6			* S フラグは常にクリアされるため
-@@:
-	move.w	d0,hl(a3)		* このようにしないとダメ
-	andi.w	#$ff00,d0
-	beq	rts_common
-	ori.w	#%00000001_00000000,d6
+	move.b	h(a3),target_8(a3)
+	MULB_A_X
+	rts
+MULB_A_L:
+	move.b	l(a3),target_8(a3)
+	MULB_A_X
 	rts
 
-MULB_A_L:
-	andi.w	#%01111110_00000000,d6	* Ｃ,SZ をクリア
-	move.b	#1,PV(a3)		* PV をクリア
-	clr.w	d0
-	clr.w	d1
-	move.b	d4,d0			* d0 <- A
-	move.b	l(a3),d1		* d1 <- B
-	mulu.w	d1,d0
+; MULW HL,XX の挙動は以下の通り https://www.msx.org/forum/development/msx-development/r800-multiply-instruction
+; DE:HL <= HL * XX
+; ※ ただしXがBC,SPのとき以外は動作が保証されないという仕様がある
+; フラグ変化は以下の通り
+; * S : 0
+; * Z : 結果が0の時1、それ以外の時0
+; * F5: 変化しない
+; * H : 変化しない
+; * F3: 変化しない
+; * PV: 0
+; * N : 変化しない
+; * C : 掛け算の結果が16bitを超えた時1、それ以外の時0
+MULW_HL_XX macro
+	andi.l	#%000_00111010_00111010,d6	* F5,H,H3,N以外をクリア
+	move.w	hl(a3),d0		* d0 <- HL
+	move.w	target_16(a3),d1	* d1 <- target
+	mulu.w	d1,d0			* d0.l <= d0.w * d1.w (mulu.wは結果が32bitでd0に格納されるので注意)
+	bne	@f
+	ori.w	#%01000000,d6		* Zフラグをセット
+@@:	move.w	d0,hl(a3)		* 結果の下位16bitをHLに保存
+	swap	d0
+	move.w	d0,de(a3)		* 結果の上位16bitをDEに保存
 	beq	@f
-	move.b	#1,d6			* S フラグは常にクリアされるため
+	ori.w	#%00000001,d6		* 上位16bitが0じゃない場合はCフラグをセット
 @@:
-	move.w	d0,hl(a3)		* このようにしないとダメ
-	andi.w	#$ff00,d0
-	beq	rts_common
-	ori.w	#%00000001_00000000,d6
-	rts
+	endm
 
 MULW_HL_BC:
-	andi.w	#%01111110_00000000,d6	* Ｃ,SZ をクリア
-	move.b	#1,PV(a3)		* PV をクリア
-	move.w	hl(a3),d0		* d0 <- A
-	mulu.w	bc(a3),d0
-	beq	@f
-	move.b	#1,d6			* S フラグは常にクリアされるため
-@@:
-	move.w	d0,hl(a3)		* このようにしないとダメ
-	swap	d0
-	move.w	d0,de(a3)		* 上位ワードを格納
-	beq	rts_common			* 上位ワードが０の時はそのまま
-	ori.w	#%00000001_00000000,d6	* Ｃをセット
+	move.w	bc(a3),target_16(a3)
+	MULW_HL_XX
 	rts
 
 MULW_HL_DE:
-	andi.w	#%01111110_00000000,d6	* Ｃ,SZ をクリア
-	move.b	#1,PV(a3)		* PV をクリア
-	move.w	hl(a3),d0		* d0 <- A
-	mulu.w	de(a3),d0
-	beq	@f
-	move.b	#1,d6			* S フラグは常にクリアされるため
-@@:
-	move.w	d0,hl(a3)		* このようにしないとダメ
-	swap	d0
-	move.w	d0,de(a3)		* 上位ワードを格納
-	beq	rts_common			* 上位ワードが０の時はそのまま
-	ori.w	#%00000001_00000000,d6	* Ｃをセット
+	move.w	de(a3),target_16(a3)
+	MULW_HL_XX
 	rts
 
 MULW_HL_HL:
-	andi.w	#%01111110_00000000,d6	* Ｃ,SZ をクリア
-	move.b	#1,PV(a3)		* PV をクリア
-	move.w	hl(a3),d0		* d0 <- A
-	mulu.w	d0,d0
-	beq	@f
-	move.b	#1,d6			* S フラグは常にクリアされるため
-@@:
-	move.w	d0,hl(a3)		* このようにしないとダメ
-	swap	d0
-	move.w	d0,de(a3)		* 上位ワードを格納
-	beq	rts_common			* 上位ワードが０の時はそのまま
-	ori.w	#%00000001_00000000,d6	* Ｃをセット
+	move.w	hl(a3),target_16(a3)
+	MULW_HL_XX
 	rts
 
 MULW_HL_SP:
-	andi.w	#%01111110_00000000,d6	* Ｃ,SZ をクリア
-	move.b	#1,PV(a3)		* PV をクリア
-	move.w	hl(a3),d0		* d0 <- A
-	mulu.w	sp_(a3),d0
-	beq	@f
-	move.b	#1,d6			* S フラグは常にクリアされるため
-@@:
-	move.w	d0,hl(a3)		* このようにしないとダメ
-	swap	d0
-	move.w	d0,de(a3)		* 上位ワードを格納
-	beq	rts_common			* 上位ワードが０の時はそのまま
-	ori.w	#%00000001_00000000,d6	* Ｃをセット
+	move.w	sp_(a3),target_16(a3)
+	MULW_HL_XX
 	rts
 
 
@@ -4814,36 +5087,54 @@ MULW_HL_SP:
 *	LD R,A で代入も可能。インクリメントされるのは下位7bit(Z80)のため、
 *	bit7は LR R,Aで代入した値がそのまま残る
 *	ms.x では、M1サイクルを正確に数えていないので、emu_counterで代用
-LD_A_R:	andi.w	#%01110101_11111111,d6	* HC mode, N をクリア
+; LD A,R の挙動は以下の通り
+; * S : Rのbit7
+; * Z : Rが0の時1、それ以外の時0
+; * F5: 変化しない
+; * H : 0
+; * F3: 変化しない
+; * PV: IFF2の値
+; * N : 0
+; * C : 変化しない
+LD_A_R:	bsr	eval_flag_all
+	andi.l	#%000_00000000_00101001,d6	* S,Z,HC,PV,Nをクリア
 	move.b	emu_counter,d0
 	andi.b	#%01111111,d0		* 下位7bitのみ
 	move.b	r(a3),d4
 	andi.b	#%10000000,d4		* bit7 を取り出す
 	or.b	d0,d4
-	move.b	d4,d6			* SZ をセット
-	move.b	d5,HC2(a3)		* HC を０に (HC1であるd5とメモリ上のHC2を同じにする)
-
-	move.b	#1,PV(a3)		* PV をクリア(1が奇数個ならPV=0)
+	bne	1f
+	ori.w	#%01000000,d6		* Zフラグをセット
+1:	btst.l	#7,d4
+	beq	1f
+	ori.w	#%10000000,d6		* Sフラグをセット
+1:
 	cmpi.b	#0,interrupt_enable	* IFF の状態を反映
-	beq	rts_common		* DI 状態の時 P/V <- 0
-	move.b	#0,PV(a3)		* PV をセット(1が偶数個ならPV=1)
-	rts		* EI 状態の時 P/V <- 1
+	beq	1f			* DI 状態の時 P/V <= 0
+	ori.w	#%00000100,d6		* EI 状態の時 P/V <= 1
+1:	rts
 
 LD_R_A:	move.b	d4,r(a3)
 	rts
 
-
 *	------ ＬＤ Ｉ ------
-LD_A_I:	andi.w	#%01110101_11111111,d6	* HC mode, N をクリア
+LD_A_I: bsr	eval_flag_all
+	andi.l	#%000_00000000_00101001,d6	* S,Z,HC,PV,Nをクリア
+	move.b	emu_counter,d0
+	andi.b	#%01111111,d0		* 下位7bitのみ
 	move.b	i(a3),d4
-	move.b	d4,d6			* SZ をセット
-	move.b	d5,HC2(a3)		* HC を０に (HC1であるd5とメモリ上のHC2を同じにする)
-
-	move.b	#1,PV(a3)		* PV をクリア(1が奇数個ならPV=0)
+	andi.b	#%10000000,d4		* bit7 を取り出す
+	or.b	d0,d4
+	bne	1f
+	ori.w	#%01000000,d6		* Zフラグをセット
+1:	btst.l	#7,d4
+	beq	1f
+	ori.w	#%10000000,d6		* Sフラグをセット
+1:
 	cmpi.b	#0,interrupt_enable	* IFF の状態を反映
-	beq	rts_common		* DI 状態の時 P/V <- 0
-	move.b	#0,PV(a3)		* PV をセット(1が偶数個ならPV=1)
-	rts		* EI 状態の時 P/V <- 1
+	beq	1f			* DI 状態の時 P/V <= 0
+	ori.w	#%00000100,d6		* EI 状態の時 P/V <= 1
+1:	rts
 
 LD_I_A:	move.b	d4,i(a3)
 	rts
@@ -5406,452 +5697,248 @@ LD_IdxL_n:
 	PC_page_inc
 	rts
 
+
 ADD_A_IdxH:
-	andi.w	#%01110100_11111111,d6	* Ｎ,Ｃ,HC mode をクリア
-	move.b	ix_h(a3,d1.w),d0
-	move.b	d0,HC2(a3)		* 足す数を HC2に
-	add.b	d0,d4
-	bvs	V_ADD_A			* オーバーフロー？
-	bcc	NC_ADD_A1
-	ori.w	#%00000001_00000000,d6	* Ｃをセット
-	move.b	#1,PV(a3)		* PVをクリア
-	move.b	d4,d6			* 結果を SZ にセット		
-	move.b	d4,d5			* 結果を HC1にセット
+	move.b	ix_h(a3,d1.w),target_8(a3)
+	ADD_A_X
 	rts
 ADD_A_IdxL:
-	andi.w	#%01110100_11111111,d6	* Ｎ,Ｃ,HC mode をクリア
-	move.b	ix_l(a3,d1.w),d0
-	move.b	d0,HC2(a3)		* 足す数を HC2に
-	add.b	d0,d4
-	bvs	V_ADD_A			* オーバーフロー？
-	bcc	NC_ADD_A1
-	ori.w	#%00000001_00000000,d6	* Ｃをセット
-	move.b	#1,PV(a3)		* PVをクリア
-	move.b	d4,d6			* 結果を SZ にセット		
-	move.b	d4,d5			* 結果を HC1にセット
+	move.b	ix_l(a3,d1.w),target_8(a3)
+	ADD_A_X
 	rts
 
 ADC_A_IdxH:
-	btst.l	#8,d6
-	beq	ADD_A_IdxH		* Cy が０の時 ADD と同じ
-	andi.w	#%01111100_00000000,d6	* ＮＣをクリア
-	ori.w	#%00001000_00000000,d6	* HC モードをセット
-	subq.b	#1,d6			* X ビットをセット
-	move.b	ix_h(a3,d1.w),d0
-	move.b	d0,HC2(a3)		* 足す数を HC2に
-	addx.b	d0,d4
-	bvs	V_ADC_A			* オーバーフロー？
-	bcc	NC_ADC_A1
-	ori.w	#%00000001_00000000,d6	* Ｃをセット
-	move.b	#1,PV(a3)		* PVをクリア
-	move.b	d4,d6			* 結果を SZ にセット		
-	move.b	d4,d5			* 結果を HC1にセット
+	move.b	ix_h(a3,d1.w),target_8(a3)
+	ADC_A_X
 	rts
 ADC_A_IdxL:
-	btst.l	#8,d6
-	beq	ADD_A_IdxL		* Cy が０の時 ADD と同じ
-	andi.w	#%01111100_00000000,d6	* ＮＣをクリア
-	ori.w	#%00001000_00000000,d6	* HC モードをセット
-	subq.b	#1,d6			* X ビットをセット
-	move.b	ix_l(a3,d1.w),d0
-	move.b	d0,HC2(a3)		* 足す数を HC2に
-	addx.b	d0,d4
-	bvs	V_ADC_A			* オーバーフロー？
-	bcc	NC_ADC_A1
-	ori.w	#%00000001_00000000,d6	* Ｃをセット
-	move.b	#1,PV(a3)		* PVをクリア
-	move.b	d4,d6			* 結果を SZ にセット		
-	move.b	d4,d5			* 結果を HC1にセット
+	move.b	ix_l(a3,d1.w),target_8(a3)
+	ADC_A_X
 	rts
 
 SUB_IdxH:
-	andi.w	#%01110110_11111111,d6	* Ｃ,HC mode をクリア
-	ori.w	#%00000010_00000000,d6	* Ｎをセット
-	move.b	d4,d5			* 引かれる数を HC1に
-	move.b	ix_h(a3,d1.w),HC2(a3)	* 引く数を HC2に
-	sub.b	HC2(a3),d4
-	bvs	V_SUB_A			* オーバーフロー？
-	bcs	C_SUB_A1
-	move.b	#1,PV(a3)		* PVをクリア
-	move.b	d4,d6
+	move.b	ix_h(a3,d1.w),target_8(a3)
+	SUB_A_X
 	rts
 SUB_IdxL:
-	andi.w	#%01110110_11111111,d6	* Ｃ,HC mode をクリア
-	ori.w	#%00000010_00000000,d6	* Ｎをセット
-	move.b	d4,d5			* 引かれる数を HC1に
-	move.b	ix_l(a3,d1.w),HC2(a3)	* 引く数を HC2に
-	sub.b	HC2(a3),d4
-	bvs	V_SUB_A			* オーバーフロー？
-	bcs	C_SUB_A1
-	move.b	#1,PV(a3)		* PVをクリア
-	move.b	d4,d6
+	move.b	ix_l(a3,d1.w),target_8(a3)
+	SUB_A_X
 	rts
 
 SBC_A_IdxH:
-	btst.l	#8,d6
-	beq	SUB_IdxH		* Cy が０の時 SUB と同じ
-	ori.w	#%00001011_00000000,d6	* Ｎ,Ｃ, HC mode をセット
-	clr.w	d0			* X ビットをセット
-	subq.w	#1,d0
-	move.b	d4,d5			* 引かれる数を HC1に
-	move.b	ix_h(a3,d1.w),d0
-	move.b	d0,HC2(a3)		* 引く数を HC2に
-	subx.b	d0,d4
-	bvs	V_SBC_A			* オーバーフロー？
-	bcc	NC_SBC_A1
-	move.b	#1,PV(a3)		* PVをクリア
-	andi.w	#%01111111_11111111,d6	* SZ mode をクリア
-	move.b	d4,d6			* 結果を SZ にセット
+	move.b	ix_h(a3,d1.w),target_8(a3)
+	SBC_A_X
 	rts
 SBC_A_IdxL:
-	btst.l	#8,d6
-	beq	SUB_IdxL		* Cy が０の時 SUB と同じ
-	ori.w	#%00001011_00000000,d6	* Ｎ,Ｃ, HC mode をセット
-	clr.w	d0			* X ビットをセット
-	subq.w	#1,d0
-	move.b	d4,d5			* 引かれる数を HC1に
-	move.b	ix_l(a3,d1.w),d0
-	move.b	d0,HC2(a3)		* 引く数を HC2に
-	subx.b	d0,d4
-	bvs	V_SBC_A			* オーバーフロー？
-	bcc	NC_SBC_A1
-	move.b	#1,PV(a3)		* PVをクリア
-	andi.w	#%01111111_11111111,d6	* SZ mode をクリア
-	move.b	d4,d6			* 結果を SZ にセット
+	move.b	ix_l(a3,d1.w),target_8(a3)
+	SBC_A_X
 	rts
 
 AND_IdxH:
-	andi.w	#%01110100_11111111,d6	* Ｎ,Ｃ,HC mode をクリア
-	clr.b	d5			* HC を 1に
-	move.b	#1,HC2(a3)
-	and.b	ix_h(a3,d1.w),d4
-	move.b	d4,PV(a3)		* PV をセット
-	move.b	d4,d6			* SZ をセット
-	rts	
+	move.b	ix_h(a3,d1.w),target_8(a3)
+	AND_X
+	rts
 AND_IdxL:
-	andi.w	#%01110100_11111111,d6	* Ｎ,Ｃ,HC mode をクリア
-	clr.b	d5			* HC を 1に
-	move.b	#1,HC2(a3)
-	and.b	ix_l(a3,d1.w),d4
-	move.b	d4,PV(a3)		* PV をセット
-	move.b	d4,d6			* SZ をセット
-	rts	
+	move.b	ix_l(a3,d1.w),target_8(a3)
+	AND_X
+	rts
 
 XOR_IdxH:
-	andi.w	#%01110100_11111111,d6	* Ｎ,Ｃ,HC mode をクリア
-	move.b	d5,HC2(a3)		* HC を 0に。( HC1 = HC2 の時, HCは０)
-	move.b	ix_h(a3,d1.w),d0	* eor <ea>,Dn という命令はないので。
-	eor.b	d0,d4
-	move.b	d4,PV(a3)		* PV をセット
-	move.b	d4,d6			* SZ をセット
-	rts	
+	cmpi.w	#0,d1
+	bne	@f
+	_OR_X	eor, ix_h(a3)		*IXh
+	rts
+@@:	_OR_X	eor, iy_h(a3)		*IYh
+	rts
 XOR_IdxL:
-	andi.w	#%01110100_11111111,d6	* Ｎ,Ｃ,HC mode をクリア
-	move.b	d5,HC2(a3)		* HC を 0に。( HC1 = HC2 の時, HCは０)
-	move.b	ix_l(a3,d1.w),d0	* eor <ea>,Dn という命令はないので。
-	eor.b	d0,d4
-	move.b	d4,PV(a3)		* PV をセット
-	move.b	d4,d6			* SZ をセット
-	rts	
+	cmpi.w	#0,d1
+	bne	@f
+	_OR_X	eor, ix_l(a3)		*IXl
+	rts
+@@:	_OR_X	eor, iy_l(a3)		*IYl
+	rts
 
 OR_IdxH:
-	andi.w	#%01110100_11111111,d6	* Ｎ,Ｃ,HC mode をクリア
-	move.b	d5,HC2(a3)		* HC を 0に。( HC1 = HC2 の時, HCは０)
-	or.b	ix_h(a3,d1.w),d4
-	move.b	d4,PV(a3)		* PV をセット
-	move.b	d4,d6			* SZ をセット
-	rts	
+	cmpi.w	#0,d1
+	bne	@f
+	_OR_X	or, ix_h(a3)		*IXh
+	rts
+@@:	_OR_X	or, iy_h(a3)		*IYh
+	rts
 OR_IdxL:
-	andi.w	#%01110100_11111111,d6	* Ｎ,Ｃ,HC mode をクリア
-	move.b	d5,HC2(a3)		* HC を 0に。( HC1 = HC2 の時, HCは０)
-	or.b	ix_l(a3,d1.w),d4
-	move.b	d4,PV(a3)		* PV をセット
-	move.b	d4,d6			* SZ をセット
-	rts	
+	cmpi.w	#0,d1
+	bne	@f
+	_OR_X	or, ix_l(a3)		*IXl
+	rts
+@@:	_OR_X	or, iy_l(a3)		*IYl
+	rts
 
 CP_IdxH:
-	andi.w	#%01110110_11111111,d6	* Ｃ,HC mode をクリア
-	ori.w	#%00000010_00000000,d6	* Ｎをセット
-	move.b	d4,d5			* 引かれる数を HC1に
-	move.b	ix_h(a3,d1.w),HC2(a3)	* 引く数を HC2に
-	move.b	d4,d6			* 比較かつ結果をSZにセット
-	sub.b	ix_h(a3,d1.w),d6
-	bvs	V_CP_A			* オーバーフロー？
-	bcs	C_CP_A1
-	move.b	#1,PV(a3)		* PVをクリア
+	move.b	ix_h(a3,d1.w),target_8(a3)
+	CP_A_X
 	rts
 CP_IdxL:
-	andi.w	#%01110110_11111111,d6	* Ｃ,HC mode をクリア
-	ori.w	#%00000010_00000000,d6	* Ｎをセット
-	move.b	d4,d5			* 引かれる数を HC1に
-	move.b	ix_l(a3,d1.w),HC2(a3)	* 引く数を HC2に
-	move.b	d4,d6			* 比較かつ結果をSZにセット
-	sub.b	ix_h(a3,d1.w),d6
-	bvs	V_CP_A			* オーバーフロー？
-	bcs	C_CP_A1
-	move.b	#1,PV(a3)		* PVをクリア
+	move.b	ix_l(a3,d1.w),target_8(a3)
+	CP_A_X
 	rts
 
 INC_IdxH:
-	andi.w	#%01110101_11111111,d6	* Ｎ,HC modeをクリア
-	clr.b	PV(a3)		* PVをセット	
-	move.b	ix_h(a3,d1.w),d0
-	addq.b	#1,d0
-	bVS	@f
-	move.b	#1,PV(a3)		* PVをクリア
-@@:	move.b	d0,d6
-	move.b	d0,d5
+	move.w	d1,-(sp)
+	move.b	ix_h(a3,d1.w),target_8(a3)
+	INC_X
+	move.w	(sp)+,d1
 	move.b	d0,ix_h(a3,d1.w)
-	move.b	#1,HC2(a3)
 	rts
 INC_IdxL:
-	andi.w	#%01110101_11111111,d6	* Ｎ,HC modeをクリア
-	clr.b	PV(a3)			* PVをセット	
-	move.b	ix_l(a3,d1.w),d0
-	addq.b	#1,d0
-	bVS	@f
-	move.b	#1,PV(a3)		* PVをクリア
-@@:	move.b	d0,d6
-	move.b	d0,d5
+	move.w	d1,-(sp)
+	move.b	ix_l(a3,d1.w),target_8(a3)
+	INC_X
+	move.w	(sp)+,d1
 	move.b	d0,ix_l(a3,d1.w)
-	move.b	#1,HC2(a3)
 	rts
 
 DEC_IdxH:
-	ori.w	#%00001010_00000000,d6	* Ｎ,HC modeをセット
-	andi.w	#%01111111_11111111,d6
-	clr.b	PV(a3)			* PVをセット	
-	move.b	ix_h(a3,d1.w),d0
-	move.b	d0,d5			* 引かれる数を HC1 に
-	subq.b	#1,d0
-	bVS	@f
-	move.b	#1,PV(a3)		* PVをクリア
-@@:	move.b	d0,d6
+	move.w	d1,-(sp)
+	move.b	ix_h(a3,d1.w),target_8(a3)
+	DEC_X
+	move.w	(sp)+,d1
 	move.b	d0,ix_h(a3,d1.w)
-	clr.b	HC2(a3)
 	rts
 DEC_IdxL:
-	ori.w	#%00001010_00000000,d6	* Ｎ,HC modeをセット
-	andi.w	#%01111111_11111111,d6
-	clr.b	PV(a3)			* PVをセット	
-	move.b	ix_l(a3,d1.w),d0
-	move.b	d0,d5			* 引かれる数を HC1 に
-	subq.b	#1,d0
-	bVS	@f
-	move.b	#1,PV(a3)		* PVをクリア
-@@:	move.b	d0,d6
+	move.w	d1,-(sp)
+	move.b	ix_l(a3,d1.w),target_8(a3)
+	DEC_X
+	move.w	(sp)+,d1
 	move.b	d0,ix_l(a3,d1.w)
-	clr.b	HC2(a3)
 	rts
-
 
 
 ADD_A_lIdx_dl:
-	andi.w	#%01110100_11111111,d6	* Ｎ,Ｃ,HC mode をクリア
-	move.w	ix(a3,d1.w),d0
-	move.b	0(a4,d7.w),d1		* d を加える
+	move.w	ix(a3,d1.w),d0		* IX or IYを読む
+	move.b	0(a4,d7.w),d1		* オフセットd を d1に読んで加える
 	ext.w	d1
 	add.w	d1,d0
 	add.w	#1,d7
 	andi.w	#$3fff,d7		* PC がページ境界をまたいだか？
 	bne	@f
 	PC_page_inc
-@@:
-	jsr	ms_read_mem_8
-	move.b	d0,HC2(a3)		* 足す数を HC2に
-	add.b	d0,d4
-	bvs	V_ADD_A			* オーバーフロー？
-	bcc	NC_ADD_A1
-	ori.w	#%00000001_00000000,d6	* Ｃをセット
-	move.b	#1,PV(a3)		* PVをクリア
-	move.b	d4,d6
-	move.b	d4,d5
+@@:	jsr	ms_read_mem_8
+	move.b	d0,target_8(a3)
+	ADD_A_X
 	rts
 
+
 ADC_A_lIdx_dl:
-	btst.l	#8,d6
-	beq	ADD_A_lIdx_dl		* Cy が０の時 ADD と同じ
-	andi.w	#%01111100_00000000,d6	* Ｎ,Ｃ,HC mode をクリア
-	ori.w	#%00001000_00000000,d6	* HC モードをセット
-	move.w	ix(a3,d1.w),d0
-	move.b	0(a4,d7.w),d1		* d を加える
+	move.w	ix(a3,d1.w),d0		* IX or IYを読む
+	move.b	0(a4,d7.w),d1		* オフセットd を d1に読んで加える
 	ext.w	d1
 	add.w	d1,d0
 	add.w	#1,d7
 	andi.w	#$3fff,d7		* PC がページ境界をまたいだか？
 	bne	@f
 	PC_page_inc
-@@:
-	jsr	ms_read_mem_8
-	subq.b	#1,d6			* X ビットをセット
-	move.b	d0,HC2(a3)		* 足す数を HC2に
-	addx.b	d0,d4
-	bvs	V_ADD_A			* オーバーフロー？
-	bcc	NC_ADD_A1
-	ori.w	#%00000001_00000000,d6	* Ｃをセット
-	move.b	#1,PV(a3)		* PVをクリア
-	move.b	d4,d6			* 結果を SZ にセット		
-	move.b	d4,d5			* 結果を HC1にセット
+@@:	jsr	ms_read_mem_8
+	move.b	d0,target_8(a3)
+	ADC_A_X	ADC_A_lIdx_dl_fallback
+	rts
+
+ADC_A_lIdx_dl_fallback:
+	ADD_A_X
 	rts
 
 SUB_lIdx_dl:
-	andi.w	#%01110110_11111111,d6	* Ｃ,HC mode をクリア
-	ori.w	#%00000010_00000000,d6	* Ｎをセット
-	move.w	ix(a3,d1.w),d0
-	move.b	0(a4,d7.w),d1		* d を加える
+	move.w	ix(a3,d1.w),d0		* IX or IYを読む
+	move.b	0(a4,d7.w),d1		* オフセットd を d1に読んで加える
 	ext.w	d1
 	add.w	d1,d0
 	add.w	#1,d7
 	andi.w	#$3fff,d7		* PC がページ境界をまたいだか？
 	bne	@f
 	PC_page_inc
-@@:
-	jsr	ms_read_mem_8
-	move.b	d4,d5			* 引かれる数を HC1に
-	move.b	d0,HC2(a3)		* 引く数を HC2に
-	sub.b	d0,d4
-	bvs	V_SUB_A			* オーバーフロー？
-	bcs	C_SUB_A1
-	move.b	#1,PV(a3)		* PVをクリア
-	move.b	d4,d6
+@@:	jsr	ms_read_mem_8
+	move.b	d0,target_8(a3)
+	SUB_A_X
 	rts
+
 
 SBC_A_lIdx_dl:
-	btst.l	#8,d6
-	beq	SUB_lIdx_dl		* Cy が０の時 SUB と同じ
-	ori.w	#%00001011_00000000,d6	* Ｎ,Ｃ, HC mode をセット
-	move.w	ix(a3,d1.w),d0
-	move.b	0(a4,d7.w),d1		* d を加える
+	move.w	ix(a3,d1.w),d0		* IX or IYを読む
+	move.b	0(a4,d7.w),d1		* オフセットd を d1に読んで加える
 	ext.w	d1
 	add.w	d1,d0
 	add.w	#1,d7
 	andi.w	#$3fff,d7		* PC がページ境界をまたいだか？
 	bne	@f
 	PC_page_inc
-@@:
-	jsr	ms_read_mem_8
-	clr.b	d6			* X ビットをセット
-	subq.b	#1,d6
-	move.b	d4,d5			* 引かれる数を HC1に
-	move.b	d0,HC2(a3)		* 引く数を HC2に
-	subx.b	d0,d4
-	bvs	V_SBC_A			* オーバーフロー？
-	bcc	NC_SBC_A1
-	move.b	#1,PV(a3)		* PVをクリア
-	andi.w	#%01111111_11111111,d6
-	move.b	d4,d6			* 結果を SZ にセット
+@@:	jsr	ms_read_mem_8
+	move.b	d0,target_8(a3)
+	SBC_A_X	SBC_A_lIdx_dl_fallback
 	rts
 
+SBC_A_lIdx_dl_fallback:
+	SUB_A_X
+	rts
+
+
 AND_lIdx_dl:
-	andi.w	#%01110100_11111111,d6	* Ｎ,Ｃ,HC mode をクリア
-	clr.b	d5			* HC を 1に
-	move.b	#1,HC2(a3)
-	move.w	ix(a3,d1.w),d0
-	move.b	0(a4,d7.w),d1		* d を加える
+	move.w	ix(a3,d1.w),d0		* IX or IYを読む
+	move.b	0(a4,d7.w),d1		* オフセットd を d1に読んで加える
 	ext.w	d1
 	add.w	d1,d0
 	add.w	#1,d7
 	andi.w	#$3fff,d7		* PC がページ境界をまたいだか？
 	bne	@f
 	PC_page_inc
-@@:
-	jsr	ms_read_mem_8
-	and.b	d0,d4
-	move.b	d4,PV(a3)		* PV をセット
-	move.b	d4,d6			* SZ をセット
+@@:	jsr	ms_read_mem_8
+	move.b	d0,target_8(a3)
+	AND_X
 	rts	
 
 XOR_lIdx_dl:
-	andi.w	#%01110100_11111111,d6	* Ｎ,Ｃ,HC mode をクリア
-	move.b	d5,HC2(a3)		* HC を 0に。( HC1 = HC2 の時, HCは０)
-	move.w	ix(a3,d1.w),d0
-	move.b	0(a4,d7.w),d1		* d を加える
+	move.w	ix(a3,d1.w),d0		* IX or IYを読む
+	move.b	0(a4,d7.w),d1		* オフセットd を d1に読んで加える
 	ext.w	d1
 	add.w	d1,d0
 	add.w	#1,d7
 	andi.w	#$3fff,d7		* PC がページ境界をまたいだか？
 	bne	@f
 	PC_page_inc
-@@:
-	jsr	ms_read_mem_8
-	eor.b	d0,d4
-	move.b	d4,PV(a3)		* PV をセット
-	move.b	d4,d6			* SZ をセット
-	rts	
+@@:	jsr	ms_read_mem_8
+	move.b	d0,target_8(a3)
+	_OR_X	eor
+	rts		
 
 OR_lIdx_dl:
-	andi.w	#%01110100_11111111,d6	* Ｎ,Ｃ,HC mode をクリア
-	move.b	d5,HC2(a3)		* HC を 0に。( HC1 = HC2 の時, HCは０)
-	move.w	ix(a3,d1.w),d0
-	move.b	0(a4,d7.w),d1		* d を加える
+	move.w	ix(a3,d1.w),d0		* IX or IYを読む
+	move.b	0(a4,d7.w),d1		* オフセットd を d1に読んで加える
 	ext.w	d1
 	add.w	d1,d0
 	add.w	#1,d7
 	andi.w	#$3fff,d7		* PC がページ境界をまたいだか？
 	bne	@f
 	PC_page_inc
-@@:
-	jsr	ms_read_mem_8
-	or.b	d0,d4
-	move.b	d4,PV(a3)		* PV をセット
-	move.b	d4,d6			* SZ をセット
-	rts	
+@@:	jsr	ms_read_mem_8
+	move.b	d0,target_8(a3)
+	_OR_X	or
+	rts
 
 CP_lIdx_dl:
-	andi.w	#%01110110_00000000,d6	* Ｃ,HC mode をクリア。SZ,SZ modeを０に
-	ori.w	#%00000010_00000000,d6	* Ｎをセット
-	move.w	ix(a3,d1.w),d0
-	move.b	0(a4,d7.w),d1		* d を加える
+	move.w	ix(a3,d1.w),d0		* IX or IYを読む
+	move.b	0(a4,d7.w),d1		* オフセットd を d1に読んで加える
 	ext.w	d1
 	add.w	d1,d0
 	add.w	#1,d7
 	andi.w	#$3fff,d7		* PC がページ境界をまたいだか？
 	bne	@f
 	PC_page_inc
-@@:
-	jsr	ms_read_mem_8
-	move.b	d4,d5			* 引かれる数を HC1に
-	move.b	d0,HC2(a3)		* 引く数を HC2に
-	move.b	d4,d6
-	sub.b	d0,d6
-	bvs	V_CP_A			* オーバーフロー？
-	bcs	C_CP_A1
-	move.b	#1,PV(a3)		* PVをクリア
+@@:	jsr	ms_read_mem_8
+	move.b	d0,target_8(a3)
+	CP_A_X
 	rts
 
 INC_lIdx_dl:
-	andi.w	#%01110101_00000000,d6	* Ｎ,HC modeをクリア。SZ,SZ modeを０に
-	clr.b	PV(a3)			* PVをセット	
-	move.w	ix(a3,d1.w),d0
-	move.b	0(a4,d7.w),d1		* d を加える
-	ext.w	d1
-	add.w	d1,d0
-	add.w	#1,d7
-	andi.w	#$3fff,d7		* PC がページ境界をまたいだか？
-	bne	@f
-	PC_page_inc
-@@:
-	move.w	d0,-(sp)
-	jsr	ms_read_mem_8
-	addq.b	#1,d0
-	bVS	@f			* オーバーフロー？
-	move.b	#1,PV(a3)		* PVをクリア
-@@:
-	move.b	d0,d6
-	move.b	d0,d5
-	move.b	#1,HC2(a3)
-
-	move.b	d0,d1
-	move.w	(sp)+,d0
-	jsr	ms_write_mem_8
-	rts
-
-DEC_lIdx_dl:
-	ori.w	#%00001010_00000000,d6	* Ｎ,HC modeをセット
-	andi.w	#%01111111_11111111,d6	* SZ mode をクリア
-	clr.b	PV(a3)			* PVをセット	
-	move.w	ix(a3,d1.w),d0
-	move.b	0(a4,d7.w),d1		* d を加える
+	move.w	ix(a3,d1.w),d0		* IX or IYを読む
+	move.b	0(a4,d7.w),d1		* オフセットd を d1に読んで加える
 	ext.w	d1
 	add.w	d1,d0
 	add.w	#1,d7
@@ -5860,49 +5947,108 @@ DEC_lIdx_dl:
 	PC_page_inc
 @@:	move.w	d0,-(sp)
 	jsr	ms_read_mem_8
-	move.b	d0,d5			* 引かれる数を HC1 に
-	subq.b	#1,d0
-	bVS	@f			* オーバーフロー？
-	move.b	#1,PV(a3)		* PVをクリア
-@@:	move.b	d0,d6
-	clr.b	HC2(a3)
-
+	move.b	d0,target_8(a3)
+	INC_X
 	move.b	d0,d1
 	move.w	(sp)+,d0
 	jsr	ms_write_mem_8
 	rts
 
+DEC_lIdx_dl:
+	move.w	ix(a3,d1.w),d0		* IX or IYを読む
+	move.b	0(a4,d7.w),d1		* オフセットd を d1に読んで加える
+	ext.w	d1
+	add.w	d1,d0
+	add.w	#1,d7
+	andi.w	#$3fff,d7		* PC がページ境界をまたいだか？
+	bne	@f
+	PC_page_inc
+@@:	move.w	d0,-(sp)
+	jsr	ms_read_mem_8
+	move.b	d0,target_8(a3)
+	DEC_X
+	move.b	d0,d1
+	move.w	(sp)+,d0
+	jsr	ms_write_mem_8
+	rts
+
+; ADD Idx,XX の挙動は以下の通り
+; * S : 変化しない
+; * Z : 変化しない
+; * F5: 上位8bitの加算の結果のbit5
+; * H : 上位8bitの加算の実行によるハーフキャリー
+; * F3: 上位8bitの加算の結果のbit5
+; * PV: 変化しない
+; * N : 0
+; * C : 上位8bitの加算の実行によるキャリー
+ADD_Idx_XX macro	ixiy
+	addq.w	#1,d7			* PC += 1
+	andi.w	#$3fff,d7		* PC がページ境界をまたいだか？
+	bne	1f
+	PC_page_inc
+1:	bsr	eval_flag_all
+	; b18 : 加算なので0
+	; b17 : 算術演算なので0
+	; b16 : キャリーなしなので0
+	; b1  : 加算なのでN=0
+	andi.l	#%000_00000000_11000100,d6	* S,Z,PVのみ保存
+	ori.l	#%000_00111001_00000000,d6	* F5,H,F3,Cのダーティビットを立てる
+	move.w	ixiy(a3),d0
+	move.w	target_16(a3),d1
+	add.b	d1,d0			* 下位８ビットを加算
+	bcc	@f			* キャリーが発生していない場合はスキップ
+	ori.l	#%001_00000000_00000000,d6	* 再計算用キャリーをセット
+@@:	move.b	d0,(ixiy+1)(a3)		* 下位８ビットを保存
+	lsr.w	#8,d0
+	lsr.w	#8,d1
+	move.b	d0,d5			* 第1項
+	lsl.w	#8,d5
+	move.b	d1,d5			* 足す数を 第2項に
+	swap	d5
+	and.b	#%11101111,ccr		* Xフラグをクリア
+	btst	#16,d6
+	beq	1f
+	or.b	#%00010000,ccr		* Xフラグをセット
+1:	addx.b	d1,d0			* 演算実行
+	move.b	d0,d5			* 結果を保存
+	move.b	d0,(ixiy+0)(a3)		* 上位８ビットを保存
+	endm
 
 ADD_Idx_BC:
-	andi.w	#%11111100_11111111,d6	* ＣｙとＮをクリア
-	move.w	bc(a3),d0
-	add.w	d0,ix(a3,d1.w)
-	bcc	rts_common
-	ori.w	#%00000001_00000000,d6	* Ｃｙをセット
+	move.w	bc(a3),target_16(a3)
+	cmpi.w	#0,d1
+	bne	@f
+	ADD_Idx_XX	ix
+	rts
+@@:	ADD_Idx_XX	iy
 	rts
 
 ADD_Idx_DE:
-	andi.w	#%11111100_11111111,d6	* ＣｙとＮをクリア
-	move.w	de(a3),d0
-	add.w	d0,ix(a3,d1.w)
-	bcc	rts_common
-	ori.w	#%00000001_00000000,d6	* Ｃｙをセット
+	move.w	de(a3),target_16(a3)
+	cmpi.w	#0,d1
+	bne	@f
+	ADD_Idx_XX	ix
+	rts
+@@:	ADD_Idx_XX	iy
 	rts
 
 ADD_Idx_SP:
-	andi.w	#%11111100_11111111,d6	* ＣｙとＮをクリア
-	move.w	sp_(a3),d0
-	add.w	d0,ix(a3,d1.w)
-	bcc	rts_common
-	ori.w	#%00000001_00000000,d6	* Ｃｙをセット
+	move.w	sp_(a3),target_16(a3)
+	cmpi.w	#0,d1
+	bne	@f
+	ADD_Idx_XX	ix
+	rts
+@@:	ADD_Idx_XX	iy
 	rts
 
 ADD_Idx_Idx:
-	andi.w	#%11111100_11111111,d6	* ＣｙとＮをクリア
-	move.w	ix(a3,d1.w),d0
-	add.w	d0,ix(a3,d1.w)
-	bcc	rts_common
-	ori.w	#%00000001_00000000,d6	* Ｃｙをセット
+	cmpi.w	#0,d1
+	bne	@f
+	move.w	ix(a3),target_16(a3)
+	ADD_Idx_XX	ix
+	rts
+@@:	move.w	iy(a3),target_16(a3)
+	ADD_Idx_XX	iy
 	rts
 
 
@@ -6274,52 +6420,394 @@ DD_FD_CB:
 @@:	PC_page_inc			* d7 = 1 のとき
 	move.b	(a4),d2			* -1(a4,d7.w) = (a4)
 
-1:	subq.b	#6,d2
-	andi.w	#$00f8,d2
-	lsr.w	#2,d2			* d2 = (第二オペランド - 6) / 8 * 2
-	move.w	DD_FD_CB_JPT(pc,d2.w),d1
+1:	move.w	DD_FD_CB_JPT(pc,d2.w*2),d1
 	jmp	DD_FD_CB_JPT(pc,d1.w)
 
 DD_FD_CB_JPT:
-	.dc.w	RLC_lIdx_dl-DD_FD_CB_JPT		* 06
-	.dc.w	RRC_lIdx_dl-DD_FD_CB_JPT		* 0e
-	.dc.w	RL_lIdx_dl-DD_FD_CB_JPT			* 16
-	.dc.w	RR_lIdx_dl-DD_FD_CB_JPT			* 1e
-	.dc.w	SLA_lIdx_dl-DD_FD_CB_JPT		* 26
-	.dc.w	SRA_lIdx_dl-DD_FD_CB_JPT		* 2e
-	.dc.w	SLI_lIdx_dl-DD_FD_CB_JPT		* 36
-	.dc.w	SRL_lIdx_dl-DD_FD_CB_JPT		* 3e
+	.dc.w	none_DD_FD_CB-DD_FD_CB_JPT	* $00
+	.dc.w	none_DD_FD_CB-DD_FD_CB_JPT
+	.dc.w	none_DD_FD_CB-DD_FD_CB_JPT
+	.dc.w	none_DD_FD_CB-DD_FD_CB_JPT
+	.dc.w	none_DD_FD_CB-DD_FD_CB_JPT
+	.dc.w	none_DD_FD_CB-DD_FD_CB_JPT
+	.dc.w	RLC_lIdx_dl-DD_FD_CB_JPT	* $06
+	.dc.w	none_DD_FD_CB-DD_FD_CB_JPT
+	.dc.w	none_DD_FD_CB-DD_FD_CB_JPT	* $08
+	.dc.w	none_DD_FD_CB-DD_FD_CB_JPT
+	.dc.w	none_DD_FD_CB-DD_FD_CB_JPT
+	.dc.w	none_DD_FD_CB-DD_FD_CB_JPT
+	.dc.w	none_DD_FD_CB-DD_FD_CB_JPT
+	.dc.w	none_DD_FD_CB-DD_FD_CB_JPT
+	.dc.w	RRC_lIdx_dl-DD_FD_CB_JPT	* $0e
+	.dc.w	none_DD_FD_CB-DD_FD_CB_JPT	* $0f
 
-	.dc.w	BIT_lIdx_dl-DD_FD_CB_JPT		* 46
-	.dc.w	BIT_lIdx_dl-DD_FD_CB_JPT		* 4e
-	.dc.w	BIT_lIdx_dl-DD_FD_CB_JPT		* 56
-	.dc.w	BIT_lIdx_dl-DD_FD_CB_JPT		* 5e
-	.dc.w	BIT_lIdx_dl-DD_FD_CB_JPT		* 66
-	.dc.w	BIT_lIdx_dl-DD_FD_CB_JPT		* 6e
-	.dc.w	BIT_lIdx_dl-DD_FD_CB_JPT		* 76
-	.dc.w	BIT_lIdx_dl-DD_FD_CB_JPT		* 7e
+	.dc.w	none_DD_FD_CB-DD_FD_CB_JPT	* $10
+	.dc.w	none_DD_FD_CB-DD_FD_CB_JPT
+	.dc.w	none_DD_FD_CB-DD_FD_CB_JPT
+	.dc.w	none_DD_FD_CB-DD_FD_CB_JPT
+	.dc.w	none_DD_FD_CB-DD_FD_CB_JPT
+	.dc.w	none_DD_FD_CB-DD_FD_CB_JPT
+	.dc.w	RL_lIdx_dl-DD_FD_CB_JPT		* $16
+	.dc.w	none_DD_FD_CB-DD_FD_CB_JPT
+	.dc.w	none_DD_FD_CB-DD_FD_CB_JPT	* $18
+	.dc.w	none_DD_FD_CB-DD_FD_CB_JPT
+	.dc.w	none_DD_FD_CB-DD_FD_CB_JPT
+	.dc.w	none_DD_FD_CB-DD_FD_CB_JPT
+	.dc.w	none_DD_FD_CB-DD_FD_CB_JPT
+	.dc.w	none_DD_FD_CB-DD_FD_CB_JPT
+	.dc.w	RR_lIdx_dl-DD_FD_CB_JPT		* $1e
+	.dc.w	none_DD_FD_CB-DD_FD_CB_JPT	* $1f
 
-	.dc.w	RES_lIdx_dl-DD_FD_CB_JPT		* 86
-	.dc.w	RES_lIdx_dl-DD_FD_CB_JPT
-	.dc.w	RES_lIdx_dl-DD_FD_CB_JPT
-	.dc.w	RES_lIdx_dl-DD_FD_CB_JPT
-	.dc.w	RES_lIdx_dl-DD_FD_CB_JPT
-	.dc.w	RES_lIdx_dl-DD_FD_CB_JPT
-	.dc.w	RES_lIdx_dl-DD_FD_CB_JPT
-	.dc.w	RES_lIdx_dl-DD_FD_CB_JPT		* bf
+	.dc.w	none_DD_FD_CB-DD_FD_CB_JPT	* $20
+	.dc.w	none_DD_FD_CB-DD_FD_CB_JPT
+	.dc.w	none_DD_FD_CB-DD_FD_CB_JPT
+	.dc.w	none_DD_FD_CB-DD_FD_CB_JPT
+	.dc.w	none_DD_FD_CB-DD_FD_CB_JPT
+	.dc.w	none_DD_FD_CB-DD_FD_CB_JPT
+	.dc.w	SLA_lIdx_dl-DD_FD_CB_JPT	* $26
+	.dc.w	none_DD_FD_CB-DD_FD_CB_JPT
+	.dc.w	none_DD_FD_CB-DD_FD_CB_JPT	* $28
+	.dc.w	none_DD_FD_CB-DD_FD_CB_JPT
+	.dc.w	none_DD_FD_CB-DD_FD_CB_JPT
+	.dc.w	none_DD_FD_CB-DD_FD_CB_JPT
+	.dc.w	none_DD_FD_CB-DD_FD_CB_JPT
+	.dc.w	none_DD_FD_CB-DD_FD_CB_JPT
+	.dc.w	SRA_lIdx_dl-DD_FD_CB_JPT	* $2e
+	.dc.w	none_DD_FD_CB-DD_FD_CB_JPT	* $2f
 
-	.dc.w	SET_lIdx_dl-DD_FD_CB_JPT		* c6
-	.dc.w	SET_lIdx_dl-DD_FD_CB_JPT
-	.dc.w	SET_lIdx_dl-DD_FD_CB_JPT
-	.dc.w	SET_lIdx_dl-DD_FD_CB_JPT
-	.dc.w	SET_lIdx_dl-DD_FD_CB_JPT
-	.dc.w	SET_lIdx_dl-DD_FD_CB_JPT
-	.dc.w	SET_lIdx_dl-DD_FD_CB_JPT
-	.dc.w	SET_lIdx_dl-DD_FD_CB_JPT		* fe
+	.dc.w	none_DD_FD_CB-DD_FD_CB_JPT	* $30
+	.dc.w	none_DD_FD_CB-DD_FD_CB_JPT
+	.dc.w	none_DD_FD_CB-DD_FD_CB_JPT
+	.dc.w	none_DD_FD_CB-DD_FD_CB_JPT
+	.dc.w	none_DD_FD_CB-DD_FD_CB_JPT
+	.dc.w	none_DD_FD_CB-DD_FD_CB_JPT
+	.dc.w	SLI_lIdx_dl-DD_FD_CB_JPT	* $36
+	.dc.w	none_DD_FD_CB-DD_FD_CB_JPT
+	.dc.w	none_DD_FD_CB-DD_FD_CB_JPT	* $38
+	.dc.w	none_DD_FD_CB-DD_FD_CB_JPT
+	.dc.w	none_DD_FD_CB-DD_FD_CB_JPT
+	.dc.w	none_DD_FD_CB-DD_FD_CB_JPT
+	.dc.w	none_DD_FD_CB-DD_FD_CB_JPT
+	.dc.w	none_DD_FD_CB-DD_FD_CB_JPT
+	.dc.w	SRL_lIdx_dl-DD_FD_CB_JPT	* $3e
+	.dc.w	none_DD_FD_CB-DD_FD_CB_JPT	* $3f
 
+	.dc.w	none_DD_FD_CB-DD_FD_CB_JPT	* $40
+	.dc.w	none_DD_FD_CB-DD_FD_CB_JPT
+	.dc.w	none_DD_FD_CB-DD_FD_CB_JPT
+	.dc.w	none_DD_FD_CB-DD_FD_CB_JPT
+	.dc.w	none_DD_FD_CB-DD_FD_CB_JPT
+	.dc.w	none_DD_FD_CB-DD_FD_CB_JPT
+	.dc.w	BIT_lIdx_dl-DD_FD_CB_JPT	* $46
+	.dc.w	none_DD_FD_CB-DD_FD_CB_JPT
+	.dc.w	none_DD_FD_CB-DD_FD_CB_JPT	* $48
+	.dc.w	none_DD_FD_CB-DD_FD_CB_JPT
+	.dc.w	none_DD_FD_CB-DD_FD_CB_JPT
+	.dc.w	none_DD_FD_CB-DD_FD_CB_JPT
+	.dc.w	none_DD_FD_CB-DD_FD_CB_JPT
+	.dc.w	none_DD_FD_CB-DD_FD_CB_JPT
+	.dc.w	BIT_lIdx_dl-DD_FD_CB_JPT	* 4e
+	.dc.w	none_DD_FD_CB-DD_FD_CB_JPT	* $4f
+
+	.dc.w	none_DD_FD_CB-DD_FD_CB_JPT	* $50
+	.dc.w	none_DD_FD_CB-DD_FD_CB_JPT
+	.dc.w	none_DD_FD_CB-DD_FD_CB_JPT
+	.dc.w	none_DD_FD_CB-DD_FD_CB_JPT
+	.dc.w	none_DD_FD_CB-DD_FD_CB_JPT
+	.dc.w	none_DD_FD_CB-DD_FD_CB_JPT
+	.dc.w	BIT_lIdx_dl-DD_FD_CB_JPT	* $56
+	.dc.w	none_DD_FD_CB-DD_FD_CB_JPT
+	.dc.w	none_DD_FD_CB-DD_FD_CB_JPT	* $58
+	.dc.w	none_DD_FD_CB-DD_FD_CB_JPT
+	.dc.w	none_DD_FD_CB-DD_FD_CB_JPT
+	.dc.w	none_DD_FD_CB-DD_FD_CB_JPT
+	.dc.w	none_DD_FD_CB-DD_FD_CB_JPT
+	.dc.w	none_DD_FD_CB-DD_FD_CB_JPT
+	.dc.w	BIT_lIdx_dl-DD_FD_CB_JPT	* $5e
+	.dc.w	none_DD_FD_CB-DD_FD_CB_JPT	* $5f
+
+	.dc.w	none_DD_FD_CB-DD_FD_CB_JPT	* $60
+	.dc.w	none_DD_FD_CB-DD_FD_CB_JPT
+	.dc.w	none_DD_FD_CB-DD_FD_CB_JPT
+	.dc.w	none_DD_FD_CB-DD_FD_CB_JPT
+	.dc.w	none_DD_FD_CB-DD_FD_CB_JPT
+	.dc.w	none_DD_FD_CB-DD_FD_CB_JPT
+	.dc.w	BIT_lIdx_dl-DD_FD_CB_JPT	* $66
+	.dc.w	none_DD_FD_CB-DD_FD_CB_JPT
+	.dc.w	none_DD_FD_CB-DD_FD_CB_JPT	* $68
+	.dc.w	none_DD_FD_CB-DD_FD_CB_JPT
+	.dc.w	none_DD_FD_CB-DD_FD_CB_JPT
+	.dc.w	none_DD_FD_CB-DD_FD_CB_JPT
+	.dc.w	none_DD_FD_CB-DD_FD_CB_JPT
+	.dc.w	none_DD_FD_CB-DD_FD_CB_JPT
+	.dc.w	BIT_lIdx_dl-DD_FD_CB_JPT	* $6e
+	.dc.w	none_DD_FD_CB-DD_FD_CB_JPT	* $6f
+
+	.dc.w	none_DD_FD_CB-DD_FD_CB_JPT	* $70
+	.dc.w	none_DD_FD_CB-DD_FD_CB_JPT
+	.dc.w	none_DD_FD_CB-DD_FD_CB_JPT
+	.dc.w	none_DD_FD_CB-DD_FD_CB_JPT
+	.dc.w	none_DD_FD_CB-DD_FD_CB_JPT
+	.dc.w	none_DD_FD_CB-DD_FD_CB_JPT
+	.dc.w	BIT_lIdx_dl-DD_FD_CB_JPT	* $76
+	.dc.w	none_DD_FD_CB-DD_FD_CB_JPT
+	.dc.w	none_DD_FD_CB-DD_FD_CB_JPT	* $78
+	.dc.w	none_DD_FD_CB-DD_FD_CB_JPT
+	.dc.w	none_DD_FD_CB-DD_FD_CB_JPT
+	.dc.w	none_DD_FD_CB-DD_FD_CB_JPT
+	.dc.w	none_DD_FD_CB-DD_FD_CB_JPT
+	.dc.w	none_DD_FD_CB-DD_FD_CB_JPT
+	.dc.w	BIT_lIdx_dl-DD_FD_CB_JPT	* $7e
+	.dc.w	none_DD_FD_CB-DD_FD_CB_JPT	* $7f
+
+	.dc.w	none_DD_FD_CB-DD_FD_CB_JPT	* $80
+	.dc.w	none_DD_FD_CB-DD_FD_CB_JPT
+	.dc.w	none_DD_FD_CB-DD_FD_CB_JPT
+	.dc.w	none_DD_FD_CB-DD_FD_CB_JPT
+	.dc.w	none_DD_FD_CB-DD_FD_CB_JPT
+	.dc.w	none_DD_FD_CB-DD_FD_CB_JPT
+	.dc.w	RES_lIdx_dl-DD_FD_CB_JPT	* $86
+	.dc.w	none_DD_FD_CB-DD_FD_CB_JPT
+	.dc.w	none_DD_FD_CB-DD_FD_CB_JPT	* $88
+	.dc.w	none_DD_FD_CB-DD_FD_CB_JPT
+	.dc.w	none_DD_FD_CB-DD_FD_CB_JPT
+	.dc.w	none_DD_FD_CB-DD_FD_CB_JPT
+	.dc.w	none_DD_FD_CB-DD_FD_CB_JPT
+	.dc.w	none_DD_FD_CB-DD_FD_CB_JPT
+	.dc.w	RES_lIdx_dl-DD_FD_CB_JPT
+	.dc.w	none_DD_FD_CB-DD_FD_CB_JPT	* $8f
+
+	.dc.w	none_DD_FD_CB-DD_FD_CB_JPT	* $90
+	.dc.w	none_DD_FD_CB-DD_FD_CB_JPT
+	.dc.w	none_DD_FD_CB-DD_FD_CB_JPT
+	.dc.w	none_DD_FD_CB-DD_FD_CB_JPT
+	.dc.w	none_DD_FD_CB-DD_FD_CB_JPT
+	.dc.w	none_DD_FD_CB-DD_FD_CB_JPT
+	.dc.w	RES_lIdx_dl-DD_FD_CB_JPT
+	.dc.w	none_DD_FD_CB-DD_FD_CB_JPT
+	.dc.w	none_DD_FD_CB-DD_FD_CB_JPT	* $98
+	.dc.w	none_DD_FD_CB-DD_FD_CB_JPT
+	.dc.w	none_DD_FD_CB-DD_FD_CB_JPT
+	.dc.w	none_DD_FD_CB-DD_FD_CB_JPT
+	.dc.w	none_DD_FD_CB-DD_FD_CB_JPT
+	.dc.w	none_DD_FD_CB-DD_FD_CB_JPT
+	.dc.w	RES_lIdx_dl-DD_FD_CB_JPT
+	.dc.w	none_DD_FD_CB-DD_FD_CB_JPT	* $9f
+
+	.dc.w	none_DD_FD_CB-DD_FD_CB_JPT	* $a0
+	.dc.w	none_DD_FD_CB-DD_FD_CB_JPT
+	.dc.w	none_DD_FD_CB-DD_FD_CB_JPT
+	.dc.w	none_DD_FD_CB-DD_FD_CB_JPT
+	.dc.w	none_DD_FD_CB-DD_FD_CB_JPT
+	.dc.w	none_DD_FD_CB-DD_FD_CB_JPT
+	.dc.w	RES_lIdx_dl-DD_FD_CB_JPT
+	.dc.w	none_DD_FD_CB-DD_FD_CB_JPT
+	.dc.w	none_DD_FD_CB-DD_FD_CB_JPT	* $a8
+	.dc.w	none_DD_FD_CB-DD_FD_CB_JPT
+	.dc.w	none_DD_FD_CB-DD_FD_CB_JPT
+	.dc.w	none_DD_FD_CB-DD_FD_CB_JPT
+	.dc.w	none_DD_FD_CB-DD_FD_CB_JPT
+	.dc.w	none_DD_FD_CB-DD_FD_CB_JPT
+	.dc.w	RES_lIdx_dl-DD_FD_CB_JPT
+	.dc.w	none_DD_FD_CB-DD_FD_CB_JPT	* $af
+
+	.dc.w	none_DD_FD_CB-DD_FD_CB_JPT	* $b0
+	.dc.w	none_DD_FD_CB-DD_FD_CB_JPT
+	.dc.w	none_DD_FD_CB-DD_FD_CB_JPT
+	.dc.w	none_DD_FD_CB-DD_FD_CB_JPT
+	.dc.w	none_DD_FD_CB-DD_FD_CB_JPT
+	.dc.w	none_DD_FD_CB-DD_FD_CB_JPT
+	.dc.w	RES_lIdx_dl-DD_FD_CB_JPT
+	.dc.w	none_DD_FD_CB-DD_FD_CB_JPT
+	.dc.w	none_DD_FD_CB-DD_FD_CB_JPT	* $b8
+	.dc.w	none_DD_FD_CB-DD_FD_CB_JPT
+	.dc.w	none_DD_FD_CB-DD_FD_CB_JPT
+	.dc.w	none_DD_FD_CB-DD_FD_CB_JPT
+	.dc.w	none_DD_FD_CB-DD_FD_CB_JPT
+	.dc.w	none_DD_FD_CB-DD_FD_CB_JPT
+	.dc.w	RES_lIdx_dl-DD_FD_CB_JPT	* $be
+	.dc.w	none_DD_FD_CB-DD_FD_CB_JPT	* $bf
+
+	.dc.w	none_DD_FD_CB-DD_FD_CB_JPT	* $c0
+	.dc.w	none_DD_FD_CB-DD_FD_CB_JPT
+	.dc.w	none_DD_FD_CB-DD_FD_CB_JPT
+	.dc.w	none_DD_FD_CB-DD_FD_CB_JPT
+	.dc.w	none_DD_FD_CB-DD_FD_CB_JPT
+	.dc.w	none_DD_FD_CB-DD_FD_CB_JPT
+	.dc.w	SET_lIdx_dl-DD_FD_CB_JPT	* $c6
+	.dc.w	none_DD_FD_CB-DD_FD_CB_JPT
+	.dc.w	none_DD_FD_CB-DD_FD_CB_JPT	* $c8
+	.dc.w	none_DD_FD_CB-DD_FD_CB_JPT
+	.dc.w	none_DD_FD_CB-DD_FD_CB_JPT
+	.dc.w	none_DD_FD_CB-DD_FD_CB_JPT
+	.dc.w	none_DD_FD_CB-DD_FD_CB_JPT
+	.dc.w	none_DD_FD_CB-DD_FD_CB_JPT
+	.dc.w	SET_lIdx_dl-DD_FD_CB_JPT
+	.dc.w	none_DD_FD_CB-DD_FD_CB_JPT	* $cf
+
+	.dc.w	none_DD_FD_CB-DD_FD_CB_JPT	* $d0
+	.dc.w	none_DD_FD_CB-DD_FD_CB_JPT
+	.dc.w	none_DD_FD_CB-DD_FD_CB_JPT
+	.dc.w	none_DD_FD_CB-DD_FD_CB_JPT
+	.dc.w	none_DD_FD_CB-DD_FD_CB_JPT
+	.dc.w	none_DD_FD_CB-DD_FD_CB_JPT
+	.dc.w	SET_lIdx_dl-DD_FD_CB_JPT
+	.dc.w	none_DD_FD_CB-DD_FD_CB_JPT
+	.dc.w	none_DD_FD_CB-DD_FD_CB_JPT	* $d8
+	.dc.w	none_DD_FD_CB-DD_FD_CB_JPT
+	.dc.w	none_DD_FD_CB-DD_FD_CB_JPT
+	.dc.w	none_DD_FD_CB-DD_FD_CB_JPT
+	.dc.w	none_DD_FD_CB-DD_FD_CB_JPT
+	.dc.w	none_DD_FD_CB-DD_FD_CB_JPT
+	.dc.w	SET_lIdx_dl-DD_FD_CB_JPT
+	.dc.w	none_DD_FD_CB-DD_FD_CB_JPT	* $df
+
+	.dc.w	none_DD_FD_CB-DD_FD_CB_JPT	* $e0
+	.dc.w	none_DD_FD_CB-DD_FD_CB_JPT
+	.dc.w	none_DD_FD_CB-DD_FD_CB_JPT
+	.dc.w	none_DD_FD_CB-DD_FD_CB_JPT
+	.dc.w	none_DD_FD_CB-DD_FD_CB_JPT
+	.dc.w	none_DD_FD_CB-DD_FD_CB_JPT
+	.dc.w	SET_lIdx_dl-DD_FD_CB_JPT
+	.dc.w	none_DD_FD_CB-DD_FD_CB_JPT
+	.dc.w	none_DD_FD_CB-DD_FD_CB_JPT	* $e8
+	.dc.w	none_DD_FD_CB-DD_FD_CB_JPT
+	.dc.w	none_DD_FD_CB-DD_FD_CB_JPT
+	.dc.w	none_DD_FD_CB-DD_FD_CB_JPT
+	.dc.w	none_DD_FD_CB-DD_FD_CB_JPT
+	.dc.w	none_DD_FD_CB-DD_FD_CB_JPT
+	.dc.w	SET_lIdx_dl-DD_FD_CB_JPT
+	.dc.w	none_DD_FD_CB-DD_FD_CB_JPT	* $ef
+
+	.dc.w	none_DD_FD_CB-DD_FD_CB_JPT	* $f0
+	.dc.w	none_DD_FD_CB-DD_FD_CB_JPT
+	.dc.w	none_DD_FD_CB-DD_FD_CB_JPT
+	.dc.w	none_DD_FD_CB-DD_FD_CB_JPT
+	.dc.w	none_DD_FD_CB-DD_FD_CB_JPT
+	.dc.w	none_DD_FD_CB-DD_FD_CB_JPT
+	.dc.w	SET_lIdx_dl-DD_FD_CB_JPT
+	.dc.w	none_DD_FD_CB-DD_FD_CB_JPT
+	.dc.w	none_DD_FD_CB-DD_FD_CB_JPT	* $f8
+	.dc.w	none_DD_FD_CB-DD_FD_CB_JPT
+	.dc.w	none_DD_FD_CB-DD_FD_CB_JPT
+	.dc.w	none_DD_FD_CB-DD_FD_CB_JPT
+	.dc.w	none_DD_FD_CB-DD_FD_CB_JPT
+	.dc.w	none_DD_FD_CB-DD_FD_CB_JPT
+	.dc.w	SET_lIdx_dl-DD_FD_CB_JPT	* fe
+	.dc.w	none_DD_FD_CB-DD_FD_CB_JPT	* $ff
+
+
+none_DD_FD_CB:					* おかしな命令を実行しました
+	move.w	d0,d1
+	lsr.w	#4,d0
+	lea.l	HEX,a0
+	move.b	(a0,d0.w),number_ddfdcb+0
+	andi.w	#$0f,d1
+	move.b	(a0,d1.w),number_ddfdcb+1
+
+	pea.l	errms_ddfdcb
+	DOS	__PRINT
+	lea.l	4(sp),sp
+	move.b	#$ff,d0
+	rts
+
+errms_ddfdcb:
+	.dc.b	'おかしな命令を実行しました。0xdd or 0xfd,0xcb,0x'
+number_ddfdcb:
+	.dc.b	'00'
+	.dc.b	0x0d,0x0a,0x00
+
+	.even
+
+
+; d0 には Idx + d がセットされて呼ばれる
+RLC_lIdx_dl:
+	move.w	d0,-(sp)		* Idx + d を退避
+	jsr	ms_read_mem_8
+	move.b	d0,target_8(a3)
+	RXX_	1, 1
+	move.b	d0,d1
+	move.w	(sp)+,d0
+	jsr	ms_write_mem_8
+	rts
+
+RRC_lIdx_dl:
+	move.w	d0,-(sp)		* Idx + d を退避
+	jsr	ms_read_mem_8
+	move.b	d0,target_8(a3)
+	RXX_	0, 1
+	move.b	d0,d1
+	move.w	(sp)+,d0
+	jsr	ms_write_mem_8
+	rts
+
+RL_lIdx_dl:
+	move.w	d0,-(sp)		* Idx + d を退避
+	jsr	ms_read_mem_8
+	move.b	d0,target_8(a3)
+	RXX_	1, 0
+	move.b	d0,d1
+	move.w	(sp)+,d0
+	jsr	ms_write_mem_8
+	rts
+
+RR_lIdx_dl:
+	move.w	d0,-(sp)		* Idx + d を退避
+	jsr	ms_read_mem_8
+	move.b	d0,target_8(a3)
+	RXX_	0, 0
+	move.b	d0,d1
+	move.w	(sp)+,d0
+	jsr	ms_write_mem_8
+	rts
+
+SLA_lIdx_dl:
+	move.w	d0,-(sp)		* Idx + d を退避
+	jsr	ms_read_mem_8
+	move.b	d0,target_8(a3)
+	SXX	1, 0
+	move.b	d0,d1
+	move.w	(sp)+,d0
+	jsr	ms_write_mem_8
+	rts
+
+SRA_lIdx_dl:
+	move.w	d0,-(sp)		* Idx + d を退避
+	jsr	ms_read_mem_8
+	move.b	d0,target_8(a3)
+	SXX	0, 2
+	move.b	d0,d1
+	move.w	(sp)+,d0
+	jsr	ms_write_mem_8
+	rts
+
+SRL_lIdx_dl:
+	move.w	d0,-(sp)		* Idx + d を退避
+	jsr	ms_read_mem_8
+	move.b	d0,target_8(a3)
+	SXX	0, 0
+	move.b	d0,d1
+	move.w	(sp)+,d0
+	jsr	ms_write_mem_8
+	rts
+
+SLI_lIdx_dl:
+	move.w	d0,-(sp)		* Idx + d を退避
+	jsr	ms_read_mem_8
+	move.b	d0,target_8(a3)
+	SXX	1, 1
+	move.b	d0,d1
+	move.w	(sp)+,d0
+	jsr	ms_write_mem_8
+	rts
+
+*	------ ＳＥＴ n,(Idx+d) ------
+; d0 には Idx + d がセットされて呼ばれる
+; d2 には DD CB dd XX の XXが入っている
 SET_lIdx_dl:
-	andi.w	#%00000000_00000111,d2		* BIT_n_? の n を d2にロード
-	move.w	d0,-(sp)			* Idx + d をプッシュ
+	andi.w	#%00000000_00111000,d2		* BIT_n_? の n を d2にロード
+	lsr.w	#3,d2
+	move.w	d0,-(sp)			* Idx + d を退避
 	jsr	ms_read_mem_8
 	bset.l	d2,d0				* (Idx + d)の nビット目をセット
 	move.b	d0,d1
@@ -6327,8 +6815,10 @@ SET_lIdx_dl:
 	jsr	ms_write_mem_8		
 	rts
 
+*	------ ＲＥＳ n,(Idx+d) ------
 RES_lIdx_dl:
-	andi.w	#%00000000_00000111,d2		* BIT_n_? の n を d2にロード
+	andi.w	#%00000000_00111000,d2		* BIT_n_? の n を d2にロード
+	lsr.w	#3,d2
 	move.w	d0,-(sp)			* Idx + d をプッシュ
 	jsr	ms_read_mem_8
 	bclr.l	d2,d0				* (Idx + d)の nビット目をクリア
@@ -6337,148 +6827,40 @@ RES_lIdx_dl:
 	jsr	ms_write_mem_8		
 	rts
 
+*	------ ＢＩＴ n,(Idx+d) ------
+; ＢＩＴ命令の挙動は以下の通り
+; * S : BIT 7,?の時だけ、対象のbit7が1なら1。それ以外の時は0
+; * Z : 対象のbitが0なら1。それ以外の時は0
+; * F5: 対象のbit5
+; * H : 1
+; * F3: 対象のbit3
+; * PV: Zフラグと同じ
+; * N : 0
+; * C : 変化しない
+; ただし、対象が(HL)の場合だけ、F5,F3は内部のWZレジスタの上位8bitの値(bit13,11)が入るらしい
+
+; d0 には Idx + d がセットされて呼ばれる
 BIT_lIdx_dl:
-	andi.w	#%11110101_00000000,d6		* N, HC modeを０に。 ＳＺを０に
-	clr.b	d5				* HC を１に
-	move.b	#1,HC2(a3)
-	andi.w	#%00000000_00000111,d2		* BIT_n_? の n を d2にロード
+	andi.w	#%00000000_00111000,d2	* BIT_n_? の n を d2にロード
+	lsr.w	#3,d2
+	moveq.l	#1,d1
+	lsl	d2,d1			* 対象位置のビットをセット
+	move.w	d1,-(sp)
+	move.w	d0,-(sp)		* Idx + d を退避
+	bsr	eval_flag_HC_C		* HC,C フラグを再評価
+	andi.l	#%000_00000000_00000001,d6	* Cフラグ以外をクリア
+	ori.l	#%000_00000000_00010000,d6	* Hフラグをセット
+	move.w	(sp)+,d0		* Idx + d を復帰
 	jsr	ms_read_mem_8
-	btst.l	d2,d0				* (Idx + d)の nビット目をテスト
-	beq	rts_common
-	move.b	#1,d6
-	rts
-
-RLC_lIdx_dl:
-	andi.w	#%01110100_11111111,d6	* Ｎ,Ｃ HC modeをクリア
-	move.b	d5,HC2(a3)		* HC をクリア
-	move.w	d0,-(sp)		* Idx + d をプッシュ
-	jsr	ms_read_mem_8
-	rol.b	#1,d0
-	bcc	@f
-	ori.w	#%00000001_00000000,d6	* キャリーフラグをセット
-@@:
-	move.b	d0,d6			* ＳＺをセット
-	move.b	d0,PV(a3)		* ＰＶをセット
-
-	move.b	d0,d1
-	move.w	(sp)+,d0
-	jsr	ms_write_mem_8
-	rts
-
-RRC_lIdx_dl:
-	andi.w	#%01110100_11111111,d6	* Ｎ,Ｃ HC modeをクリア
-	move.b	d5,HC2(a3)		* HC をクリア
-	move.w	d0,-(sp)		* Idx + d をプッシュ
-	jsr	ms_read_mem_8
-	ror.b	#1,d0
-	bcc	1f
-	ori.w	#%00000001_00000000,d6	* キャリーフラグをセット
-1:
-	move.b	d0,d6			* ＳＺをセット
-	move.b	d0,PV(a3)		* ＰＶをセット
-
-	move.b	d0,d1
-	move.w	(sp)+,d0
-	jsr	ms_write_mem_8
-	rts
-
-RL_lIdx_dl:
-	btst.l	#8,d6			* ＣＹの状態をチェック
-	beq	SLA_lIdx_dl		* CY が０の時 RLは SLAと同じ動作をする
-	andi.w	#%01110100_11111111,d6	* Ｎ,Ｃ,HC mode をクリア
-	move.b	d5,HC2(a3)		* HC をクリア
-	move.w	d0,-(sp)		* Idx + d をプッシュ
-	jsr	ms_read_mem_8
-	add.b	d0,d0
-	bcc	1f
-	ori.w	#%00000001_00000000,d6	* ＣＹをセット
-1:	ori.w	#%00000000_00000001,d0	* 最下位ビットをセット
-	move.b	d0,d6
-	move.b	d0,PV(a3)
-
-	move.b	d0,d1
-	move.w	(sp)+,d0
-	jsr	ms_write_mem_8
-	rts
-
-
-RR_lIdx_dl:
-	btst.l	#8,d6			* ＣＹの状態をチェック
-	beq	SRL_lIdx_dl		* CY が０の時 RRは SRLと同じ動作をする
-	andi.w	#%01110100_11111111,d6	* Ｎ,Ｃ,HC mode をクリア
-	move.b	d5,HC2(a3)		* HC をクリア
-	move.w	d0,-(sp)		* Idx + d をプッシュ
-	jsr	ms_read_mem_8
-	lsr.b	#1,d0
-	bcc	1f
-	ori.w	#%00000001_00000000,d6	* ＣＹをセット
-1:	ori.w	#%00000000_10000000,d0	* 最上位ビットをセット
-	move.b	d0,d6
-	move.b	d0,PV(a3)
-	move.b	d0,d1
-	move.w	(sp)+,d0
-	jsr	ms_write_mem_8
-	rts
-
-SLA_lIdx_dl:
-	andi.w	#%01110100_11111111,d6	* Ｎ,Ｃ,HC mode をクリア
-	move.b	d5,HC2(a3)		* HC をクリア
-	move.w	d0,-(sp)		* Idx + d をプッシュ
-	jsr	ms_read_mem_8
-	add.b	d0,d0
-	bcc	1f
-	ori.w	#%00000001_00000000,d6	* ＣＹをセット
-1:	move.b	d0,d6
-	move.b	d0,PV(a3)
-	move.b	d0,d1
-	move.w	(sp)+,d0
-	jsr	ms_write_mem_8
-	rts
-
-SRA_lIdx_dl:
-	andi.w	#%01110100_11111111,d6	* Ｎ,Ｃ,HC mode をクリア
-	move.b	d5,HC2(a3)		* HC をクリア
-	move.w	d0,-(sp)		* Idx + d をプッシュ
-	jsr	ms_read_mem_8
-	asr.b	#1,d0
-	bcc	1f
-	ori.w	#%00000001_00000000,d6	* ＣＹをセット
-1:	move.b	d0,d6
-	move.b	d0,PV(a3)
-	move.b	d0,d1
-	move.w	(sp)+,d0
-	jsr	ms_write_mem_8
-	rts
-
-SRL_lIdx_dl:
-	andi.w	#%01110100_11111111,d6	* Ｎ,Ｃ,HC mode をクリア
-	move.b	d5,HC2(a3)		* HC をクリア
-	move.w	d0,-(sp)		* Idx + d をプッシュ
-	jsr	ms_read_mem_8
-	lsr.b	#1,d0
-	bcc	1f
-	ori.w	#%00000001_00000000,d6	* ＣＹをセット
-1:	move.b	d0,d6
-	move.b	d0,PV(a3)
-	move.b	d0,d1
-	move.w	(sp)+,d0
-	jsr	ms_write_mem_8
-	rts
-
-SLI_lIdx_dl:
-	andi.w	#%01110100_11111111,d6	* Ｎ,Ｃ,HC mode をクリア
-	move.b	d5,HC2(a3)		* HC をクリア
-	move.w	d0,-(sp)		* Idx + d をプッシュ
-	jsr	ms_read_mem_8
-	add.b	d0,d0
-	bcc	1f
-	ori.w	#%00000001_00000000,d6	* ＣＹをセット
-1:	addq.b	#1,d0
-	move.b	d0,d6
-	move.b	d0,PV(a3)
-	move.b	d0,d1
-	move.w	(sp)+,d0
-	jsr	ms_write_mem_8
+	move.w	(sp)+,d2
+	move.b	w(a3),d1		* F5,F3に反映させるレジスタ値をd1にロード  (hl)の時は wレジスタが使われるらしい
+	andi.b	#%00101000,d1		* F5,F3を取得
+	or.b	d1,d6			* F5,F3をFレジスタに反映
+	and.b	d2,d0			* レジスタの nビット目をテストするためにマスク
+	beq	1f
+	ori.l	#%000_00000000_01000100,d6	* Z,PVフラグをセット
+1:	andi.b	#%10000000,d0		* bit7のみ残す
+	or.b	d0,d6			* bit7を Sフラグに反映
 	rts
 
 *****************************************************
@@ -6500,72 +6882,66 @@ IN_A_n:	move.b	1(a4,d7.w),d0		* n を読む
 	move.b	d0,d4
 	rts
 
-IN_A_c:	andi.w	#%01111101_11111111,d6	* N をクリア
+; IN r,(C) の挙動
+; * S : 読み込んだ値のbit7
+; * Z : 読み込んだ値が0なら1。それ以外の時は0
+; * F5: 変化しない
+; * H : 0
+; * F3: 変化しない
+; * PV: 読み込んだ値のパリティ
+; * N : 0
+; * C : 変化しない
+IN_X_C	macro
+	bsr	eval_flag_all			* 全フラグを再評価
+	; b18 : don't care
+	; b17 : 論理演算なので1
+	; b16 : don't care
+	andi.l	#%000_00000000_00101001,d6	* F5,F3,Cフラグ以外をクリア
+	ori.l	#%010_11000100_00000000,d6	* SZとPVはダーティビットを立てる
 	move.b	c(a3),d0
 	bsr	input
+	move.b	d0,d5				* 論理演算結果を保存
+	endm
+
+IN_A_c:	IN_X_C
 	move.b	d0,d4
-	move.b	d0,d6			* SZ をセット
-	move.b	d0,PV(a3)		* PV をセット
 	rts
-
-IN_B_c:	andi.w	#%01111101_11111111,d6	* N をクリア
-	move.b	c(a3),d0
-	bsr	input
+IN_B_c:	IN_X_C
 	move.b	d0,b(a3)
-	move.b	d0,d6			* SZ をセット
-	move.b	d0,PV(a3)		* PV をセット
 	rts
-
-IN_C_c:	andi.w	#%01111101_11111111,d6	* N をクリア
-	move.b	c(a3),d0
-	bsr	input
+IN_C_c:	IN_X_C
 	move.b	d0,c(a3)
-	move.b	d0,d6			* SZ をセット
-	move.b	d0,PV(a3)		* PV をセット
 	rts
-
-IN_D_c:	andi.w	#%01111101_11111111,d6	* N をクリア
-	move.b	c(a3),d0
-	bsr	input
+IN_D_c:	IN_X_C
 	move.b	d0,d(a3)
-	move.b	d0,d6			* SZ をセット
-	move.b	d0,PV(a3)		* PV をセット
 	rts
-
-IN_E_c:	andi.w	#%01111101_11111111,d6	* N をクリア
-	move.b	c(a3),d0
-	bsr	input
+IN_E_c:	IN_X_C
 	move.b	d0,e(a3)
-	move.b	d0,d6			* SZ をセット
-	move.b	d0,PV(a3)		* PV をセット
 	rts
-
-IN_H_c:	andi.w	#%01111101_11111111,d6	* N をクリア
-	move.b	c(a3),d0
-	bsr	input
+IN_H_c:	IN_X_C
 	move.b	d0,h(a3)
-	move.b	d0,d6			* SZ をセット
-	move.b	d0,PV(a3)		* PV をセット
 	rts
-
-IN_L_c:	andi.w	#%01111101_11111111,d6	* N をクリア
-	move.b	c(a3),d0
-	bsr	input
+IN_L_c:	IN_X_C
 	move.b	d0,l(a3)
-	move.b	d0,d6			* SZ をセット
-	move.b	d0,PV(a3)		* PV をセット
 	rts
 
-IN_F_c:	andi.w	#%01111101_11111111,d6	* N をクリア
-	move.b	c(a3),d0
-	bsr	input
-	move.b	d0,d6			* SZ をセット
-	move.b	d0,PV(a3)		* PV をセット
+IN_F_c:	IN_X_C
+	; IN F,(C) は、読み込んだ値に対してフラグが変化するだけでどこにも結果は保存されない
 	rts
 
 *	------ ＩＮＩ ------
-INI:	ori.w	#%00000010_00000000,d6	* Nをセット
-	andi.w	#%01111111_11111111,d6
+; INI の挙動
+; * S : 不変(?)
+; * Z : Bレジスタをデクリメントした結果が0なら1。それ以外の時は0
+; * F5: 変化しない
+; * H : 変化しない
+; * F3: 変化しない
+; * PV: 変化しない
+; * N : 1
+; * C : 変化しない
+INI:	bsr	eval_flag_all		* 全フラグを再評価
+	andi.l	#%000_00000000_10111111,d6	* Zをクリア
+	ori.l	#%000_00000000_00000010,d6	* N=1にセット
 	move.b	c(a3),d0
 	bsr	input
 	move.b	d0,d1
@@ -6573,12 +6949,14 @@ INI:	ori.w	#%00000010_00000000,d6	* Nをセット
 	jsr	ms_write_mem_8
 	addq.w	#1,hl(a3)
 	subq.b	#1,b(a3)
-	move.b	b(a3),d6		* Z を設定
-	rts
+	bne	@f
+	ori.w	#%01000000,d6		* Z をセット
+@@:	rts
 
 *	------ ＩＮＤ ------
-IND:	ori.w	#%00000010_00000000,d6	* Nをセット
-	andi.w	#%01111111_11111111,d6
+IND:	bsr	eval_flag_all		* 全フラグを再評価
+	andi.l	#%000_00000000_10111111,d6	* Zをクリア
+	ori.l	#%000_00000000_00000010,d6	* N=1にセット
 	move.b	c(a3),d0
 	bsr	input
 	move.b	d0,d1
@@ -6586,39 +6964,33 @@ IND:	ori.w	#%00000010_00000000,d6	* Nをセット
 	jsr	ms_write_mem_8
 	subq.w	#1,hl(a3)
 	subq.b	#1,b(a3)
-	move.b	b(a3),d6		* Z を設定
-	rts
+	bne	@f
+	ori.w	#%01000000,d6		* Z をセット
+@@:	rts
 
 *	------ ＩＮＩＲ ------
-INIR:	ori.w	#%00000010_00000000,d6	* Nをセット
-	andi.w	#%01111111_11111111,d6
-@@:
-	move.b	c(a3),d0
-	bsr	input
-	move.b	d0,d1
-	move.w	hl(a3),d0
-	jsr	ms_write_mem_8
-	addq.w	#1,hl(a3)
-	subq.b	#1,b(a3)
-	bne	@b
-	clr.b	d6			* Z をセット
+INIR:	bsr	INI
+	cmpi.b	#0,b(a3)
+	bne	@f
 	rts
+@@:	subq.w	#2,d7
+	btst.l	#14,d7
+	beq	@f			* PC -2 でページ境界をまたいだか？
+	PC_page_dec			* またいだ時
+	andi.w	#$3fff,d7
+@@:	rts
 
 *	------ ＩＮＤＲ ------
-INDR:	ori.w	#%00000010_00000000,d6	* Nをセット
-	andi.w	#%01111111_11111111,d6
-@@:
-	move.b	c(a3),d0
-	bsr	input
-	move.b	d0,d1
-	move.w	hl(a3),d0
-	jsr	ms_write_mem_8
-	subq.w	#1,hl(a3)
-	subq.b	#1,b(a3)
-	bne	@b
-	clr.b	d6			* Z をセット
+INDR:	bsr	IND
+	cmpi.b	#0,b(a3)
+	bne	@f
 	rts
-
+@@:	subq.w	#2,d7
+	btst.l	#14,d7
+	beq	@f			* PC -2 でページ境界をまたいだか？
+	PC_page_dec			* またいだ時
+	andi.w	#$3fff,d7
+@@:	rts
 
 	
 *	------ ＯＵＴ ------
@@ -6635,103 +7007,104 @@ OUT_n_A:
 	bsr	output
 	rts
 
+; OUT (C),r の挙動
+; フラグ変化はしない
+OUT_C_X	macro
+	move.b	target_8(a3),d1
+	move.b	c(a3),d0
+	bsr	output
+	move.b	d0,d5				* 論理演算結果を保存
+	endm
+
 OUT_c_A:
-	move.b	c(a3),d0
-	move.b	d4,d1
-	bsr	output
+	move.b	d4,target_8(a3)
+	OUT_C_X
 	rts
-
 OUT_c_B:
-	move.b	c(a3),d0
-	move.b	b(a3),d1
-	bsr	output
+	move.b	b(a3),target_8(a3)
+	OUT_C_X
 	rts
-
 OUT_c_C:
-	move.b	c(a3),d0
-	move.b	d0,d1
-	bsr	output
+	move.b	c(a3),target_8(a3)
+	OUT_C_X
 	rts
-
 OUT_c_D:
-	move.b	c(a3),d0
-	move.b	d(a3),d1
-	bsr	output
+	move.b	d(a3),target_8(a3)
+	OUT_C_X
 	rts
-
 OUT_c_E:
-	move.b	c(a3),d0
-	move.b	e(a3),d1
-	bsr	output
+	move.b	e(a3),target_8(a3)
+	OUT_C_X
 	rts
-
 OUT_c_H:
-	move.b	c(a3),d0
-	move.b	h(a3),d1
-	bsr	output
+	move.b	h(a3),target_8(a3)
+	OUT_C_X
 	rts
-
 OUT_c_L:
-	move.b	c(a3),d0
-	move.b	l(a3),d1
-	bsr	output
+	move.b	l(a3),target_8(a3)
+	OUT_C_X
 	rts
 
 *	------ ＯＵＴＩ ------
-OUTI:	ori.w	#%00000010_00000000,d6	* Nをセット
-	andi.w	#%01111111_11111111,d6
+; OUTI の挙動
+; * S : 不変(?)
+; * Z : Bレジスタをデクリメントした結果が0なら1。それ以外の時は0
+; * F5: 変化しない
+; * H : 変化しない
+; * F3: 変化しない
+; * PV: 変化しない
+; * N : 1
+; * C : 変化しない
+OUTI:	bsr	eval_flag_all		* 全フラグを再評価
+	andi.l	#%000_00000000_10111111,d6	* Zをクリア
+	ori.l	#%000_00000000_00000010,d6	* N=1にセット
 	move.w	hl(a3),d0
 	jsr	ms_read_mem_8
-	move.b	d0,d1			* 書き込む値
-	move.b	c(a3),d0		* 書き込むポート
-	bsr	output
+	move.b	d0,target_8(a3)		* 書き込む値
+	OUT_C_X
 	addq.w	#1,hl(a3)
 	subq.b	#1,b(a3)
-	move.b	b(a3),d6		* Z を設定
-	rts
+	bne	@f
+	ori.w	#%01000000,d6		* Z をセット
+@@:	rts
 
 *	------ ＯＵＴＤ ------
-OUTD:	ori.w	#%00000010_00000000,d6	* Nをセット
-	andi.w	#%01111111_11111111,d6
+OUTD:	bsr	eval_flag_all		* 全フラグを再評価
+	andi.l	#%000_00000000_10111111,d6	* Zをクリア
+	ori.l	#%000_00000000_00000010,d6	* N=1にセット
 	move.w	hl(a3),d0
 	jsr	ms_read_mem_8
-	move.b	d0,d1			* 書き込む値
-	move.b	c(a3),d0		* 書き込むポート
-	bsr	output
+	move.b	d0,target_8(a3)		* 書き込む値
+	OUT_C_X
 	subq.w	#1,hl(a3)
 	subq.b	#1,b(a3)
-	move.b	b(a3),d6		* Z を設定
-	rts
+	bne	@f
+	ori.w	#%01000000,d6		* Z をセット
+@@:	rts
 
 *	------ ＯＴＩＲ ------
-OTIR:	ori.w	#%00000010_00000000,d6	* Nをセット
-	andi.w	#%01111111_11111111,d6
-@@:
-	move.w	hl(a3),d0
-	jsr	ms_read_mem_8
-	move.b	d0,d1			* 書き込む値
-	move.b	c(a3),d0		* 書き込むポート
-	bsr	output
-	addq.w	#1,hl(a3)
-	subq.b	#1,b(a3)
-	bne	@b
-	clr.b	d6			* Z をセット
+OTIR:	bsr	OUTI
+	cmpi.b	#0,b(a3)
+	bne	@f
 	rts
+@@:	subq.w	#2,d7
+	btst.l	#14,d7
+	beq	@f			* PC -2 でページ境界をまたいだか？
+	PC_page_dec			* またいだ時
+	andi.w	#$3fff,d7
+@@:	rts
 
 *	------ ＯＴＤＲ ------
-OTDR:	ori.w	#%00000010_00000000,d6	* Nをセット
-	andi.w	#%01111111_11111111,d6
-@@:
-	move.w	hl(a3),d0
-	jsr	ms_read_mem_8
-	move.b	d0,d1			* 書き込む値
-	move.b	c(a3),d0		* 書き込むポート
-	bsr	output
-	subq.w	#1,hl(a3)
-	subq.b	#1,b(a3)
-	bne	@b
-	clr.b	d6			* Z をセット
+OTDR:	bsr	OUTD
+	cmpi.b	#0,b(a3)
+	bne	@f
 	rts
+@@:	subq.w	#2,d7
+	btst.l	#14,d7
+	beq	@f			* PC -2 でページ境界をまたいだか？
+	PC_page_dec			* またいだ時
+	andi.w	#$3fff,d7
+@@:	rts
 
 
 *****************************************************************
@@ -6873,7 +7246,12 @@ i_:	.dc.b	0	* Ｉレジスタ
 
 wz_:
 w_:	.dc.b	0	* Ｗレジスタ
-wz_:	.dc.b	0	* Ｚレジスタ
+z_:	.dc.b	0	* Ｚレジスタ
+
+target_16_:		* 各命令の演算で使用する値を保持する領域
+	.dc.b	0
+target_8_:
+	.dc.b	0
 
 ; CPUのメインループを極力高速化するため、Z80の割り込みや、エミュレータの割り込み(キーボード処理など)を
 ; yieldフラグを見て分岐するようにしています。

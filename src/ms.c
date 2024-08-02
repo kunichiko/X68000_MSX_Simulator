@@ -790,3 +790,16 @@ void writeSpriteAttribute(unsigned char* p, int offset, unsigned int attribute) 
 	}
 
 }
+
+/*
+	for debug
+*/
+void dumpsp_c(uint8_t *const registers, uint32_t sp, uint32_t a0, uint32_t a4, uint32_t d7, uint32_t d4, uint32_t d6)
+{
+	int i;
+	for (i = 0; i < 16; i++)
+	{
+		printf("%02x ", registers[i]);
+	}
+	printf("   : SP=%04x a0=%08x a4=%08x d7=%08x d4=%08x d6=%08x\n", sp, a0, a4, d7, d4, d6);
+}

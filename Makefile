@@ -45,7 +45,7 @@ copy_to_target_debug: ${BUILD_DIR} ${BUILD_DIR}/ms_debug.x
 ${BUILD_DIR}/ms.x: $(BUILD_DIR)/ms.o $(BUILD_DIR)/ms_R800_mac_30.o $(BUILD_DIR)/ms_R800_flag.o $(BUILD_DIR)/ms_iomap.o $(BUILD_DIR)/ms_memmap.o $(BUILD_DIR)/ms_vdp_mac.o $(BUILD_DIR)/ms_sysvalue.o $(BUILD_DIR)/ms_sub_mac.o $(BUILD_DIR)/ms_IO_PORT.o $(BUILD_DIR)/ms_PSG_mac.o $(BUILD_DIR)/ms_readcart.o #$(BUILD_DIR)/ms_debugger_mac.o
 	$(LD) $(LDFLAGS) -o $@ $^
 
-${BUILD_DIR}/ms_debug.x: $(BUILD_DIR)/ms_d.o $(BUILD_DIR)/ms_R800_mac_30_d.o $(BUILD_DIR)/ms_iomap_d.o $(BUILD_DIR)/ms_memmap_d.o $(BUILD_DIR)/ms_vdp_mac_d.o $(BUILD_DIR)/ms_sysvalue_d.o $(BUILD_DIR)/ms_sub_mac_d.o $(BUILD_DIR)/ms_IO_PORT_d.o $(BUILD_DIR)/ms_PSG_mac_d.o $(BUILD_DIR)/ms_readcart_d.o #$(BUILD_DIR)/ms_debugger_mac_d.o
+${BUILD_DIR}/ms_debug.x: $(BUILD_DIR)/ms_d.o $(BUILD_DIR)/ms_R800_mac_30_d.o $(BUILD_DIR)/ms_R800_flag_d.o $(BUILD_DIR)/ms_iomap_d.o $(BUILD_DIR)/ms_memmap_d.o $(BUILD_DIR)/ms_vdp_mac_d.o $(BUILD_DIR)/ms_sysvalue_d.o $(BUILD_DIR)/ms_sub_mac_d.o $(BUILD_DIR)/ms_IO_PORT_d.o $(BUILD_DIR)/ms_PSG_mac_d.o $(BUILD_DIR)/ms_readcart_d.o #$(BUILD_DIR)/ms_debugger_mac_d.o
 	$(LD) $(LDFLAGS) -o $@ $^
 
 ${BUILD_DIR}/%_d.o: $(SRC_DIR)/%.c $(SRC_DIR)/ms_R800.h

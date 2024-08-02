@@ -190,7 +190,7 @@ eval_flag_HC_C:
 	move.l	d5,d0
 	swap	d0		
 	move.w  d0,d1		
-	andi.w	#$00ff		; 第2項を取り出す
+	andi.w	#$00ff,d1	; 第2項を取り出す
 	lsr.w	#8,d0		; 第1項を取り出す
 	move.w	d0,d2		; 計算対象である第1項をd2にセット
 	btst	#18,d6		; 加算か減算か
@@ -256,7 +256,7 @@ eval_flag_PV_N:
 	move.l	d5,d0
 	swap	d0		
 	move.w  d0,d1		
-	andi.w	#$00ff		; 第2項を取り出す
+	andi.w	#$00ff,d1	; 第2項を取り出す
 	lsr.w	#8,d0		; 第1項を取り出す
 	btst	#18,d6		; 加算か減算か
 	bne	8f
@@ -294,7 +294,9 @@ eval_flag_PV_N:
 	move.b	d0,d1
 	lsr.b	#1,d1
 	eor.b	d1,d0
-	btst.b	#0,d0
+	btst.l	#0,d0
 	bne	@f		; パリティーが奇数ならPVフラグは0なので何もしない(感覚と逆なので注意)
 	ori.b	#%00000100,d6	; パリティーが偶数ならPVフラグをセット
 @@:	rts
+
+	.end

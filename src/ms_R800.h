@@ -29,7 +29,7 @@ struct ms_cpu_registers {
 	uint16_t sp;
 	uint8_t a_, f_, b_, c_, d_, e_, h_, l_;
 	uint8_t r,i;
-	unit8_t w,z;
+	uint8_t w,z;
 };
 
 extern ms_cpu_registers *ms_cpu_registers_ptr;
