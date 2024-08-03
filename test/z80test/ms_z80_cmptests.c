@@ -38,11 +38,11 @@ int compare(char*);
 void dump_cpu() {
 	printf("SZ CPU: PC:0x%04x SP:0x%04x\n", sz_cpu.pc, sz_cpu.sp);
 	printf(" A :%02x B :%02x C :%02x D :%02x E :%02x H :%02x L :%02x IX:%04x IY:%04x\n", sz_cpu.a, sz_cpu.b, sz_cpu.c, sz_cpu.d, sz_cpu.e, sz_cpu.h, sz_cpu.l, sz_cpu.ix, sz_cpu.iy);
-	printf(" A':%02x B':%02x C':%02x D':%02x E':%02x H':%02x L':%02x\n", sz_cpu.a_, sz_cpu.b_, sz_cpu.c_, sz_cpu.d_, sz_cpu.e_, sz_cpu.h_, sz_cpu.l_);
+	printf(" A':%02x B':%02x C':%02x D':%02x E':%02x H':%02x L':%02x F':%02x\n", sz_cpu.a_, sz_cpu.b_, sz_cpu.c_, sz_cpu.d_, sz_cpu.e_, sz_cpu.h_, sz_cpu.l_, sz_cpu.f_);
 	printf(" sf:%d zf:%d yf:%d hf:%d xf:%d pf:%d nf:%d cf:%d\n", sz_cpu.sf, sz_cpu.zf, sz_cpu.yf, sz_cpu.hf, sz_cpu.xf, sz_cpu.pf, sz_cpu.nf, sz_cpu.cf);
 	printf("MS CPU: PC:0x%04x SP:0x%04x\n", ms_cpu.pc, ms_cpu.sp);
 	printf(" A :%02x B :%02x C :%02x D :%02x E :%02x H :%02x L :%02x IX:%04x IY:%04x\n", ms_cpu.a, ms_cpu.b, ms_cpu.c, ms_cpu.d, ms_cpu.e, ms_cpu.h, ms_cpu.l, ms_cpu.ix, ms_cpu.iy);
-	printf(" A':%02x B':%02x C':%02x D':%02x E':%02x H':%02x L':%02x\n", ms_cpu.a_, ms_cpu.b_, ms_cpu.c_, ms_cpu.d_, ms_cpu.e_, ms_cpu.h_, ms_cpu.l_);
+	printf(" A':%02x B':%02x C':%02x D':%02x E':%02x H':%02x L':%02x F':%02x\n", ms_cpu.a_, ms_cpu.b_, ms_cpu.c_, ms_cpu.d_, ms_cpu.e_, ms_cpu.h_, ms_cpu.l_, ms_cpu.f_);
 	printf(" sf:%d zf:%d yf:%d hf:%d xf:%d pf:%d nf:%d cf:%d\n", ms_cpu.sf, ms_cpu.zf, ms_cpu.yf, ms_cpu.hf, ms_cpu.xf, ms_cpu.pf, ms_cpu.nf, ms_cpu.cf);
 }
 
@@ -67,8 +67,8 @@ int run_specific_test()
 	sz_memory[0x0007] = 0xC9;
 
 	//
-	sz_memory[0x0100] = 0xcb; // nop
-	sz_memory[0x0101] = 0x40; // nop
+	sz_memory[0x0100] = 0xfe; // nop
+	sz_memory[0x0101] = 0x00; // nop
 	sz_memory[0x0102] = 0x00; // nop
 	sz_memory[0x0103] = 0x00; // nop
 	sz_memory[0x0104] = 0x00; // nop
@@ -79,9 +79,18 @@ int run_specific_test()
 	printf("Specific Test:\n");
 	// テストコードSZ
 	sz_cpu.pc = 0x100;
-	sz_cpu.a = 0x01;
-	sz_cpu.d = 0xe6;
+	sz_cpu.a = 0x08;
+	sz_cpu.a_ = 0x02;
+	sz_cpu.d = 0x04;
+	sz_cpu.sf = 0;
+	sz_cpu.zf = 0;
+	sz_cpu.yf = 1;
+	sz_cpu.hf = 0;
+	sz_cpu.xf = 1;
+	sz_cpu.pf = 0;
+	sz_cpu.nf = 0;
 	sz_cpu.cf = 1;
+	sz_cpu.f_ = 0x02;
 
 	char result[256];
 	if (dotest(20,result,true) ) {
@@ -96,6 +105,8 @@ int run_specific_test()
 int run_through_tests(uint8_t seed)
 {
 	char result[256];
+
+	printf("Run Through Tests: 0x%x\n", seed);
 
 	if (init_sz_z80(&sz_cpu))
 	{
@@ -115,15 +126,45 @@ int run_through_tests(uint8_t seed)
 	sz_memory[0x0006] = 0x00;
 	sz_memory[0x0007] = 0xC9;
 
-	//
-	sz_memory[0x0100] = 0x00; // nop
-	sz_memory[0x0101] = 0x00; // nop
-	sz_memory[0x0102] = 0x00; // nop
+	// DD CB ラインのテスト
+	int d = 0;
+	sz_memory[0x0100] = 0xDD; // nop
+	sz_memory[0x0101] = 0xCB; // nop
+	sz_memory[0x0102] = d; // nop
 	sz_memory[0x0103] = 0x00; // nop
 	sz_memory[0x0104] = 0x00; // nop
 	// inject "out 1,a" (signal to stop the test)
 	sz_memory[0x0105] = 0xD3;
 	sz_memory[0x0106] = 0x00;
+	for(int i=0;i<0x100;i++)
+	{
+		if ( (i & 0x0f) != 0x06 && (i & 0x0f) != 0x0e)
+		{
+			continue;
+		}
+		printf("Test: 0xDD 0xCB 0x%02x 0x%02x ... ", d, i);
+		fflush(stdout);
+		// テストコードSZ
+		sz_cpu.pc = 0x100;
+		sz_memory[0x0103] = i;
+		if (dotest(20,result,false) ) {
+			printf(" ********************************************************** failed --> %s\n",result);
+			dump_cpu();
+			break;
+		}
+		printf(" passed\n");
+	}
+
+	//
+	sz_memory[0x0100] = 0x00; // nop
+	sz_memory[0x0101] = seed++;
+	sz_memory[0x0102] = seed++;
+	sz_memory[0x0103] = seed++;
+	sz_memory[0x0104] = seed++;
+	// inject "out 1,a" (signal to stop the test)
+	sz_memory[0x0105] = 0xD3;
+	sz_memory[0x0106] = 0x00;
+
 
 	//
 	sz_cpu.a = seed++;
@@ -269,6 +310,9 @@ int main(int argc, char const *argv[])
 {
 	run_specific_test();
 	run_through_tests(0x01);
+	run_through_tests(0x80);
+	run_through_tests(0x55);
+	run_through_tests(0xAA);
 	run_func_tests();
 }
 
@@ -295,6 +339,7 @@ int dotest(int max_steps, char* result, bool debug)
 	ms_cpu.e_ = sz_cpu.e_;
 	ms_cpu.h_ = sz_cpu.h_;
 	ms_cpu.l_ = sz_cpu.l_;
+	ms_cpu.f_ = sz_cpu.f_;
 	ms_cpu.sf = sz_cpu.sf;
 	ms_cpu.zf = sz_cpu.zf;
 	ms_cpu.yf = sz_cpu.yf;
@@ -322,7 +367,7 @@ int dotest(int max_steps, char* result, bool debug)
 	{
 		if (debug)
 		{
-			printf("[[ Step: %d ]]\n", i);
+			printf("[[ Step: %d ]] OPCODE=0x%02X\n", i, sz_memory[sz_cpu.pc]);
 			dump_cpu();
 		}
 		z80_step(&sz_cpu);

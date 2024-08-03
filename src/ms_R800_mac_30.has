@@ -2308,6 +2308,15 @@ OR_n:	_OR_n	or
 	rts
 
 *	------ ＣＰ ------
+; CP X の挙動は以下の通り
+; * S : 結果の最上位ビット
+; * Z : 結果が0の時 1、それ以外の時 0
+; * F5: 引く n の bit5 (SUBとは動作が違う)
+; * H : 演算の結果
+; * F3: 引く n の bit3 (SUBとは動作が違う)
+; * PV: 演算の結果のオーバーフロー
+; * N : 1
+; * C : 演算の結果のキャリー
 CP_A_X	macro
 	addq.w	#1,d7			* PC += 1
 	andi.w	#$3fff,d7		* PC がページ境界をまたいだか？
@@ -2317,8 +2326,8 @@ CP_A_X	macro
 	; b17 : 算術演算なので0
 	; b16 : 事前キャリーなしなので0
 	; b1  : 減算なのでN=1
-	andi.l	#%000_11111101_11111101,d6
-	ori.l	#%100_11111101_00000010,d6	* S,Z,F5,H,F3,PV,Cのダーティビットを立てる
+	andi.l	#%000_11010101_11010101,d6
+	ori.l	#%100_11010101_00000010,d6	* S,Z,H,PV,Cのダーティビットを立てる
 	move.b	target_8(a3),d0
 	move.b	d4,d5			* 第1項
 	lsl.w	#8,d5
@@ -2326,6 +2335,8 @@ CP_A_X	macro
 	swap	d5
 	move.b	d4,d5			* Aレジスタをd5にコピー
 	sub.b	d0,d5			* 比較(減算)演算の結果をd5のみに反映(Aレジスタ(d4)は破壊されない)
+	andi.b	#%00101000,d0		* F5,F3 のみを取り出す
+	or.b	d0,d6			* F5,F3 をセット
 	endm
 
 CP_A:	move.b	d4,target_8(a3)
@@ -2363,6 +2374,15 @@ CP_lHLl:
 	CP_A_X
 	rts
 
+; CP n の挙動は以下の通り
+; * S : 結果の最上位ビット
+; * Z : 結果が0の時 1、それ以外の時 0
+; * F5: 引く n の bit5 (SUBとは動作が違う)
+; * H : 演算の結果
+; * F3: 引く n の bit3 (SUBとは動作が違う)
+; * PV: 演算の結果のオーバーフロー
+; * N : 1
+; * C : 演算の結果のキャリー
 CP_n:	move.b	1(a4,d7.w),d0
 	addq.w	#2,d7			* PC += 2
 	btst.l	#14,d7			* PC がページ境界をまたいだか？
@@ -2375,14 +2395,16 @@ CP_n:	move.b	1(a4,d7.w),d0
 	; b17 : 算術演算なので0
 	; b16 : 事前キャリーなしなので0
 	; b1  : 減算なのでN=1
-	andi.l	#%000_11111101_11111101,d6
-	ori.l	#%100_11111101_00000010,d6	* S,Z,F5,H,F3,PV,Cのダーティビットを立てる、N=1にする
+	andi.l	#%000_11010101_11010101,d6
+	ori.l	#%100_11010101_00000010,d6	* S,Z,H,PV,Cのダーティビットを立てる、N=1にする
 	move.b	d4,d5			* 第1項
 	lsl.w	#8,d5
 	move.b	d0,d5			* 引く数を 第2項に
 	swap	d5
 	move.b	d4,d5			* Aレジスタをd5にコピー
 	sub.b	d0,d5			* 比較(減算)演算の結果をd5のみに反映(Aレジスタ(d4)は破壊されない)
+	andi.b	#%00101000,d0		* F5,F3 のみを取り出す
+	or.b	d0,d6			* F5,F3 をセット
 	rts
 
 *	------ ＩＮＣ ------
@@ -2975,7 +2997,7 @@ RET:	move.w	sp_(a3),d0
 	rts
 
 RET_C:	bsr	eval_flag_HC_C	* HC,C フラグを再評価
-	btst.l	#8,d6		* Ｃｙフラグをテスト
+	btst.l	#0,d6		* Ｃｙフラグをテスト
 	bne	RET		* Ｃｙが１ならリターン
 	addq.w	#1,d7		* PC += 1
 	andi.w	#$3fff,d7	* PC がページ境界をまたいだか？
@@ -2984,7 +3006,7 @@ RET_C:	bsr	eval_flag_HC_C	* HC,C フラグを再評価
 	rts
 	
 RET_NC:	bsr	eval_flag_HC_C	* HC,C フラグを再評価
-	btst.l	#8,d6		* Ｃｙフラグをテスト
+	btst.l	#0,d6		* Ｃｙフラグをテスト
 	beq	RET		* Ｃｙが０ならリターン
 	addq.w	#1,d7		* PC += 1
 	andi.w	#$3fff,d7	* PC がページ境界をまたいだか？
@@ -3162,14 +3184,14 @@ EX_DE_HL:
 	rts
 
 EX_AF_AFd:
-	bsr	eval_flag_all
 	move.b	d4,d1
-	lsl.w	#8,d1
-	move.b	d6,d1
 	move.b	a_(a3),d4
+	move.b	d1,a_(a3)
+	bsr	eval_flag_all
+	move.b	d6,d1
 	move.b	f_(a3),d6
 	andi.l	#%000_00000000_11111111,d6	; フラグのダーティビットをクリア
-	move.w	d1,af_(a3)
+	move.b	d1,f_(a3)
 
 	addq.w	#1,d7
 	andi.w	#$3fff,d7
@@ -6377,7 +6399,8 @@ DD_FD_CB:
 	move.b	0(a4,d7.w),d1		* d を加える
 	ext.w	d1
 	add.w	d1,d0			* d0 = Idx + d
-	move.b	1(a4,d7.w),d2
+	clr.w	d2
+	move.b	1(a4,d7.w),d2		* OP CODE を読む
 	add.w	#2,d7
 	btst.l	#14,d7
 	beq	1f
@@ -6474,7 +6497,7 @@ DD_FD_CB_JPT:
 	.dc.w	none_DD_FD_CB-DD_FD_CB_JPT
 	.dc.w	none_DD_FD_CB-DD_FD_CB_JPT
 	.dc.w	none_DD_FD_CB-DD_FD_CB_JPT
-	.dc.w	BIT_lIdx_dl-DD_FD_CB_JPT	* 4e
+	.dc.w	BIT_lIdx_dl-DD_FD_CB_JPT	* $4e
 	.dc.w	none_DD_FD_CB-DD_FD_CB_JPT	* $4f
 
 	.dc.w	none_DD_FD_CB-DD_FD_CB_JPT	* $50
@@ -6661,7 +6684,7 @@ DD_FD_CB_JPT:
 	.dc.w	none_DD_FD_CB-DD_FD_CB_JPT
 	.dc.w	none_DD_FD_CB-DD_FD_CB_JPT
 	.dc.w	none_DD_FD_CB-DD_FD_CB_JPT
-	.dc.w	SET_lIdx_dl-DD_FD_CB_JPT	* fe
+	.dc.w	SET_lIdx_dl-DD_FD_CB_JPT	* $fe
 	.dc.w	none_DD_FD_CB-DD_FD_CB_JPT	* $ff
 
 
@@ -6799,9 +6822,9 @@ RES_lIdx_dl:
 ; ＢＩＴ命令の挙動は以下の通り
 ; * S : BIT 7,?の時だけ、対象のbit7が1なら1。それ以外の時は0
 ; * Z : 対象のbitが0なら1。それ以外の時は0
-; * F5: 対象のbit5
+; * F5: Idx+d の上位8bitの値(bit13)が入る
 ; * H : 1
-; * F3: 対象のbit3
+; * F3: Idx+d の上位8bitの値(bit11)が入る
 ; * PV: Zフラグと同じ
 ; * N : 0
 ; * C : 変化しない
@@ -6813,6 +6836,7 @@ BIT_lIdx_dl:
 	lsr.w	#3,d2
 	moveq.l	#1,d1
 	lsl	d2,d1			* 対象位置のビットをセット
+	move.w	d0,-(sp)		* Idx + d を退避
 	move.w	d1,-(sp)
 	move.w	d0,-(sp)		* Idx + d を退避
 	bsr	eval_flag_HC_C		* HC,C フラグを再評価
@@ -6821,11 +6845,12 @@ BIT_lIdx_dl:
 	move.w	(sp)+,d0		* Idx + d を復帰
 	jsr	ms_read_mem_8
 	move.w	(sp)+,d2
-	move.b	w(a3),d1		* F5,F3に反映させるレジスタ値をd1にロード  (hl)の時は wレジスタが使われるらしい
+	move.w	(sp)+,d1		* Idx + d を復帰
+	lsr.w	#8,d1			* (Idx)の時、F5,F3には読み出したアドレス(=Idx+d)の上位8bitを使う
 	andi.b	#%00101000,d1		* F5,F3を取得
 	or.b	d1,d6			* F5,F3をFレジスタに反映
 	and.b	d2,d0			* レジスタの nビット目をテストするためにマスク
-	beq	1f
+	bne	1f
 	ori.l	#%000_00000000_01000100,d6	* Z,PVフラグをセット
 1:	andi.b	#%10000000,d0		* bit7のみ残す
 	or.b	d0,d6			* bit7を Sフラグに反映
