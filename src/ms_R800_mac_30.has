@@ -197,12 +197,13 @@ PC_page_dec	macro
 		endm
 
 PC_page_set	macro			* JP命令等で PCが変わった時の処理
-		move.w	d7,d0
-		clr.l	d7		* d7 の上位ワードを０にする。符号拡張ではだめ
-		move.w	d0,d7
-		andi.w	#%00111111_11111111,d0
-		lsl.l	#2,d7
-		move.w	d0,d7
+		swap	d7		* 上位 16bitに移動
+		lsr.l	#8,d7		* PCの上位 2bit(Page番号)が上位ワードに残るようにする
+		lsr.l	#6,d7
+		lsr.w	#2,d7		* 下位16bitのみをシフト
+		; この時点で以下のようになっている
+		;  31     16 15 8 7  0
+		; | PC page | PC(16k) |  d7
 		swap	d7
 		lea	page0,a4
 		movea.l	(a4,d7.w*4),a4

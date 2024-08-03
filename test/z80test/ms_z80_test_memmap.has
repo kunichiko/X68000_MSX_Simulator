@@ -129,8 +129,15 @@ ms_read_mem_16:
 	move.l	a0,-(sp)
 	lea	ms_mainmem,a0
 	and.l	#$ffff,d0
+	cmpi.l	#$ffff,d0
+	beq	@f
 	move.w	(a0,d0.l),d0
 	ror.w	#8,d0		; エンディアンを逆にする
+	move.l	(sp)+,a0
+	rts
+@@:	move.b	(a0),d0		; 0xffff の場合は、上位バイトは 0x0000にある
+	lsl.w	#8,d0
+	move.b	(a0,d0.l),d0	; 下位バイトを読み込む
 	move.l	(sp)+,a0
 	rts
 
@@ -148,9 +155,16 @@ ms_read_mem_16:
 ms_write_mem_16:
 	move.l	a0,-(sp)
 	lea	ms_mainmem,a0
-	ror.w	#8,d1		; エンディアンを逆にする
 	and.l	#$ffff,d0
+	cmpi.l	#$ffff,d0
+	beq	@f
+	ror.w	#8,d1		; エンディアンを逆にする
 	move.w	d1,(a0,d0.l)
+	move.l	(sp)+,a0
+	rts
+@@:	move.b	d1,(a0,d0.l)	; 0xffff に下位バイトを書き込み
+	lsr.w	#8,d1
+	move.b	d1,(a0)		; 0x0000 に上位バイトを書き込み
 	move.l	(sp)+,a0
 	rts
 

@@ -16,14 +16,28 @@ int ms_iomap_init(void);
 
 extern void* ms_mainmem_ptr;
 extern int* ms_instructions_ptr;
+extern uint8_t *page0;
+extern uint8_t *page1;
+extern uint8_t *page2;
+extern uint8_t *page3;
 
 ms_z80* context;
 ms_cpu_state state;
+
+uint8_t *page0_save;
+uint8_t *page1_save;
+uint8_t *page2_save;
+uint8_t *page3_save;
 
 void ms_z80_init(ms_z80* const z) {
 	ms_cpu_init();
 	ms_iomap_init();
 	context = z;
+
+	page0_save = page0;
+	page1_save = page1;
+	page2_save = page2;
+	page3_save = page3;
 
 	state.pc_base_addr = ms_mainmem_ptr;
 /*
@@ -99,6 +113,39 @@ void ms_z80_step(ms_z80* const z) {
 	z->cf = (state.f & 0x01) >> 0;
 	z->iff_delay = state.iff_delay;
 	z->interrupt_mode = state.interrupt_mode;
+
+	if(page0 != page0_save) {
+		printf("page0 changed: %p -> %p\n", page0_save, page0);
+		printf("page0: %p\n", page0);
+		printf("page1: %p\n", page1);
+		printf("page2: %p\n", page2);
+		printf("page3: %p\n", page3);
+		page0 = page0_save;
+	}
+	if(page1 != page1_save) {
+		printf("page1 changed: %p -> %p\n", page1_save, page1);
+		printf("page0: %p\n", page0);
+		printf("page1: %p\n", page1);
+		printf("page2: %p\n", page2);
+		printf("page3: %p\n", page3);
+		//page1 = page1_save;
+	}
+	if(page2 != page2_save) {
+		printf("page2 changed: %p -> %p\n", page2_save, page2);
+		printf("page0: %p\n", page0);
+		printf("page1: %p\n", page1);
+		printf("page2: %p\n", page2);
+		printf("page3: %p\n", page3);
+		//page2 = page2_save;
+	}
+	if(page3 != page3_save) {
+		printf("page3 changed: %p -> %p\n", page3_save, page3);
+		printf("page0: %p\n", page0);
+		printf("page1: %p\n", page1);
+		printf("page2: %p\n", page2);
+		printf("page3: %p\n", page3);
+		//page3 = page3_save;
+	}
 }
 
 void ms_z80_debug_output(ms_z80* const z) {
