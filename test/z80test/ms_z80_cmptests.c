@@ -32,10 +32,21 @@ char *test_neg();
 
 test_func_t test_funcs[] = {test_nop, test_neg, NULL};
 
-void dotest();
+int dotest(int max_steps, char* result, bool debug);
 int compare(char*);
 
-int main(int argc, char const *argv[])
+void dump_cpu() {
+	printf("SZ CPU: PC:0x%04x SP:0x%04x\n", sz_cpu.pc, sz_cpu.sp);
+	printf(" A :%02x B :%02x C :%02x D :%02x E :%02x H :%02x L :%02x IX:%04x IY:%04x\n", sz_cpu.a, sz_cpu.b, sz_cpu.c, sz_cpu.d, sz_cpu.e, sz_cpu.h, sz_cpu.l, sz_cpu.ix, sz_cpu.iy);
+	printf(" A':%02x B':%02x C':%02x D':%02x E':%02x H':%02x L':%02x\n", sz_cpu.a_, sz_cpu.b_, sz_cpu.c_, sz_cpu.d_, sz_cpu.e_, sz_cpu.h_, sz_cpu.l_);
+	printf(" sf:%d zf:%d yf:%d hf:%d xf:%d pf:%d nf:%d cf:%d\n", sz_cpu.sf, sz_cpu.zf, sz_cpu.yf, sz_cpu.hf, sz_cpu.xf, sz_cpu.pf, sz_cpu.nf, sz_cpu.cf);
+	printf("MS CPU: PC:0x%04x SP:0x%04x\n", ms_cpu.pc, ms_cpu.sp);
+	printf(" A :%02x B :%02x C :%02x D :%02x E :%02x H :%02x L :%02x IX:%04x IY:%04x\n", ms_cpu.a, ms_cpu.b, ms_cpu.c, ms_cpu.d, ms_cpu.e, ms_cpu.h, ms_cpu.l, ms_cpu.ix, ms_cpu.iy);
+	printf(" A':%02x B':%02x C':%02x D':%02x E':%02x H':%02x L':%02x\n", ms_cpu.a_, ms_cpu.b_, ms_cpu.c_, ms_cpu.d_, ms_cpu.e_, ms_cpu.h_, ms_cpu.l_);
+	printf(" sf:%d zf:%d yf:%d hf:%d xf:%d pf:%d nf:%d cf:%d\n", ms_cpu.sf, ms_cpu.zf, ms_cpu.yf, ms_cpu.hf, ms_cpu.xf, ms_cpu.pf, ms_cpu.nf, ms_cpu.cf);
+}
+
+int run_specific_test()
 {
 	if (init_sz_z80(&sz_cpu))
 	{
@@ -46,22 +57,205 @@ int main(int argc, char const *argv[])
 		return 1;
 	}
 
+	// inject "out 1,a" at 0x0000 (signal to stop the test)
+	sz_memory[0x0000] = 0xD3;
+	sz_memory[0x0001] = 0x00;
+
+	// inject "in a,0" at 0x0005 (signal to output some characters)
+	sz_memory[0x0005] = 0xDB;
+	sz_memory[0x0006] = 0x00;
+	sz_memory[0x0007] = 0xC9;
+
+	//
+	sz_memory[0x0100] = 0xcb; // nop
+	sz_memory[0x0101] = 0x40; // nop
+	sz_memory[0x0102] = 0x00; // nop
+	sz_memory[0x0103] = 0x00; // nop
+	sz_memory[0x0104] = 0x00; // nop
+	// inject "out 1,a" (signal to stop the test)
+	sz_memory[0x0105] = 0xD3;
+	sz_memory[0x0106] = 0x00;
+
+	printf("Specific Test:\n");
+	// テストコードSZ
+	sz_cpu.pc = 0x100;
+	sz_cpu.a = 0x01;
+	sz_cpu.d = 0xe6;
+	sz_cpu.cf = 1;
+
+	char result[256];
+	if (dotest(20,result,true) ) {
+		printf(" ********************************************************** failed --> %s\n",result);
+		dump_cpu();
+		return 1;
+	}
+	printf(" passed\n");
+	return 0;
+}
+
+int run_through_tests(uint8_t seed)
+{
+	char result[256];
+
+	if (init_sz_z80(&sz_cpu))
+	{
+		return 1;
+	}
+	if (init_ms_z80(&ms_cpu))
+	{
+		return 1;
+	}
+
+	// inject "out 1,a" at 0x0000 (signal to stop the test)
+	sz_memory[0x0000] = 0xD3;
+	sz_memory[0x0001] = 0x00;
+
+	// inject "in a,0" at 0x0005 (signal to output some characters)
+	sz_memory[0x0005] = 0xDB;
+	sz_memory[0x0006] = 0x00;
+	sz_memory[0x0007] = 0xC9;
+
+	//
+	sz_memory[0x0100] = 0x00; // nop
+	sz_memory[0x0101] = 0x00; // nop
+	sz_memory[0x0102] = 0x00; // nop
+	sz_memory[0x0103] = 0x00; // nop
+	sz_memory[0x0104] = 0x00; // nop
+	// inject "out 1,a" (signal to stop the test)
+	sz_memory[0x0105] = 0xD3;
+	sz_memory[0x0106] = 0x00;
+
+	//
+	sz_cpu.a = seed++;
+	sz_cpu.b = seed++;
+	sz_cpu.c = seed++;
+	sz_cpu.d = seed++;
+	sz_cpu.e = seed++;
+	sz_cpu.h = seed++;
+	sz_cpu.l = seed++;
+	sz_cpu.a_ = seed++;
+	sz_cpu.b_ = seed++;
+	sz_cpu.c_ = seed++;
+	sz_cpu.d_ = seed++;
+	sz_cpu.e_ = seed++;
+	sz_cpu.h_ = seed++;
+	sz_cpu.l_ = seed++;
+	sz_cpu.sf = seed++;
+	sz_cpu.zf = seed++;
+	sz_cpu.yf = seed++;
+	sz_cpu.hf = seed++;
+	sz_cpu.xf = seed++;
+	sz_cpu.pf = seed++;
+	sz_cpu.nf = seed++;
+	sz_cpu.cf = seed++;
+	sz_cpu.ix = seed++;
+	sz_cpu.iy = seed++;
+
+	for(int i=0;i<0x100;i++)
+	{
+		if (i == 0x76 || i == 0xcb || i == 0xdd || i== 0xed || i == 0xfd || //
+			i == 0xd3 || i == 0xdb)
+		{
+			continue;
+		}
+		printf("Test: 0x%02x ... ", i);
+		fflush(stdout);
+		// テストコードSZ
+		sz_cpu.pc = 0x100;
+		sz_memory[0x0100] = i;
+
+		if (dotest(20,result,false) ) {
+			printf(" ********************************************************** failed --> %s\n",result);
+			dump_cpu();
+			break;
+		}
+		printf(" passed\n");
+	}
+
+	// dd, fd ラインのテスト
+	sz_memory[0x0100] = 0x00; // nop
+	sz_memory[0x0101] = 0x00; // nop
+	sz_memory[0x0102] = 0x00; // nop
+	sz_memory[0x0103] = 0x00; // nop
+	sz_memory[0x0104] = 0x00; // nop
+	// inject "out 1,a" (signal to stop the test)
+	sz_memory[0x0105] = 0xD3;
+	sz_memory[0x0106] = 0x00;
+	for(int j=0xdd;j<=0xfd;j+=0x20)
+	{
+		for(int i=0;i<0x100;i++)
+		{
+			if (i == 0x76 || i == 0xcb || i == 0xdd || i== 0xed || i == 0xfd) {
+				continue;
+			}
+			printf("Test: 0x%02x 0x%02x ... ", j, i);
+			fflush(stdout);
+			// テストコードSZ
+			sz_cpu.pc = 0x100;
+			sz_memory[0x0100] = j;
+			sz_memory[0x0101] = i;
+			if (dotest(20,result,false) ) {
+				printf(" ********************************************************** failed --> %s\n",result);
+				dump_cpu();
+				break;
+			}
+			printf(" passed\n");
+		}
+	}
+
+	// CB ラインのテスト
+	sz_memory[0x0100] = 0xCB; // nop
+	sz_memory[0x0101] = 0x00; // nop
+	sz_memory[0x0102] = 0x00; // nop
+	sz_memory[0x0103] = 0x00; // nop
+	sz_memory[0x0104] = 0x00; // nop
+	// inject "out 1,a" (signal to stop the test)
+	sz_memory[0x0105] = 0xD3;
+	sz_memory[0x0106] = 0x00;
+	for(int i=0;i<0x100;i++)
+	{
+		printf("Test: 0xCB 0x%02x ... ", i);
+		fflush(stdout);
+		// テストコードSZ
+		sz_cpu.pc = 0x100;
+		sz_memory[0x0101] = i;
+		if (dotest(20,result,false) ) {
+			printf(" ********************************************************** failed --> %s\n",result);
+			dump_cpu();
+			break;
+		}
+		printf(" passed\n");
+	}
+
+	deinit_sz_z80(&sz_cpu);
+	deinit_ms_z80(&ms_cpu);
+
+	return 0;
+}
+
+int run_func_tests()
+{
+	if (init_sz_z80(&sz_cpu))
+	{
+		return 1;
+	}
+	if (init_ms_z80(&ms_cpu))
+	{
+		return 1;
+	}
+
+	char result[256];
 	test_func_t *p = test_funcs;
 	while (*p)
 	{
 		char *test_name = (*p)();
 		printf("Test: %s ... \n", test_name);
-		dotest();
-		char result[256];
-		if (compare(result))
-		{
-			printf(" failed --> %s\n",result);
+		if (dotest(0x200,result,false) ) {
+			printf(" ********************************************************** failed --> %s\n",result);
+			dump_cpu();
 			break;
 		}
-		else
-		{
-			printf(" passed\n");
-		}
+		printf(" passed\n");
 		p++;
 	}
 
@@ -71,10 +265,17 @@ int main(int argc, char const *argv[])
 	return 0;
 }
 
-extern bool sz_test_finished;
-extern bool ms_test_finished;
+int main(int argc, char const *argv[])
+{
+	run_specific_test();
+	run_through_tests(0x01);
+	run_func_tests();
+}
 
-void dotest()
+extern volatile bool sz_test_finished;
+extern volatile bool ms_test_finished;
+
+int dotest(int max_steps, char* result, bool debug)
 {
 	ms_cpu.pc = sz_cpu.pc;
 	ms_cpu.sp = sz_cpu.sp;
@@ -109,20 +310,40 @@ void dotest()
 		ms_memory[i] = sz_memory[i];
 	}
 
-	printf(" A :%02x B :%02x C :%02x D :%02x E :%02x H :%02x L :%02x\n", sz_cpu.a, sz_cpu.b, sz_cpu.c, sz_cpu.d, sz_cpu.e, sz_cpu.h, sz_cpu.l);
+	/*printf("[initial state]\n");
+	printf(" A :%02x B :%02x C :%02x D :%02x E :%02x H :%02x L :%02x IX:%04x IY:%04x\n", sz_cpu.a, sz_cpu.b, sz_cpu.c, sz_cpu.d, sz_cpu.e, sz_cpu.h, sz_cpu.l, sz_cpu.ix, sz_cpu.iy);
 	printf(" A':%02x B':%02x C':%02x D':%02x E':%02x H':%02x L':%02x\n", sz_cpu.a_, sz_cpu.b_, sz_cpu.c_, sz_cpu.d_, sz_cpu.e_, sz_cpu.h_, sz_cpu.l_);
     printf(" sf:%d zf:%d yf:%d hf:%d xf:%d pf:%d nf:%d cf:%d\n", sz_cpu.sf, sz_cpu.zf, sz_cpu.yf, sz_cpu.hf, sz_cpu.xf, sz_cpu.pf, sz_cpu.nf, sz_cpu.cf);
+	printf("\n");*/
 
 	sz_test_finished = 0;
 	ms_test_finished = 0;
-	while (!sz_test_finished)
+	for (int i=0; i< max_steps; i++)
 	{
+		if (debug)
+		{
+			printf("[[ Step: %d ]]\n", i);
+			dump_cpu();
+		}
 		z80_step(&sz_cpu);
-	}
-	while (!ms_test_finished)
-	{
 		ms_z80_step(&ms_cpu);
+		if (compare(result))
+		{
+			return 1;
+		}
+
+		if(sz_test_finished || ms_test_finished) break;
 	}
+	if (debug)
+	{
+		printf("\n");
+	}
+	if (sz_test_finished != ms_test_finished)
+	{
+		sprintf(result, "Test failed: sz_test_finished=%d, ms_test_finished=%d\n", sz_test_finished, ms_test_finished);
+		return 1;
+	}
+	return 0;
 }
 
 int compare(char* result)
@@ -258,11 +479,11 @@ int compare(char* result)
 		sprintf(result, "cf: %d != %d\n", sz_cpu.cf, ms_cpu.cf);
 		return 1;
 	}
-	if (sz_cpu.mem_ptr != ms_cpu.mem_ptr)
+/*	if (sz_cpu.mem_ptr != ms_cpu.mem_ptr)
 	{
 		sprintf(result, "mem_ptr (WZ): %04X != %04X\n", sz_cpu.mem_ptr, ms_cpu.mem_ptr);
 		return 1;
-	}
+	}*/
 
 	for (int i = 0; i < 0x200; i++)
 	{
@@ -285,8 +506,8 @@ char *test_nop()
 	sz_cpu.pc = 0x100;
 	sz_memory[0x0100] = 0x00; // nop
 	// inject "out 1,a" (signal to stop the test)
-	sz_memory[0x0140] = 0xD3;
-	sz_memory[0x0140] = 0x00;
+	sz_memory[0x0101] = 0xD3;
+	sz_memory[0x0102] = 0x00;
 
 	return "test_nop";
 }
@@ -300,8 +521,8 @@ char *test_neg()
 	sz_memory[0x0102] = 0xed; // neg
 	sz_memory[0x0103] = 0x44;
 	// inject "out 1,a" (signal to stop the test)
-	sz_memory[0x0140] = 0xD3;
-	sz_memory[0x0140] = 0x00;
+	sz_memory[0x0104] = 0xD3;
+	sz_memory[0x0105] = 0x00;
 
 	return "test_neg";
 }

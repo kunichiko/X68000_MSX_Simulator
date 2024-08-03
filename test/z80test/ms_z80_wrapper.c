@@ -26,7 +26,7 @@ void ms_z80_init(ms_z80* const z) {
 	context = z;
 
 	state.pc_base_addr = ms_mainmem_ptr;
-
+/*
 	unsigned int* base_ptr = ms_instructions_ptr;
 	printf("instructions:\n");
 	for(int i=0; i< 64; i++) {
@@ -36,7 +36,7 @@ void ms_z80_init(ms_z80* const z) {
 			printf(" ");
 		}
 		printf("        : %02x-%02x\n", i*4, i*4+3);
-	}
+	}*/
 }
 
 void ms_z80_step(ms_z80* const z) {
@@ -66,7 +66,7 @@ void ms_z80_step(ms_z80* const z) {
 	state.f = (z->sf << 7) | (z->zf << 6) | (z->yf << 5) | (z->hf << 4) | (z->xf << 3) | (z->pf << 2) | (z->nf << 1) | (z->cf << 0);
 	state.iff_delay = z->iff_delay;
 	state.interrupt_mode = z->interrupt_mode;
-	ms_cpu_step(&state, 1000);
+	ms_cpu_step(&state, 1);
 	z->pc = state.pc;
 	z->sp = state.sp;
 	z->ix = state.ix;

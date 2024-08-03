@@ -6,7 +6,7 @@
 // MARK: simple memory interface
 #define MEMORY_SIZE 0x10000
 uint8_t *sz_memory = NULL;
-bool sz_test_finished = 0;
+volatile bool sz_test_finished = 0;
 
 static uint8_t sz_rb(void *userdata, uint16_t addr)
 {

@@ -145,7 +145,7 @@ int main(void)
 	// the following cycle counts have been retrieved from z80emu
 	// (https://github.com/anotherlin/z80emu) for those exact roms
 	int r = 0;
-	// r += run_test(&cpu, "roms/prelim.com", 8721LU);
+	r += run_test(&cpu, "roms/prelim.com", 8721LU);
 	r += run_test(&cpu, "roms/zexdoc.cim", UINT32_MAX);
 	// r += run_test(&cpu, "roms/zexall.cim", UINT32_MAX);
 
