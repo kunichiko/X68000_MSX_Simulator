@@ -135,9 +135,10 @@ ms_read_mem_16:
 	ror.w	#8,d0		; エンディアンを逆にする
 	move.l	(sp)+,a0
 	rts
-@@:	move.b	(a0),d0		; 0xffff の場合は、上位バイトは 0x0000にある
+@@:	move.b	(a0,d0.l),d0	; 下位バイトを読み込む
 	lsl.w	#8,d0
-	move.b	(a0,d0.l),d0	; 下位バイトを読み込む
+	move.b	(a0),d0		; 0xffff の場合は、上位バイトは 0x0000にある
+	ror.w	#8,d0		; エンディアンを逆にする
 	move.l	(sp)+,a0
 	rts
 

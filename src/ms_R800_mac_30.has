@@ -2630,7 +2630,7 @@ DEC_SP:	move.w	sp_(a3),target_16(a3)
 *	なので、全体をまとめると、以下のように実装すればいいことになる
 *	1. 補正係数を correct = 0とする
 *	2. 下位4ビットに9より大きな値(0xa-f)が入っているか、Hフラグが1の時、correct に 0x06 を加算する
-*	3. 上位4ビットに9より大きな値(0xa-f)が入っているか、Cフラグが1の時、correct に 0x60 を加算する
+*	3. Aレジスタにに0x99より大きな値が入っているか、Cフラグが1の時、correct に 0x60 を加算する
 *	4. Nフラグを見て、Aレジスタにcorrectを加算 or 減算する(N=0なら加算、N=1なら減算)
 *       5. S,Z,F5,H,F3 は、Aレジスタとcorrectの ADD または SUB の結果と同じになる
 *       6. PVは演算結果のパリティになる
@@ -2645,15 +2645,14 @@ DAA:	addq.w	#1,d7			* PC += 1
 	clr.b	d0			* 補正係数を 0 に初期化
 	move.b	d4,d1
 	andi.b	#$0f,d1			* 下位4ビットを取り出す
-	cmpi.b	#$0a,d1			* 下位4ビットが10以上か？
+	cmpi.b	#$09,d1			* 下位4ビットが9より大きい？
 	bgt	1f			* 10以上の時
 	btst	#4,d6			* H フラグを調べる
 	beq	2f
 1:	add.b	#$06,d0			* 下位4ビットが10以上の時、補正係数に 0x06 を加算
 2:	clr.w	d1
 	move.b	d4,d1
-	andi.b	#$f0,d1			* 上位4ビットを取り出す
-	cmpi.w	#$a0,d1			* 上位4ビットが10以上か？ (ワードで見ないと符号あり8bitになってしまうので注意)
+	cmpi.w	#$99,d1			* 0x99より大きい？ (ワードで見ないと符号あり8bitになってしまうので注意)
 	bgt	1f			* 10以上の時
 	btst	#0,d6			* C フラグを調べる
 	beq	2f
@@ -2872,36 +2871,31 @@ JR_C:	bsr	eval_flag_HC_C	* HC,C フラグを再評価
 	rts
 
 *	------ ＣＡＬＬ ------
-CALL:	move.l	d7,d0
+CALL:	addq.w	#1,d7		* PC += 1
+	andi.w	#$3fff,d7	* PC がページ境界をまたいだか？
+	bne	@f
+	PC_page_inc		* 命令がページ境界をまたいだ時
+@@:	clr.w	d1
+	move.b	(a4,d7.w),d1	* nn の下位８ビットを読む 
+	addq.w	#1,d7		* PC += 1
+	andi.w	#$3fff,d7	* PC がページ境界をまたいだか？
+	bne	@f
+	PC_page_inc		* 命令がページ境界をまたいだ時
+@@:	move.b	(a4,d7.w),d0	* nn の上位８ビットを読む 
+	lsl.w	#8,d0
+	or.w	d0,d1
+	move.w	d1,-(sp)
+
+	move.l	d7,d0
 	move.w	d7,d1
 	lsr.l	#2,d0			* d0 = pp00????_????????
 	andi.w	#%11000000_00000000,d0	* d0 = pp000000_00000000
 	or.w	d0,d1			* d1 = PC (R800)
-	addq.w	#3,d1			* d1 = next Instruction
+	addq.w	#1,d1			* d1 = next Instruction (戻り先アドレス)
 	subq.w	#2,sp_(a3)		* PUSH	
 	move.w	sp_(a3),d0
 	jsr	ms_write_mem_16
-
-	move.b	2(a4,d7.w),d0		* nn の上位８ビットを読む 
-	lsl.w	#8,d0
-	move.b	1(a4,d7.w),d0		* nn の下位８ビットを読む 
-
-	cmpi.w	#$3ffe,d7
-	bcc	1f
-	move.w	d0,d7
-	PC_page_set
-	rts
-1:	bne	2f			* 命令がページ境界をまたいだ時
-	PC_page_inc			* d7 = $3ffe の時
-	move.b	(a4),d7			* nn の上位８ビットを読む
-	lsl.w	#8,d7
-	move.b	d0,d7
-	PC_page_set
-	rts
-2:	PC_page_inc			* d7 = $3fff の時
-	move.b	1(a4),d7
-	lsl.w	#8,d7
-	move.b	 (a4),d7
+	move.w 	(sp)+,d7
 	PC_page_set
 	rts
 
@@ -4120,7 +4114,7 @@ RLD_lHLl:
 	jsr	ms_write_mem_8
 
 	andi.l	#%000_11101101_11101101,d6	* HC,Nをクリア
-	ori.l	#%010_11000100_00000000,d6	* SZとPVはダーティビットを立てる
+	ori.l	#%010_11101100_00000000,d6	* S,Z,F5,F5,PVのダーティビットを立てる
 	move.b	d4,d5			* 論理演算結果を保存
 	rts
 
@@ -4142,7 +4136,7 @@ RRD_lHLl:
 	jsr	ms_write_mem_8
 
 	andi.l	#%000_11101101_11101101,d6	* HC,Nをクリア
-	ori.l	#%010_11000100_00000000,d6	* SZとPVはダーティビットを立てる
+	ori.l	#%010_11101100_00000000,d6	* S,Z,F5,F5,PVのダーティビットを立てる
 	move.b	d4,d5			* 論理演算結果を保存
 
 	rts
@@ -4619,11 +4613,7 @@ LD_lnnl_SP:
 ; * N : 0
 ; * C : 上位8bitの加算の実行によるキャリー
 ADC_HL_XX macro
-	addq.w	#1,d7			* PC += 1
-	andi.w	#$3fff,d7		* PC がページ境界をまたいだか？
-	bne	1f
-	PC_page_inc
-1:	bsr	eval_flag_HC_C
+	bsr	eval_flag_HC_C
 	; b18 : 加算なので0
 	; b17 : 算術演算なので0
 	; b16 : キャリーなしなので0
@@ -4633,7 +4623,7 @@ ADC_HL_XX macro
 	move.w	hl(a3),d0
 	move.w	target_16(a3),d1
 	; Xフラグにキャリーをセットし、addx命令を使う
-	btst.l	#0,d0
+	btst.l	#0,d6
 	bne	1f
 	andi.b	#%11101111,ccr		* Xフラグをクリア
 	bra	2f
@@ -4695,11 +4685,8 @@ ADC_HL_SP:
 ; * N : 1
 ; * C : 上位8bitの減算の実行によるキャリー
 SBC_HL_XX macro
-	addq.w	#1,d7			* PC += 1
-	andi.w	#$3fff,d7		* PC がページ境界をまたいだか？
-	bne	1f
-	PC_page_inc
-1:	; b18 : 減算なので1
+	bsr	eval_flag_HC_C
+	; b18 : 減算なので1
 	; b17 : 算術演算なので0
 	; b16 : キャリーなしなので0
 	; b1  : 減算なのでN=1
@@ -4708,7 +4695,7 @@ SBC_HL_XX macro
 	move.w	hl(a3),d0
 	move.w	target_16(a3),d1
 	; Xフラグにキャリーをセットし、addx命令を使う
-	btst.l	#0,d0
+	btst.l	#0,d6
 	bne	1f
 	andi.b	#%11101111,ccr		* Xフラグをクリア
 	bra	2f
@@ -4788,7 +4775,7 @@ LDI:	andi.l	#%111_11000001_11000001,d6	* S,Z,C以外をクリア
 	addq.w	#1,hl(a3)
 	addq.w	#1,de(a3)
 	subq.w	#1,bc(a3)
-	bne	rts_common
+	beq	rts_common
 	ori.b	#%00000100,d6		* PVをセット
 	rts
 
@@ -4842,7 +4829,7 @@ LDD:	andi.l	#%111_11000001_11000001,d6	* S,Z,C以外をクリア
 	subq.w	#1,hl(a3)
 	subq.w	#1,de(a3)
 	subq.w	#1,bc(a3)
-	bne	rts_common
+	beq	rts_common
 	ori.b	#%00000100,d6		* PVをセット
 	rts
 
@@ -4888,8 +4875,8 @@ CPI:	bsr	eval_flag_HC_C		* HC,Cの再評価
 	; b17 : 算術演算なので0
 	; b16 : 事前キャリーなしなので0
 	; b1  : 減算なのでN=1
-	andi.l	#%000_00000000_00010001,d6	* C, HC以外のフラグクリア
-	ori.l	#%100_11111000_00000010,d6	* S,Z,F5,HC,F3のダーティビットを立てる、N=1にする
+	andi.l	#%000_00000000_00000001,d6	* C以外のフラグクリア
+	ori.l	#%100_11010000_00000010,d6	* S,Z,HCのダーティビットを立てる、N=1にする
 	move.b	d4,d5			* 第1項
 	lsl.w	#8,d5
 	move.b	d0,d5			* 足す数を 第2項に
@@ -4897,6 +4884,8 @@ CPI:	bsr	eval_flag_HC_C		* HC,Cの再評価
 	move.b	d4,d1
 	sub.b	d0,d1			* A - (HL)を実行
 	move.b	d1,d5			* 結果を保存
+	bsr	eval_flag_HC_C		* HCを取得するために評価する
+	move.b	d5,d1
 	btst.l	#4,d6			* HCを評価
 	beq	1f
 	sub.b	#1,d1			* HCが立っている場合はさらに1を引く(F5,F3の評価のため)
@@ -4908,6 +4897,8 @@ CPI:	bsr	eval_flag_HC_C		* HC,Cの再評価
 	or.b	d1,d6			* F5をセット
 	addq.w	#1,hl(a3)
 	subq.w	#1,bc(a3)
+	beq	rts_common
+	ori.b	#%00000100,d6		* PVをセット
 	rts
 
 CPIR:	bsr	CPI
@@ -4916,7 +4907,7 @@ CPIR:	bsr	CPI
 	rts
 @@:	bsr	eval_flag_SZ
 	btst.l	#6,d6			* Zフラグを評価
-	bne	@f
+	beq	@f
 	rts
 @@:	subq.w	#2,d7
 	btst.l	#14,d7
@@ -4946,14 +4937,16 @@ CPD:	bsr	eval_flag_HC_C		* HC,Cの再評価
 	; b16 : 事前キャリーなしなので0
 	; b1  : 減算なのでN=1
 	andi.l	#%000_00000000_00010001,d6	* C, HC以外のフラグクリア
-	ori.l	#%100_11111000_00000010,d6	* S,Z,F5,HC,F3のダーティビットを立てる、N=1にする
+	ori.l	#%100_11010000_00000010,d6	* S,Z,HCのダーティビットを立てる、N=1にする
 	move.b	d4,d5			* 第1項
 	lsl.w	#8,d5
-	move.b	d0,d5			* 足す数を 第2項に
+	move.b	d0,d5			* 引く数を 第2項に
 	swap	d5
 	move.b	d4,d1
 	sub.b	d0,d1			* A - (HL)を実行
 	move.b	d1,d5			* 結果を保存
+	bsr	eval_flag_HC_C		* HCを取得するために評価する
+	move.b	d5,d1
 	btst.l	#4,d6			* HCを評価
 	beq	1f
 	sub.b	#1,d1			* HCが立っている場合はさらに1を引く(F5,F3の評価のため)
@@ -4965,6 +4958,8 @@ CPD:	bsr	eval_flag_HC_C		* HC,Cの再評価
 	or.b	d1,d6			* F5をセット
 	subq.w	#1,hl(a3)
 	subq.w	#1,bc(a3)
+	beq	rts_common
+	ori.b	#%00000100,d6		* PVをセット
 	rts
 
 
@@ -4975,7 +4970,7 @@ CPDR:	bsr	CPD
 	rts
 @@:	bsr	eval_flag_SZ
 	btst.l	#6,d6			* Zフラグを評価
-	bne	@f
+	beq	@f
 	rts
 @@:	subq.w	#2,d7
 	btst.l	#14,d7
@@ -5501,8 +5496,8 @@ DD_FD_JPT:
 	.dc.w	none_DD_FD-DD_FD_JPT
 	.dc.w	none_DD_FD-DD_FD_JPT		* $ff
 
-none_DD_FD:					* その他の DD/FD系の命令は、DD/FDを除いた命令を実行する(例: 0xdd 0x00 なら 0x00 のNOPになる)
-	subq.w	#1,d7
+none_DD_FD:				* その他の DD/FD系の命令は、DD/FDを除いた命令を実行する(例: 0xdd 0x00 なら 0x00 のNOPになる)
+	subq.w	#1,d7			* DD/FDなしの命令を呼び出すが、すでにPCを+2しているので、-1する
 	btst.l	#14,d7
 	beq	@f			* PC -1 でページ境界をまたいだか？
 	PC_page_dec			* またいだ時
@@ -5772,36 +5767,25 @@ AND_IdxL:
 
 XOR_IdxH:
 	DECPC
-	cmpi.w	#0,d1
-	bne	@f
-	_OR_X	eor, ix_h(a3)		*IXh
-	rts
-@@:	_OR_X	eor, iy_h(a3)		*IYh
+	move.b	ix_h(a3,d1.w),target_8(a3)
+	_OR_X	eor
 	rts
 XOR_IdxL:
 	DECPC
-	cmpi.w	#0,d1
-	bne	@f
-	_OR_X	eor, ix_l(a3)		*IXl
-	rts
-@@:	_OR_X	eor, iy_l(a3)		*IYl
+	move.b	ix_l(a3,d1.w),target_8(a3)
+	_OR_X	eor
 	rts
 
 OR_IdxH:
 	DECPC
-	cmpi.w	#0,d1
+	move.b	ix_h(a3,d1.w),target_8(a3)
 	bne	@f
-	_OR_X	or, ix_h(a3)		*IXh
-	rts
-@@:	_OR_X	or, iy_h(a3)		*IYh
+	_OR_X	or
 	rts
 OR_IdxL:
 	DECPC
-	cmpi.w	#0,d1
-	bne	@f
-	_OR_X	or, ix_l(a3)		*IXl
-	rts
-@@:	_OR_X	or, iy_l(a3)		*IYl
+	move.b	ix_l(a3,d1.w),target_8(a3)
+	_OR_X	or
 	rts
 
 CP_IdxH:

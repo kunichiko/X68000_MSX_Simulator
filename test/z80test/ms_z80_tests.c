@@ -108,18 +108,21 @@ static int run_test(
 
 	long nb_instructions = 0;
 
+	int steps = 10000;
 	ms_test_finished = 0;
 	while (!ms_test_finished)
 	{
-		nb_instructions += 1;
+		nb_instructions += steps;
 
 		// warning: the following line will output dozens of GB of data.
 		// z80_debug_output(z);
 
-		ms_z80_step(z);
-		if (nb_instructions % 1000000 == 0)
+		ms_z80_step(z, steps);
+		if (nb_instructions % 10000000 == 0)
 		{
-			printf("nb_instructions=%ld\n", nb_instructions);
+			//printf("nb_instructions=%ld\n", nb_instructions);
+			printf(".");
+			fflush(stdout);
 		}
 	}
 

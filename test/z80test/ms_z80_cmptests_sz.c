@@ -20,6 +20,9 @@ static void sz_wb(void *userdata, uint16_t addr, uint8_t val)
 
 static uint8_t sz_in(z80 *const z, uint8_t port)
 {
+	printf("[sz:in]");
+	return 0xff;
+
 	uint8_t operation = z->c;
 
 	// print a character stored in E
