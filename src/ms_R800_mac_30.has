@@ -5781,7 +5781,6 @@ XOR_IdxL:
 OR_IdxH:
 	DECPC
 	move.b	ix_h(a3,d1.w),target_8(a3)
-	bne	@f
 	_OR_X	or
 	rts
 OR_IdxL:
