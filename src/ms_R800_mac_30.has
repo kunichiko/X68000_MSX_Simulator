@@ -314,11 +314,12 @@ check_yield:
 	cmpi.b	#1,interrupt_enable
 	bmi	skip_by_di	* DIなら割り込まない
 	beq	1f
-	; EI = 2だった場合
+	; EI = 2だった場合、今回は割り込みを処理せず、次の命令サイクルで割り込み処理をする(EIの後1命令実行できることを実現)
 	move.b	#1,interrupt_enable
 	move.w	#1,cpu_yield
 	bra	do_emu_yield
-1:	; あらためて割り込み要求端子の値(ms_cpu_int)を見て割り込み要求があるかどうかを見る
+1:	; EI = 1だった場合、割り込みを処理する
+	; あらためて割り込み要求端子の値(ms_cpu_int)を見て割り込み要求があるかどうかを見る
 	cmpi.b	#0,ms_cpu_int
 	beq	do_emu_yield
 	; emu_counter の増加量が int_block_count に達していなかったら割り込みを一回スキップ(実験)
@@ -332,8 +333,9 @@ check_yield:
 	move.w	#1,d0
 	bsr	add_interrupt_history
 
-	cmp.w	#0,cpu_yield	* 絶対に0のはず
+	cmp.w	#0,cpu_yield	* 絶対に0のはずなので違ったら強制終了(実験)
 	beq	check_yield_rts
+	move.w	(sp)+,sr
 	; サブルーチンを1段飛ばすために、SPをインクリメント
 	lea.l	4(sp),sp
 	bra	emu_end		* 強制終了
@@ -367,21 +369,21 @@ do_emu_yield:
 	bra	check_yield_rts
 @@:	move.w	host_rate,emu_yield_div		* 1 = 2回に一回実行, 2 = 3回に1回
 	subq.w	#1,emu_yield_div
-	movem.l	d1-d7/a0-a6,-(sp)
-	movea.l	emu_loop_func,a0
 	move.l	emu_counter,d0
 	sub.l	emu_counter_latch,d0
+	move.w	(sp)+,sr			* ここで割り込み許可に戻す
+	movem.l	d1-d7/a0-a6,-(sp)
 	move.l	d0,-(sp)			* カウンタ差分を引数として渡す
 	move.l	d7,-(sp)			* PCを引数として渡す
+	movea.l	emu_loop_func,a0
 	jsr	(a0)
 	lea.l	8(sp),sp
 	movem.l	(sp)+,d1-d7/a0-a6
 	move.l	d0,d0
 	bne	@f
-	bra	check_yield_rts
+	rts					* 割り込許可済みなのでそのままrts
 @@:	
 	; 0以外が帰ってきたのでエミュレータを終了
-	move.w	(sp)+,sr
 	; サブルーチンを1段飛ばすために、SPをインクリメント
 	lea.l	4(sp),sp
 	bra	emu_end
