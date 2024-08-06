@@ -2,6 +2,7 @@
 
 	.include	iocscall.mac
 	.include	doscall.mac
+	.include	ms.mac
 
 	.xref	_new_read
 	.xref	base
