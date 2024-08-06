@@ -36,7 +36,7 @@ struct ms_z80 {
 };
 
 void ms_z80_init(ms_z80* const z);
-void ms_z80_step(ms_z80* const z);
+void ms_z80_step(ms_z80* const z, int steps);
 void ms_z80_debug_output(ms_z80* const z);
 void ms_z80_gen_nmi(ms_z80* const z);
 void ms_z80_gen_int(ms_z80* const z, uint8_t data);

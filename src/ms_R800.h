@@ -13,7 +13,10 @@ struct ms_cpu_state {
 
 	uint8_t f;									// 29
 
-	uint8_t iff_delay;							// 30
+	uint16_t wz;								// 30,31
+
+	uint8_t iff_delay;							// 32
+
 	uint8_t interrupt_mode;  // 0: IM0, 1: IM1, 2: IM2
 
 	uint8_t halted;	// 0: normal, 1: halted
@@ -26,9 +29,7 @@ struct ms_cpu_registers {
 	uint16_t sp;
 	uint8_t a_, f_, b_, c_, d_, e_, h_, l_;
 	uint8_t r,i;
-
-	uint8_t HS2_;
-	uint8_t PV_;
+	uint8_t w,z;
 };
 
 extern ms_cpu_registers *ms_cpu_registers_ptr;

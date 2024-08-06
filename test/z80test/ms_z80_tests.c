@@ -108,18 +108,21 @@ static int run_test(
 
 	long nb_instructions = 0;
 
+	int steps = 10000;
 	ms_test_finished = 0;
 	while (!ms_test_finished)
 	{
-		nb_instructions += 1;
+		nb_instructions += steps;
 
 		// warning: the following line will output dozens of GB of data.
 		// z80_debug_output(z);
 
-		ms_z80_step(z);
-		if (nb_instructions % 1000000 == 0)
+		ms_z80_step(z, steps);
+		if (nb_instructions % 10000000 == 0)
 		{
-			printf("nb_instructions=%ld\n", nb_instructions);
+			//printf("nb_instructions=%ld\n", nb_instructions);
+			printf(".");
+			fflush(stdout);
 		}
 	}
 
@@ -145,7 +148,7 @@ int main(void)
 	// the following cycle counts have been retrieved from z80emu
 	// (https://github.com/anotherlin/z80emu) for those exact roms
 	int r = 0;
-	// r += run_test(&cpu, "roms/prelim.com", 8721LU);
+	r += run_test(&cpu, "roms/prelim.com", 8721LU);
 	r += run_test(&cpu, "roms/zexdoc.cim", UINT32_MAX);
 	// r += run_test(&cpu, "roms/zexall.cim", UINT32_MAX);
 

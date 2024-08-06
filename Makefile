@@ -42,10 +42,10 @@ copy_to_target_debug: ${BUILD_DIR} ${BUILD_DIR}/ms_debug.x
 	cp ${BUILD_DIR}/ms_debug.x.elf ${EXE_DIR}/
 	cp ${BUILD_DIR}/ms_debug.x /Users/ohnaka/work/XEiJ/HFS/MS.X/
 
-${BUILD_DIR}/ms.x: $(BUILD_DIR)/ms.o $(BUILD_DIR)/ms_R800_mac_30.o $(BUILD_DIR)/ms_iomap.o $(BUILD_DIR)/ms_memmap.o $(BUILD_DIR)/ms_vdp_mac.o $(BUILD_DIR)/ms_sysvalue.o $(BUILD_DIR)/ms_sub_mac.o $(BUILD_DIR)/ms_IO_PORT.o $(BUILD_DIR)/ms_PSG_mac.o $(BUILD_DIR)/ms_readcart.o #$(BUILD_DIR)/ms_debugger_mac.o
+${BUILD_DIR}/ms.x: $(BUILD_DIR)/ms.o $(BUILD_DIR)/ms_R800_mac_30.o $(BUILD_DIR)/ms_R800_flag.o $(BUILD_DIR)/ms_iomap.o $(BUILD_DIR)/ms_memmap.o $(BUILD_DIR)/ms_vdp_mac.o $(BUILD_DIR)/ms_sysvalue.o $(BUILD_DIR)/ms_sub_mac.o $(BUILD_DIR)/ms_IO_PORT.o $(BUILD_DIR)/ms_PSG_mac.o $(BUILD_DIR)/ms_readcart.o #$(BUILD_DIR)/ms_debugger_mac.o
 	$(LD) $(LDFLAGS) -o $@ $^
 
-${BUILD_DIR}/ms_debug.x: $(BUILD_DIR)/ms_d.o $(BUILD_DIR)/ms_R800_mac_30_d.o $(BUILD_DIR)/ms_iomap_d.o $(BUILD_DIR)/ms_memmap_d.o $(BUILD_DIR)/ms_vdp_mac_d.o $(BUILD_DIR)/ms_sysvalue_d.o $(BUILD_DIR)/ms_sub_mac_d.o $(BUILD_DIR)/ms_IO_PORT_d.o $(BUILD_DIR)/ms_PSG_mac_d.o $(BUILD_DIR)/ms_readcart_d.o #$(BUILD_DIR)/ms_debugger_mac_d.o
+${BUILD_DIR}/ms_debug.x: $(BUILD_DIR)/ms_d.o $(BUILD_DIR)/ms_R800_mac_30_d.o $(BUILD_DIR)/ms_R800_flag_d.o $(BUILD_DIR)/ms_iomap_d.o $(BUILD_DIR)/ms_memmap_d.o $(BUILD_DIR)/ms_vdp_mac_d.o $(BUILD_DIR)/ms_sysvalue_d.o $(BUILD_DIR)/ms_sub_mac_d.o $(BUILD_DIR)/ms_IO_PORT_d.o $(BUILD_DIR)/ms_PSG_mac_d.o $(BUILD_DIR)/ms_readcart_d.o #$(BUILD_DIR)/ms_debugger_mac_d.o
 	$(LD) $(LDFLAGS) -o $@ $^
 
 ${BUILD_DIR}/%_d.o: $(SRC_DIR)/%.c $(SRC_DIR)/ms_R800.h
@@ -65,9 +65,9 @@ ${BUILD_DIR}/%.o: $(SRC_DIR)/%.has
 	rm $@.tmp
 
 # Test program
-src/z80test/exe/ms_z80tests.x:
-	make -C src/z80test
+test/z80test/exe/ms_z80tests.x:
+	make -C test/z80test
 
 clean:
 	rm -rf $(BUILD_DIR)
-	make -C src/z80test clean
+	make -C test/z80test clean

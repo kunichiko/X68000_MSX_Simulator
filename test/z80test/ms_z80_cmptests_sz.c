@@ -6,7 +6,7 @@
 // MARK: simple memory interface
 #define MEMORY_SIZE 0x10000
 uint8_t *sz_memory = NULL;
-bool sz_test_finished = 0;
+volatile bool sz_test_finished = 0;
 
 static uint8_t sz_rb(void *userdata, uint16_t addr)
 {
@@ -20,6 +20,9 @@ static void sz_wb(void *userdata, uint16_t addr, uint8_t val)
 
 static uint8_t sz_in(z80 *const z, uint8_t port)
 {
+	printf("[sz:in]");
+	return 0xff;
+
 	uint8_t operation = z->c;
 
 	// print a character stored in E

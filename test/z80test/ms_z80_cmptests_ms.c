@@ -21,6 +21,9 @@ static void ms_wb(void *userdata, uint16_t addr, uint8_t val)
 
 static uint8_t ms_in(ms_z80 *const z, uint8_t port)
 {
+	printf("[ms:in]");
+	return 0xff;
+
 	uint8_t operation = z->c;
 
 	// print a character stored in E
@@ -57,15 +60,6 @@ int init_ms_z80(ms_z80 *const z)
 	ms_memory = ms_mainmem_ptr;
 
 	memset(ms_memory, 0, MEMORY_SIZE);
-
-	// inject "out 1,a" at 0x0000 (signal to stop the test)
-	ms_memory[0x0000] = 0xD3;
-	ms_memory[0x0001] = 0x00;
-
-	// inject "in a,0" at 0x0005 (signal to output some characters)
-	ms_memory[0x0005] = 0xDB;
-	ms_memory[0x0006] = 0x00;
-	ms_memory[0x0007] = 0xC9;
 
 	return 0;
 }
