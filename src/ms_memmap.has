@@ -15,6 +15,7 @@
 	.xdef	ms_memmap_set_rom
 	.xdef	ms_memmap_set_main_mem
 	.xdef	ms_memmap_set_cartridge
+	.xdef	ms_memmap_register_rom
 
 	.xdef	ms_read_mem_8
 	.xdef	ms_read_mem_16
@@ -147,6 +148,35 @@ ms_memmap_set_rom:
 	bsr	_new_read
 	DOS	__CLOSE			* 前にセットしたファイルハンドルを流用
 	lea	10(sp),sp
+
+	movem.l	(sp)+,d3-d7/a0-a5
+	unlk	a6
+	rts
+
+*
+*	ＲＯＭ登録ルーチン
+*
+*	int ms_memmap_register_rom( (void *)address, (int)kind, (int)slot, (int)page);
+*
+*	slot %0000ssxx
+*		  ||++--拡張スロット番号
+*		  ++----基本スロット番号
+*
+ms_memmap_register_rom:
+	link	a6,#0
+	movem.l	d3-d7/a0-a5,-(sp)
+
+	movea.l	8(a6),a0		* address
+	move.b	12+3(a6),(a0)		* ROM の種類をセット
+	move.l	16(a6),d0		* スロット番号
+	move.l	20(a6),d1		* ページ番号
+
+	lea.l	slot_0_0,a1
+	lsl.w	#4,d0			* d0 = d0 * 16
+	lsl.w	#2,d1			* d1 = d1 * 4
+	add.w	d1,d0
+	lea.l	headerlength(a0),a0
+	move.l	a0,0(a1,d0.w)		* ROM管理テーブルにセット
 
 	movem.l	(sp)+,d3-d7/a0-a5
 	unlk	a6

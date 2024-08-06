@@ -93,7 +93,7 @@ int run_specific_test()
 
 	// テストコード
 	sz_memory[0x0100] = 0xdd;
-	sz_memory[0x0101] = 0xf0;
+	sz_memory[0x0101] = 0xb4;
 	sz_memory[0x0102] = 0x00;
 	sz_memory[0x0103] = 0x00;
 	sz_memory[0x0104] = 0x00;
@@ -109,15 +109,15 @@ int run_specific_test()
 	// テストコードSZ
 	sz_cpu.pc = 0x100;
 	sz_cpu.sp = 0xffff;
-	sz_cpu.a = 0x9a;
+	sz_cpu.a = 0xb6;
 	sz_cpu.b = 0x99;
 	sz_cpu.c = 0x9a;
 	sz_cpu.d = 0x9a;
 	sz_cpu.e = 0x9a;
 	sz_cpu.h = 0x9a;
 	sz_cpu.l = 0x9b;
-	sz_cpu.ix = 0x0000;
-	sz_cpu.iy = 0x003c;
+	sz_cpu.ix = 0xbc01;
+	sz_cpu.iy = 0xbcbc;
 	sz_cpu.sf = 0;
 	sz_cpu.zf = 1;
 	sz_cpu.yf = 0;
@@ -382,6 +382,76 @@ int through_test_ddfd(value_func_t value_func)
 	return 0;
 }
 
+// dd, fd ラインの a,ixhや a,ixlのフルレンジテスト
+int through_test_ddfd_alu(value_func_t value_func)
+{
+	char result[256];
+	uint8_t opcodes[] = //
+	{
+		0x84,0x85,0x8c,0x8d,//
+		0x94,0x95,0x9c,0x9d,//
+		0xa4,0xa5,0xac,0xad,//
+		0xb4,0xb5,0xbc,0xbd,//
+		0xff // STOP
+	};
+
+	sz_memory[0x0100] = 0x00; // nop
+	sz_memory[0x0101] = 0x00; // nop
+	sz_memory[0x0102] = 0x00; // nop
+	sz_memory[0x0103] = 0x00; // nop
+	sz_memory[0x0104] = 0x00; // nop
+	// inject "out 1,a" (signal to stop the test)
+	sz_memory[0x0105] = 0xD3;
+	sz_memory[0x0106] = 0x00;
+
+	for(int j=0xdd;j<=0xfd;j+=0x20)
+	{
+		int i=0;
+		uint8_t opcode;
+		while( (opcode = opcodes[i++]) != 0xff )
+		{
+			for(int k=0;k<0x100;k++)
+			{
+				int a = (*value_func)() & 0xff;
+				int idx = ((*value_func)() & 0xff);
+				bool cf = ((*value_func)() & 0x05);
+				printf("Test: 0x%02x 0x%02x A=%02x Idx=%02x Cf=%d... ", j, opcode, a, idx, cf);
+				fflush(stdout);
+				// テストコードSZ
+				sz_cpu.pc = 0x100;
+				sz_cpu.a = a;
+				sz_cpu.cf = cf;
+				if(j==0xdd) {
+					if((opcode % 2) == 0) {
+						sz_cpu.ix = idx << 8;	//IXh
+					} else {
+						sz_cpu.ix = idx;		//IXl
+					}
+				} else {
+					if((opcode % 2) == 0) {
+						sz_cpu.iy = idx << 8;	//IYh
+					} else {
+						sz_cpu.iy = idx;		//IYl
+					}
+				}
+				sz_memory[0x0100] = j;
+				sz_memory[0x0101] = opcode;
+				bool debug = false;
+				if ( opcode == 0xb9 ) {
+					debug = false;
+				}
+				if (dotest(20,result,debug) ) {
+					printf(" ********************************************************** failed --> %s\n",result);
+					dump_cpu();
+					return 1;
+				}
+				printf(" passed\n");
+			}
+		}
+	}
+	return 0;
+}
+
 // ed ラインのテスト
 int through_test_ed(value_func_t value_func)
 {
@@ -531,6 +601,9 @@ uint8_t randomvalue()
 int main(int argc, char const *argv[])
 {
 	run_specific_test();
+	if(through_test_ddfd_alu(randomvalue)) {
+		return 1;
+	}
 	if(through_test_DAA()) {
 		return 1;
 	}

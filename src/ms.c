@@ -13,6 +13,7 @@
 #include <stddef.h>
 #include <string.h>
 #include <unistd.h>
+#include <fcntl.h>
 #include <ctype.h>
 #include <iocslib.h>
 #include <doslib.h>
@@ -73,10 +74,11 @@ void ms_psg_deinit(void);
 		-1	: エラー
 */
 void ms_memmap_set_rom( void* address, const char* filename, int kind, int slot, int page);
-
+void ms_memmap_register_rom( void* address, int kind, int slot, int page);
 
 int emuLoop(unsigned int pc, unsigned int counter);
 void allocateAndSetROM(size_t size, const char* romFileName, int param1, int param2, int param3);
+void allocateAndSetROMAuto(const char *romFileName);
 
 void _toggleTextPlane(void);
 void _setTextPlane(int textPlaneMode);
@@ -100,7 +102,7 @@ volatile extern unsigned short interrupt_history_wr;
 volatile extern unsigned short interrupt_history_rd;
 
 void printHelpAndExit(char* progname) {
-	fprintf(stderr, "Usage: %s [-m1 MAINROM1_PATH] [-m2 MAINROM2_PATH] [-r11 ROM1_PATH] [-r12 ROM2_PATH]\n", progname);
+	fprintf(stderr, "Usage: %s [-m1 MAINROM1_PATH] [-m2 MAINROM2_PATH] [-r ROM_PATH] [-r11 ROM1_PATH] [-r12 ROM2_PATH]\n", progname);
 	fprintf(stderr, " --vsrate vsync rate (1-60)\n");
 	fprintf(stderr, "    1: every frame, 2: every 2 frames, ...\n");
 	fprintf(stderr, "    default is 1.\n");
@@ -143,7 +145,8 @@ int main(int argc, char *argv[]) {
 	int i, j;
 	char *mainrom1_path = "MAINROM1.ROM"; // デフォルトのMAIN ROM1パス
 	char *mainrom2_path = "MAINROM2.ROM"; // デフォルトのmAIN ROM2パス
-	char *cartridge_path[4][4]; // カートリッジのパス
+	char *cartridge_path = NULL; // カートリッジのパス
+	char *slot_path[4][4]; // 個々のスロットにセットするROMのパス
 	int opt;
     const char* optstring = "hm:r:" ; // optstringを定義します
     const struct option longopts[] = {
@@ -162,7 +165,7 @@ int main(int argc, char *argv[]) {
 
 	for (i = 0; i < 4; i++) {
 		for (j = 0; j < 4; j++) {
-			cartridge_path[i][j] = NULL;
+			slot_path[i][j] = NULL;
 		}
 	}
 
@@ -207,7 +210,7 @@ int main(int argc, char *argv[]) {
 					// 次の引数（ROMファイル名）を取得
 					if (argv[optind] != NULL)
 					{
-						cartridge_path[slot][page] = argv[optind++];
+						slot_path[slot][page] = argv[optind++];
 					}
 					else
 					{
@@ -217,6 +220,17 @@ int main(int argc, char *argv[]) {
 				} else {
 					printf("スロット番号が不正です\n");
 					printHelpAndExit(argv[0]);
+				}
+			} else {
+				// 次の引数（ROMファイル名）を取得
+				if (optarg != NULL)
+				{
+					cartridge_path = optarg;
+				}
+				else
+				{
+					printf("ROMファイル名が指定されていません\n");
+					ms_exit();
 				}
 			}
 			break;
@@ -364,12 +378,16 @@ int main(int argc, char *argv[]) {
 
 	for ( i = 0; i < 4; i++) {
 		for ( j = 0; j < 4; j++) {
-			if ( cartridge_path[i][j] != NULL) {
-				allocateAndSetROM(16 * 1024, cartridge_path[i][j], 2, i<<2, j);
+			if ( slot_path[i][j] != NULL) {
+				allocateAndSetROM(16 * 1024, slot_path[i][j], 2, i<<2, j);
 			}
 		}
 	}
 
+	// サイズを自動判別してROMをセット
+	if (cartridge_path != NULL) {
+		allocateAndSetROMAuto(cartridge_path);
+	}
 
 	printf("X680x0 MSXシミュレーター with elf2x68k\n");
 
@@ -659,6 +677,55 @@ void allocateAndSetROM(size_t size, const char *romFileName, int kind, int slot,
 		ms_exit();
 	}
 	ms_memmap_set_rom(ROM, romFileName, kind, slot, page);
+}
+
+extern int filelength(int fh);
+#define h_length 8
+
+void allocateAndSetROMAuto(const char *romFileName) {
+	int crt_fh;			/* カートリッジファイルの fh が入る	*/
+	int crt_length;
+	uint8_t *crt_buff;
+	int page;
+
+	crt_fh = open( romFileName, O_RDONLY | O_BINARY);
+	if (crt_fh == -1) {
+		printf("ファイルが開けません. %s\n", romFileName);
+		ms_exit();
+		return;
+	}
+	crt_length = filelength(crt_fh);
+	if(crt_length == -1) {
+		printf("ファイルの長さが取得できません。\n");
+		ms_exit();
+		return;
+	}
+
+	// 16Kバイトずつ読み込んでROMにセット
+	if( crt_length <= 32 * 1024 ) {
+		for(page = 1; page <= 2; page++) {
+			if(crt_length < 16 * 1024) {
+				break;
+			}
+			if( ( crt_buff = new_malloc( 16 * 1024 + h_length ) ) > (uint8_t *)0x81000000) {
+				printf("メモリが確保できません。\n");
+				ms_exit();
+				return;
+			}
+			read( crt_fh, crt_buff + h_length, 16 * 1024);
+			int i;
+			for(i = 0; i < 16; i++) {
+				printf("%02x ", crt_buff[h_length + i]);
+			}
+			printf("\n");
+			ms_memmap_register_rom(crt_buff, 2, 1 <<2, page);
+			crt_length -= 16 * 1024;
+		}
+	} else {
+		printf("ファイルが認識できませんでした\n");
+		ms_exit();
+	}
+ 	close( crt_fh);
 }
 
 /*
