@@ -71,6 +71,7 @@
 
 	.include	iocscall.mac
 	.include	doscall.mac
+	.include	ms.mac
 
 	.text
 	.even
@@ -181,7 +182,7 @@ target_8 equ	target_8_-base
 PC_page_inc	macro
 		swap	d7
 		addq.w	#1,d7
-		andi.w	#3,d7
+		andi.w	#PAGENUMMASK,d7
 		lea	page0,a4
 		movea.l	(a4,d7.w*4),a4
 		swap	d7
@@ -190,7 +191,7 @@ PC_page_inc	macro
 PC_page_dec	macro
 		swap	d7
 		subq.w	#1,d7
-		andi.w	#3,d7
+		andi.w	#PAGENUMMASK,d7
 		lea	page0,a4
 		movea.l	(a4,d7.w*4),a4
 		swap	d7
@@ -199,8 +200,8 @@ PC_page_dec	macro
 PC_page_set	macro			* JP命令等で PCが変わった時の処理
 		swap	d7		* 上位 16bitに移動
 		lsr.l	#8,d7		* PCの上位 2bit(Page番号)が上位ワードに残るようにする
-		lsr.l	#6,d7
-		lsr.w	#2,d7		* 下位16bitのみをシフト
+		lsr.l	#8-PAGENUMBIT,d7
+		lsr.w	#PAGENUMBIT,d7	* 下位16bitのみをシフト
 		; この時点で以下のようになっている
 		;  31     16 15 8 7  0
 		; | PC page | PC(16k) |  d7
@@ -517,11 +518,10 @@ ms_cpu_step_jmp:
 	;	実行後の結果を書き戻す
 	;move.l	a4,(a5)			* PC Base ADD
 	move.l	d7,d0
-	lsr.l	#2,d0
-	and.w	#$c000,d0
-	and.w	#$3fff,d7
-	or.w	d0,d7
-	move.w	d7,4(a5)		* PC(64k)
+	swap	d7			* d7 = 00000000_000000pp
+	ror.w	#PAGENUMBIT,d7		* d7 = pp000000_00000000
+	or.w	d7,d0			* d0 = ppaaaaaa_aaaaaaaa = PC (64k)
+	move.w	d0,4(a5)		* PC(64k)
 	move.w	sp_(a3),6(a5)		* SP
 	move.w	ix_h(a3),8(a5)		* IX
 	move.w	iy_h(a3),10(a5)		* IY	
@@ -871,8 +871,8 @@ INT:	move.b	#0,interrupt_enable	* DI に
 					* モード０割り込みは実現できない
 mode1:	move.l	d7,d1
 	swap	d7		* d7 = 00000000_000000pp
-	ror.w	#2,d7		* d7 = pp000000_00000000
-	or.w	d7,d1		* d1 = PC (R800)
+	ror.w	#PAGENUMBIT,d7	* d7 = pp000000_00000000
+	or.w	d7,d1		* d1 = ppaaaaaa_aaaaaaaa = PC (64k)
 	subq.w	#2,sp_(a3)	* PUSH	
 	move.w	sp_(a3),d0
 	jsr	ms_write_mem_16
@@ -883,8 +883,8 @@ mode1:	move.l	d7,d1
 
 mode2:	move.l	d7,d1
 	swap	d7		* d7 = 00000000_000000pp
-	ror.w	#2,d7		* d7 = pp000000_00000000
-	or.w	d7,d1		* d1 = PC (R800)
+	ror.w	#PAGENUMBIT,d7	* d7 = pp000000_00000000
+	or.w	d7,d1		* d1 = ppaaaaaa_aaaaaaaa = PC (64k)
 	subq.w	#2,sp_(a3)	* PUSH	
 	move.w	sp_(a3),d0
 	jsr	ms_write_mem_16
@@ -899,7 +899,7 @@ mode2:	move.l	d7,d1
 
 
 nop:	addq.w	#1,d7			* PC += 1
-	andi.w	#$3fff,d7		* PC がページ境界をまたいだか？
+	andi.w	#PAGEADDRMASK,d7	* PC がページ境界をまたいだか？
 	bne	rts_common
 	PC_page_inc
 	rts
@@ -910,49 +910,49 @@ nop:	addq.w	#1,d7			* PC += 1
 *	------ ＬＤ Ａ,？ ------
 LD_A_A:
 	addq.w	#1,d7			* PC += 1
-	andi.w	#$3fff,d7		* PC がページ境界をまたいだか？
+	andi.w	#PAGEADDRMASK,d7		* PC がページ境界をまたいだか？
 	bne	rts_common
 	PC_page_inc
 	rts
 LD_A_B:
 	move.b	b(a3),d4
 	addq.w	#1,d7			* PC += 1
-	andi.w	#$3fff,d7		* PC がページ境界をまたいだか？
+	andi.w	#PAGEADDRMASK,d7	* PC がページ境界をまたいだか？
 	bne	rts_common
 	PC_page_inc
 	rts
 LD_A_C:
 	move.b	c(a3),d4
 	addq.w	#1,d7			* PC += 1
-	andi.w	#$3fff,d7		* PC がページ境界をまたいだか？
+	andi.w	#PAGEADDRMASK,d7	* PC がページ境界をまたいだか？
 	bne	rts_common
 	PC_page_inc
 	rts
 LD_A_D:
 	move.b	d(a3),d4
 	addq.w	#1,d7			* PC += 1
-	andi.w	#$3fff,d7		* PC がページ境界をまたいだか？
+	andi.w	#PAGEADDRMASK,d7	* PC がページ境界をまたいだか？
 	bne	rts_common
 	PC_page_inc
 	rts
 LD_A_E:
 	move.b	e(a3),d4
 	addq.w	#1,d7			* PC += 1
-	andi.w	#$3fff,d7		* PC がページ境界をまたいだか？
+	andi.w	#PAGEADDRMASK,d7	* PC がページ境界をまたいだか？
 	bne	rts_common
 	PC_page_inc
 	rts
 LD_A_H:
 	move.b	h(a3),d4
 	addq.w	#1,d7			* PC += 1
-	andi.w	#$3fff,d7		* PC がページ境界をまたいだか？
+	andi.w	#PAGEADDRMASK,d7	* PC がページ境界をまたいだか？
 	bne	rts_common
 	PC_page_inc
 	rts
 LD_A_L:
 	move.b	l(a3),d4
 	addq.w	#1,d7			* PC += 1
-	andi.w	#$3fff,d7		* PC がページ境界をまたいだか？
+	andi.w	#PAGEADDRMASK,d7	* PC がページ境界をまたいだか？
 	bne	rts_common
 	PC_page_inc
 	rts
@@ -961,7 +961,7 @@ LD_A_lHLl:
 	jsr	ms_read_mem_8		*メモリから 8ビットのデータを d0に読み込む。
 	move.b	d0,d4
 	addq.w	#1,d7			* PC += 1
-	andi.w	#$3fff,d7		* PC がページ境界をまたいだか？
+	andi.w	#PAGEADDRMASK,d7	* PC がページ境界をまたいだか？
 	bne	rts_common
 	PC_page_inc
 	rts
@@ -970,7 +970,7 @@ LD_A_lBCl:
 	jsr	ms_read_mem_8		*メモリから 8ビットのデータを d0に読み込む。
 	move.b	d0,d4
 	addq.w	#1,d7			* PC += 1
-	andi.w	#$3fff,d7		* PC がページ境界をまたいだか？
+	andi.w	#PAGEADDRMASK,d7	* PC がページ境界をまたいだか？
 	bne	rts_common
 	PC_page_inc
 	rts
@@ -979,7 +979,7 @@ LD_A_lDEl:
 	jsr	ms_read_mem_8		*メモリから 8ビットのデータを d0に読み込む。
 	move.b	d0,d4
 	addq.w	#1,d7			* PC += 1
-	andi.w	#$3fff,d7		* PC がページ境界をまたいだか？
+	andi.w	#PAGEADDRMASK,d7	* PC がページ境界をまたいだか？
 	bne	rts_common
 	PC_page_inc
 	rts
@@ -988,13 +988,13 @@ LD_A_lnnl:
 	lsl.w	#8,d0
 	move.b	1(a4,d7.w),d0		* nn の下位８ビットを読む 
 	addq.w	#3,d7			* PC += 3
-	btst.l	#14,d7			* PC がページ境界をまたいだか？
+	btst.l	#PAGEADDRBIT,d7	* PC がページ境界をまたいだか？
 	bne	1f
 	jsr	ms_read_mem_8		*メモリから 8ビットのデータを d0に読み込む。
 	move.b	d0,d4
 	rts
 1:	PC_page_inc
-	andi.w	#$3fff,d7		* 命令がページ境界をまたぐ時
+	andi.w	#PAGEADDRMASK,d7	* 命令がページ境界をまたぐ時
 	bne	2f
 	jsr	ms_read_mem_8		* d7 = 0 の時
 	move.b	d0,d4
@@ -1017,10 +1017,10 @@ LD_A_lnnl:
 
 LD_A_n:	move.b	1(a4,d7.w),d4
 	addq.w	#2,d7			* PC += 2
-	btst.l	#14,d7			* PC がページ境界をまたいだか？
+	btst.l	#PAGEADDRBIT,d7	* PC がページ境界をまたいだか？
 	beq	rts_common
 	PC_page_inc
-	andi.w	#$3fff,d7		* 命令がページ境界をまたぐ時
+	andi.w	#PAGEADDRMASK,d7	* 命令がページ境界をまたぐ時
 	beq	rts_common
 	move.b	(a4),d4			* d7 = 1 の時
 	rts
@@ -1028,42 +1028,42 @@ LD_A_n:	move.b	1(a4,d7.w),d4
 *	------ ＬＤ Ｂ,？ ------
 LD_B_A:	move.b	d4,b(a3)
 	addq.w	#1,d7			* PC += 1
-	andi.w	#$3fff,d7		* PC がページ境界をまたいだか？
+	andi.w	#PAGEADDRMASK,d7	* PC がページ境界をまたいだか？
 	bne	rts_common
 	PC_page_inc
 	rts
 LD_B_B:	addq.w	#1,d7			* PC += 1
-	andi.w	#$3fff,d7		* PC がページ境界をまたいだか？
+	andi.w	#PAGEADDRMASK,d7	* PC がページ境界をまたいだか？
 	bne	rts_common
 	PC_page_inc
 	rts
 LD_B_C:	move.b	c(a3),b(a3)
 	addq.w	#1,d7			* PC += 1
-	andi.w	#$3fff,d7		* PC がページ境界をまたいだか？
+	andi.w	#PAGEADDRMASK,d7	* PC がページ境界をまたいだか？
 	bne	rts_common
 	PC_page_inc
 	rts
 LD_B_D:	move.b	d(a3),b(a3)
 	addq.w	#1,d7			* PC += 1
-	andi.w	#$3fff,d7		* PC がページ境界をまたいだか？
+	andi.w	#PAGEADDRMASK,d7	* PC がページ境界をまたいだか？
 	bne	rts_common
 	PC_page_inc
 	rts
 LD_B_E:	move.b	e(a3),b(a3)
 	addq.w	#1,d7			* PC += 1
-	andi.w	#$3fff,d7		* PC がページ境界をまたいだか？
+	andi.w	#PAGEADDRMASK,d7	* PC がページ境界をまたいだか？
 	bne	rts_common
 	PC_page_inc
 	rts
 LD_B_H:	move.b	h(a3),b(a3)
 	addq.w	#1,d7			* PC += 1
-	andi.w	#$3fff,d7		* PC がページ境界をまたいだか？
+	andi.w	#PAGEADDRMASK,d7	* PC がページ境界をまたいだか？
 	bne	rts_common
 	PC_page_inc
 	rts
 LD_B_L:	move.b	l(a3),b(a3)
 	addq.w	#1,d7			* PC += 1
-	andi.w	#$3fff,d7		* PC がページ境界をまたいだか？
+	andi.w	#PAGEADDRMASK,d7	* PC がページ境界をまたいだか？
 	bne	rts_common
 	PC_page_inc
 	rts
@@ -1072,16 +1072,16 @@ LD_B_lHLl:
 	jsr	ms_read_mem_8		*メモリから 8ビットのデータを d0に読み込む。
 	move.b	d0,b(a3)
 	addq.w	#1,d7			* PC += 1
-	andi.w	#$3fff,d7		* PC がページ境界をまたいだか？
+	andi.w	#PAGEADDRMASK,d7	* PC がページ境界をまたいだか？
 	bne	rts_common
 	PC_page_inc
 	rts
 LD_B_n:	move.b	1(a4,d7.w),b(a3)
 	addq.w	#2,d7			* PC += 2
-	btst.l	#14,d7			* PC がページ境界をまたいだか？
+	btst.l	#PAGEADDRBIT,d7	* PC がページ境界をまたいだか？
 	beq	rts_common
 	PC_page_inc
-	andi.w	#$3fff,d7		* 命令がページ境界をまたぐ時
+	andi.w	#PAGEADDRMASK,d7	* 命令がページ境界をまたぐ時
 	beq	rts_common			* d7 = 0 の時
 	move.b	(a4),b(a3)		* d7 = 1 の時
 	rts
@@ -1089,42 +1089,42 @@ LD_B_n:	move.b	1(a4,d7.w),b(a3)
 *	------ ＬＤ Ｃ,？ ------
 LD_C_A:	move.b	d4,c(a3)
 	addq.w	#1,d7			* PC += 1
-	andi.w	#$3fff,d7		* PC がページ境界をまたいだか？
+	andi.w	#PAGEADDRMASK,d7	* PC がページ境界をまたいだか？
 	bne	rts_common
 	PC_page_inc
 	rts
 LD_C_B:	move.b	b(a3),c(a3)
 	addq.w	#1,d7			* PC += 1
-	andi.w	#$3fff,d7		* PC がページ境界をまたいだか？
+	andi.w	#PAGEADDRMASK,d7	* PC がページ境界をまたいだか？
 	bne	rts_common
 	PC_page_inc
 	rts
 LD_C_C:	addq.w	#1,d7			* PC += 1
-	andi.w	#$3fff,d7		* PC がページ境界をまたいだか？
+	andi.w	#PAGEADDRMASK,d7	* PC がページ境界をまたいだか？
 	bne	rts_common
 	PC_page_inc
 	rts
 LD_C_D:	move.b	d(a3),c(a3)
 	addq.w	#1,d7			* PC += 1
-	andi.w	#$3fff,d7		* PC がページ境界をまたいだか？
+	andi.w	#PAGEADDRMASK,d7	* PC がページ境界をまたいだか？
 	bne	rts_common
 	PC_page_inc
 	rts
 LD_C_E:	move.b	e(a3),c(a3)
 	addq.w	#1,d7			* PC += 1
-	andi.w	#$3fff,d7		* PC がページ境界をまたいだか？
+	andi.w	#PAGEADDRMASK,d7	* PC がページ境界をまたいだか？
 	bne	rts_common
 	PC_page_inc
 	rts
 LD_C_H:	move.b	h(a3),c(a3)
 	addq.w	#1,d7			* PC += 1
-	andi.w	#$3fff,d7		* PC がページ境界をまたいだか？
+	andi.w	#PAGEADDRMASK,d7	* PC がページ境界をまたいだか？
 	bne	rts_common
 	PC_page_inc
 	rts
 LD_C_L:	move.b	l(a3),c(a3)
 	addq.w	#1,d7			* PC += 1
-	andi.w	#$3fff,d7		* PC がページ境界をまたいだか？
+	andi.w	#PAGEADDRMASK,d7	* PC がページ境界をまたいだか？
 	bne	rts_common
 	PC_page_inc
 	rts
@@ -1133,16 +1133,16 @@ LD_C_lHLl:
 	jsr	ms_read_mem_8		*メモリから 8ビットのデータを d0に読み込む。
 	move.b	d0,c(a3)
 	addq.w	#1,d7			* PC += 1
-	andi.w	#$3fff,d7		* PC がページ境界をまたいだか？
+	andi.w	#PAGEADDRMASK,d7	* PC がページ境界をまたいだか？
 	bne	rts_common
 	PC_page_inc
 	rts
 LD_C_n:	move.b	1(a4,d7.w),c(a3)
 	addq.w	#2,d7			* PC += 2
-	btst.l	#14,d7			* PC がページ境界をまたいだか？
+	btst.l	#PAGEADDRBIT,d7	* PC がページ境界をまたいだか？
 	beq	rts_common
 	PC_page_inc
-	andi.w	#$3fff,d7		* 命令がページ境界をまたぐ時
+	andi.w	#PAGEADDRMASK,d7	* 命令がページ境界をまたぐ時
 	beq	rts_common		* d7 = 0 の時
 	move.b	(a4),c(a3)		* d7 = 1 の時
 	rts
@@ -1150,42 +1150,42 @@ LD_C_n:	move.b	1(a4,d7.w),c(a3)
 *	------ ＬＤ Ｄ,？ ------
 LD_D_A:	move.b	d4,d(a3)
 	addq.w	#1,d7			* PC += 1
-	andi.w	#$3fff,d7		* PC がページ境界をまたいだか？
+	andi.w	#PAGEADDRMASK,d7	* PC がページ境界をまたいだか？
 	bne	rts_common
 	PC_page_inc
 	rts
 LD_D_B:	move.b	b(a3),d(a3)
 	addq.w	#1,d7			* PC += 1
-	andi.w	#$3fff,d7		* PC がページ境界をまたいだか？
+	andi.w	#PAGEADDRMASK,d7	* PC がページ境界をまたいだか？
 	bne	rts_common
 	PC_page_inc
 	rts
 LD_D_C:	move.b	c(a3),d(a3)
 	addq.w	#1,d7			* PC += 1
-	andi.w	#$3fff,d7		* PC がページ境界をまたいだか？
+	andi.w	#PAGEADDRMASK,d7	* PC がページ境界をまたいだか？
 	bne	rts_common
 	PC_page_inc
 	rts
 LD_D_D:	addq.w	#1,d7			* PC += 1
-	andi.w	#$3fff,d7		* PC がページ境界をまたいだか？
+	andi.w	#PAGEADDRMASK,d7	* PC がページ境界をまたいだか？
 	bne	rts_common
 	PC_page_inc
 	rts
 LD_D_E:	move.b	e(a3),d(a3)
 	addq.w	#1,d7			* PC += 1
-	andi.w	#$3fff,d7		* PC がページ境界をまたいだか？
+	andi.w	#PAGEADDRMASK,d7	* PC がページ境界をまたいだか？
 	bne	rts_common
 	PC_page_inc
 	rts
 LD_D_H:	move.b	h(a3),d(a3)
 	addq.w	#1,d7			* PC += 1
-	andi.w	#$3fff,d7		* PC がページ境界をまたいだか？
+	andi.w	#PAGEADDRMASK,d7	* PC がページ境界をまたいだか？
 	bne	rts_common
 	PC_page_inc
 	rts
 LD_D_L:	move.b	l(a3),d(a3)
 	addq.w	#1,d7			* PC += 1
-	andi.w	#$3fff,d7		* PC がページ境界をまたいだか？
+	andi.w	#PAGEADDRMASK,d7	* PC がページ境界をまたいだか？
 	bne	rts_common
 	PC_page_inc
 	rts
@@ -1194,59 +1194,59 @@ LD_D_lHLl:
 	jsr	ms_read_mem_8		*メモリから 8ビットのデータを d0に読み込む。
 	move.b	d0,d(a3)
 	addq.w	#1,d7			* PC += 1
-	andi.w	#$3fff,d7		* PC がページ境界をまたいだか？
+	andi.w	#PAGEADDRMASK,d7	* PC がページ境界をまたいだか？
 	bne	rts_common
 	PC_page_inc
 	rts
 LD_D_n:	move.b	1(a4,d7.w),d(a3)
 	addq.w	#2,d7			* PC += 2
-	btst.l	#14,d7			* PC がページ境界をまたいだか？
+	btst.l	#PAGEADDRBIT,d7	* PC がページ境界をまたいだか？
 	beq	rts_common
 	PC_page_inc
-	andi.w	#$3fff,d7		* 命令がページ境界をまたぐ時
-	beq	rts_common			* d7 = 0 の時
+	andi.w	#PAGEADDRMASK,d7	* 命令がページ境界をまたぐ時
+	beq	rts_common		* d7 = 0 の時
 	move.b	(a4),d(a3)		* d7 = 1 の時
 	rts
 
 *	------ ＬＤ Ｅ,？ ------
 LD_E_A:	move.b	d4,e(a3)
 	addq.w	#1,d7			* PC += 1
-	andi.w	#$3fff,d7		* PC がページ境界をまたいだか？
+	andi.w	#PAGEADDRMASK,d7	* PC がページ境界をまたいだか？
 	bne	rts_common
 	PC_page_inc
 	rts
 LD_E_B:	move.b	b(a3),e(a3)
 	addq.w	#1,d7			* PC += 1
-	andi.w	#$3fff,d7		* PC がページ境界をまたいだか？
+	andi.w	#PAGEADDRMASK,d7	* PC がページ境界をまたいだか？
 	bne	rts_common
 	PC_page_inc
 	rts
 LD_E_C:	move.b	c(a3),e(a3)
 	addq.w	#1,d7			* PC += 1
-	andi.w	#$3fff,d7		* PC がページ境界をまたいだか？
+	andi.w	#PAGEADDRMASK,d7	* PC がページ境界をまたいだか？
 	bne	rts_common
 	PC_page_inc
 	rts
 LD_E_D:	move.b	d(a3),e(a3)
 	addq.w	#1,d7			* PC += 1
-	andi.w	#$3fff,d7		* PC がページ境界をまたいだか？
+	andi.w	#PAGEADDRMASK,d7	* PC がページ境界をまたいだか？
 	bne	rts_common
 	PC_page_inc
 	rts
 LD_E_E:	addq.w	#1,d7			* PC += 1
-	andi.w	#$3fff,d7		* PC がページ境界をまたいだか？
+	andi.w	#PAGEADDRMASK,d7	* PC がページ境界をまたいだか？
 	bne	rts_common
 	PC_page_inc
 	rts
 LD_E_H:	move.b	h(a3),e(a3)
 	addq.w	#1,d7			* PC += 1
-	andi.w	#$3fff,d7		* PC がページ境界をまたいだか？
+	andi.w	#PAGEADDRMASK,d7	* PC がページ境界をまたいだか？
 	bne	rts_common
 	PC_page_inc
 	rts
 LD_E_L:	move.b	l(a3),e(a3)
 	addq.w	#1,d7			* PC += 1
-	andi.w	#$3fff,d7		* PC がページ境界をまたいだか？
+	andi.w	#PAGEADDRMASK,d7	* PC がページ境界をまたいだか？
 	bne	rts_common
 	PC_page_inc
 	rts
@@ -1255,59 +1255,59 @@ LD_E_lHLl:
 	jsr	ms_read_mem_8		*メモリから 8ビットのデータを d0に読み込む。
 	move.b	d0,e(a3)
 	addq.w	#1,d7			* PC += 1
-	andi.w	#$3fff,d7		* PC がページ境界をまたいだか？
+	andi.w	#PAGEADDRMASK,d7	* PC がページ境界をまたいだか？
 	bne	rts_common
 	PC_page_inc
 	rts
 LD_E_n:	move.b	1(a4,d7.w),e(a3)
 	addq.w	#2,d7			* PC += 2
-	btst.l	#14,d7			* PC がページ境界をまたいだか？
+	btst.l	#PAGEADDRBIT,d7	* PC がページ境界をまたいだか？
 	beq	rts_common
 	PC_page_inc
-	andi.w	#$3fff,d7		* 命令がページ境界をまたぐ時
-	beq	rts_common			* d7 = 0 の時
+	andi.w	#PAGEADDRMASK,d7	* 命令がページ境界をまたぐ時
+	beq	rts_common		* d7 = 0 の時
 	move.b	(a4),e(a3)		* d7 = 1 の時
 	rts
 
 *	------ ＬＤ Ｈ,？ ------
 LD_H_A:	move.b	d4,h(a3)
 	addq.w	#1,d7			* PC += 1
-	andi.w	#$3fff,d7		* PC がページ境界をまたいだか？
+	andi.w	#PAGEADDRMASK,d7	* PC がページ境界をまたいだか？
 	bne	rts_common
 	PC_page_inc
 	rts
 LD_H_B:	move.b	b(a3),h(a3)
 	addq.w	#1,d7			* PC += 1
-	andi.w	#$3fff,d7		* PC がページ境界をまたいだか？
+	andi.w	#PAGEADDRMASK,d7	* PC がページ境界をまたいだか？
 	bne	rts_common
 	PC_page_inc
 	rts
 LD_H_C:	move.b	c(a3),h(a3)
 	addq.w	#1,d7			* PC += 1
-	andi.w	#$3fff,d7		* PC がページ境界をまたいだか？
+	andi.w	#PAGEADDRMASK,d7	* PC がページ境界をまたいだか？
 	bne	rts_common
 	PC_page_inc
 	rts
 LD_H_D:	move.b	d(a3),h(a3)
 	addq.w	#1,d7			* PC += 1
-	andi.w	#$3fff,d7		* PC がページ境界をまたいだか？
+	andi.w	#PAGEADDRMASK,d7	* PC がページ境界をまたいだか？
 	bne	rts_common
 	PC_page_inc
 	rts
 LD_H_E:	move.b	e(a3),h(a3)
 	addq.w	#1,d7			* PC += 1
-	andi.w	#$3fff,d7		* PC がページ境界をまたいだか？
+	andi.w	#PAGEADDRMASK,d7	* PC がページ境界をまたいだか？
 	bne	rts_common
 	PC_page_inc
 	rts
 LD_H_H:	addq.w	#1,d7			* PC += 1
-	andi.w	#$3fff,d7		* PC がページ境界をまたいだか？
+	andi.w	#PAGEADDRMASK,d7	* PC がページ境界をまたいだか？
 	bne	rts_common
 	PC_page_inc
 	rts
 LD_H_L:	move.b	l(a3),h(a3)
 	addq.w	#1,d7			* PC += 1
-	andi.w	#$3fff,d7		* PC がページ境界をまたいだか？
+	andi.w	#PAGEADDRMASK,d7	* PC がページ境界をまたいだか？
 	bne	rts_common
 	PC_page_inc
 	rts
@@ -1316,59 +1316,59 @@ LD_H_lHLl:
 	jsr	ms_read_mem_8		*メモリから 8ビットのデータを d0に読み込む。
 	move.b	d0,h(a3)
 	addq.w	#1,d7			* PC += 1
-	andi.w	#$3fff,d7		* PC がページ境界をまたいだか？
+	andi.w	#PAGEADDRMASK,d7	* PC がページ境界をまたいだか？
 	bne	rts_common
 	PC_page_inc
 	rts
 LD_H_n:	move.b	1(a4,d7.w),h(a3)
 	addq.w	#2,d7			* PC += 2
-	btst.l	#14,d7			* PC がページ境界をまたいだか？
+	btst.l	#PAGEADDRBIT,d7	* PC がページ境界をまたいだか？
 	beq	rts_common
 	PC_page_inc
-	andi.w	#$3fff,d7		* 命令がページ境界をまたぐ時
-	beq	rts_common			* d7 = 0 の時
+	andi.w	#PAGEADDRMASK,d7	* 命令がページ境界をまたぐ時
+	beq	rts_common		* d7 = 0 の時
 	move.b	(a4),h(a3)		* d7 = 1 の時
 	rts
 
 *	------ ＬＤ Ｌ,？ ------
 LD_L_A:	move.b	d4,l(a3)
 	addq.w	#1,d7			* PC += 1
-	andi.w	#$3fff,d7		* PC がページ境界をまたいだか？
+	andi.w	#PAGEADDRMASK,d7	* PC がページ境界をまたいだか？
 	bne	rts_common
 	PC_page_inc
 	rts
 LD_L_B:	move.b	b(a3),l(a3)
 	addq.w	#1,d7			* PC += 1
-	andi.w	#$3fff,d7		* PC がページ境界をまたいだか？
+	andi.w	#PAGEADDRMASK,d7	* PC がページ境界をまたいだか？
 	bne	rts_common
 	PC_page_inc
 	rts
 LD_L_C:	move.b	c(a3),l(a3)
 	addq.w	#1,d7			* PC += 1
-	andi.w	#$3fff,d7		* PC がページ境界をまたいだか？
+	andi.w	#PAGEADDRMASK,d7	* PC がページ境界をまたいだか？
 	bne	rts_common
 	PC_page_inc
 	rts
 LD_L_D:	move.b	d(a3),l(a3)
 	addq.w	#1,d7			* PC += 1
-	andi.w	#$3fff,d7		* PC がページ境界をまたいだか？
+	andi.w	#PAGEADDRMASK,d7	* PC がページ境界をまたいだか？
 	bne	rts_common
 	PC_page_inc
 	rts
 LD_L_E:	move.b	e(a3),l(a3)
 	addq.w	#1,d7			* PC += 1
-	andi.w	#$3fff,d7		* PC がページ境界をまたいだか？
+	andi.w	#PAGEADDRMASK,d7	* PC がページ境界をまたいだか？
 	bne	rts_common
 	PC_page_inc
 	rts
 LD_L_H:	move.b	h(a3),l(a3)
 	addq.w	#1,d7			* PC += 1
-	andi.w	#$3fff,d7		* PC がページ境界をまたいだか？
+	andi.w	#PAGEADDRMASK,d7	* PC がページ境界をまたいだか？
 	bne	rts_common
 	PC_page_inc
 	rts
 LD_L_L:	addq.w	#1,d7			* PC += 1
-	andi.w	#$3fff,d7		* PC がページ境界をまたいだか？
+	andi.w	#PAGEADDRMASK,d7	* PC がページ境界をまたいだか？
 	bne	rts_common
 	PC_page_inc
 	rts
@@ -1377,17 +1377,17 @@ LD_L_lHLl:
 	jsr	ms_read_mem_8		*メモリから 8ビットのデータを d0に読み込む。
 	move.b	d0,l(a3)
 	addq.w	#1,d7			* PC += 1
-	andi.w	#$3fff,d7		* PC がページ境界をまたいだか？
+	andi.w	#PAGEADDRMASK,d7	* PC がページ境界をまたいだか？
 	bne	rts_common
 	PC_page_inc
 	rts
 LD_L_n:	move.b	1(a4,d7.w),l(a3)
 	addq.w	#2,d7			* PC += 2
-	btst.l	#14,d7			* PC がページ境界をまたいだか？
+	btst.l	#PAGEADDRBIT,d7	* PC がページ境界をまたいだか？
 	beq	rts_common
 	PC_page_inc
-	andi.w	#$3fff,d7		* 命令がページ境界をまたぐ時
-	beq	rts_common			* d7 = 0 の時
+	andi.w	#PAGEADDRMASK,d7	* 命令がページ境界をまたぐ時
+	beq	rts_common		* d7 = 0 の時
 	move.b	(a4),l(a3)		* d7 = 1 の時
 	rts
 
@@ -1398,7 +1398,7 @@ LD_lHLl_A:
 	move.b	d4,d1
 	jsr	ms_write_mem_8
 	addq.w	#1,d7			* PC += 1
-	andi.w	#$3fff,d7		* PC がページ境界をまたいだか？
+	andi.w	#PAGEADDRMASK,d7	* PC がページ境界をまたいだか？
 	bne	rts_common
 	PC_page_inc
 	rts
@@ -1407,7 +1407,7 @@ LD_lHLl_B:
 	move.b	b(a3),d1
 	jsr	ms_write_mem_8
 	addq.w	#1,d7			* PC += 1
-	andi.w	#$3fff,d7		* PC がページ境界をまたいだか？
+	andi.w	#PAGEADDRMASK,d7	* PC がページ境界をまたいだか？
 	bne	rts_common
 	PC_page_inc
 	rts
@@ -1416,7 +1416,7 @@ LD_lHLl_C:
 	move.b	c(a3),d1
 	jsr	ms_write_mem_8
 	addq.w	#1,d7			* PC += 1
-	andi.w	#$3fff,d7		* PC がページ境界をまたいだか？
+	andi.w	#PAGEADDRMASK,d7	* PC がページ境界をまたいだか？
 	bne	rts_common
 	PC_page_inc
 	rts
@@ -1425,7 +1425,7 @@ LD_lHLl_D:
 	move.b	d(a3),d1
 	jsr	ms_write_mem_8
 	addq.w	#1,d7			* PC += 1
-	andi.w	#$3fff,d7		* PC がページ境界をまたいだか？
+	andi.w	#PAGEADDRMASK,d7	* PC がページ境界をまたいだか？
 	bne	rts_common
 	PC_page_inc
 	rts
@@ -1434,7 +1434,7 @@ LD_lHLl_E:
 	move.b	e(a3),d1
 	jsr	ms_write_mem_8
 	addq.w	#1,d7			* PC += 1
-	andi.w	#$3fff,d7		* PC がページ境界をまたいだか？
+	andi.w	#PAGEADDRMASK,d7	* PC がページ境界をまたいだか？
 	bne	rts_common
 	PC_page_inc
 	rts
@@ -1443,7 +1443,7 @@ LD_lHLl_H:
 	move.b	h(a3),d1
 	jsr	ms_write_mem_8
 	addq.w	#1,d7			* PC += 1
-	andi.w	#$3fff,d7		* PC がページ境界をまたいだか？
+	andi.w	#PAGEADDRMASK,d7	* PC がページ境界をまたいだか？
 	bne	rts_common
 	PC_page_inc
 	rts
@@ -1452,7 +1452,7 @@ LD_lHLl_L:
 	move.b	l(a3),d1
 	jsr	ms_write_mem_8
 	addq.w	#1,d7			* PC += 1
-	andi.w	#$3fff,d7		* PC がページ境界をまたいだか？
+	andi.w	#PAGEADDRMASK,d7	* PC がページ境界をまたいだか？
 	bne	rts_common
 	PC_page_inc
 	rts
@@ -1460,12 +1460,12 @@ LD_lHLl_n:
 	move.w	hl(a3),d0
 	move.b	1(a4,d7.w),d1
 	addq.w	#2,d7			* PC += 2
-	btst.l	#14,d7			* PC がページ境界をまたいだか？
+	btst.l	#PAGEADDRBIT,d7	* PC がページ境界をまたいだか？
 	bne	1f
 	jsr	ms_write_mem_8
 	rts
 1:	PC_page_inc
-	andi.w	#$3fff,d7		* 命令がページ境界をまたぐ時
+	andi.w	#PAGEADDRMASK,d7	* 命令がページ境界をまたぐ時
 	beq	2f
 	move.b	(a4),d1			* d7 = 1 の時
 2:	jsr	ms_write_mem_8
@@ -1475,7 +1475,7 @@ LD_lBCl_A:
 	move.b	d4,d1
 	jsr	ms_write_mem_8
 	addq.w	#1,d7			* PC += 1
-	andi.w	#$3fff,d7		* PC がページ境界をまたいだか？
+	andi.w	#PAGEADDRMASK,d7	* PC がページ境界をまたいだか？
 	bne	rts_common
 	PC_page_inc
 	rts
@@ -1484,7 +1484,7 @@ LD_lDEl_A:
 	move.b	d4,d1
 	jsr	ms_write_mem_8
 	addq.w	#1,d7			* PC += 1
-	andi.w	#$3fff,d7		* PC がページ境界をまたいだか？
+	andi.w	#PAGEADDRMASK,d7	* PC がページ境界をまたいだか？
 	bne	rts_common
 	PC_page_inc
 	rts
@@ -1494,12 +1494,12 @@ LD_lnnl_A:
 	lsl.w	#8,d0
 	move.b	1(a4,d7.w),d0		* nn の下位８ビットを読む 
 	addq.w	#3,d7
-	btst.l	#14,d7
+	btst.l	#PAGEADDRBIT,d7	* PC がページ境界をまたいだか？
 	bne	1f
 	jsr	ms_write_mem_8
 	rts
 1:	PC_page_inc			* 命令がページ境界をまたぐ時
-	andi.w	#$3fff,d7
+	andi.w	#PAGEADDRMASK,d7	* 命令がページ境界をまたぐ時
 	bne	2f
 	jsr	ms_write_mem_8		* d7 = 0 の時
 	rts
@@ -1523,11 +1523,11 @@ LD_BC_nn:
 	move.b	1(a4,d7.w),c(a3)	* nn の下位８ビットを読む 
 	move.b	2(a4,d7.w),b(a3)	* nn の上位８ビットを読む 
 	addq.w	#3,d7
-	btst.l	#14,d7
+	btst.l	#PAGEADDRBIT,d7	* PC がページ境界をまたいだか？
 	beq	rts_common
 	PC_page_inc
-	andi.w	#$3fff,d7		* 命令がページ境界をまたぐ時
-	beq	rts_common			* d7 = 0 の時
+	andi.w	#PAGEADDRMASK,d7	* 命令がページ境界をまたぐ時
+	beq	rts_common		* d7 = 0 の時
 	cmpi.w	#2,d1
 	beq	1f
 	move.b	 (a4),b(a3)		* d7 = 1 の時
@@ -1539,11 +1539,11 @@ LD_DE_nn:
 	move.b	1(a4,d7.w),e(a3)	* nn の下位８ビットを読む 
 	move.b	2(a4,d7.w),d(a3)	* nn の上位８ビットを読む 
 	addq.w	#3,d7
-	btst.l	#14,d7
+	btst.l	#PAGEADDRBIT,d7	* PC がページ境界をまたいだか？
 	beq	rts_common
 	PC_page_inc
-	andi.w	#$3fff,d7		* 命令がページ境界をまたぐ時
-	beq	rts_common			* d7 = 0 の時
+	andi.w	#PAGEADDRMASK,d7	* 命令がページ境界をまたぐ時
+	beq	rts_common		* d7 = 0 の時
 	cmpi.w	#2,d1
 	beq	1f
 	move.b	 (a4),d(a3)		* d7 = 1 の時
@@ -1555,11 +1555,11 @@ LD_HL_nn:
 	move.b	1(a4,d7.w),l(a3)	* nn の下位８ビットを読む 
 	move.b	2(a4,d7.w),h(a3)	* nn の上位８ビットを読む 
 	addq.w	#3,d7
-	btst.l	#14,d7
+	btst.l	#PAGEADDRBIT,d7	* PC がページ境界をまたいだか？
 	beq	rts_common
 	PC_page_inc
-	andi.w	#$3fff,d7		* 命令がページ境界をまたぐ時
-	beq	rts_common			* d7 = 0 の時
+	andi.w	#PAGEADDRMASK,d7	* 命令がページ境界をまたぐ時
+	beq	rts_common		* d7 = 0 の時
 	cmpi.w	#2,d1
 	beq	1f
 	move.b	 (a4),h(a3)		* d7 = 1 の時
@@ -1571,11 +1571,11 @@ LD_SP_nn:
 	move.b	1(a4,d7.w),p(a3)	* nn の下位８ビットを読む 
 	move.b	2(a4,d7.w),s(a3)	* nn の上位８ビットを読む 
 	addq.w	#3,d7
-	btst.l	#14,d7
+	btst.l	#PAGEADDRBIT,d7	* PC がページ境界をまたいだか？
 	beq	rts_common
 	PC_page_inc
-	andi.w	#$3fff,d7		* 命令がページ境界をまたぐ時
-	beq	rts_common			* d7 = 0 の時
+	andi.w	#PAGEADDRMASK,d7	* 命令がページ境界をまたぐ時
+	beq	rts_common		* d7 = 0 の時
 	cmpi.w	#2,d1
 	beq	1f
 	move.b	 (a4),s(a3)		* d7 = 1 の時
@@ -1586,7 +1586,7 @@ LD_SP_nn:
 LD_SP_HL:
 	move.w	hl(a3),sp_(a3)
 	addq.w	#1,d7			* PC += 1
-	andi.w	#$3fff,d7		* PC がページ境界をまたいだか？
+	andi.w	#PAGEADDRMASK,d7	* PC がページ境界をまたいだか？
 	bne	rts_common
 	PC_page_inc
 	rts
@@ -1598,13 +1598,13 @@ LD_HL_lnnl:
 	lsl.w	#8,d0
 	move.b	1(a4,d7.w),d0		* nn の下位８ビットを読む 
 	addq.w	#3,d7
-	btst.l	#14,d7
+	btst.l	#PAGEADDRBIT,d7	* PC がページ境界をまたいだか？
 	bne	1f
 	jsr	ms_read_mem_16
 	move.w	d0,hl(a3)
 	rts
 1:	PC_page_inc			* 命令がページ境界をまたぐ時
-	andi.w	#$3fff,d7
+	andi.w	#PAGEADDRMASK,d7	* 命令がページ境界をまたぐ時
 	bne	2f
 	jsr	ms_read_mem_16		* d7 = 0 の時
 	move.w	d0,hl(a3)
@@ -1632,12 +1632,12 @@ LD_lnnl_HL:
 	lsl.w	#8,d0
 	move.b	1(a4,d7.w),d0		* nn の下位８ビットを読む 
 	addq.w	#3,d7
-	btst.l	#14,d7
+	btst.l	#PAGEADDRBIT,d7	* PC がページ境界をまたいだか？
 	bne	1f
 	jsr	ms_write_mem_16
 	rts
 1:	PC_page_inc			* 命令がページ境界をまたぐ時
-	andi.w	#$3fff,d7
+	andi.w	#PAGEADDRMASK,d7	* 命令がページ境界をまたぐ時
 	bne	2f
 	jsr	ms_write_mem_16		* d7 = 0 の時
 	rts
@@ -1678,7 +1678,7 @@ _readMemFromC:
 *------ ＡＤＤ ------
 ADD_A_X macro
 	addq.w	#1,d7			* PC += 1
-	andi.w	#$3fff,d7		* PC がページ境界をまたいだか？
+	andi.w	#PAGEADDRMASK,d7	* PC がページ境界をまたいだか？
 	bne	1f
 	PC_page_inc
 1:	; b18 : 加算なので0
@@ -1742,10 +1742,10 @@ ADD_A_n:
 	andi.w	#%01110100_11111111,d6	* Ｎ,Ｃ,HC mode をクリア
 	move.b	1(a4,d7.w),d0
 	addq.w	#2,d7			* PC += 2
-	btst.l	#14,d7			* PC がページ境界をまたいだか？
+	btst.l	#PAGEADDRBIT,d7	* PC がページ境界をまたいだか？
 	beq	1f
 	PC_page_inc
-	andi.w	#$3fff,d7
+	andi.w	#PAGEADDRMASK,d7	* 命令がページ境界をまたぐ時
 	beq	1f			* d7 = 0 の時
 	move.b	(a4),d0			* d7 = 1 の時
 1:	; b18 : 加算なので0
@@ -1773,7 +1773,7 @@ ADD_A_n:
 ; * C : 上位8bitの加算の実行によるキャリー
 ADD_HL_XX macro
 	addq.w	#1,d7			* PC += 1
-	andi.w	#$3fff,d7		* PC がページ境界をまたいだか？
+	andi.w	#PAGEADDRMASK,d7	* PC がページ境界をまたいだか？
 	bne	1f
 	PC_page_inc
 1:	bsr	eval_flag_all
@@ -1833,7 +1833,7 @@ ADC_A_X macro
 	btst.l	#0,d6
 	beq	ADC_A_X_fallback	* Cy が０の時 ADD と同じ
 	addq.w	#1,d7			* PC += 1
-	andi.w	#$3fff,d7		* PC がページ境界をまたいだか？
+	andi.w	#PAGEADDRMASK,d7	* PC がページ境界をまたいだか？
 	bne	1f
 	PC_page_inc
 1:	; b18 : 加算なので0
@@ -1904,10 +1904,10 @@ ADC_A_n:
 	beq	ADD_A_n			* Cy が０の時 ADD と同じ
 	move.b	1(a4,d7.w),d0
 	addq.w	#2,d7			* PC += 2
-	btst.l	#14,d7			* PC がページ境界をまたいだか？
+	btst.l	#PAGEADDRBIT,d7	* PC がページ境界をまたいだか？
 	beq	1f
 	PC_page_inc
-	andi.w	#$3fff,d7
+	andi.w	#PAGEADDRMASK,d7	* 命令がページ境界をまたぐ時
 	beq	1f
 	move.b	(a4),d0
 1:	; b18 : 加算なので0
@@ -1928,7 +1928,7 @@ ADC_A_n:
 *	------ ＳＵＢ ------
 SUB_A_X macro
 	addq.w	#1,d7			* PC += 1
-	andi.w	#$3fff,d7		* PC がページ境界をまたいだか？
+	andi.w	#PAGEADDRMASK,d7	* PC がページ境界をまたいだか？
 	bne	1f
 	PC_page_inc
 1:	; b18 : 減算なので1
@@ -1984,10 +1984,10 @@ SUB_lHLl:
 SUB_n:
 	move.b	1(a4,d7.w),d0
 	addq.w	#2,d7			* PC += 2
-	btst.l	#14,d7			* PC がページ境界をまたいだか？
+	btst.l	#PAGEADDRBIT,d7	* PC がページ境界をまたいだか？
 	beq	1f
 	PC_page_inc
-	andi.w	#$3fff,d7
+	andi.w	#PAGEADDRMASK,d7	* 命令がページ境界をまたぐ時
 	beq	1f
 	move.b	(a4),d0			* d7 = 1 の時
 1:	; b18 : 減算なので1
@@ -2010,7 +2010,7 @@ SBC_A_X macro
 	btst.l	#0,d6
 	beq	SBC_A_X_fallback		* Cy が０の時 SUB と同じ
 	addq.w	#1,d7			* PC += 1
-	andi.w	#$3fff,d7		* PC がページ境界をまたいだか？
+	andi.w	#PAGEADDRMASK,d7	* PC がページ境界をまたいだか？
 	bne	1f
 	PC_page_inc
 1:	; b18 : 減算なので1
@@ -2081,10 +2081,10 @@ SBC_A_n:
 	beq	SUB_n			* Cy が０の時 SUB と同じ
 	move.b	1(a4,d7.w),d0
 	addq.w	#2,d7			* PC += 2
-	btst.l	#14,d7
+	btst.l	#PAGEADDRBIT,d7	* PC がページ境界をまたいだか？
 	beq	1f
 	PC_page_inc
-	andi.w	#$3fff,d7		* PC がページ境界をまたいだか？
+	andi.w	#PAGEADDRMASK,d7	* PC がページ境界をまたいだか？
 	beq	1f
 	move.b	(a4),d0			* d7 = 1 の時
 1:	; b18 : 減算なので1
@@ -2106,7 +2106,7 @@ SBC_A_n:
 *	------ ＡＮＤ ------
 AND_X	macro
 	addq.w	#1,d7			* PC += 1
-	andi.w	#$3fff,d7		* PC がページ境界をまたいだか？
+	andi.w	#PAGEADDRMASK,d7	* PC がページ境界をまたいだか？
 	bne	1f
 	PC_page_inc
 1:	; b18 : Don't care
@@ -2163,10 +2163,10 @@ AND_lHLl:
 
 AND_n:	move.b	1(a4,d7.w),d0
 	addq.w	#2,d7			* PC += 2
-	btst.l	#14,d7			* PC がページ境界をまたいだか？
+	btst.l	#PAGEADDRBIT,d7	* PC がページ境界をまたいだか？
 	beq	1f
 	PC_page_inc
-	andi.w	#$3fff,d7
+	andi.w	#PAGEADDRMASK,d7	* 命令がページ境界をまたぐ時
 	beq	1f
 	move.b	(a4),d0
 1:	; b18 : Don't care
@@ -2188,7 +2188,7 @@ AND_n:	move.b	1(a4,d7.w),d0
 *	------ ＸＯＲ ------
 _OR_X	macro	opname
 	addq.w	#1,d7			* PC += 1
-	andi.w	#$3fff,d7		* PC がページ境界をまたいだか？
+	andi.w	#PAGEADDRMASK,d7	* PC がページ境界をまたいだか？
 	bne	1f
 	PC_page_inc
 1:	; b18 : Don't care
@@ -2211,10 +2211,10 @@ _OR_X	macro	opname
 _OR_n	macro	opname
 	move.b	1(a4,d7.w),d0
 	addq.w	#2,d7			* PC += 2
-	btst.l	#14,d7		* PC がページ境界をまたいだか？
+	btst.l	#PAGEADDRBIT,d7	* PC がページ境界をまたいだか？		* PC がページ境界をまたいだか？
 	beq	1f
 	PC_page_inc
-	andi.w	#$3fff,d7
+	andi.w	#PAGEADDRMASK,d7	* 命令がページ境界をまたぐ時
 	beq	1f
 	move.b	(a4),d0
 1:	; b18 : Don't care
@@ -2322,7 +2322,7 @@ OR_n:	_OR_n	or
 ; * C : 演算の結果のキャリー
 CP_A_X	macro
 	addq.w	#1,d7			* PC += 1
-	andi.w	#$3fff,d7		* PC がページ境界をまたいだか？
+	andi.w	#PAGEADDRMASK,d7	* PC がページ境界をまたいだか？
 	bne	1f
 	PC_page_inc
 1:	; b18 : 減算なので1
@@ -2388,10 +2388,10 @@ CP_lHLl:
 ; * C : 演算の結果のキャリー
 CP_n:	move.b	1(a4,d7.w),d0
 	addq.w	#2,d7			* PC += 2
-	btst.l	#14,d7			* PC がページ境界をまたいだか？
+	btst.l	#PAGEADDRBIT,d7	* PC がページ境界をまたいだか？
 	beq	1f
 	PC_page_inc
-	andi.w	#$3fff,d7
+	andi.w	#PAGEADDRMASK,d7	* 命令がページ境界をまたぐ時
 	beq	1f
 	move.b	(a4),d0
 1:	; b18 : 減算なので1
@@ -2414,7 +2414,7 @@ CP_n:	move.b	1(a4,d7.w),d0
 INC_X	macro
 	bsr	eval_flag_HC_C		* incでCフラグは変化しないので、この時点のHC,C フラグを再評価
 	addq.w	#1,d7			* PC += 1
-	andi.w	#$3fff,d7		* PC がページ境界をまたいだか？
+	andi.w	#PAGEADDRMASK,d7	* PC がページ境界をまたいだか？
 	bne	1f
 	PC_page_inc
 1:	; b18 : 加算なので0
@@ -2479,7 +2479,7 @@ INC_lHLl:
 
 INC_XX	macro
 	addq.w	#1,d7			* PC += 1
-	andi.w	#$3fff,d7		* PC がページ境界をまたいだか？
+	andi.w	#PAGEADDRMASK,d7	* PC がページ境界をまたいだか？
 	bne	1f
 	PC_page_inc
 1:	addq.w	#1,target_16(a3)
@@ -2509,7 +2509,7 @@ INC_SP:	move.w	sp_(a3),target_16(a3)
 DEC_X	macro
 	bsr	eval_flag_HC_C		* incでCフラグは変化しないので、この時点のHC,C フラグを再評価
 	addq.w	#1,d7			* PC += 1
-	andi.w	#$3fff,d7		* PC がページ境界をまたいだか？
+	andi.w	#PAGEADDRMASK,d7	* PC がページ境界をまたいだか？
 	bne	1f
 	PC_page_inc
 1:	; b18 : 減算なので1
@@ -2574,7 +2574,7 @@ DEC_lHLl:
 
 DEC_XX	macro
 	addq.w	#1,d7			* PC += 1
-	andi.w	#$3fff,d7		* PC がページ境界をまたいだか？
+	andi.w	#PAGEADDRMASK,d7	* PC がページ境界をまたいだか？
 	bne	1f
 	PC_page_inc
 1:	subq.w	#1,target_16(a3)
@@ -2640,7 +2640,7 @@ DEC_SP:	move.w	sp_(a3),target_16(a3)
 *
 *	------ ＤＡＡ ------
 DAA:	addq.w	#1,d7			* PC += 1
-	andi.w	#$3fff,d7		* PC がページ境界をまたいだか？
+	andi.w	#PAGEADDRMASK,d7	* PC がページ境界をまたいだか？
 	bne	1f
 	PC_page_inc
 1:	bsr	eval_flag_HC_C		* HC,C フラグを再評価
@@ -2734,9 +2734,9 @@ JP_C:	bsr	eval_flag_HC_C	* HC,C フラグを再評価
 	btst.l	#0,d6		* Cフラグをテスト
 	bne	JP		* Cが１ならジャンプ
 	addq.w	#3,d7
-	btst.l	#14,d7
+	btst.l	#PAGEADDRBIT,d7	* PC がページ境界をまたいだか？
 	beq	rts_common
-	andi.w	#$3fff,d7
+	andi.w	#PAGEADDRMASK,d7	* 命令がページ境界をまたぐ時
 	PC_page_inc		* 命令がページ境界をまたいだ時
 	rts
 
@@ -2744,9 +2744,9 @@ JP_NC:	bsr	eval_flag_HC_C	* HC,C フラグを再評価
 	btst.l	#0,d6		* Cフラグをテスト
 	beq	JP		* Cが０ならジャンプ
 	addq.w	#3,d7
-	btst.l	#14,d7
+	btst.l	#PAGEADDRBIT,d7	* PC がページ境界をまたいだか？
 	beq	rts_common
-	andi.w	#$3fff,d7
+	andi.w	#PAGEADDRMASK,d7	* 命令がページ境界をまたぐ時
 	PC_page_inc		* 命令がページ境界をまたいだ時
 	rts
 
@@ -2754,9 +2754,9 @@ JP_Z:	bsr	eval_flag_SZ	* SZ フラグを再評価
 	btst.l	#6,d6		* Zフラグをテスト
 	bne	JP		* Zが1ならジャンプ
 	addq.w	#3,d7
-	btst.l	#14,d7
+	btst.l	#PAGEADDRBIT,d7	* PC がページ境界をまたいだか？
 	beq	rts_common
-	andi.w	#$3fff,d7
+	andi.w	#PAGEADDRMASK,d7	* 命令がページ境界をまたぐ時
 	PC_page_inc		* 命令がページ境界をまたいだ時
 	rts
 
@@ -2764,9 +2764,9 @@ JP_NZ:	bsr	eval_flag_SZ	* SZ フラグを再評価
 	btst.l	#6,d6		* Zフラグをテスト
 	beq	JP		* Zが0ならジャンプ
 	addq.w	#3,d7
-	btst.l	#14,d7
+	btst.l	#PAGEADDRBIT,d7	* PC がページ境界をまたいだか？
 	beq	rts_common
-	andi.w	#$3fff,d7
+	andi.w	#PAGEADDRMASK,d7	* 命令がページ境界をまたぐ時
 	PC_page_inc		* 命令がページ境界をまたいだ時
 	rts
 
@@ -2774,9 +2774,9 @@ JP_PE:	bsr	eval_flag_PV_N	* PV フラグを再評価
 	btst.l	#2,d6		* PVフラグをテスト
 	bne	JP		* PVが偶数(=1)ならジャンプ
 	addq.w	#3,d7
-	btst.l	#14,d7
+	btst.l	#PAGEADDRBIT,d7	* PC がページ境界をまたいだか？
 	beq	rts_common
-	andi.w	#$3fff,d7
+	andi.w	#PAGEADDRMASK,d7	* 命令がページ境界をまたぐ時
 	PC_page_inc		* 命令がページ境界をまたいだ時
 	rts
 
@@ -2784,9 +2784,9 @@ JP_PO:	bsr	eval_flag_PV_N	* PV フラグを再評価
 	btst.l	#2,d6		* PVフラグをテスト
 	beq	JP		* PVが奇数(=0)ならジャンプ
 	addq.w	#3,d7
-	btst.l	#14,d7
+	btst.l	#PAGEADDRBIT,d7	* PC がページ境界をまたいだか？
 	beq	rts_common
-	andi.w	#$3fff,d7
+	andi.w	#PAGEADDRMASK,d7	* 命令がページ境界をまたぐ時
 	PC_page_inc		* 命令がページ境界をまたいだ時
 	rts
 
@@ -2794,9 +2794,9 @@ JP_P:	bsr	eval_flag_SZ	* SZ フラグを再評価
 	btst.l	#7,d6		* Sフラグをテスト
 	beq	JP		* Sが0ならジャンプ
 	addq.w	#3,d7
-	btst.l	#14,d7
+	btst.l	#PAGEADDRBIT,d7	* PC がページ境界をまたいだか？
 	beq	rts_common
-	andi.w	#$3fff,d7
+	andi.w	#PAGEADDRMASK,d7	* 命令がページ境界をまたぐ時
 	PC_page_inc		* 命令がページ境界をまたいだ時
 	rts
 
@@ -2804,9 +2804,9 @@ JP_M:	bsr	eval_flag_SZ	* SZ フラグを再評価
 	btst.l	#7,d6		* Sフラグをテスト
 	bne	JP		* Sが1ならジャンプ
 	addq.w	#3,d7
-	btst.l	#14,d7
+	btst.l	#PAGEADDRBIT,d7	* PC がページ境界をまたいだか？
 	beq	rts_common
-	andi.w	#$3fff,d7
+	andi.w	#PAGEADDRMASK,d7	* 命令がページ境界をまたぐ時
 	PC_page_inc		* 命令がページ境界をまたいだ時
 	rts
 
@@ -2836,9 +2836,9 @@ JR_NZ:	bsr	eval_flag_SZ	* SZ フラグを再評価
 	btst.l	#6,d6		* Zフラグをテスト
 	beq	JR		* Zが0ならジャンプ
 	addq.w	#2,d7
-	btst.l	#14,d7		* PC がページ境界をまたいだか？
+	btst.l	#PAGEADDRBIT,d7	* PC がページ境界をまたいだか？		* PC がページ境界をまたいだか？
 	beq	rts_common
-	andi.w	#$3fff,d7
+	andi.w	#PAGEADDRMASK,d7	* 命令がページ境界をまたぐ時
 	PC_page_inc		* 命令がページ境界をまたいだ時
 	rts
 
@@ -2846,9 +2846,9 @@ JR_Z:	bsr	eval_flag_SZ	* SZ フラグを再評価
 	btst.l	#6,d6		* Zフラグをテスト
 	bne	JR		* Zが1ならジャンプ
 	addq.w	#2,d7
-	btst.l	#14,d7		* PC がページ境界をまたいだか？
+	btst.l	#PAGEADDRBIT,d7	* PC がページ境界をまたいだか？		* PC がページ境界をまたいだか？
 	beq	rts_common
-	andi.w	#$3fff,d7
+	andi.w	#PAGEADDRMASK,d7	* 命令がページ境界をまたぐ時
 	PC_page_inc		* 命令がページ境界をまたいだ時
 	rts
 
@@ -2856,9 +2856,9 @@ JR_NC:	bsr	eval_flag_HC_C	* HC,C フラグを再評価
 	btst.l	#0,d6		* Cフラグをテスト
 	beq	JR		* Cが０ならジャンプ
 	addq.w	#2,d7
-	btst.l	#14,d7		* PC がページ境界をまたいだか？
+	btst.l	#PAGEADDRBIT,d7	* PC がページ境界をまたいだか？		* PC がページ境界をまたいだか？
 	beq	rts_common
-	andi.w	#$3fff,d7
+	andi.w	#PAGEADDRMASK,d7	* 命令がページ境界をまたぐ時
 	PC_page_inc		* 命令がページ境界をまたいだ時
 	rts
 
@@ -2866,21 +2866,21 @@ JR_C:	bsr	eval_flag_HC_C	* HC,C フラグを再評価
 	btst.l	#0,d6		* Cフラグをテスト
 	bne	JR		* Cが１ならジャンプ
 	addq.w	#2,d7
-	btst.l	#14,d7		* PC がページ境界をまたいだか？
+	btst.l	#PAGEADDRBIT,d7	* PC がページ境界をまたいだか？		* PC がページ境界をまたいだか？
 	beq	rts_common
-	andi.w	#$3fff,d7
+	andi.w	#PAGEADDRMASK,d7	* 命令がページ境界をまたぐ時
 	PC_page_inc		* 命令がページ境界をまたいだ時
 	rts
 
 *	------ ＣＡＬＬ ------
 CALL:	addq.w	#1,d7		* PC += 1
-	andi.w	#$3fff,d7	* PC がページ境界をまたいだか？
+	andi.w	#PAGEADDRMASK,d7	* 命令がページ境界をまたぐ時
 	bne	@f
 	PC_page_inc		* 命令がページ境界をまたいだ時
 @@:	clr.w	d1
 	move.b	(a4,d7.w),d1	* nn の下位８ビットを読む 
 	addq.w	#1,d7		* PC += 1
-	andi.w	#$3fff,d7	* PC がページ境界をまたいだか？
+	andi.w	#PAGEADDRMASK,d7	* 命令がページ境界をまたぐ時
 	bne	@f
 	PC_page_inc		* 命令がページ境界をまたいだ時
 @@:	move.b	(a4,d7.w),d0	* nn の上位８ビットを読む 
@@ -2905,9 +2905,9 @@ CALL_C:	bsr	eval_flag_HC_C	* HC,C フラグを再評価
 	btst.l	#0,d6		* Cフラグをテスト
 	bne	CALL		* Cが１ならコール
 	addq.w	#3,d7
-	btst.l	#14,d7
+	btst.l	#PAGEADDRBIT,d7	* PC がページ境界をまたいだか？
 	beq	rts_common
-	andi.w	#$3fff,d7
+	andi.w	#PAGEADDRMASK,d7	* 命令がページ境界をまたぐ時
 	PC_page_inc
 	rts
 
@@ -2916,9 +2916,9 @@ CALL_NC:
 	btst.l	#0,d6		* Cフラグをテスト
 	beq	CALL		* Cが０ならコール
 	addq.w	#3,d7
-	btst.l	#14,d7
+	btst.l	#PAGEADDRBIT,d7	* PC がページ境界をまたいだか？
 	beq	rts_common
-	andi.w	#$3fff,d7
+	andi.w	#PAGEADDRMASK,d7	* 命令がページ境界をまたぐ時
 	PC_page_inc
 	rts
 
@@ -2926,9 +2926,9 @@ CALL_Z:	bsr	eval_flag_SZ	* SZ フラグを再評価
 	btst.l	#6,d6		* Zフラグをテスト
 	bne	CALL		* Zが1ならコール
 	addq.w	#3,d7
-	btst.l	#14,d7
+	btst.l	#PAGEADDRBIT,d7	* PC がページ境界をまたいだか？
 	beq	rts_common
-	andi.w	#$3fff,d7
+	andi.w	#PAGEADDRMASK,d7	* 命令がページ境界をまたぐ時
 	PC_page_inc
 	rts
 
@@ -2937,9 +2937,9 @@ CALL_NZ:
 	btst.l	#6,d6		* Zフラグをテスト
 	beq	CALL		* Zが0ならコール
 	addq.w	#3,d7
-	btst.l	#14,d7
+	btst.l	#PAGEADDRBIT,d7	* PC がページ境界をまたいだか？
 	beq	rts_common
-	andi.w	#$3fff,d7
+	andi.w	#PAGEADDRMASK,d7	* 命令がページ境界をまたぐ時
 	PC_page_inc
 	rts
 
@@ -2948,9 +2948,9 @@ CALL_PE:
 	btst.l	#2,d6		* PVフラグをテスト
 	bne	CALL		* PVが偶数(=1)ならコール
 	addq.w	#3,d7
-	btst.l	#14,d7
+	btst.l	#PAGEADDRBIT,d7	* PC がページ境界をまたいだか？
 	beq	rts_common
-	andi.w	#$3fff,d7
+	andi.w	#PAGEADDRMASK,d7	* 命令がページ境界をまたぐ時
 	PC_page_inc
 	rts
 
@@ -2959,9 +2959,9 @@ CALL_PO:
 	btst.l	#2,d6		* PVフラグをテスト
 	beq	CALL		* PVが奇数(=0)ならコール
 	addq.w	#3,d7
-	btst.l	#14,d7
+	btst.l	#PAGEADDRBIT,d7	* PC がページ境界をまたいだか？
 	beq	rts_common
-	andi.w	#$3fff,d7
+	andi.w	#PAGEADDRMASK,d7	* 命令がページ境界をまたぐ時
 	PC_page_inc
 	rts
 
@@ -2969,9 +2969,9 @@ CALL_P:	bsr	eval_flag_SZ	* SZ フラグを再評価
 	btst.l	#7,d6		* Sフラグをテスト
 	beq	CALL		* Sが0ならコール
 	addq.w	#3,d7
-	btst.l	#14,d7
+	btst.l	#PAGEADDRBIT,d7	* PC がページ境界をまたいだか？
 	beq	rts_common
-	andi.w	#$3fff,d7
+	andi.w	#PAGEADDRMASK,d7	* 命令がページ境界をまたぐ時
 	PC_page_inc
 	rts
 
@@ -2979,9 +2979,9 @@ CALL_M:	bsr	eval_flag_SZ	* SZ フラグを再評価
 	btst.l	#7,d6		* Sフラグをテスト
 	bne	CALL		* Sが1ならコール
 	addq.w	#3,d7
-	btst.l	#14,d7
+	btst.l	#PAGEADDRBIT,d7	* PC がページ境界をまたいだか？
 	beq	rts_common
-	andi.w	#$3fff,d7
+	andi.w	#PAGEADDRMASK,d7	* 命令がページ境界をまたぐ時
 	PC_page_inc
 	rts
 
@@ -2997,7 +2997,7 @@ RET_C:	bsr	eval_flag_HC_C	* HC,C フラグを再評価
 	btst.l	#0,d6		* Ｃｙフラグをテスト
 	bne	RET		* Ｃｙが１ならリターン
 	addq.w	#1,d7		* PC += 1
-	andi.w	#$3fff,d7	* PC がページ境界をまたいだか？
+	andi.w	#PAGEADDRMASK,d7	* 命令がページ境界をまたぐ時
 	bne	rts_common
 	PC_page_inc
 	rts
@@ -3006,7 +3006,7 @@ RET_NC:	bsr	eval_flag_HC_C	* HC,C フラグを再評価
 	btst.l	#0,d6		* Ｃｙフラグをテスト
 	beq	RET		* Ｃｙが０ならリターン
 	addq.w	#1,d7		* PC += 1
-	andi.w	#$3fff,d7	* PC がページ境界をまたいだか？
+	andi.w	#PAGEADDRMASK,d7	* 命令がページ境界をまたぐ時
 	bne	rts_common
 	PC_page_inc
 	rts
@@ -3015,7 +3015,7 @@ RET_Z:	bsr	eval_flag_SZ	* SZ フラグを再評価
 	btst.l	#6,d6		* Zフラグをテスト
 	bne	RET		* Zが1ならリターン
 	addq.w	#1,d7		* PC += 1
-	andi.w	#$3fff,d7	* PC がページ境界をまたいだか？
+	andi.w	#PAGEADDRMASK,d7	* 命令がページ境界をまたぐ時
 	bne	rts_common
 	PC_page_inc
 	rts
@@ -3024,7 +3024,7 @@ RET_NZ:	bsr	eval_flag_SZ	* SZ フラグを再評価
 	btst.l	#6,d6		* Zフラグをテスト
 	beq	RET		* Zが0ならリターン
 	addq.w	#1,d7		* PC += 1
-	andi.w	#$3fff,d7	* PC がページ境界をまたいだか？
+	andi.w	#PAGEADDRMASK,d7	* 命令がページ境界をまたぐ時
 	bne	rts_common
 	PC_page_inc
 	rts
@@ -3033,7 +3033,7 @@ RET_M:	bsr	eval_flag_SZ	* SZ フラグを再評価
 	btst.l	#7,d6		* Sフラグをテスト
 	bne	RET		* Sが1ならリターン
 	addq.w	#1,d7		* PC += 1
-	andi.w	#$3fff,d7	* PC がページ境界をまたいだか？
+	andi.w	#PAGEADDRMASK,d7	* 命令がページ境界をまたぐ時
 	bne	rts_common
 	PC_page_inc
 	rts
@@ -3042,7 +3042,7 @@ RET_P:	bsr	eval_flag_SZ	* SZ フラグを再評価
 	btst.l	#7,d6		* Sフラグをテスト
 	beq	RET		* Sが0ならリターン
 	addq.w	#1,d7		* PC += 1
-	andi.w	#$3fff,d7	* PC がページ境界をまたいだか？
+	andi.w	#PAGEADDRMASK,d7	* 命令がページ境界をまたぐ時
 	bne	rts_common
 	PC_page_inc
 	rts
@@ -3051,7 +3051,7 @@ RET_PE:	bsr	eval_flag_PV_N	* PV フラグを再評価
 	btst.l	#2,d6		* PVフラグをテスト
 	bne	RET		* PVが偶数(=1)ならリターン
 	addq.w	#1,d7		* PC += 1
-	andi.w	#$3fff,d7	* PC がページ境界をまたいだか？
+	andi.w	#PAGEADDRMASK,d7	* 命令がページ境界をまたぐ時
 	bne	rts_common
 	PC_page_inc
 	rts
@@ -3060,7 +3060,7 @@ RET_PO:	bsr	eval_flag_PV_N	* PV フラグを再評価
 	btst.l	#2,d6		* PVフラグをテスト
 	beq	RET		* PVが奇数(=0)ならリターン
 	addq.w	#1,d7		* PC += 1
-	andi.w	#$3fff,d7	* PC がページ境界をまたいだか？
+	andi.w	#PAGEADDRMASK,d7	* 命令がページ境界をまたぐ時
 	bne	rts_common
 	PC_page_inc
 	rts
@@ -3069,17 +3069,17 @@ RET_PO:	bsr	eval_flag_PV_N	* PV フラグを再評価
 DJNZ:	subq.b	#1,b(a3)	* b = b-1
 	bne	JR		* b != 0 ならブランチ
 	addq.w	#2,d7
-	btst.l	#14,d7		* PC がページ境界をまたいだか？
+	btst.l	#PAGEADDRBIT,d7	* PC がページ境界をまたいだか？		* PC がページ境界をまたいだか？
 	beq	rts_common
 	PC_page_inc
-	andi.w	#$3fff,d7
+	andi.w	#PAGEADDRMASK,d7	* 命令がページ境界をまたぐ時
 	rts
 
 
 *	------ ＰＵＳＨ  ＰＯＰ ------
 PUSH_XX	macro
 	addq.w	#1,d7
-	andi.w	#$3fff,d7
+	andi.w	#PAGEADDRMASK,d7	* 命令がページ境界をまたぐ時
 	bne	1f
 	PC_page_inc
 1:	subq.w	#2,sp_(a3)		; スタックを2バイト減らす
@@ -3090,7 +3090,7 @@ PUSH_XX	macro
 
 POP_XX	macro
 	addq.w	#1,d7
-	andi.w	#$3fff,d7
+	andi.w	#PAGEADDRMASK,d7	* 命令がページ境界をまたぐ時
 	bne	1f
 	PC_page_inc
 1:	move.w	sp_(a3),d0		; スタックから読み込む
@@ -3150,7 +3150,7 @@ EX_lSPl_HL:
 	move.w	sp_(a3),d0
 	jsr	ms_write_mem_16
 	addq.w	#1,d7
-	andi.w	#$3fff,d7
+	andi.w	#PAGEADDRMASK,d7	* 命令がページ境界をまたぐ時
 	bne	rts_common
 	PC_page_inc
 	rts
@@ -3165,7 +3165,7 @@ EXX:	move.l	bc(a3),d0		* d0 = bc, de
 	move.w	d1,hl_(a3)
 
 	addq.w	#1,d7
-	andi.w	#$3fff,d7
+	andi.w	#PAGEADDRMASK,d7	* 命令がページ境界をまたぐ時
 	bne	rts_common
 	PC_page_inc
 	rts
@@ -3175,7 +3175,7 @@ EX_DE_HL:
 	swap	d0
 	move.l	d0,de(a3)
 	addq.w	#1,d7
-	andi.w	#$3fff,d7
+	andi.w	#PAGEADDRMASK,d7	* 命令がページ境界をまたぐ時
 	bne	rts_common
 	PC_page_inc
 	rts
@@ -3191,7 +3191,7 @@ EX_AF_AFd:
 	move.b	d1,f_(a3)
 
 	addq.w	#1,d7
-	andi.w	#$3fff,d7
+	andi.w	#PAGEADDRMASK,d7	* 命令がページ境界をまたぐ時
 	bne	rts_common
 	PC_page_inc
 	rts
@@ -3218,7 +3218,7 @@ CCF:	bsr	eval_flag_all		* 全てのフラグを再評価
 	or.b	d0,d6			* F5,H,F3を反映
 	;
 	addq.w	#1,d7
-	andi.w	#$3fff,d7
+	andi.w	#PAGEADDRMASK,d7	* 命令がページ境界をまたぐ時
 	bne	rts_common
 	PC_page_inc
 	rts	
@@ -3240,7 +3240,7 @@ SCF:	bsr	eval_flag_all		* 全てのフラグを再評価
 	or.b	d0,d6			* F5,F3を反映
 	;
 	addq.w	#1,d7
-	andi.w	#$3fff,d7
+	andi.w	#PAGEADDRMASK,d7	* 命令がページ境界をまたぐ時
 	bne	rts_common
 	PC_page_inc
 	rts
@@ -3264,14 +3264,14 @@ CPL:	bsr	eval_flag_all		* 全てのフラグを再評価
 	or.b	d0,d6			* F5,F3を反映
 	;
 	addq.w	#1,d7
-	andi.w	#$3fff,d7
+	andi.w	#PAGEADDRMASK,d7	* 命令がページ境界をまたぐ時
 	bne	rts_common
 	PC_page_inc
 	rts
 
 DI:	move.b	#0,interrupt_enable
 	addq.w	#1,d7
-	andi.w	#$3fff,d7
+	andi.w	#PAGEADDRMASK,d7	* 命令がページ境界をまたぐ時
 	bne	rts_common
 	PC_page_inc
 	rts
@@ -3279,7 +3279,7 @@ DI:	move.b	#0,interrupt_enable
 EI:	move.b	#2,interrupt_enable	* EIは１命令おいて実行されるので、2をセットして、最低1命令無視されるようにする
 	;move.w	#1,cpu_yield		* DI中に割り込みがあった場合に割り込みをかけられるよう、yieldをセットする → 負荷高いので削除
 	addq.w	#1,d7
-	andi.w	#$3fff,d7
+	andi.w	#PAGEADDRMASK,d7	* 命令がページ境界をまたぐ時
 	bne	1f
 	PC_page_inc
 1:	rts
@@ -3329,7 +3329,7 @@ RST_38H:
 
 RXXA	macro	isLeft, isCircular
 	addq.w	#1,d7			* PC += 1
-	andi.w	#$3fff,d7		* PC がページ境界をまたいだか？
+	andi.w	#PAGEADDRMASK,d7	* PC がページ境界をまたいだか？
 	bne	1f
 	PC_page_inc
 1:	bsr	eval_flag_HC_C
@@ -3376,11 +3376,11 @@ RRA:	RXXA	0, 0
 
 *	------ ＨＡＬＴ ------
 HALT:
-	pea.l	halt_msg
-	DOS	__PRINT
-	lea.l	4(sp),sp
+	; pea.l	halt_msg
+	; DOS	__PRINT
+	; lea.l	4(sp),sp
 	addq.w	#1,d7			* PC += 1
-	andi.w	#$3fff,d7		* PC がページ境界をまたいだか？
+	andi.w	#PAGEADDRMASK,d7	* PC がページ境界をまたいだか？
 	bne	9f
 	PC_page_inc
 
@@ -3438,10 +3438,10 @@ halt_msg:
 *
 CB:	move.b	1(a4,d7.w),d0		* 第二オペコードを読み込む
 	addq.w	#2,d7
-	btst.l	#14,d7
+	btst.l	#PAGEADDRBIT,d7	* PC がページ境界をまたいだか？
 	beq	@f			* PC がページ境界をまたいだか？
 	PC_page_inc			* またいだ時
-	andi.w	#$3fff,d7
+	andi.w	#PAGEADDRMASK,d7	* 命令がページ境界をまたぐ時
 	beq	@f
 	move.b	(a4),d0			* 読み直し
 @@:	bclr.l	#7,d0			* ００Ｈ～７ＦＨの命令かどうか
@@ -4151,10 +4151,10 @@ RRD_lHLl:
 ED:	clr.w	d0
 	move.b	1(a4,d7.w),d0		* 第二オペコードを読み込む
 	addq.w	#2,d7
-	btst.l	#14,d7
+	btst.l	#PAGEADDRBIT,d7	* PC がページ境界をまたいだか？
 	beq	@f			* PC がページ境界をまたいだか？
 	PC_page_inc			* またいだ時
-	andi.w	#$3fff,d7
+	andi.w	#PAGEADDRMASK,d7	* 命令がページ境界をまたぐ時
 	beq	@f
 	move.b	(a4),d0			* 読み直し
 @@:	subi.w	#$40,d0
@@ -4410,7 +4410,7 @@ JP68:	add.w	#$20,d0			* 0x20を足すと、元々の0x00-0x1fの値が得られる
 	lsl.w	#8,d0			* d0 = d0 * 256
 	move.b	0(a4,d7.w),d0		* d0 = ルーチン番号 (0x0000-0x1fff)
 	addq.w	#1,d7
-	andi.w	#$3fff,d7		* PC がページ境界をまたいだか？
+	andi.w	#PAGEADDRMASK,d7	* PC がページ境界をまたいだか？
 	bne	@f
 	PC_page_inc
 @@:
@@ -4430,7 +4430,7 @@ CALL68:	add.w	#$20,d0			* d0には、元々の0x20-0x3fが入っている
 	lsl.w	#8,d0			* d0 = d0 * 256
 	move.b	0(a4,d7.w),d0		* d0 = ルーチン番号 (0x2000-0x3fff)
 	addq.w	#1,d7
-	andi.w	#$3fff,d7		* PC がページ境界をまたいだか？
+	andi.w	#PAGEADDRMASK,d7	* PC がページ境界をまたいだか？
 	bne	@f
 	PC_page_inc
 @@:
@@ -4468,13 +4468,13 @@ LD_BC_lnnl:
 	lsl.w	#8,d0
 	move.b	0(a4,d7.w),d0		* nn の下位８ビットを読む 
 	addq.w	#2,d7
-	btst.l	#14,d7
+	btst.l	#PAGEADDRBIT,d7	* PC がページ境界をまたいだか？
 	bne	1f
 	jsr	ms_read_mem_16
 	move.w	d0,bc(a3)
 	rts
 1:	PC_page_inc
-	andi.w	#$3fff,d7		* 命令がページ境界をまたぐ時
+	andi.w	#PAGEADDRMASK,d7	* 命令がページ境界をまたぐ時
 	bne	2f
 	jsr	ms_read_mem_16		* d7 = 0 の時
 	move.w	d0,bc(a3)
@@ -4492,13 +4492,13 @@ LD_DE_lnnl:
 	lsl.w	#8,d0
 	move.b	0(a4,d7.w),d0		* nn の下位８ビットを読む 
 	addq.w	#2,d7
-	btst.l	#14,d7
+	btst.l	#PAGEADDRBIT,d7	* PC がページ境界をまたいだか？
 	bne	1f
 	jsr	ms_read_mem_16
 	move.w	d0,de(a3)
 	rts
 1:	PC_page_inc
-	andi.w	#$3fff,d7		* 命令がページ境界をまたぐ時
+	andi.w	#PAGEADDRMASK,d7	* 命令がページ境界をまたぐ時
 	bne	2f
 	jsr	ms_read_mem_16
 	move.w	d0,de(a3)
@@ -4516,13 +4516,13 @@ LD_SP_lnnl:
 	lsl.w	#8,d0
 	move.b	0(a4,d7.w),d0		* nn の下位８ビットを読む 
 	addq.w	#2,d7
-	btst.l	#14,d7
+	btst.l	#PAGEADDRBIT,d7	* PC がページ境界をまたいだか？
 	bne	1f
 	jsr	ms_read_mem_16
 	move.w	d0,sp_(a3)
 	rts
 1:	PC_page_inc
-	andi.w	#$3fff,d7		* 命令がページ境界をまたぐ時
+	andi.w	#PAGEADDRMASK,d7	* 命令がページ境界をまたぐ時
 	bne	2f
 	jsr	ms_read_mem_16
 	move.w	d0,sp_(a3)
@@ -4542,12 +4542,12 @@ LD_lnnl_BC:
 	lsl.w	#8,d0
 	move.b	0(a4,d7.w),d0		* nn の下位８ビットを読む 
 	addq.w	#2,d7
-	btst.l	#14,d7
+	btst.l	#PAGEADDRBIT,d7	* PC がページ境界をまたいだか？
 	bne	@f
 	jsr	ms_write_mem_16
 	rts
 @@:	PC_page_inc
-	andi.w	#$3fff,d7		* 命令がページ境界をまたぐ時
+	andi.w	#PAGEADDRMASK,d7	* 命令がページ境界をまたぐ時
 	bne	@f
 	jsr	ms_write_mem_16
 	rts
@@ -4564,12 +4564,12 @@ LD_lnnl_DE:
 	lsl.w	#8,d0
 	move.b	0(a4,d7.w),d0		* nn の下位８ビットを読む 
 	addq.w	#2,d7
-	btst.l	#14,d7
+	btst.l	#PAGEADDRBIT,d7	* PC がページ境界をまたいだか？
 	bne	@f
 	jsr	ms_write_mem_16
 	rts
 @@:	PC_page_inc
-	andi.w	#$3fff,d7		* 命令がページ境界をまたぐ時
+	andi.w	#PAGEADDRMASK,d7	* 命令がページ境界をまたぐ時
 	bne	@f
 	jsr	ms_write_mem_16
 	rts
@@ -4586,12 +4586,12 @@ LD_lnnl_SP:
 	lsl.w	#8,d0
 	move.b	0(a4,d7.w),d0		* nn の下位８ビットを読む 
 	addq.w	#2,d7
-	btst.l	#14,d7
+	btst.l	#PAGEADDRBIT,d7	* PC がページ境界をまたいだか？
 	bne	@f
 	jsr	ms_write_mem_16
 	rts
 @@:	PC_page_inc			* 命令がページ境界をまたぐ時
-	andi.w	#$3fff,d7
+	andi.w	#PAGEADDRMASK,d7	* 命令がページ境界をまたぐ時
 	bne	@f
 	jsr	ms_write_mem_16		* d7 = 0 の時
 	rts
@@ -4797,10 +4797,10 @@ LDIR:
 	bne	@f
 	rts
 @@:	subq.w	#2,d7
-	btst.l	#14,d7
+	btst.l	#PAGEADDRBIT,d7	* PC がページ境界をまたいだか？
 	beq	@f			* PC -2 でページ境界をまたいだか？
 	PC_page_dec			* またいだ時
-	andi.w	#$3fff,d7
+	andi.w	#PAGEADDRMASK,d7	* 命令がページ境界をまたぐ時
 @@:	rts
 
 ; LDD の挙動は以下の通り
@@ -4850,10 +4850,10 @@ LDDR:
 	bne	@f
 	rts
 @@:	subq.w	#2,d7
-	btst.l	#14,d7
+	btst.l	#PAGEADDRBIT,d7	* PC がページ境界をまたいだか？
 	beq	@f			* PC -2 でページ境界をまたいだか？
 	PC_page_dec			* またいだ時
-	andi.w	#$3fff,d7
+	andi.w	#PAGEADDRMASK,d7	* 命令がページ境界をまたぐ時
 @@:	rts
 
 
@@ -4912,10 +4912,10 @@ CPIR:	bsr	CPI
 	beq	@f
 	rts
 @@:	subq.w	#2,d7
-	btst.l	#14,d7
+	btst.l	#PAGEADDRBIT,d7	* PC がページ境界をまたいだか？
 	beq	@f			* PC -2 でページ境界をまたいだか？
 	PC_page_dec			* またいだ時
-	andi.w	#$3fff,d7
+	andi.w	#PAGEADDRMASK,d7	* 命令がページ境界をまたぐ時
 @@:	rts
 
 *	------ ＣＰＤ ------
@@ -4975,10 +4975,10 @@ CPDR:	bsr	CPD
 	beq	@f
 	rts
 @@:	subq.w	#2,d7
-	btst.l	#14,d7
+	btst.l	#PAGEADDRBIT,d7	* PC がページ境界をまたいだか？
 	beq	@f			* PC -2 でページ境界をまたいだか？
 	PC_page_dec			* またいだ時
-	andi.w	#$3fff,d7
+	andi.w	#PAGEADDRMASK,d7	* 命令がページ境界をまたぐ時
 @@:	rts
 
 
@@ -5202,10 +5202,10 @@ RETI:	move.w	sp_(a3),d0
 DD:	clr.w	d0
 	move.b	1(a4,d7.w),d0
 	addq.w	#2,d7
-	btst.l	#14,d7
+	btst.l	#PAGEADDRBIT,d7	* PC がページ境界をまたいだか？
 	beq	@f			* PC がページ境界をまたいだか？
 	PC_page_inc			* またいだ時
-	andi.w	#$3fff,d7
+	andi.w	#PAGEADDRMASK,d7	* 命令がページ境界をまたぐ時
 	beq	@f
 	move.b	(a4),d0			* 読み直し
 @@:	move.w	DD_FD_JPT(pc,d0.w*2),d2
@@ -5215,10 +5215,10 @@ DD:	clr.w	d0
 FD:	clr.w	d0
 	move.b	1(a4,d7.w),d0
 	addq.w	#2,d7
-	btst.l	#14,d7
+	btst.l	#PAGEADDRBIT,d7	* PC がページ境界をまたいだか？
 	beq	@f			* PC がページ境界をまたいだか？
 	PC_page_inc			* またいだ時
-	andi.w	#$3fff,d7
+	andi.w	#PAGEADDRMASK,d7	* 命令がページ境界をまたぐ時
 	beq	@f
 	move.b	(a4),d0			* 読み直し
 @@:	move.w	DD_FD_JPT(pc,d0.w*2),d2
@@ -5500,10 +5500,10 @@ DD_FD_JPT:
 
 none_DD_FD:				* その他の DD/FD系の命令は、DD/FDを除いた命令を実行する(例: 0xdd 0x00 なら 0x00 のNOPになる)
 	subq.w	#1,d7			* DD/FDなしの命令を呼び出すが、すでにPCを+2しているので、-1する
-	btst.l	#14,d7
+	btst.l	#PAGEADDRBIT,d7	* PC がページ境界をまたいだか？
 	beq	@f			* PC -1 でページ境界をまたいだか？
 	PC_page_dec			* またいだ時
-	andi.w	#$3fff,d7
+	andi.w	#PAGEADDRMASK,d7	* 命令がページ境界をまたぐ時
 @@:	lea.l	instructions,a0
 	movea.l	(a0,d0.w*4),a0
 	jmp	(a0)
@@ -5531,7 +5531,7 @@ LD_A_IdxL:
 LD_A_n_2:
 	move.b	0(a4,d7.w),d4
 	addq.w	#1,d7			* PC += 1
-	andi.w	#$3fff,d7		* PC がページ境界をまたいだか？
+	andi.w	#PAGEADDRMASK,d7	* PC がページ境界をまたいだか？
 	bne	rts_common
 	PC_page_inc
 	rts
@@ -5559,7 +5559,7 @@ LD_B_IdxL:
 LD_B_n_2:
 	move.b	0(a4,d7.w),b(a3)
 	addq.w	#1,d7			* PC += 1
-	andi.w	#$3fff,d7		* PC がページ境界をまたいだか？
+	andi.w	#PAGEADDRMASK,d7	* PC がページ境界をまたいだか？
 	bne	rts_common
 	PC_page_inc
 	rts
@@ -5587,7 +5587,7 @@ LD_C_IdxL:
 LD_C_n_2:
 	move.b	0(a4,d7.w),c(a3)
 	addq.w	#1,d7			* PC += 1
-	andi.w	#$3fff,d7		* PC がページ境界をまたいだか？
+	andi.w	#PAGEADDRMASK,d7	* PC がページ境界をまたいだか？
 	bne	rts_common
 	PC_page_inc
 	rts
@@ -5615,7 +5615,7 @@ LD_D_IdxL:
 LD_D_n_2:
 	move.b	0(a4,d7.w),d(a3)
 	addq.w	#1,d7			* PC += 1
-	andi.w	#$3fff,d7		* PC がページ境界をまたいだか？
+	andi.w	#PAGEADDRMASK,d7	* PC がページ境界をまたいだか？
 	bne	rts_common
 	PC_page_inc
 	rts
@@ -5643,7 +5643,7 @@ LD_E_IdxL:
 LD_E_n_2:
 	move.b	0(a4,d7.w),e(a3)
 	addq.w	#1,d7			* PC += 1
-	andi.w	#$3fff,d7			* PC がページ境界をまたいだか？
+	andi.w	#PAGEADDRMASK,d7	* 命令がページ境界をまたぐ時
 	bne	rts_common
 	PC_page_inc
 	rts
@@ -5691,24 +5691,24 @@ LD_IdxL_IdxL:
 LD_IdxH_n:
 	move.b	0(a4,d7.w),ix_h(a3,d1.w)
 	addq.w	#1,d7			* PC += 1
-	andi.w	#$3fff,d7		* PC がページ境界をまたいだか？
+	andi.w	#PAGEADDRMASK,d7	* PC がページ境界をまたいだか？
 	bne	rts_common
 	PC_page_inc
 	rts
 LD_IdxL_n:
 	move.b	0(a4,d7.w),ix_l(a3,d1.w)
 	addq.w	#1,d7			* PC += 1
-	andi.w	#$3fff,d7		* PC がページ境界をまたいだか？
+	andi.w	#PAGEADDRMASK,d7	* PC がページ境界をまたいだか？
 	bne	rts_common
 	PC_page_inc
 	rts
 
 DECPC	macro
 	subq.w	#1,d7
-	btst.l	#14,d7
+	btst.l	#PAGEADDRBIT,d7	* PC がページ境界をまたいだか？
 	beq	@f			* PC -1 でページ境界をまたいだか？
 	PC_page_dec			* またいだ時
-	andi.w	#$3fff,d7
+	andi.w	#PAGEADDRMASK,d7	* 命令がページ境界をまたぐ時
 @@:
 	endm
 
@@ -6033,9 +6033,9 @@ LD_Idx_nn:
 	move.b	0(a4,d7.w),ix_l(a3,d1.w)	* nn の下位８ビットを読む 
 	move.b	1(a4,d7.w),ix_h(a3,d1.w)	* nn の上位８ビットを読む 
 	addq.w	#2,d7
-	btst.l	#14,d7
+	btst.l	#PAGEADDRBIT,d7	* PC がページ境界をまたいだか？
 	beq	rts_common
-	andi.w	#$3fff,d7		* 命令がページ境界をまたぐ時
+	andi.w	#PAGEADDRMASK,d7	* 命令がページ境界をまたぐ時
 	bne	@f
 	PC_page_inc		* d7 = 0 の時
 	rts
@@ -6048,12 +6048,12 @@ LD_Idx_lnnl:
 	lsl.w	#8,d0
 	move.b	0(a4,d7.w),d0		* nn の下位８ビットを読む 
 	addq.w	#2,d7
-	btst.l	#14,d7
+	btst.l	#PAGEADDRBIT,d7	* PC がページ境界をまたいだか？
 	bne	@f
 	jsr	ms_read_mem_16
 	move.w	d0,ix(a3,d1.w)
 	rts
-@@:	andi.w	#$3fff,d7		* 命令がページ境界をまたぐ時
+@@:	andi.w	#PAGEADDRMASK,d7	* 命令がページ境界をまたぐ時
 	bne	@f
 	PC_page_inc		* d7 = 0 の時
 	jsr	ms_read_mem_16
@@ -6075,11 +6075,11 @@ LD_lnnl_Idx:
 	lsl.w	#8,d0
 	move.b	0(a4,d7.w),d0		* nn の下位８ビットを読む 
 	addq.w	#2,d7
-	btst.l	#14,d7
+	btst.l	#PAGEADDRBIT,d7	* PC がページ境界をまたいだか？
 	bne	@f
 	jsr	ms_write_mem_16
 	rts
-@@:	andi.w	#$3fff,d7		* 命令がページ境界をまたぐ時
+@@:	andi.w	#PAGEADDRMASK,d7	* 命令がページ境界をまたぐ時
 	bne	@f
 	PC_page_inc		* d7 = 0 の時
 	jsr	ms_write_mem_16
@@ -6113,7 +6113,7 @@ LD_A_lIdx_dl:
 	ext.w	d1
 	add.w	d1,d0
 	add.w	#1,d7
-	andi.w	#$3fff,d7		* PC がページ境界をまたいだか？
+	andi.w	#PAGEADDRMASK,d7	* PC がページ境界をまたいだか？
 	bne	1f
 	PC_page_inc
 1:
@@ -6127,7 +6127,7 @@ LD_B_lIdx_dl:
 	ext.w	d1
 	add.w	d1,d0
 	add.w	#1,d7
-	andi.w	#$3fff,d7		* PC がページ境界をまたいだか？
+	andi.w	#PAGEADDRMASK,d7	* PC がページ境界をまたいだか？
 	bne	1f
 	PC_page_inc
 1:
@@ -6141,7 +6141,7 @@ LD_C_lIdx_dl:
 	ext.w	d1
 	add.w	d1,d0
 	add.w	#1,d7
-	andi.w	#$3fff,d7		* PC がページ境界をまたいだか？
+	andi.w	#PAGEADDRMASK,d7	* PC がページ境界をまたいだか？
 	bne	1f
 	PC_page_inc
 1:
@@ -6155,7 +6155,7 @@ LD_D_lIdx_dl:
 	ext.w	d1
 	add.w	d1,d0
 	add.w	#1,d7
-	andi.w	#$3fff,d7		* PC がページ境界をまたいだか？
+	andi.w	#PAGEADDRMASK,d7	* PC がページ境界をまたいだか？
 	bne	1f
 	PC_page_inc
 1:
@@ -6169,7 +6169,7 @@ LD_E_lIdx_dl:
 	ext.w	d1
 	add.w	d1,d0
 	add.w	#1,d7
-	andi.w	#$3fff,d7		* PC がページ境界をまたいだか？
+	andi.w	#PAGEADDRMASK,d7	* PC がページ境界をまたいだか？
 	bne	1f
 	PC_page_inc
 1:
@@ -6183,7 +6183,7 @@ LD_H_lIdx_dl:
 	ext.w	d1
 	add.w	d1,d0
 	add.w	#1,d7
-	andi.w	#$3fff,d7		* PC がページ境界をまたいだか？
+	andi.w	#PAGEADDRMASK,d7	* PC がページ境界をまたいだか？
 	bne	1f
 	PC_page_inc
 1:
@@ -6197,7 +6197,7 @@ LD_L_lIdx_dl:
 	ext.w	d1
 	add.w	d1,d0
 	add.w	#1,d7
-	andi.w	#$3fff,d7		* PC がページ境界をまたいだか？
+	andi.w	#PAGEADDRMASK,d7	* PC がページ境界をまたいだか？
 	bne	1f
 	PC_page_inc
 1:
@@ -6213,7 +6213,7 @@ LD_lIdx_dl_A:
 	ext.w	d1
 	add.w	d1,d0
 	add.w	#1,d7
-	andi.w	#$3fff,d7		* PC がページ境界をまたいだか？
+	andi.w	#PAGEADDRMASK,d7	* PC がページ境界をまたいだか？
 	bne	1f
 	PC_page_inc
 1:
@@ -6227,7 +6227,7 @@ LD_lIdx_dl_B:
 	ext.w	d1
 	add.w	d1,d0
 	add.w	#1,d7
-	andi.w	#$3fff,d7		* PC がページ境界をまたいだか？
+	andi.w	#PAGEADDRMASK,d7	* PC がページ境界をまたいだか？
 	bne	1f
 	PC_page_inc
 1:
@@ -6241,7 +6241,7 @@ LD_lIdx_dl_C:
 	ext.w	d1
 	add.w	d1,d0
 	add.w	#1,d7
-	andi.w	#$3fff,d7		* PC がページ境界をまたいだか？
+	andi.w	#PAGEADDRMASK,d7	* PC がページ境界をまたいだか？
 	bne	1f
 	PC_page_inc
 1:
@@ -6255,7 +6255,7 @@ LD_lIdx_dl_D:
 	ext.w	d1
 	add.w	d1,d0
 	add.w	#1,d7
-	andi.w	#$3fff,d7		* PC がページ境界をまたいだか？
+	andi.w	#PAGEADDRMASK,d7	* PC がページ境界をまたいだか？
 	bne	1f
 	PC_page_inc
 1:
@@ -6269,7 +6269,7 @@ LD_lIdx_dl_E:
 	ext.w	d1
 	add.w	d1,d0
 	add.w	#1,d7
-	andi.w	#$3fff,d7		* PC がページ境界をまたいだか？
+	andi.w	#PAGEADDRMASK,d7	* PC がページ境界をまたいだか？
 	bne	1f
 	PC_page_inc
 1:
@@ -6283,7 +6283,7 @@ LD_lIdx_dl_H:
 	ext.w	d1
 	add.w	d1,d0
 	add.w	#1,d7
-	andi.w	#$3fff,d7		* PC がページ境界をまたいだか？
+	andi.w	#PAGEADDRMASK,d7	* PC がページ境界をまたいだか？
 	bne	1f
 	PC_page_inc
 1:
@@ -6297,7 +6297,7 @@ LD_lIdx_dl_L:
 	ext.w	d1
 	add.w	d1,d0
 	add.w	#1,d7
-	andi.w	#$3fff,d7		* PC がページ境界をまたいだか？
+	andi.w	#PAGEADDRMASK,d7	* PC がページ境界をまたいだか？
 	bne	1f
 	PC_page_inc
 1:
@@ -6312,11 +6312,11 @@ LD_lIdx_dl_n:
 	add.w	d1,d0
 	move.b	1(a4,d7.w),d1		* n を読む
 	add.w	#2,d7
-	btst.l	#14,d7
+	btst.l	#PAGEADDRBIT,d7	* PC がページ境界をまたいだか？
 	bne	1f
 	jsr	ms_write_mem_8
 	rts
-1:	andi.w	#$3fff,d7		* 命令がページ境界をまたぐ時
+1:	andi.w	#PAGEADDRMASK,d7	* 命令がページ境界をまたぐ時
 	bne	1f
 	PC_page_inc		* d7 = 0 の時
 	jsr	ms_write_mem_8
@@ -6388,9 +6388,9 @@ DD_FD_CB:
 	clr.w	d2
 	move.b	1(a4,d7.w),d2		* OP CODE を読む
 	add.w	#2,d7
-	btst.l	#14,d7
+	btst.l	#PAGEADDRBIT,d7	* PC がページ境界をまたいだか？
 	beq	1f
-	andi.w	#$3fff,d7		* 命令がページ境界をまたぐとき
+	andi.w	#PAGEADDRMASK,d7	* 命令がページ境界をまたぐ時
 	bne	@f
 	PC_page_inc			* d7 = 0 のとき
 	bra	1f
@@ -6851,10 +6851,10 @@ BIT_lIdx_dl:
 *	------ ＩＮ ------
 IN_A_n:	move.b	1(a4,d7.w),d0		* n を読む
 	addq.w	#2,d7			* PC += 2
-	btst.l	#14,d7			* PC がページ境界をまたいだか？
+	btst.l	#PAGEADDRBIT,d7	* PC がページ境界をまたいだか？
 	beq	@f
 	PC_page_inc
-	andi.w	#$3fff,d7
+	andi.w	#PAGEADDRMASK,d7	* 命令がページ境界をまたぐ時
 	beq	@f
 	move.b	(a4),d0
 @@:	bsr	input
@@ -6953,10 +6953,10 @@ INIR:	bsr	INI
 	bne	@f
 	rts
 @@:	subq.w	#2,d7
-	btst.l	#14,d7
+	btst.l	#PAGEADDRBIT,d7	* PC がページ境界をまたいだか？
 	beq	@f			* PC -2 でページ境界をまたいだか？
 	PC_page_dec			* またいだ時
-	andi.w	#$3fff,d7
+	andi.w	#PAGEADDRMASK,d7	* 命令がページ境界をまたぐ時
 @@:	rts
 
 *	------ ＩＮＤＲ ------
@@ -6965,10 +6965,10 @@ INDR:	bsr	IND
 	bne	@f
 	rts
 @@:	subq.w	#2,d7
-	btst.l	#14,d7
+	btst.l	#PAGEADDRBIT,d7	* PC がページ境界をまたいだか？
 	beq	@f			* PC -2 でページ境界をまたいだか？
 	PC_page_dec			* またいだ時
-	andi.w	#$3fff,d7
+	andi.w	#PAGEADDRMASK,d7	* 命令がページ境界をまたぐ時
 @@:	rts
 
 	
@@ -6976,10 +6976,10 @@ INDR:	bsr	IND
 OUT_n_A:
 	move.b	1(a4,d7.w),d0		* n を読む
 	addq.w	#2,d7			* PC += 2
-	btst.l	#14,d7			* PC がページ境界をまたいだか？
+	btst.l	#PAGEADDRBIT,d7	* PC がページ境界をまたいだか？
 	beq	@f
 	PC_page_inc
-	andi.w	#$3fff,d7
+	andi.w	#PAGEADDRMASK,d7	* 命令がページ境界をまたぐ時
 	beq	@f
 	move.b	(a4),d0
 @@:	move.b	d4,d1
@@ -7067,10 +7067,10 @@ OTIR:	bsr	OUTI
 	bne	@f
 	rts
 @@:	subq.w	#2,d7
-	btst.l	#14,d7
+	btst.l	#PAGEADDRBIT,d7	* PC がページ境界をまたいだか？
 	beq	@f			* PC -2 でページ境界をまたいだか？
 	PC_page_dec			* またいだ時
-	andi.w	#$3fff,d7
+	andi.w	#PAGEADDRMASK,d7	* 命令がページ境界をまたぐ時
 @@:	rts
 
 *	------ ＯＴＤＲ ------
@@ -7079,10 +7079,10 @@ OTDR:	bsr	OUTD
 	bne	@f
 	rts
 @@:	subq.w	#2,d7
-	btst.l	#14,d7
+	btst.l	#PAGEADDRBIT,d7	* PC がページ境界をまたいだか？
 	beq	@f			* PC -2 でページ境界をまたいだか？
 	PC_page_dec			* またいだ時
-	andi.w	#$3fff,d7
+	andi.w	#PAGEADDRMASK,d7	* 命令がページ境界をまたぐ時
 @@:	rts
 
 

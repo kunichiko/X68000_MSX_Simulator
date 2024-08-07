@@ -1,3 +1,7 @@
+SRC_DIR = src
+BUILD_DIR = build
+EXE_DIR = exe
+
 CROSS = m68k-xelf-
 CC = $(CROSS)gcc
 #AS = $(CROSS)as
@@ -13,12 +17,8 @@ LDFLAGS = -lm -lbas -liocs -ldos
 #LD = m68k-xelf-ld.x
 #LD_OPTS = -L /Users/ohnaka/work/XEiJ/HFS/XGCC/LIB/
 
-ASFLAGS = -i /Users/ohnaka/work/XEiJ/HFS/XGCC/INCLUDE/ -w0
-ASFLAGS_DEBUG = -d -i /Users/ohnaka/work/XEiJ/HFS/XGCC/INCLUDE/ -w0
-
-SRC_DIR = src
-BUILD_DIR = build
-EXE_DIR = exe
+ASFLAGS = -i $(SRC_DIR) -i /Users/ohnaka/work/XEiJ/HFS/XGCC/INCLUDE/ -w0
+ASFLAGS_DEBUG = -d -i $(SRC_DIR) -i /Users/ohnaka/work/XEiJ/HFS/XGCC/INCLUDE/ -w0
 
 all: copy_to_target_all
 
@@ -51,7 +51,7 @@ ${BUILD_DIR}/ms_debug.x: $(BUILD_DIR)/ms_d.o $(BUILD_DIR)/ms_R800_mac_30_d.o $(B
 ${BUILD_DIR}/%_d.o: $(SRC_DIR)/%.c $(SRC_DIR)/ms_R800.h
 	$(CC) $(CFLAGS_DEBUG) $< -o $@
 
-${BUILD_DIR}/%_d.o: $(SRC_DIR)/%.has
+${BUILD_DIR}/%_d.o: $(SRC_DIR)/%.has $(SRC_DIR)/ms.mac
 	$(AS) $(ASFLAGS_DEBUG) $< -o $@.tmp
 	x68k2elf.py $@.tmp $@
 	rm $@.tmp

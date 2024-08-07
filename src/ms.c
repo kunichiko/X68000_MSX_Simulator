@@ -77,8 +77,10 @@ void ms_memmap_set_rom( void* address, const char* filename, int kind, int slot,
 void ms_memmap_register_rom( void* address, int kind, int slot, int page);
 
 int emuLoop(unsigned int pc, unsigned int counter);
-void allocateAndSetROM(size_t size, const char* romFileName, int param1, int param2, int param3);
-void allocateAndSetROMAuto(const char *romFileName);
+
+void set_system_roms(void);
+void allocateAndSetROM(const char* romFileName, int kind, int slot, int page);
+void allocateAndSetROM_Cartridge(const char* romFileName);
 
 void _toggleTextPlane(void);
 void _setTextPlane(int textPlaneMode);
@@ -131,20 +133,24 @@ static unsigned char *ROM;
 
 int disablekey = 0;
 
+const char *mainrom_cbios = "cbios_main_msx1_jp.rom";
+const char *cbioslogo = "cbios_logo_msx1.rom";
+const char *subrom_cbios = "cbios_sub.rom";
+
+char *mainrom_user = "MAINROM.ROM";
+char *subrom_user = "SUBROM.ROM";
+
 /*
 	メイン関数
 
 	起動オプション：
-		-m1 filename	: MAIN ROMを指定したものに変更します(前半16K)
-		-m2 filename	: MAIN ROMを指定したものに変更します(後半16K)
+		-m filename		: MAIN ROMを指定したものに変更します(32Kバイト)
 		-rxx filename	: スロットにfilenameをセットします
 			xx: 10の位 = スロット番号, 1の位 = ページ番号
 			例：-r11 GAME1.ROM	: スロット1-ページ1にGAME1.ROMをセット				
 */
 int main(int argc, char *argv[]) {
 	int i, j;
-	char *mainrom1_path = "MAINROM1.ROM"; // デフォルトのMAIN ROM1パス
-	char *mainrom2_path = "MAINROM2.ROM"; // デフォルトのmAIN ROM2パス
 	char *cartridge_path = NULL; // カートリッジのパス
 	char *slot_path[4][4]; // 個々のスロットにセットするROMのパス
 	int opt;
@@ -185,19 +191,10 @@ int main(int argc, char *argv[]) {
 		case 'h': // -h オプション
 			printHelpAndExit(argv[0]);
 			break;
-		case 'm': // -mN オプション
-			if (strlen(optarg) == 1 && isdigit(optarg[0]))
-			{ 
-				if (argv[optind] != NULL)
-				{
-					if (optarg[0] == '1')
-					{
-						mainrom1_path = argv[optind++];
-					} else if (optarg[0] == '2')
-					{
-						mainrom2_path = argv[optind++];
-					}
-				}
+		case 'm': // -m オプション
+			if (optarg != NULL)
+			{
+				mainrom_user = optarg;
 			}
 			break;
 		case 'r': // -rNN オプション
@@ -362,14 +359,9 @@ int main(int argc, char *argv[]) {
 
 
 	/*
-	 ROMのセット
+	 SYSTEM ROMのセット
 	 */
-
-	/* ＭＡＩＮＲＯＭ（前半:16K, 後半:16K */
-	allocateAndSetROM(16 * 1024, mainrom1_path, 2, 0x00, 0);
-	allocateAndSetROM(16 * 1024, mainrom2_path, 2, 0x00, 1);
-	/* ＳＵＢＲＯＭ 16K */
-	allocateAndSetROM(16 * 1024, "SUBROM.ROM", 2, 0x0d, 0);
+	set_system_roms();
 
 	/* 基本スロット1-ページ1のROM配置 (32KBytesゲームの前半16Kなど）	*/
 	//	allocateAndSetROM( 16 * 1024,"GAME1.ROM", (int)2, (int)0x04, (int)1 );
@@ -379,14 +371,14 @@ int main(int argc, char *argv[]) {
 	for ( i = 0; i < 4; i++) {
 		for ( j = 0; j < 4; j++) {
 			if ( slot_path[i][j] != NULL) {
-				allocateAndSetROM(16 * 1024, slot_path[i][j], 2, i<<2, j);
+				allocateAndSetROM(slot_path[i][j], ROM_TYPE_NORMAL_ROM, i<<2, j);
 			}
 		}
 	}
 
 	// サイズを自動判別してROMをセット
 	if (cartridge_path != NULL) {
-		allocateAndSetROMAuto(cartridge_path);
+		allocateAndSetROM_Cartridge(cartridge_path);
 	}
 
 	printf("X680x0 MSXシミュレーター with elf2x68k\n");
@@ -668,25 +660,40 @@ void _setTextPlane(int textPlaneMode) {
 	}
 }
 
-void allocateAndSetROM(size_t size, const char *romFileName, int kind, int slot, int page)
-{
-	void *ROM = new_malloc(size + 8);
-	if (ROM > (void *)0x81000000)
-	{
-		printf("メモリが確保できません\n");
-		ms_exit();
-	}
-	ms_memmap_set_rom(ROM, romFileName, kind, slot, page);
+int file_exists(const char *filename) {
+    FILE *file = fopen(filename, "r");
+    if (file) {
+        fclose(file);
+        return 1;
+    }
+    return 0;
+}
+
+void set_system_roms() {
+	if (file_exists(mainrom_user) && file_exists(subrom_user)) {
+		// Load user-provided ROMs
+		allocateAndSetROM(mainrom_user, ROM_TYPE_NORMAL_ROM, 0x00, 0);
+		allocateAndSetROM(subrom_user, ROM_TYPE_NORMAL_ROM, 0x0d, 0);
+    } else {
+        // Load default CBIOS ROMs
+		allocateAndSetROM(mainrom_cbios, ROM_TYPE_NORMAL_ROM, 0x00, 0);
+		allocateAndSetROM(cbioslogo, ROM_TYPE_NORMAL_ROM, 0x00, 2);
+		allocateAndSetROM(subrom_cbios, ROM_TYPE_NORMAL_ROM, 0x0d, 0);
+    }
 }
 
 extern int filelength(int fh);
 #define h_length 8
 
-void allocateAndSetROMAuto(const char *romFileName) {
-	int crt_fh;			/* カートリッジファイルの fh が入る	*/
+void allocateAndSetROM_Cartridge(const char *romFileName) {
+	allocateAndSetROM(romFileName, ROM_TYPE_NORMAL_ROM, 1<<2, 1);
+}
+
+void allocateAndSetROM(const char *romFileName, int kind, int slot, int page) {
+	int crt_fh;
 	int crt_length;
 	uint8_t *crt_buff;
-	int page;
+	int i;
 
 	crt_fh = open( romFileName, O_RDONLY | O_BINARY);
 	if (crt_fh == -1) {
@@ -703,7 +710,7 @@ void allocateAndSetROMAuto(const char *romFileName) {
 
 	// 16Kバイトずつ読み込んでROMにセット
 	if( crt_length <= 32 * 1024 ) {
-		for(page = 1; page <= 2; page++) {
+		for(i = 0; i < 2; i++) {
 			if(crt_length < 16 * 1024) {
 				break;
 			}
@@ -713,12 +720,12 @@ void allocateAndSetROMAuto(const char *romFileName) {
 				return;
 			}
 			read( crt_fh, crt_buff + h_length, 16 * 1024);
-			int i;
-			for(i = 0; i < 16; i++) {
-				printf("%02x ", crt_buff[h_length + i]);
-			}
-			printf("\n");
-			ms_memmap_register_rom(crt_buff, 2, 1 <<2, page);
+			// int j;
+			// for(j = 0; j < 16; j++) {
+			// 	printf("%02x ", crt_buff[h_length + i]);
+			// }
+			// printf("\n");
+			ms_memmap_register_rom(crt_buff, kind, slot, page + i);
 			crt_length -= 16 * 1024;
 		}
 	} else {
