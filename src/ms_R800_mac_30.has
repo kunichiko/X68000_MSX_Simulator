@@ -3376,9 +3376,9 @@ RRA:	RXXA	0, 0
 
 *	------ ‚g‚`‚k‚s ------
 HALT:
-	pea.l	halt_msg
-	DOS	__PRINT
-	lea.l	4(sp),sp
+	; pea.l	halt_msg
+	; DOS	__PRINT
+	; lea.l	4(sp),sp
 	addq.w	#1,d7			* PC += 1
 	andi.w	#PAGEADDRMASK,d7	* PC ‚ªƒy[ƒW‹«ŠE‚ğ‚Ü‚½‚¢‚¾‚©H
 	bne	9f

@@ -8,6 +8,17 @@
 
 */
 
+#define ROM_TYPE_NOTHING		0
+#define ROM_TYPE_MAPPER_RAM		1
+#define ROM_TYPE_NORMAL_ROM		2
+#define ROM_TYPE_MEGA_ROM_8		3
+#define ROM_TYPE_MEGA_ROM_16	4
+#define ROM_TYPE_MEGA_ROM_SCC	5
+#define ROM_TYPE_SOUND_CARTRIG	6
+#define ROM_TYPE_MEGA_ROM_PANA	7
+#define ROM_TYPE_DOS_ROM		8
+#define ROM_TYPE_PAC			9
+
 /*	ÉXÉçÉbÉgÇ™ägí£Ç≥ÇÍÇƒÇ¢ÇÈÇ©Ç«Ç§Ç©	*/
 struct slot_ex_info_st {
 	char slot_0;
