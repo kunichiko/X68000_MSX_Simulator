@@ -19,9 +19,22 @@
 	.xref	emu_yield
 	.xref	host_delay
 
+	.xref	ms_vdp_set_mode
+
+	.xdef	ms_vdp
 	; functions
-	.xdef	ms_vdp_init
-	.xdef	ms_vdp_deinit
+	.xdef	ms_vdp_init_mac
+	.xdef	ms_vdp_deinit_mac
+	.xdef	set_GRAPHIC1_mac
+	.xdef	set_TEXT1_mac
+	.xdef	set_MULTICOLOR_mac
+	.xdef	set_GRAPHIC2_mac
+	.xdef	set_GRAPHIC3_mac
+	.xdef	set_TEXT2_mac
+	.xdef	set_GRAPHIC4_mac
+	.xdef	set_GRAPHIC5_mac
+	.xdef	set_GRAPHIC6_mac
+	.xdef	set_GRAPHIC7_mac
 
 	.xdef	read_vdp_0
 	.xdef	read_vdp_1
@@ -121,7 +134,7 @@ SPCON_RES	equ	$eb0810		* スプライトコントローラ 画面モードレジスタ V-Res, H-Res
 *	成功時は1を返す
 *
 ***************************************************************
-ms_vdp_init:
+ms_vdp_init_mac:
 	link	a6,#0
 	movem.l	d3-d7/a0-a5,-(sp)
 
@@ -175,6 +188,9 @@ ms_vdp_init:
 	move.w	#40,SPCON_VDISP		* CRTC R06 の値
 
 	bsr	enable_backdrop			* バックドロップの設定
+
+	* スプライトだけ 256x256モードにする
+	move.w	#%1_00_00,SPCON_RES
 
 	* プライオリティの設定
 	* b15:14 (NONE)
@@ -238,7 +254,7 @@ vdp_interrupt:
 ;
 ; ＶＤＰの終了処理
 ;
-ms_vdp_deinit:
+ms_vdp_deinit_mac:
 	move.w	sr,d0
 	move.w	d0,-(sp)		* sr を保存
 	or.w	#%00000111_00000000,d0	* 一時的に割り込み禁止
@@ -1165,64 +1181,13 @@ set_CRT:
 	bne	@f
 	rts
 @@:	move.b	d0,CRT_mode		* ＣＲＴＭＯＤＥレジスターの更新
-	add.w	d0,d0
-	add.w	d0,d0
-	lea	set_CRT_jpt,a0
-	move.l	(a0,d0.w),a0
-	jmp	(a0)
-
-	.data
-
-set_CRT_jpt:
-	.dc.l	set_GRAPHIC1	* 0x00
-	.dc.l	set_TEXT1	* 0x01
-	.dc.l	set_MULTICOLOR	* 0x02
-	.dc.l	no_mode
-	.dc.l	set_GRAPHIC2	* 0x04
-	.dc.l	no_mode
-	.dc.l	no_mode
-	.dc.l	no_mode
-	.dc.l	set_GRAPHIC3	* 0x08
-	.dc.l	set_TEXT2	* 0x09
-	.dc.l	no_mode
-	.dc.l	no_mode
-	.dc.l	set_GRAPHIC4	* 0x0c
-	.dc.l	no_mode
-	.dc.l	no_mode
-	.dc.l	no_mode
-	.dc.l	set_GRAPHIC5	* 0x10
-	.dc.l	no_mode
-	.dc.l	no_mode
-	.dc.l	no_mode
-	.dc.l	set_GRAPHIC6	* 0x14
-	.dc.l	no_mode
-	.dc.l	no_mode
-	.dc.l	no_mode
-	.dc.l	no_mode
-	.dc.l	no_mode
-	.dc.l	no_mode
-	.dc.l	no_mode
-	.dc.l	set_GRAPHIC7	* 0x1c
-	.dc.l	no_mode
-	.dc.l	no_mode
-	.dc.l	no_mode
-
-	.text
-
-*	00000		GRAPHIC1
-*	00001		TEXT1
-*	00010		multicolor
-*	00100		GRAPHIC2
-*	01000		GRAPHIC3
-*	01001		TEXT2
-*	01100		GRAPHIC4
-*	10000		GRAPHIC5
-*	10100		GRAPHIC6
-*	11100		GRAPHIC7
-no_mode:
+	ext.l	d0
+	move.l	d0,-(sp)
+	bsr	ms_vdp_set_mode
+	lea	4(sp),sp
 	rts
 
-set_TEXT1:
+set_TEXT1_mac:
 	move.w	#0,display_mode
 
 	move.w	CRTR_20,d0			* CRT レジスタの設定
@@ -1268,7 +1233,7 @@ set_TEXT1:
 
 	rts
 
-set_TEXT2:
+set_TEXT2_mac:
 	move.w	#1,display_mode
 
 	move.w	CRTR_20,d0			* CRT レジスタの設定
@@ -1309,7 +1274,7 @@ set_TEXT2:
 
 	rts
 
-set_MULTICOLOR:
+set_MULTICOLOR_mac:
 	move.w	#2,display_mode
 
 	move.w	CRTR_20,d0			* CRT レジスタの設定
@@ -1339,7 +1304,7 @@ set_MULTICOLOR:
 	rts
 
 
-set_GRAPHIC1:
+set_GRAPHIC1_mac:
 	move.w	#3,display_mode
 
 	move.w	CRTR_20,d0			* CRT レジスタの設定
@@ -1368,7 +1333,7 @@ set_GRAPHIC1:
 
 	rts
 
-set_GRAPHIC2:
+set_GRAPHIC2_mac:
 	move.w	#4,display_mode
 
 	move.w	CRTR_20,d0			* CRT レジスタの設定
@@ -1397,10 +1362,10 @@ set_GRAPHIC2:
 
 	rts
 
-set_GRAPHIC3:
+set_GRAPHIC3_mac:
 	rts
 
-set_GRAPHIC4:
+set_GRAPHIC4_mac:
 	move.w	#6,display_mode
 
 	move.w	CRTR_20,d0			* CRT レジスタの設定
@@ -1436,7 +1401,7 @@ set_GRAPHIC4:
 
 	rts
 
-set_GRAPHIC5:
+set_GRAPHIC5_mac:
 	move.w	#7,display_mode
 
 	move.w	CRTR_20,d0			* CRT レジスタの設定
@@ -1471,7 +1436,7 @@ set_GRAPHIC5:
 
 	rts
 
-set_GRAPHIC6:
+set_GRAPHIC6_mac:
 	move.w	#8,display_mode
 
 	move.w	CRTR_20,d0			* CRT レジスタの設定
@@ -1505,7 +1470,7 @@ set_GRAPHIC6:
 
 	rts
 
-set_GRAPHIC7:
+set_GRAPHIC7_mac:
 	move.w	#9,display_mode
 
 	move.w	CRTR_20,d0			* CRT レジスタの設定
@@ -1541,9 +1506,6 @@ set_GRAPHIC7:
 
 	rts
 
-set_SCREEN10:
-set_SCREEN12:
-	rts
 
 ***************************************************************
 *
@@ -3392,6 +3354,7 @@ rewrite_f_7	.dc.l	0
 
 
 *	------ ＶＤＰ Ｒｅｇｉｓｔｅｒｓ ------
+ms_vdp:
 *	コントロールレジスタ
 Control_registers:
 R_00:	.dc.b	0		* Mode register 0

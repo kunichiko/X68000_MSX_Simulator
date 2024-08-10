@@ -1,4 +1,5 @@
 SRC_DIR = src
+VDP_DIR = $(SRC_DIR)/vdp
 BUILD_DIR = build
 EXE_DIR = exe
 
@@ -17,8 +18,61 @@ LDFLAGS = -lm -lbas -liocs -ldos
 #LD = m68k-xelf-ld.x
 #LD_OPTS = -L /Users/ohnaka/work/XEiJ/HFS/XGCC/LIB/
 
-ASFLAGS = -i $(SRC_DIR) -i /Users/ohnaka/work/XEiJ/HFS/XGCC/INCLUDE/ -w0
-ASFLAGS_DEBUG = -d -i $(SRC_DIR) -i /Users/ohnaka/work/XEiJ/HFS/XGCC/INCLUDE/ -w0
+ASFLAGS = -i $(SRC_DIR) -i $(VDP_DIR) -i /Users/ohnaka/work/XEiJ/HFS/XGCC/INCLUDE/ -w0
+ASFLAGS_DEBUG = -d -i $(SRC_DIR) -i $(VDP_DIR) -i /Users/ohnaka/work/XEiJ/HFS/XGCC/INCLUDE/ -w0
+
+# オブジェクトファイルのリストを変数にまとめる
+OBJS = $(BUILD_DIR)/ms.o \
+		$(BUILD_DIR)/ms_R800_mac_30.o \
+		$(BUILD_DIR)/ms_R800_flag.o \
+		$(BUILD_DIR)/ms_iomap.o \
+		$(BUILD_DIR)/ms_memmap.o \
+		$(BUILD_DIR)/ms_vdp_mac.o \
+		$(BUILD_DIR)/ms_sysvalue.o \
+		$(BUILD_DIR)/ms_sub_mac.o \
+		$(BUILD_DIR)/ms_IO_PORT.o \
+		$(BUILD_DIR)/ms_PSG_mac.o \
+		$(BUILD_DIR)/ms_readcart.o \
+		$(BUILD_DIR)/ms_vdp.o \
+		$(BUILD_DIR)/ms_vdp_mac.o \
+		$(BUILD_DIR)/ms_vdp_TEXT1.o \
+		$(BUILD_DIR)/ms_vdp_TEXT2.o \
+		$(BUILD_DIR)/ms_vdp_MULTICOLOR.o \
+		$(BUILD_DIR)/ms_vdp_GRAPHIC1.o \
+		$(BUILD_DIR)/ms_vdp_GRAPHIC2.o \
+		$(BUILD_DIR)/ms_vdp_GRAPHIC3.o \
+		$(BUILD_DIR)/ms_vdp_GRAPHIC4.o \
+		$(BUILD_DIR)/ms_vdp_GRAPHIC5.o \
+		$(BUILD_DIR)/ms_vdp_GRAPHIC6.o \
+		$(BUILD_DIR)/ms_vdp_GRAPHIC7.o \
+		$(BUILD_DIR)/ms_vdp_SCREEN10.o \
+		$(BUILD_DIR)/ms_vdp_SCREEN12.o
+
+OBJS_DEBUG = $(BUILD_DIR)/ms_d.o \
+		$(BUILD_DIR)/ms_R800_mac_30_d.o \
+		$(BUILD_DIR)/ms_R800_flag_d.o \
+		$(BUILD_DIR)/ms_iomap_d.o \
+		$(BUILD_DIR)/ms_memmap_d.o \
+		$(BUILD_DIR)/ms_vdp_mac_d.o \
+		$(BUILD_DIR)/ms_sysvalue_d.o \
+		$(BUILD_DIR)/ms_sub_mac_d.o \
+		$(BUILD_DIR)/ms_IO_PORT_d.o \
+		$(BUILD_DIR)/ms_PSG_mac_d.o \
+		$(BUILD_DIR)/ms_readcart_d.o \
+		$(BUILD_DIR)/ms_vdp_d.o \
+		$(BUILD_DIR)/ms_vdp_mac_d.o \
+		$(BUILD_DIR)/ms_vdp_TEXT1_d.o \
+		$(BUILD_DIR)/ms_vdp_TEXT2_d.o \
+		$(BUILD_DIR)/ms_vdp_MULTICOLOR_d.o \
+		$(BUILD_DIR)/ms_vdp_GRAPHIC1_d.o \
+		$(BUILD_DIR)/ms_vdp_GRAPHIC2_d.o \
+		$(BUILD_DIR)/ms_vdp_GRAPHIC3_d.o \
+		$(BUILD_DIR)/ms_vdp_GRAPHIC4_d.o \
+		$(BUILD_DIR)/ms_vdp_GRAPHIC5_d.o \
+		$(BUILD_DIR)/ms_vdp_GRAPHIC6_d.o \
+		$(BUILD_DIR)/ms_vdp_GRAPHIC7_d.o \
+		$(BUILD_DIR)/ms_vdp_SCREEN10_d.o \
+		$(BUILD_DIR)/ms_vdp_SCREEN12_d.o
 
 all: copy_to_target_all
 
@@ -42,10 +96,10 @@ copy_to_target_debug: ${BUILD_DIR} ${BUILD_DIR}/ms_debug.x
 	cp ${BUILD_DIR}/ms_debug.x.elf ${EXE_DIR}/
 	cp ${BUILD_DIR}/ms_debug.x /Users/ohnaka/work/XEiJ/HFS/MS.X/
 
-${BUILD_DIR}/ms.x: $(BUILD_DIR)/ms.o $(BUILD_DIR)/ms_R800_mac_30.o $(BUILD_DIR)/ms_R800_flag.o $(BUILD_DIR)/ms_iomap.o $(BUILD_DIR)/ms_memmap.o $(BUILD_DIR)/ms_vdp_mac.o $(BUILD_DIR)/ms_sysvalue.o $(BUILD_DIR)/ms_sub_mac.o $(BUILD_DIR)/ms_IO_PORT.o $(BUILD_DIR)/ms_PSG_mac.o $(BUILD_DIR)/ms_readcart.o #$(BUILD_DIR)/ms_debugger_mac.o
+${BUILD_DIR}/ms.x: $(OBJS)
 	$(LD) $(LDFLAGS) -o $@ $^
 
-${BUILD_DIR}/ms_debug.x: $(BUILD_DIR)/ms_d.o $(BUILD_DIR)/ms_R800_mac_30_d.o $(BUILD_DIR)/ms_R800_flag_d.o $(BUILD_DIR)/ms_iomap_d.o $(BUILD_DIR)/ms_memmap_d.o $(BUILD_DIR)/ms_vdp_mac_d.o $(BUILD_DIR)/ms_sysvalue_d.o $(BUILD_DIR)/ms_sub_mac_d.o $(BUILD_DIR)/ms_IO_PORT_d.o $(BUILD_DIR)/ms_PSG_mac_d.o $(BUILD_DIR)/ms_readcart_d.o #$(BUILD_DIR)/ms_debugger_mac_d.o
+${BUILD_DIR}/ms_debug.x: $(OBJS_DEBUG)
 	$(LD) $(LDFLAGS) -o $@ $^
 
 ${BUILD_DIR}/%_d.o: $(SRC_DIR)/%.c $(SRC_DIR)/ms_R800.h
@@ -61,6 +115,23 @@ ${BUILD_DIR}/%.o: $(SRC_DIR)/%.c $(SRC_DIR)/ms_R800.h
 
 ${BUILD_DIR}/%.o: $(SRC_DIR)/%.has
 	$(AS) $(ASFLAGS) $< -o $@.tmp
+	x68k2elf.py $@.tmp $@
+	rm $@.tmp
+
+# VDP files
+${BUILD_DIR}/%.o: $(VDP_DIR)/%.c $(VDP_DIR)/ms_vdp.h
+	$(CC) $(CFLAGS) $< -o $@
+
+${BUILD_DIR}/%_d.o: $(VDP_DIR)/%.c $(VDP_DIR)/ms_vdp.h
+	$(CC) $(CFLAGS_DEBUG) $< -o $@
+
+${BUILD_DIR}/%.o: $(VDP_DIR)/%.has
+	$(AS) $(ASFLAGS) $< -o $@.tmp
+	x68k2elf.py $@.tmp $@
+	rm $@.tmp
+
+${BUILD_DIR}/%_d.o: $(VDP_DIR)/%.has $(SRC_DIR)/ms.mac
+	$(AS) $(ASFLAGS_DEBUG) $< -o $@.tmp
 	x68k2elf.py $@.tmp $@
 	rm $@.tmp
 
