@@ -6,12 +6,9 @@
 
 extern ms_vdp_t ms_vdp;
 
-void ms_dummy_func() {
-	printf("dummy\n");
-}
+ms_vdp_mode_t *ms_vdp_current_mode;
 
-ms_vdp_mode_t *current_mode;
-
+extern ms_vdp_mode_t ms_vdp_DEFAULT;
 extern ms_vdp_mode_t ms_vdp_TEXT1;
 extern ms_vdp_mode_t ms_vdp_TEXT2;
 extern ms_vdp_mode_t ms_vdp_MULTICOLOR;
@@ -24,6 +21,12 @@ extern ms_vdp_mode_t ms_vdp_GRAPHIC6;
 extern ms_vdp_mode_t ms_vdp_GRAPHIC7;
 extern ms_vdp_mode_t ms_vdp_SCREEN10;
 extern ms_vdp_mode_t ms_vdp_SCREEN12;
+
+uint16_t * const X68_GR_PAL = (uint16_t *)0xE82000;
+uint16_t * const X68_TX_PAL = (uint16_t *)0xE82200;
+uint16_t * const X68_SP_PAL_B0 = (uint16_t *)0xE82200;	// ブロック0はテキストと共用
+uint16_t * const X68_SP_PAL_B1 = (uint16_t *)0xE82220;	// ブロック1はスプライトパレットに使用
+uint16_t * const X68_SP_PAL_B2 = (uint16_t *)0xE82240;	// ブロック2以降は使用していない
 
 /* 
 	画面モード一覧
@@ -113,6 +116,10 @@ void ms_vdp_deinit(void) {
 /*
 	VDPの画面モードをセットする
  */
-void ms_vdp_set_mode(uint8_t mode) {
-	current_mode = ms_vdp_mode_table[mode];
+void ms_vdp_set_mode(int mode) {
+	ms_vdp_current_mode = ms_vdp_mode_table[mode];
+	if (ms_vdp_current_mode == NULL) {
+		ms_vdp_current_mode = &ms_vdp_DEFAULT;
+	}
+	ms_vdp_current_mode->init(&ms_vdp);
 }

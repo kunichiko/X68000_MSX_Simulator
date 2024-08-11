@@ -3,6 +3,12 @@
 
 #include <stdint.h>
 
+extern uint16_t * const X68_GR_PAL;
+extern uint16_t * const X68_TX_PAL;
+extern uint16_t * const X68_SP_PAL_B0;
+extern uint16_t * const X68_SP_PAL_B1;
+extern uint16_t * const X68_SP_PAL_B2;
+
 /*
 Control_registers:
 R_00:	.dc.b	0		* Mode register 0
@@ -178,8 +184,10 @@ typedef struct ms_vdp {
 	uint8_t arg;	// 45
 	uint8_t r46;
 
+	uint8_t dummy1;	// 47
+
 	// Status Registers
-	uint8_t s00;
+	uint8_t s00;	// offset = +48
 	uint8_t s01;
 	uint8_t s02;
 	uint8_t s03;
@@ -188,25 +196,10 @@ typedef struct ms_vdp {
 	uint8_t s06;
 	uint8_t s07;
 	uint8_t s08;
-	uint8_t s09;
+	uint8_t s09;	// offset = +57
 
 	// Palette Registers
-	uint16_t p00;
-	uint16_t p01;
-	uint16_t p02;
-	uint16_t p03;
-	uint16_t p04;
-	uint16_t p05;
-	uint16_t p06;
-	uint16_t p07;
-	uint16_t p08;
-	uint16_t p09;
-	uint16_t p10;
-	uint16_t p11;
-	uint16_t p12;
-	uint16_t p13;
-	uint16_t p14;
-	uint16_t p15;
+	uint16_t palette[16];	// offset = +58
 
 	// Special Control Registers
 	// 	特殊コントロールレジスタ
@@ -215,7 +208,7 @@ typedef struct ms_vdp {
 	uint8_t crt_mode;		// R_0,R_1の[ M5]～[ M0]
 	uint8_t sprite_size;	// R_1の[ SI]
 	uint8_t sprite_zoom;	// R_1の[MAG]
-	uint8_t dummy;
+	uint8_t dummy2;
 
 	// base address registers
 	uint32_t pnametbl_baddr;		// R02: Pattern name table base address
@@ -246,7 +239,8 @@ typedef struct ms_vdp_mode {
 	int (*init)(ms_vdp_t* vdp);
 	uint8_t (*read_vram)(ms_vdp_t* vdp);
 	void (*write_vram)(ms_vdp_t* vdp, uint8_t data);
-	void (*update_pname_tbl_baddr)(ms_vdp_t* vdp, uint32_t addr);
+	void (*update_palette)(ms_vdp_t* vdp);
+	void (*update_pnametbl_baddr)(ms_vdp_t* vdp, uint32_t addr);
 	void (*update_colortbl_baddr)(ms_vdp_t* vdp, uint32_t addr);
 	void (*update_patgentbl_baddr)(ms_vdp_t* vdp, uint32_t addr);
 	void (*update_sprattrtbl_baddr)(ms_vdp_t* vdp, uint32_t addr);

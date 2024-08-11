@@ -3,9 +3,14 @@
 #include <stdint.h>
 #include "ms_vdp.h"
 
+/*
+	GRAPHIC6 (SCREEN 7) は 512×212モードで、ドットごとに16色画指定可能
+ */
+
 int init_GRAPHIC6(ms_vdp_t* vdp);
 uint8_t read_vram_GRAPHIC6(ms_vdp_t* vdp);
 void write_vram_GRAPHIC6(ms_vdp_t* vdp, uint8_t data);
+void update_palette_GRAPHIC6(ms_vdp_t* vdp);
 void update_pname_tbl_baddr_GRAPHIC6(ms_vdp_t* vdp, uint32_t addr);
 void update_colortbl_baddr_GRAPHIC6(ms_vdp_t* vdp, uint32_t addr);
 void update_patgentbl_baddr_GRAPHIC6(ms_vdp_t* vdp, uint32_t addr);
@@ -21,6 +26,8 @@ ms_vdp_mode_t ms_vdp_GRAPHIC6 = {
 	read_vram_GRAPHIC6,
 	// void write_vram_GRAPHIC6(ms_vdp_t* vdp, uint8_t data);
 	write_vram_GRAPHIC6,
+	// void (*update_palette)(ms_vdp_t* vdp);
+	update_palette_GRAPHIC6,
 	// void update_pname_tbl_baddr_GRAPHIC6(ms_vdp_t* vdp, uint32_t addr);
 	update_pname_tbl_baddr_GRAPHIC6,
 	// void update_colortbl_baddr_GRAPHIC6(ms_vdp_t* vdp, uint32_t addr);
@@ -48,6 +55,10 @@ uint8_t read_vram_GRAPHIC6(ms_vdp_t* vdp) {
 
 void write_vram_GRAPHIC6(ms_vdp_t* vdp, uint8_t data) {
 
+}
+
+void update_palette_GRAPHIC6(ms_vdp_t* vdp) {
+	update_palette_DEFAULT(vdp);
 }
 
 void update_pname_tbl_baddr_GRAPHIC6(ms_vdp_t* vdp, uint32_t addr) {

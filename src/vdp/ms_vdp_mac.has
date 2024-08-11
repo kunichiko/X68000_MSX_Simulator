@@ -19,6 +19,7 @@
 	.xref	emu_yield
 	.xref	host_delay
 
+	.xref	ms_vdp_current_mode
 	.xref	ms_vdp_set_mode
 
 	.xdef	ms_vdp
@@ -99,6 +100,18 @@ SPCON_HDISP	equ	$eb080c		* スプライトコントローラ 画面モードレジスタ H-DISP
 SPCON_VDISP	equ	$eb080e		* スプライトコントローラ 画面モードレジスタ V-DISP
 SPCON_RES	equ	$eb0810		* スプライトコントローラ 画面モードレジスタ V-Res, H-Res
 
+
+offset_ms_vdp_init			equ	0*4
+offset_ms_vdp_read_vram			equ	1*4
+offset_ms_vdp_write_vram		equ	2*4
+offset_ms_vdp_update_palette		equ	3*4
+offset_ms_vdp_update_pnametbl_baddr	equ	4*4
+offset_ms_vdp_update_colortbl_baddr	equ	5*4
+offset_ms_vdp_update_patgentbl_baddr	equ	6*4
+offset_ms_vdp_update_sprattrtbl_baddr	equ	7*4
+offset_ms_vdp_update_sprpatgentbl_baddr equ	8*4
+offset_ms_vdp_update_text_color		equ	9*4
+offset_ms_vdp_update_back_color		equ	10*4
 
 *
 *	ＭＳＸの画面モードと６８の画面モードの対応
@@ -488,17 +501,17 @@ write_vdp_2:				* パレットレジスタへの書き込み
 	andi.b	#%00001111,R_16
 	andi.w	#$000f,d0
 	add.w	d0,d0
-	lea.l	P_0,a0
+	lea.l	P_0,a0			* X68000の16bitカラー形式に変換した値をP_0?P_15に書き込む
 	move.w	d1,0(a0,d0.w)
 
-	move.w	display_mode,d0
-	add.w	d0,d0
-	add.w	d0,d0
-	lea	w_PalSet_jpt,a0	
-	move.l	(a0,d0.w),a0
-	jmp	(a0)
+	; 画面モードに応じてパレットをX68000側の画面に設定
+	move.l	#ms_vdp,-(sp)		* 構造体のアドレスを引数に
+	movea.l	ms_vdp_current_mode,a0
+	movea.l	offset_ms_vdp_update_palette(a0),a0
+	jsr	(a0)
+	lea.l	4(sp),sp
+	rts
 
-	.data
 b3_b5_table:				* ３ビットのデータから５ビットのデータを得る
 	.dc.w	0			* 0
 	.dc.w	4
@@ -509,81 +522,6 @@ b3_b5_table:				* ３ビットのデータから５ビットのデータを得る
 	.dc.w	27
 	.dc.w	31			* 7
 
-
-w_PalSet_jpt:
-	.dc.l	s_p_TEXT1
-	.dc.l	s_p_TEXT2
-	.dc.l	s_p_MULTICOLOR
-	.dc.l	s_p_GRAPHIC1
-	.dc.l	s_p_GRAPHIC2
-	.dc.l	s_p_GRAPHIC3
-	.dc.l	s_p_GRAPHIC4
-	.dc.l	s_p_GRAPHIC5
-	.dc.l	s_p_GRAPHIC6
-	.dc.l	s_p_GRAPHIC7
-	.dc.l	s_p_SCREEN10
-	.dc.l	s_p_SCREEN12
-
-	.text
-
-s_p_TEXT1:
-s_p_TEXT2:
-s_p_MULTICOLOR:
-s_p_GRAPHIC1:
-s_p_GRAPHIC2:
-s_p_GRAPHIC3:
-s_p_GRAPHIC4:
-s_p_GRAPHIC6:
-*
-*	パレット０はバックドロップに使用された時のみ有効。－＞ＢＧのパレット１にセットする。
-*	→TODO バックドロップにBGを使うのをやめたので考え直す
-*
-
-	lea.l	P_0,a0
-	lea.l	$E82220+2,a1			* ＢＧ用のパレット
-
-	move.w	back_color,d0
-	add.w	d0,d0
-	move.w	0(a0,d0.w),(a1)			* a0 は P_0 のアドレスが入っている
-
-	lea.l	2(a0),a0
-	move.w	#15-1,d0
-	lea.l	g_palette+2,a1			* グラフィック用のパレット
-	lea.l	t_palette+32+2,a2		* スプライト用のパレット(0x10?0x1fを使用)
-@@:	move.w	(a0),(a1)+
-	move.w	(a0)+,(a2)+
-	dbra	d0,@b
-
-	rts
-
-s_p_GRAPHIC5:
-	lea.l	P_0,a0
-	lea.l	g_palette+2,a1
-	lea.l	$E82220+2,a2			* ＢＧ用のパレット
-
-	move.w	back_color,d0
-	move.w	d0,d1
-	andi.w	#%00000011,d1
-	lsr.w	#2,d0
-	add.w	d0,d0
-	add.w	d1,d1
-	move.w	0(a0,d1.w),(a2)+		* a0 は P_0 のアドレスが入っている
-	move.w	0(a0,d0.w),(a2)
-
-	lea.l	2(a0),a0
-	move.w	#15-1,d0
-@@:	move.w	(a0)+,(a1)+
-	dbra	d0,@b
-
-	rts
-
-s_p_GRAPHIC7:
-*				バックドロップのカラーの設定が必用
-	rts
-
-s_p_SCREEN10:
-s_p_SCREEN12:
-	rts
 
 ***************************************************************
 *
@@ -1221,8 +1159,6 @@ set_TEXT1_mac:
 	clr.l	(a0)+
 	dbra	d0,@b
 
-	bsr	s_p_TEXT1
-
 	move.w	#1,gr_active
 	bsr	update_VCRR_02
 
@@ -1262,8 +1198,6 @@ set_TEXT2_mac:
 	clr.l	(a0)+
 	dbra	d0,@b
 
-	bsr	s_p_TEXT2
-
 	move.w	#1,gr_active
 	bsr	update_VCRR_02
 
@@ -1290,8 +1224,6 @@ set_MULTICOLOR_mac:
 @@:	move.l	d1,(a0)+
 	clr.l	(a0)+
 	dbra	d0,@b
-
-	bsr	s_p_MULTICOLOR
 
 	move.w	#1,gr_active
 	bsr	update_VCRR_02
@@ -1321,8 +1253,6 @@ set_GRAPHIC1_mac:
 	clr.l	(a0)+
 	dbra	d0,@b
 
-	bsr	s_p_GRAPHIC1
-
 	move.w	#1,gr_active
 	bsr	update_VCRR_02
 
@@ -1349,8 +1279,6 @@ set_GRAPHIC2_mac:
 @@:	move.l	d1,(a0)+
 	clr.l	(a0)+
 	dbra	d0,@b
-
-	bsr	s_p_GRAPHIC2
 
 	move.w	#1,gr_active
 	bsr	update_VCRR_02
@@ -1381,8 +1309,6 @@ set_GRAPHIC4_mac:
 @@:	move.l	d1,(a0)+
 	clr.l	(a0)+
 	dbra	d0,@b
-
-	bsr	s_p_GRAPHIC4
 
 	move.l	R_2,d1
 	add.l	d1,d1
@@ -1418,8 +1344,6 @@ set_GRAPHIC5_mac:
 	clr.l	(a0)+
 	dbra	d0,@b
 
-	bsr	s_p_GRAPHIC5
-
 	move.l	R_2,d1
 	add.l	d1,d1
 	swap	d1
@@ -1452,8 +1376,6 @@ set_GRAPHIC6_mac:
 @@:	move.l	d1,(a0)+
 	clr.l	(a0)+
 	dbra	d0,@b
-
-	bsr	s_p_GRAPHIC6
 
 	move.l	R_2,d1
 	swap	d1
@@ -1488,8 +1410,6 @@ set_GRAPHIC7_mac:
 @@:	move.l	d1,(a0)+
 	clr.l	(a0)+
 	dbra	d0,@b
-
-	bsr	s_p_GRAPHIC7
 
 	move.l	R_2,d1
 	swap	d1
@@ -3401,6 +3321,8 @@ NY:	.dc.w	0		* 42,43
 CLR:	.dc.b	0
 ARG:	.dc.b	0
 R_46:	.dc.b	0
+
+	.dc.b	0		* dummy
 
 *	ステータスレジスタ
 VDP_S_00:

@@ -27,7 +27,6 @@ OBJS = $(BUILD_DIR)/ms.o \
 		$(BUILD_DIR)/ms_R800_flag.o \
 		$(BUILD_DIR)/ms_iomap.o \
 		$(BUILD_DIR)/ms_memmap.o \
-		$(BUILD_DIR)/ms_vdp_mac.o \
 		$(BUILD_DIR)/ms_sysvalue.o \
 		$(BUILD_DIR)/ms_sub_mac.o \
 		$(BUILD_DIR)/ms_IO_PORT.o \
@@ -35,25 +34,25 @@ OBJS = $(BUILD_DIR)/ms.o \
 		$(BUILD_DIR)/ms_readcart.o \
 		$(BUILD_DIR)/ms_vdp.o \
 		$(BUILD_DIR)/ms_vdp_mac.o \
-		$(BUILD_DIR)/ms_vdp_TEXT1.o \
-		$(BUILD_DIR)/ms_vdp_TEXT2.o \
-		$(BUILD_DIR)/ms_vdp_MULTICOLOR.o \
-		$(BUILD_DIR)/ms_vdp_GRAPHIC1.o \
-		$(BUILD_DIR)/ms_vdp_GRAPHIC2.o \
-		$(BUILD_DIR)/ms_vdp_GRAPHIC3.o \
-		$(BUILD_DIR)/ms_vdp_GRAPHIC4.o \
-		$(BUILD_DIR)/ms_vdp_GRAPHIC5.o \
-		$(BUILD_DIR)/ms_vdp_GRAPHIC6.o \
-		$(BUILD_DIR)/ms_vdp_GRAPHIC7.o \
-		$(BUILD_DIR)/ms_vdp_SCREEN10.o \
-		$(BUILD_DIR)/ms_vdp_SCREEN12.o
+		$(BUILD_DIR)/ms_vdp_mode_DEFAULT.o \
+		$(BUILD_DIR)/ms_vdp_mode_TEXT1.o \
+		$(BUILD_DIR)/ms_vdp_mode_TEXT2.o \
+		$(BUILD_DIR)/ms_vdp_mode_MULTICOLOR.o \
+		$(BUILD_DIR)/ms_vdp_mode_GRAPHIC1.o \
+		$(BUILD_DIR)/ms_vdp_mode_GRAPHIC2.o \
+		$(BUILD_DIR)/ms_vdp_mode_GRAPHIC3.o \
+		$(BUILD_DIR)/ms_vdp_mode_GRAPHIC4.o \
+		$(BUILD_DIR)/ms_vdp_mode_GRAPHIC5.o \
+		$(BUILD_DIR)/ms_vdp_mode_GRAPHIC6.o \
+		$(BUILD_DIR)/ms_vdp_mode_GRAPHIC7.o \
+		$(BUILD_DIR)/ms_vdp_mode_SCREEN10.o \
+		$(BUILD_DIR)/ms_vdp_mode_SCREEN12.o
 
 OBJS_DEBUG = $(BUILD_DIR)/ms_d.o \
 		$(BUILD_DIR)/ms_R800_mac_30_d.o \
 		$(BUILD_DIR)/ms_R800_flag_d.o \
 		$(BUILD_DIR)/ms_iomap_d.o \
 		$(BUILD_DIR)/ms_memmap_d.o \
-		$(BUILD_DIR)/ms_vdp_mac_d.o \
 		$(BUILD_DIR)/ms_sysvalue_d.o \
 		$(BUILD_DIR)/ms_sub_mac_d.o \
 		$(BUILD_DIR)/ms_IO_PORT_d.o \
@@ -61,18 +60,19 @@ OBJS_DEBUG = $(BUILD_DIR)/ms_d.o \
 		$(BUILD_DIR)/ms_readcart_d.o \
 		$(BUILD_DIR)/ms_vdp_d.o \
 		$(BUILD_DIR)/ms_vdp_mac_d.o \
-		$(BUILD_DIR)/ms_vdp_TEXT1_d.o \
-		$(BUILD_DIR)/ms_vdp_TEXT2_d.o \
-		$(BUILD_DIR)/ms_vdp_MULTICOLOR_d.o \
-		$(BUILD_DIR)/ms_vdp_GRAPHIC1_d.o \
-		$(BUILD_DIR)/ms_vdp_GRAPHIC2_d.o \
-		$(BUILD_DIR)/ms_vdp_GRAPHIC3_d.o \
-		$(BUILD_DIR)/ms_vdp_GRAPHIC4_d.o \
-		$(BUILD_DIR)/ms_vdp_GRAPHIC5_d.o \
-		$(BUILD_DIR)/ms_vdp_GRAPHIC6_d.o \
-		$(BUILD_DIR)/ms_vdp_GRAPHIC7_d.o \
-		$(BUILD_DIR)/ms_vdp_SCREEN10_d.o \
-		$(BUILD_DIR)/ms_vdp_SCREEN12_d.o
+		$(BUILD_DIR)/ms_vdp_mode_DEFAULT_d.o \
+		$(BUILD_DIR)/ms_vdp_mode_TEXT1_d.o \
+		$(BUILD_DIR)/ms_vdp_mode_TEXT2_d.o \
+		$(BUILD_DIR)/ms_vdp_mode_MULTICOLOR_d.o \
+		$(BUILD_DIR)/ms_vdp_mode_GRAPHIC1_d.o \
+		$(BUILD_DIR)/ms_vdp_mode_GRAPHIC2_d.o \
+		$(BUILD_DIR)/ms_vdp_mode_GRAPHIC3_d.o \
+		$(BUILD_DIR)/ms_vdp_mode_GRAPHIC4_d.o \
+		$(BUILD_DIR)/ms_vdp_mode_GRAPHIC5_d.o \
+		$(BUILD_DIR)/ms_vdp_mode_GRAPHIC6_d.o \
+		$(BUILD_DIR)/ms_vdp_mode_GRAPHIC7_d.o \
+		$(BUILD_DIR)/ms_vdp_mode_SCREEN10_d.o \
+		$(BUILD_DIR)/ms_vdp_mode_SCREEN12_d.o
 
 all: copy_to_target_all
 

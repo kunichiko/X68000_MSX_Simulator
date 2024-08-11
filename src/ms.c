@@ -20,6 +20,7 @@
 #include <getopt.h>
 #include "ms.h"
 #include "ms_R800.h"
+#include "vdp/ms_vdp.h"
 
 #define NUM_SEGMENTS 4
 
@@ -43,8 +44,6 @@ void ms_iomap_deinit(void);
 
 // VDPŠÖ˜A
 int vdp_initialized = 0;
-int ms_vdp_init( void *);
-void ms_vdp_deinit(void);
 
 void initSprite(void);
 

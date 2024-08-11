@@ -11,7 +11,8 @@
 		"getopt.h": "c",
 		"stdio.h": "c",
 		"ms_r800.h": "c",
-		"vdp/ms_vdp.h": "c"
+		"vdp/ms_vdp.h": "c",
+		"stdint.h": "c"
 	},
     "files.encoding": "shiftjis",
     "editor.detectIndentation": false,

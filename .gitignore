@@ -1,2 +1,5 @@
 *.o
 build
+exe/ms.x.elf
+exe/ms_debug.x.elf
+test/z80test/exe/log*.txt

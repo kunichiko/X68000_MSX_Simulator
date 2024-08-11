@@ -6,6 +6,7 @@
 int init_SCREEN12(ms_vdp_t* vdp);
 uint8_t read_vram_SCREEN12(ms_vdp_t* vdp);
 void write_vram_SCREEN12(ms_vdp_t* vdp, uint8_t data);
+void update_palette_SCREEN12(ms_vdp_t* vdp);
 void update_pname_tbl_baddr_SCREEN12(ms_vdp_t* vdp, uint32_t addr);
 void update_colortbl_baddr_SCREEN12(ms_vdp_t* vdp, uint32_t addr);
 void update_patgentbl_baddr_SCREEN12(ms_vdp_t* vdp, uint32_t addr);
@@ -21,6 +22,8 @@ ms_vdp_mode_t ms_vdp_SCREEN12 = {
 	read_vram_SCREEN12,
 	// void write_vram_SCREEN12(ms_vdp_t* vdp, uint8_t data);
 	write_vram_SCREEN12,
+	// void (*update_palette)(ms_vdp_t* vdp);
+	update_palette_SCREEN12,
 	// void update_pname_tbl_baddr_SCREEN12(ms_vdp_t* vdp, uint32_t addr);
 	update_pname_tbl_baddr_SCREEN12,
 	// void update_colortbl_baddr_SCREEN12(ms_vdp_t* vdp, uint32_t addr);
@@ -48,6 +51,10 @@ uint8_t read_vram_SCREEN12(ms_vdp_t* vdp) {
 
 void write_vram_SCREEN12(ms_vdp_t* vdp, uint8_t data) {
 
+}
+
+void update_palette_SCREEN12(ms_vdp_t* vdp) {
+	update_palette_DEFAULT(vdp);
 }
 
 void update_pname_tbl_baddr_SCREEN12(ms_vdp_t* vdp, uint32_t addr) {
