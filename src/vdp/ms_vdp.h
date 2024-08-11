@@ -144,16 +144,16 @@ back_color:			* 背景の色
 typedef struct ms_vdp {
 	uint8_t	r00;	// Mode register 0
 	uint8_t	r01;	// Mode register 1
-	uint8_t	_r02;	// pnametbl_baddr を使うので未使用
-	uint8_t _r03;	// colortbl_baddr を使うので未使用
-	uint8_t _r04;	// pgentbl_baddr を使うので未使用
-	uint8_t _r05;	// sprattrtbl_baddr を使うので未使用
-	uint8_t _r06;	// sprpgentbl_baddr を使うので未使用
-	uint8_t _r07;	// text_color / back_color を使うので未使用
+	uint8_t	_r02;	// R02の生の値。実際のアクセスでは pnametbl_baddr を使う
+	uint8_t _r03;	// R03の生の値。実際のアクセスでは R10 と結合した colortbl_baddr を使う
+	uint8_t _r04;	// R04の生の値。実際のアクセスでは pgentbl_baddr を使う
+	uint8_t _r05;	// R05の生の値。実際のアクセスでは R11 と結合した sprattrtbl_baddr を使う
+	uint8_t _r06;	// R06の生の値。実際のアクセスでは sprpgentbl_baddr を使う
+	uint8_t _r07;	// R09の生の値。実際のアクセスでは text_color / back_color を使う
 	uint8_t r08;	// Mode register 2
 	uint8_t r09;	// Mode register 3
-	uint8_t _r10;	// _r03 とともに colortbl_baddr に格納
-	uint8_t _r11;	// _r05 とともに sprattrtbl_baddr に格納
+	uint8_t _r10;	// R10の生の値。実際のアクセスでは R03 と結合した colortbl_baddr を使う
+	uint8_t _r11;	// R11の生の値。実際のアクセスでは R05 と結合した sprattrtbl_baddr を使う
 	uint8_t r12;
 	uint8_t r13;
 	uint8_t r14;
@@ -248,11 +248,11 @@ typedef struct ms_vdp_mode {
 	uint8_t (*read_vram)(ms_vdp_t* vdp);
 	void (*write_vram)(ms_vdp_t* vdp, uint8_t data);
 	void (*update_palette)(ms_vdp_t* vdp);
-	void (*update_pnametbl_baddr)(ms_vdp_t* vdp, uint32_t addr);
-	void (*update_colortbl_baddr)(ms_vdp_t* vdp, uint32_t addr);
-	void (*update_pgentbl_baddr)(ms_vdp_t* vdp, uint32_t addr);
-	void (*update_sprattrtbl_baddr)(ms_vdp_t* vdp, uint32_t addr);
-	void (*update_sprpgentbl_baddr)(ms_vdp_t* vdp, uint32_t addr);
+	void (*update_pnametbl_baddr)(ms_vdp_t* vdp);
+	void (*update_colortbl_baddr)(ms_vdp_t* vdp);
+	void (*update_pgentbl_baddr)(ms_vdp_t* vdp);
+	void (*update_sprattrtbl_baddr)(ms_vdp_t* vdp);
+	void (*update_sprpgentbl_baddr)(ms_vdp_t* vdp);
 	void (*update_text_color)(ms_vdp_t* vdp);
 	void (*update_back_color)(ms_vdp_t* vdp);
 } ms_vdp_mode_t;

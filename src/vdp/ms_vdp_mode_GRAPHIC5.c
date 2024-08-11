@@ -16,11 +16,11 @@ int init_GRAPHIC5(ms_vdp_t* vdp);
 uint8_t read_vram_GRAPHIC5(ms_vdp_t* vdp);
 void write_vram_GRAPHIC5(ms_vdp_t* vdp, uint8_t data);
 void update_palette_GRAPHIC5(ms_vdp_t* vdp);
-void update_pname_tbl_baddr_GRAPHIC5(ms_vdp_t* vdp, uint32_t addr);
-void update_colortbl_baddr_GRAPHIC5(ms_vdp_t* vdp, uint32_t addr);
-void update_pgentbl_baddr_GRAPHIC5(ms_vdp_t* vdp, uint32_t addr);
-void update_sprattrtbl_baddr_GRAPHIC5(ms_vdp_t* vdp, uint32_t addr);
-void update_sprpgentbl_baddr_GRAPHIC5(ms_vdp_t* vdp, uint32_t addr);
+void update_pnametbl_baddr_GRAPHIC5(ms_vdp_t* vdp);
+void update_colortbl_baddr_GRAPHIC5(ms_vdp_t* vdp);
+void update_pgentbl_baddr_GRAPHIC5(ms_vdp_t* vdp);
+void update_sprattrtbl_baddr_GRAPHIC5(ms_vdp_t* vdp);
+void update_sprpgentbl_baddr_GRAPHIC5(ms_vdp_t* vdp);
 void update_text_color_GRAPHIC5(ms_vdp_t* vdp);
 void update_back_color_GRAPHIC5(ms_vdp_t* vdp);
 
@@ -33,15 +33,15 @@ ms_vdp_mode_t ms_vdp_GRAPHIC5 = {
 	write_vram_GRAPHIC5,
 	// void (*update_palette)(ms_vdp_t* vdp);
 	update_palette_GRAPHIC5,
-	// void update_pname_tbl_baddr_GRAPHIC5(ms_vdp_t* vdp, uint32_t addr);
-	update_pname_tbl_baddr_GRAPHIC5,
-	// void update_colortbl_baddr_GRAPHIC5(ms_vdp_t* vdp, uint32_t addr);
+	// void update_pnametbl_baddr_GRAPHIC5(ms_vdp_t* vdp);
+	update_pnametbl_baddr_GRAPHIC5,
+	// void update_colortbl_baddr_GRAPHIC5(ms_vdp_t* vdp);
 	update_colortbl_baddr_GRAPHIC5,
-	// void update_pgentbl_baddr_GRAPHIC5(ms_vdp_t* vdp, uint32_t addr);
+	// void update_pgentbl_baddr_GRAPHIC5(ms_vdp_t* vdp);
 	update_pgentbl_baddr_GRAPHIC5,
-	// void update_sprattrtbl_baddr_GRAPHIC5(ms_vdp_t* vdp, uint32_t addr);
+	// void update_sprattrtbl_baddr_GRAPHIC5(ms_vdp_t* vdp);
 	update_sprattrtbl_baddr_GRAPHIC5,
-	// void update_sprpgentbl_baddr_GRAPHIC5(ms_vdp_t* vdp, uint32_t addr);
+	// void update_sprpgentbl_baddr_GRAPHIC5(ms_vdp_t* vdp);
 	update_sprpgentbl_baddr_GRAPHIC5,
 	// void update_text_color_GRAPHIC5(ms_vdp_t* vdp);
 	update_text_color_GRAPHIC5,
@@ -66,24 +66,24 @@ void update_palette_GRAPHIC5(ms_vdp_t* vdp) {
 	update_palette_DEFAULT(vdp);
 }
 
-void update_pname_tbl_baddr_GRAPHIC5(ms_vdp_t* vdp, uint32_t addr) {
-    update_pname_tbl_baddr_GRAPHIC4(vdp, addr);
+void update_pnametbl_baddr_GRAPHIC5(ms_vdp_t* vdp) {
+    update_pnametbl_baddr_GRAPHIC4(vdp);
 }
 
-void update_colortbl_baddr_GRAPHIC5(ms_vdp_t* vdp, uint32_t addr) {
-    update_colortbl_baddr_DEFAULT(vdp, addr);
+void update_colortbl_baddr_GRAPHIC5(ms_vdp_t* vdp) {
+    update_colortbl_baddr_DEFAULT(vdp);
 }
 
-void update_pgentbl_baddr_GRAPHIC5(ms_vdp_t* vdp, uint32_t addr) {
-    update_pgentbl_baddr_DEFAULT(vdp, addr);
+void update_pgentbl_baddr_GRAPHIC5(ms_vdp_t* vdp) {
+    update_pgentbl_baddr_DEFAULT(vdp);
 }
 
-void update_sprattrtbl_baddr_GRAPHIC5(ms_vdp_t* vdp, uint32_t addr) {
-    update_sprattrtbl_baddr_DEFAULT(vdp, addr);
+void update_sprattrtbl_baddr_GRAPHIC5(ms_vdp_t* vdp) {
+    update_sprattrtbl_baddr_DEFAULT(vdp);
 }
 
-void update_sprpgentbl_baddr_GRAPHIC5(ms_vdp_t* vdp, uint32_t addr) {
-    update_sprpgentbl_baddr_DEFAULT(vdp, addr);
+void update_sprpgentbl_baddr_GRAPHIC5(ms_vdp_t* vdp) {
+    update_sprpgentbl_baddr_DEFAULT(vdp);
 }
 
 void update_text_color_GRAPHIC5(ms_vdp_t* vdp) {

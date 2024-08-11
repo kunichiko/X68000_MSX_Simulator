@@ -7,11 +7,11 @@ int init_DEFAULT(ms_vdp_t* vdp);
 uint8_t read_vram_DEFAULT(ms_vdp_t* vdp);
 void write_vram_DEFAULT(ms_vdp_t* vdp, uint8_t data);
 void update_palette_DEFAULT(ms_vdp_t* vdp);
-void update_pname_tbl_baddr_DEFAULT(ms_vdp_t* vdp, uint32_t addr);
-void update_colortbl_baddr_DEFAULT(ms_vdp_t* vdp, uint32_t addr);
-void update_pgentbl_baddr_DEFAULT(ms_vdp_t* vdp, uint32_t addr);
-void update_sprattrtbl_baddr_DEFAULT(ms_vdp_t* vdp, uint32_t addr);
-void update_sprpgentbl_baddr_DEFAULT(ms_vdp_t* vdp, uint32_t addr);
+void update_pnametbl_baddr_DEFAULT(ms_vdp_t* vdp);
+void update_colortbl_baddr_DEFAULT(ms_vdp_t* vdp);
+void update_pgentbl_baddr_DEFAULT(ms_vdp_t* vdp);
+void update_sprattrtbl_baddr_DEFAULT(ms_vdp_t* vdp);
+void update_sprpgentbl_baddr_DEFAULT(ms_vdp_t* vdp);
 void update_text_color_DEFAULT(ms_vdp_t* vdp);
 void update_back_color_DEFAULT(ms_vdp_t* vdp);
 
@@ -24,15 +24,15 @@ ms_vdp_mode_t ms_vdp_DEFAULT = {
 	write_vram_DEFAULT,
 	// void (*update_palette)(ms_vdp_t* vdp);
 	update_palette_DEFAULT,
-	// void update_pname_tbl_baddr_DEFAULT(ms_vdp_t* vdp, uint32_t addr);
-	update_pname_tbl_baddr_DEFAULT,
-	// void update_colortbl_baddr_DEFAULT(ms_vdp_t* vdp, uint32_t addr);
+	// void update_pnametbl_baddr_DEFAULT(ms_vdp_t* vdp);
+	update_pnametbl_baddr_DEFAULT,
+	// void update_colortbl_baddr_DEFAULT(ms_vdp_t* vdp);
 	update_colortbl_baddr_DEFAULT,
-	// void update_pgentbl_baddr_DEFAULT(ms_vdp_t* vdp, uint32_t addr);
+	// void update_pgentbl_baddr_DEFAULT(ms_vdp_t* vdp);
 	update_pgentbl_baddr_DEFAULT,
-	// void update_sprattrtbl_baddr_DEFAULT(ms_vdp_t* vdp, uint32_t addr);
+	// void update_sprattrtbl_baddr_DEFAULT(ms_vdp_t* vdp);
 	update_sprattrtbl_baddr_DEFAULT,
-	// void update_sprpgentbl_baddr_DEFAULT(ms_vdp_t* vdp, uint32_t addr);
+	// void update_sprpgentbl_baddr_DEFAULT(ms_vdp_t* vdp);
 	update_sprpgentbl_baddr_DEFAULT,
 	// void update_text_color_DEFAULT(ms_vdp_t* vdp);
 	update_text_color_DEFAULT,
@@ -82,24 +82,31 @@ void update_palette_DEFAULT(ms_vdp_t* vdp) {
 	}
 }
 
-void update_pname_tbl_baddr_DEFAULT(ms_vdp_t* vdp, uint32_t addr) {
-	vdp->pnametbl_baddr = addr;
+void update_pnametbl_baddr_DEFAULT(ms_vdp_t* vdp) {
+	// R02 ‚É b17-b10‚ª“ü‚Á‚Ä‚¢‚é‚Ì‚ÅƒVƒtƒg‚·‚é
+	vdp->pnametbl_baddr = (vdp->_r02 << 10) & 0x1ffff;
 }
 
-void update_colortbl_baddr_DEFAULT(ms_vdp_t* vdp, uint32_t addr) {
-	vdp->colortbl_baddr = addr;
+void update_colortbl_baddr_DEFAULT(ms_vdp_t* vdp) {
+	// R03 ‚É b13-b6
+	// R10 ‚É b16-b14
+	vdp->colortbl_baddr = ((vdp->_r10 << 14) | (vdp->_r03 << 6)) & 0x1ffff;
 }
 
-void update_pgentbl_baddr_DEFAULT(ms_vdp_t* vdp, uint32_t addr) {
-	vdp->pgentbl_baddr = addr;
+void update_pgentbl_baddr_DEFAULT(ms_vdp_t* vdp) {
+	// R04 ‚É b16-b11
+	vdp->pgentbl_baddr = (vdp->_r04 << 11) & 0x1ffff;
 }
 
-void update_sprattrtbl_baddr_DEFAULT(ms_vdp_t* vdp, uint32_t addr) {
-	vdp->sprattrtbl_baddr = addr;
+void update_sprattrtbl_baddr_DEFAULT(ms_vdp_t* vdp) {
+	// R05 ‚É b14-b7
+	// R11 ‚É b16-b15
+	vdp->sprattrtbl_baddr = ((vdp->_r11 << 15) | (vdp->_r05 << 7)) & 0x1ffff;
 }
 
-void update_sprpgentbl_baddr_DEFAULT(ms_vdp_t* vdp, uint32_t addr) {
-	vdp->sprpgentbl_baddr = addr;
+void update_sprpgentbl_baddr_DEFAULT(ms_vdp_t* vdp) {
+	// R06 ‚É b16-b11
+	vdp->sprpgentbl_baddr = (vdp->_r06 << 11) & 0x1ffff;
 }
 
 void update_text_color_DEFAULT(ms_vdp_t* vdp) {

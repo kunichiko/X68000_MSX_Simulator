@@ -688,8 +688,8 @@ normal:
 ;		０＝禁止
 ;		１＝許可
 ;	M5-M1 : 画面モード(後述: set_CRT参照)
-w_R0:
-	move.b	d1,R_00
+w_R0:	move.b	d1,R_00
+
 	bclr.l	#4,d1			* IE1 のテスト
 	beq	@f
 					* 走査線割り込みを使用する
@@ -722,8 +722,7 @@ w_R0:
 ;		１＝拡大する
 ;	M5-M1 : 画面モード(後述: set_CRT参照)
 ;
-w_R1:
-	move.b	d1,R_01
+w_R1:	move.b	d1,R_01
 
 	bsr	update_VCRR_02
 
@@ -746,19 +745,15 @@ w_R1:
 	rts
 
 *
-*	システムにパターンネームテーブルが変更されたことを伝える必用がある
+*	システムにパターンネームテーブルが変更されたことを伝える
 *
-w_R2:	andi.l	#%00000000_01111111,d1
+w_R2:	move.b	d1,R_02
+
+	andi.l	#%00000000_01111111,d1
 	swap	d1
 	lsr.l	#6,d1
 
-;	move.w	display_mode,d0
-;	add.w	d0,d0
-;	add.w	d0,d0
-;	lea	w_R2_jpt,a0
-;	movea.l	(a0,d0.w),a0
-;	jmp	(a0)
-
+update_pnametbl_baddr:
 	; 画面モードに応じてパターンネームテーブルの更新処理を呼び出す
 	move.l	d1,-(sp)		* アドレスを引数に
 	move.l	#ms_vdp,-(sp)		* 構造体のアドレスを引数に
@@ -769,207 +764,81 @@ w_R2:	andi.l	#%00000000_01111111,d1
 	rts
 
 
-	.data
-
-w_R2_jpt:
-	.dc.l	w_R2_0
-	.dc.l	w_R2_tx2
-	.dc.l	w_R2_0
-	.dc.l	w_R2_0
-	.dc.l	w_R2_0
-	.dc.l	w_R2_0
-	.dc.l	w_R2_gr4_5
-	.dc.l	w_R2_gr4_5
-	.dc.l	w_R2_gr6_7
-	.dc.l	w_R2_gr6_7
-	.dc.l	w_R2_0
-	.dc.l	w_R2_0
-
-	.text
-
-w_R2_0:
-	move.l	d1,R_2
-	rts
-w_R2_tx2:
-	andi.l	#%00000001_11110000_00000000,d1
-	move.l	d1,R_2
-	rts
-w_R2_gr4_5:
-	andi.l	#%00000001_10000000_00000000,d1
-	move.l	d1,R_2
-	add.l	d1,d1			* 1ビット左シフト
-	swap	d1			* d1.l = アクティブページナンバー
-	clr.w	d0
-	bset.l	d1,d0
-	move.w	d0,gr_active
-	bsr	update_VCRR_02
-	rts
-
-
-w_R2_gr6_7:
-	andi.l	#%00000001_00000000_00000000,d1
-	move.l	d1,R_2
-	swap	d1			* d1.l = アクティブページナンバー
-	clr.w	d0
-	bset.l	d1,d0
-	move.w	d0,gr_active
-	bsr	update_VCRR_02
-	rts
-
 *
-*	システムにカラーテーブルが変更されたことを伝える必用がある
+*	システムにカラーテーブルが変更されたことを伝える
 *
-w_R3:	move.l	R_3,d0			* d0 = AAAAAAAA_AA000000
+w_R3:	move.b	d1,R_03
+
+	move.l	R_3_colortbl_baddr,d0			* d0 = AAAAAAAA_AA000000
 	lsr.w	#6,d0			* d0 = 000000AA_AAAAAAAA
 	move.b	d1,d0			* d0 = 000000AA_BBBBBBBB
 	lsl.w	#6,d0			* d0 = AABBBBBB_BB000000
-
-	move.w	display_mode,d1
-	add.w	d1,d1
-	add.w	d1,d1
-	lea	w_R3_jpt,a0
-	movea.l	(a0,d1.w),a0
-	jmp	(a0)
-
-	.data
-w_R3_jpt:
-	.dc.l	w_R3_0
-	.dc.l	w_R3_0
-	.dc.l	w_R3_0
-	.dc.l	w_R3_0
-	.dc.l	w_R3_gr2_3
-	.dc.l	w_R3_gr2_3
-	.dc.l	w_R3_0
-	.dc.l	w_R3_0
-	.dc.l	w_R3_0
-	.dc.l	w_R3_0
-	.dc.l	w_R3_0
-	.dc.l	w_R3_0
-
-	.text
-
-w_R3_0:
-	move.l	d0,R_3
-	rts
-w_R3_gr2_3:
-	andi.l	#%00000001_11100000_00000000,d0
-	move.l	d0,R_3
+	bsr	update_colortbl_baddr
 	rts
 
+w_R10:	move.b	d1,R_10
+	bsr	update_colortbl_baddr
+	rts
+
+update_colortbl_baddr:
+	; 画面モードに応じてカラーテーブルの更新処理を呼び出す
+	move.l	d0,-(sp)		* アドレスを引数に
+	move.l	#ms_vdp,-(sp)		* 構造体のアドレスを引数に
+	movea.l	ms_vdp_current_mode,a0
+	movea.l	offset_ms_vdp_update_colortbl_baddr(a0),a0
+	jsr	(a0)
+	lea.l	8(sp),sp
+	rts
 	
 *
 *	システムにパターンジェネレータテーブルが変更されたことを伝える必用がある
 *
-w_R4:	andi.l	#%00000000_00111111,d1
-	swap	d1
-	lsr.l	#5,d1
+w_R4:	move.b	d1,R_04
 
-	move.w	display_mode,d0
-	add.w	d0,d0
-	add.w	d0,d0
-	lea	w_R4_jpt,a0
-	movea.l	(a0,d0.w),a0
-	jmp	(a0)
-
-	.data
-
-w_R4_jpt:
-	.dc.l	w_R4_0
-	.dc.l	w_R4_0
-	.dc.l	w_R4_0
-	.dc.l	w_R4_0
-	.dc.l	w_R4_gr2_3
-	.dc.l	w_R4_gr2_3
-	.dc.l	w_R4_0
-	.dc.l	w_R4_0
- 	.dc.l	w_R4_0
-	.dc.l	w_R4_0
-	.dc.l	w_R4_0
-	.dc.l	w_R4_0
-
-	.text
-
-w_R4_0:
-	move.l	d1,R_4
-	rts
-w_R4_gr2_3:
-	andi.l	#%00000001_11100000_00000000,d1
-	move.l	d1,R_4
+	; 画面モードに応じてパターンジェネレータテーブルの更新処理を呼び出す
+	move.l	d1,-(sp)		* アドレスを引数に
+	move.l	#ms_vdp,-(sp)		* 構造体のアドレスを引数に
+	movea.l	ms_vdp_current_mode,a0
+	movea.l	offset_ms_vdp_update_pgentbl_baddr(a0),a0
+	jsr	(a0)
+	lea.l	8(sp),sp
 	rts
 
 *
 *	R5 はスプライトアトリビュートテーブルの下位バイト
 *	システムにスプライトアトリビュートテーブルが変更されたことを伝える必用がある
 *
-w_R5:	move.l	R_5,d0			* d0 = A_AAAAAAAA_A0000000
-	lsr.w	#7,d0			* d0 = 0_000000AA_AAAAAAAA
-	move.b	d1,d0			* d0 = 0_000000AA_BBBBBBBB
-	lsl.w	#7,d0			* d0 = A_ABBBBBBB_B0000000
-
-	move.w	display_mode,d1
-	add.w	d1,d1
-	add.w	d1,d1
-	lea	w_R5_jpt,a0
-	movea.l	(a0,d1.w),a0
-	jmp	(a0)
-
-	.data
-
-w_R5_jpt:
-	.dc.l	w_R5_0
-	.dc.l	w_R5_0
-	.dc.l	w_R5_0
-	.dc.l	w_R5_0
-	.dc.l	w_R5_0
-	.dc.l	w_R5_0
-	.dc.l	w_R5_0
-	.dc.l	w_R5_0
-	.dc.l	w_R5_0
-	.dc.l	w_R5_0
-	.dc.l	w_R5_0
-	.dc.l	w_R5_0
-
-	.text
-
-w_R5_0:
-	move.l	d0,R_5
+w_R5:	move.b	d1,R_05
+	bsr	update_spriteattrtbl_baddr
 	rts
 
+
+w_R11:	move.b	d1,R_11
+	bsr	update_spriteattrtbl_baddr
+	rts
+
+update_spriteattrtbl_baddr:
+	; 画面モードに応じてスプライトアトリビュートテーブルの更新処理を呼び出す
+	move.l	d1,-(sp)		* アドレスを引数に
+	move.l	#ms_vdp,-(sp)		* 構造体のアドレスを引数に
+	movea.l	ms_vdp_current_mode,a0
+	movea.l	offset_ms_vdp_update_sprattrtbl_baddr(a0),a0
+	jsr	(a0)
+	lea.l	8(sp),sp
+	rts
 *
 *	スプライトパターンジェネレータテーブルの設定
 *	システムにスプライトパターンジェネレータテーブルが変更されたことを伝える必用がある
 *
-w_R6:	andi.l	#%00000000_00111111,d1	* 00000000_00000000_00AAAAAA
-	swap	d1			* 00AAAAAA_00000000_00000000
-	lsr.l	#5,d1			* 0000000A_AAAAA000_00000000
+w_R6:	move.b	d1,R_06
 
-	move.w	display_mode,d0
-	add.w	d0,d0
-	add.w	d0,d0
-	lea	w_R6_jpt,a0
-	movea.l	(a0,d0.w),a0
-	jmp	(a0)
-
-	.data
-
-w_R6_jpt:
-	.dc.l	w_R6_0
-	.dc.l	w_R6_0
-	.dc.l	w_R6_0
-	.dc.l	w_R6_0
-	.dc.l	w_R6_0
-	.dc.l	w_R6_0
-	.dc.l	w_R6_0
-	.dc.l	w_R6_0
- 	.dc.l	w_R6_0
-	.dc.l	w_R6_0
-	.dc.l	w_R6_0
-	.dc.l	w_R6_0
-
-	.text
-
-w_R6_0:
-	move.l	d1,R_6
+	; 画面モードに応じてスプライトアトリビュートテーブルの更新処理を呼び出す
+	move.l	d1,-(sp)		* アドレスを引数に
+	move.l	#ms_vdp,-(sp)		* 構造体のアドレスを引数に
+	movea.l	ms_vdp_current_mode,a0
+	movea.l	offset_ms_vdp_update_sprpgentbl_baddr(a0),a0
+	jsr	(a0)
+	lea.l	8(sp),sp
 	rts
 
 *
@@ -1006,31 +875,6 @@ w_R7:	clr.w	d0
 
 	rts
 
-w_R10:	andi.w	#%00000000_00000111,d1
-	move.l	R_3,d0			* d0 = 0000000A_AAAAAAAA_AA000000
-	lsl.l	#2,d0			* d0 = 00000AAA_AAAAAAAA_00000000
-	swap	d0			* d0 = 00000000_00000000_00000AAA
-	move.w	d1,d0			* d0 = 00000000_00000000_00000BBB
-	swap	d0			* d0 = 00000BBB_AAAAAAAA_00000000
-	lsr.l	#2,d0			* d0 = 0000000B_BBAAAAAA_AA000000
-	move.l	d0,R_3
-*
-*	システムにカラーテーブルが変更されたことを伝える必用がある
-*
-	rts
-
-w_R11:	andi.w	#%00000000_00000011,d1
-	move.l	R_5,d0			* d0 = 0000000A_AAAAAAAA_A0000000
-	lsl.l	#1,d0			* d0 = 000000AA_AAAAAAAA_00000000
-	swap	d0			* d0 = 00000000_00000000_000000AA
-	move.w	d1,d0			* d0 = 00000000_00000000_000000BB
-	swap	d0			* d0 = 000000BB_AAAAAAAA_00000000
-	lsr.l	#1,d0			* d0 = 0000000B_BAAAAAAA_A0000000
-	move.l	d0,R_5
-*
-*	システムにスプライトアトリビュートテーブルが変更されたことを伝える必用がある
-*
-	rts
 
 
 w_R14:	andi.l	#%00000000_00000111,d1	* d1.l = 00000000_00000000_00000AAA
@@ -1320,7 +1164,7 @@ set_GRAPHIC4_mac:
 	clr.l	(a0)+
 	dbra	d0,@b
 
-	move.l	R_2,d1
+	move.l	R_2_pnametbl_baddr,d1
 	add.l	d1,d1
 	swap	d1
 	andi.w	#%00000000_00000011,d1		* d1 = アクティブページナンバー
@@ -1354,7 +1198,7 @@ set_GRAPHIC5_mac:
 	clr.l	(a0)+
 	dbra	d0,@b
 
-	move.l	R_2,d1
+	move.l	R_2_pnametbl_baddr,d1
 	add.l	d1,d1
 	swap	d1
 	andi.w	#%00000000_00000011,d1		* d1 = アクティブページナンバー
@@ -1387,7 +1231,7 @@ set_GRAPHIC6_mac:
 	clr.l	(a0)+
 	dbra	d0,@b
 
-	move.l	R_2,d1
+	move.l	R_2_pnametbl_baddr,d1
 	swap	d1
 	andi.w	#%00000000_00000001,d1		* d1 = アクティブページナンバー
 	clr.w	d0
@@ -1421,7 +1265,7 @@ set_GRAPHIC7_mac:
 	clr.l	(a0)+
 	dbra	d0,@b
 
-	move.l	R_2,d1
+	move.l	R_2_pnametbl_baddr,d1
 	swap	d1
 	andi.w	#%00000000_00000001,d1	* d1 = アクティブページナンバー
 	clr.w	d0
@@ -1676,7 +1520,7 @@ w_TEXT1:
 	move.l	vram_add,d0			* D0 ・・書き込むアドレス
 	move.b	d1,0(a0,d0.l)			* VRAM へ書き込み
 	andi.w	#%11111100_00000000,d0		* 下位１０ビットをクリア
-	cmp.l	R_2,d0
+	cmp.l	R_2_pnametbl_baddr,d0
 	bne	@f
 	move.l	d0,-(sp)
 	move.w	d1,-(sp)
@@ -1684,7 +1528,7 @@ w_TEXT1:
 	move.w	(sp)+,d1
 	move.l	(sp)+,d0
 @@:	andi.w	#%11111000_00000000,d0
-	cmp.l	R_4,d0
+	cmp.l	R_4_patgentbl_baddr,d0
 	bne	@f
 	bsr	w_p_gene_tx1			* パターンジェネレータテーブルへの書き込み
 @@:	move.l	vram_add,d0
@@ -1738,7 +1582,7 @@ w_p_name_tx1:
 	move.l	d4,-(sp)
 
 	movea.l	gram_add,a1		* a1.l ・・・ 表示するＧＲＡＭアドレス
-	move.l	R_4,d0
+	move.l	R_4_patgentbl_baddr,d0
 	lea.l	0(a0,d0.l),a0		* a0 = 実パターンジェネレータテーブルアドレス
 
 	clr.w	d0
@@ -1806,7 +1650,7 @@ w_TEXT2:
 	move.l	vram_add,d0			* D0 ・・書き込むアドレス
 	move.b	d1,0(a0,d0.l)			* VRAM へ書き込み
 	andi.w	#%11111000_00000000,d0
-	cmp.l	R_4,d0
+	cmp.l	R_4_patgentbl_baddr,d0
 	bne	@f
 	move.l	d0,-(sp)
 	move.w	d1,-(sp)
@@ -1814,7 +1658,7 @@ w_TEXT2:
 	move.w	(sp)+,d1
 	move.l	(sp)+,d0
 @@:	andi.w	#%11110000_00000000,d0		* 下位１２ビットをクリア
-	move.l	R_2,d0
+	move.l	R_2_pnametbl_baddr,d0
 	bne	@f
 	bsr	w_p_name_tx2			* パターンネームテーブルへの書き込み
 @@:	move.l	vram_add,d0
@@ -1859,7 +1703,7 @@ w_p_name_tx2:
 	move.l	d4,-(sp)
 
 	movea.l	gram_add,a1		* a1.l ・・・ 表示するＧＲＡＭアドレス
-	move.l	R_4,d0
+	move.l	R_4_patgentbl_baddr,d0
 	lea.l	0(a0,d0.l),a0		* a0 = 実パターンジェネレータテーブルアドレス
 
 	clr.w	d0
@@ -1929,13 +1773,13 @@ w_GRAPHIC1:
 	move.l	vram_add,d0			* D0 ・・書き込むアドレス
 	move.b	d1,0(a0,d0.l)			* VRAM へ書き込み
 	andi.w	#%11111111_11000000,d0
-	cmp.l	R_3,d0
+	cmp.l	R_3_colortbl_baddr,d0
 	bne	@f
 	move.w	d1,-(sp)
 	bsr	w_color_GR1			* カラーテーブルへの書き込み
 	move.w	(sp)+,d1
 @@:	andi.w	#%11111100_00000000,d0		* 下位１０ビットをクリア
-	cmp.l	R_2,d0
+	cmp.l	R_2_pnametbl_baddr,d0
 	bne	@f
 	move.l	d0,-(sp)
 	move.w	d1,-(sp)
@@ -1943,7 +1787,7 @@ w_GRAPHIC1:
 	move.w	(sp)+,d1
 	move.l	(sp)+,d0
 @@:	andi.w	#%11111000_00000000,d0
-	cmp.l	R_4,d0
+	cmp.l	R_4_patgentbl_baddr,d0
 	bne	@f
 	bsr	w_p_gene_GR1			* パターンジェネレータテーブルへの書き込み
 @@:	move.l	vram_add,d0
@@ -2010,9 +1854,9 @@ w_p_name_GR1:
 	move.l	d4,-(sp)
 
 	movea.l	gram_add,a1		* a1.l ・・・ 表示するＧＲＡＭアドレス
-	move.l	R_3,d0			* d0 = カラーテーブルベースアドレス
+	move.l	R_3_colortbl_baddr,d0			* d0 = カラーテーブルベースアドレス
 	lea.l	0(a0,d0.l),a2		* a2 = 実カラーテーブルベースアドレス
-	move.l	R_4,d0
+	move.l	R_4_patgentbl_baddr,d0
 	lea.l	0(a0,d0.l),a0		* a0 = 実パターンジェネレータテーブルアドレス
 
 	clr.w	d0
@@ -2079,9 +1923,9 @@ w_GRAPHIC2:
 	move.l	vram_add,d0			* D0 ・・書き込むアドレス
 	move.b	d1,0(a0,d0.l)			* VRAM へ書き込み
 
-	* R_2と一致していたらパターンネームテーブルへの書き込み
+	* R_2_pnametbl_baddrと一致していたらパターンネームテーブルへの書き込み
 	andi.w	#%11111100_00000000,d0		* 下位１０ビットをクリア
-	cmp.l	R_2,d0
+	cmp.l	R_2_pnametbl_baddr,d0
 	bne	@f
 	move.l	d0,-(sp)
 	move.w	d1,-(sp)
@@ -2089,9 +1933,9 @@ w_GRAPHIC2:
 	move.w	(sp)+,d1
 	move.l	(sp)+,d0
 
-	* R_3と一致していたらパターンジェネレータテーブルへの書き込み
+	* R_3_colortbl_baddrと一致していたらパターンジェネレータテーブルへの書き込み
 @@:	andi.w	#%11100000_00000000,d0
-	cmp.l	R_3,d0
+	cmp.l	R_3_colortbl_baddr,d0
 	bne	@f
 	move.l	d0,-(sp)
 	move.w	d1,-(sp)
@@ -2099,24 +1943,24 @@ w_GRAPHIC2:
 	move.w	(sp)+,d1
 	move.l	(sp)+,d0
 
-	* R_4と一致していたらカラーテーブルへの書き込み
-@@:	cmp.l	R_4,d0
+	*	R_4_patgentbl_baddrと一致していたらカラーテーブルへの書き込み
+@@:	cmp.l	R_4_patgentbl_baddr,d0
 	bne	@f
 	move.w	d1,-(sp)
 	bsr	w_color_GR2			* カラーテーブルへの書き込み
 	move.w	(sp)+,d1
 
-	* R_6と一致していたらスプライトパターンジェネレータテーブルへの書き込み
+	* R_6_sprpatgentbl_baddrと一致していたらスプライトパターンジェネレータテーブルへの書き込み
 @@:	move.l	vram_add,d0
 	andi.l	#%1_11111000_00000000,d0
-	cmp.l	R_6,d0
+	cmp.l	R_6_sprpatgentbl_baddr,d0
 	bne	@f
 	bsr	w_SP_p_gene			* スプライトパターンジェネレータテーブルへの書き込み
 
-	* R_5と一致していたらスプライトアトリビュートテーブルへの書き込み
+	*	R_5_sprattrtbl_baddrと一致していたらスプライトアトリビュートテーブルへの書き込み
 @@:	move.l	vram_add,d0
 	andi.l	#%1_11111111_10000000,d0
-	cmp.l	R_5,d0
+	cmp.l	R_5_sprattrtbl_baddr,d0
 	bne	@f
 	bsr	w_SP_attr			* スプライトアトリビュートテーブルへの書き込み
 
@@ -2134,12 +1978,12 @@ w_GRAPHIC2:
 * d1.b ・・・ 値
 w_SP_attr:
 	move.l	vram_add,d0
-	sub.l	R_5,d0			* オフセット
+	sub.l	R_5_sprattrtbl_baddr,d0			* オフセット
 	and.l	#$ff,d1
 	move.l	d1,-(sp)
 	move.l	d0,-(sp)
 	move.l	VideoRAM,d0		* d0 = X68000上にあるVRAMのベースアドレス
-	add.l	R_5,d0			* d0 = X68000上におけるスプライトアトリビュートテーブルのアドレス
+	add.l	R_5_sprattrtbl_baddr,d0			* d0 = X68000上におけるスプライトアトリビュートテーブルのアドレス
 	move.l	d0,-(sp)
 	jsr	_writeSpriteAttribute
 	lea.l	4(sp),sp
@@ -2151,12 +1995,12 @@ w_SP_attr:
 * d1.b ・・・ 値
 w_SP_p_gene:
 	move.l	vram_add,d0
-	sub.l	R_6,d0			* オフセット
+	sub.l	R_6_sprpatgentbl_baddr,d0			* オフセット
 	and.l	#$ff,d1
 	move.l	d1,-(sp)
 	move.l	d0,-(sp)
 	move.l	VideoRAM,d0		* d0 = X68000上にあるVRAMのベースアドレス
-	add.l	R_6,d0			* d0 = X68000上におけるスプライトパターンテーブルのアドレス
+	add.l	R_6_sprpatgentbl_baddr,d0			* d0 = X68000上におけるスプライトパターンテーブルのアドレス
 	move.l	d0,-(sp)
 	jsr	_writeSpritePattern
 	lea.l	4(sp),sp
@@ -2219,7 +2063,7 @@ w_p_name_GR2:
 	andi.l	#%00000011_00000000,d0	* d0.l ・・書き込むブロック × 0x100
 	lsl.l	#3,d0			* d0.l ・・書き込むブロック × 0x800
 
-	move.l	R_3,d3			* d3 = カラーテーブルベースアドレス
+	move.l	R_3_colortbl_baddr,d3			* d3 = カラーテーブルベースアドレス
 	andi.w	#%11100000_00000000,d3
 	clr.l	d2
 	move.b	d1,d2
@@ -2228,7 +2072,7 @@ w_p_name_GR2:
 	add.l	d2,d3
 	lea.l	0(a0,d3.l),a2		* a2 = 表示するキャラのカラーテーブルアドレス
 
-	move.l	R_4,d3			* d3 = パターンジェネレータテーブルアドレス
+	move.l	R_4_patgentbl_baddr,d3			* d3 = パターンジェネレータテーブルアドレス
 	andi.w	#%11100000_00000000,d3
 	add.l	d2,d3
 	lea.l	0(a0,d3.l),a0		* a0 = 表示するフォントのアドレス
@@ -2298,7 +2142,7 @@ w_GRAPHIC3:
 	move.l	vram_add,d0			* D0 ・・書き込むアドレス
 	move.b	d1,0(a0,d0.l)			* VRAM へ書き込み
 	andi.w	#%11111100_00000000,d0		* 下位１０ビットをクリア
-	cmp.l	R_2,d0
+	cmp.l	R_2_pnametbl_baddr,d0
 	bne	@f
 	move.l	d0,-(sp)
 	move.w	d1,-(sp)
@@ -2306,14 +2150,14 @@ w_GRAPHIC3:
 	move.w	(sp)+,d1
 	move.l	(sp)+,d0
 @@:	andi.w	#%11100000_00000000,d0
-	cmp.l	R_3,d0
+	cmp.l	R_3_colortbl_baddr,d0
 	bne	@f
 	move.l	d0,-(sp)
 	move.w	d1,-(sp)
 	bsr	w_p_gene_GR3			* パターンジェネレータテーブルへの書き込み
 	move.w	(sp)+,d1
 	move.l	(sp)+,d0
-@@:	cmp.l	R_4,d0
+@@:	cmp.l	R_4_patgentbl_baddr,d0
 	bne	@f
 	bsr	w_color_GR3			* カラーテーブルへの書き込み
 @@:	move.l	vram_add,d0
@@ -2370,7 +2214,7 @@ w_p_name_GR3:
 	andi.l	#%00000011_00000000,d0	* d0.l ・・書き込むブロック × 0x100
 	lsl.l	#3,d0			* d0.l ・・書き込むブロック × 0x800
 
-	move.l	R_3,d3			* d3 = カラーテーブルベースアドレス
+	move.l	R_3_colortbl_baddr,d3			* d3 = カラーテーブルベースアドレス
 	andi.w	#%11100000_00000000,d3
 	clr.l	d2
 	move.b	d1,d2
@@ -2379,7 +2223,7 @@ w_p_name_GR3:
 	add.l	d2,d3
 	lea.l	0(a0,d3.l),a2		* a2 = 表示するキャラのカラーテーブルアドレス
 
-	move.l	R_4,d3			* d3 = パターンジェネレータテーブルアドレス
+	move.l	R_4_patgentbl_baddr,d3			* d3 = パターンジェネレータテーブルアドレス
 	andi.w	#%11100000_00000000,d3
 	add.l	d2,d3
 	lea.l	0(a0,d3.l),a0		* a0 = 表示するフォントのアドレス
@@ -3291,13 +3135,12 @@ R_00:	.dc.b	0		* Mode register 0
 
 VDP_R_01:
 R_01:	.dc.b	0		* Mode register 1
-
 R_02:	.dc.b	0
-	.dc.b	0
-	.dc.b	0
-	.dc.b	0
+R_03:	.dc.b	0
+R_04:	.dc.b	0
+R_05:	.dc.b	0
 R_06:	.dc.b	0		* Sprite
-	.dc.b	0
+R_07:	.dc.b	0
 R_08:	.dc.b	0		* Mode register 2
 	.dc.b	0		* Mode register 3
 R_10:	.dc.b	0		* >> R#3
@@ -3407,12 +3250,17 @@ sprite_zoom:			* R_1の[MAG]
 
 	.even
 
-R_2:	.dc.l	0		* Pattern name table base address
-R_3:	.dc.l	0		* Color table base address
-R_4:	.dc.l	$0800		* Pattern generator table base address
-R_5:	.dc.l	0		* Sprite attribute table bse address
-R_6:	.dc.l	0		* Sprite pattern generator table base address
-*R_7:				  Text color / Back drop color register
+R_2_pnametbl_baddr:
+	.dc.l	0		* Pattern name table base address
+R_3_colortbl_baddr:
+	.dc.l	0		* Color table base address
+R_4_patgentbl_baddr:
+	.dc.l	$0800		* Pattern generator table base address
+R_5_sprattrtbl_baddr:
+	.dc.l	0		* Sprite attribute table bse address
+R_6_sprpatgentbl_baddr:
+	.dc.l	0		* Sprite pattern generator table base address
+;R_7:				  Text color / Back drop color register
 text_color:			* 文字の色
 	.dc.w	0
 back_color:			* 背景の色
