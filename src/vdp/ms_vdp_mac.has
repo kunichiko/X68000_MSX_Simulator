@@ -107,9 +107,9 @@ offset_ms_vdp_write_vram		equ	2*4
 offset_ms_vdp_update_palette		equ	3*4
 offset_ms_vdp_update_pnametbl_baddr	equ	4*4
 offset_ms_vdp_update_colortbl_baddr	equ	5*4
-offset_ms_vdp_update_patgentbl_baddr	equ	6*4
+offset_ms_vdp_update_pgentbl_baddr	equ	6*4
 offset_ms_vdp_update_sprattrtbl_baddr	equ	7*4
-offset_ms_vdp_update_sprpatgentbl_baddr equ	8*4
+offset_ms_vdp_update_sprpgentbl_baddr equ	8*4
 offset_ms_vdp_update_text_color		equ	9*4
 offset_ms_vdp_update_back_color		equ	10*4
 
@@ -752,12 +752,22 @@ w_R2:	andi.l	#%00000000_01111111,d1
 	swap	d1
 	lsr.l	#6,d1
 
-	move.w	display_mode,d0
-	add.w	d0,d0
-	add.w	d0,d0
-	lea	w_R2_jpt,a0
-	movea.l	(a0,d0.w),a0
-	jmp	(a0)
+;	move.w	display_mode,d0
+;	add.w	d0,d0
+;	add.w	d0,d0
+;	lea	w_R2_jpt,a0
+;	movea.l	(a0,d0.w),a0
+;	jmp	(a0)
+
+	; 画面モードに応じてパターンネームテーブルの更新処理を呼び出す
+	move.l	d1,-(sp)		* アドレスを引数に
+	move.l	#ms_vdp,-(sp)		* 構造体のアドレスを引数に
+	movea.l	ms_vdp_current_mode,a0
+	movea.l	offset_ms_vdp_update_pnametbl_baddr(a0),a0
+	jsr	(a0)
+	lea.l	8(sp),sp
+	rts
+
 
 	.data
 

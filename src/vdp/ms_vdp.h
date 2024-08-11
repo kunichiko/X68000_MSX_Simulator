@@ -146,9 +146,9 @@ typedef struct ms_vdp {
 	uint8_t	r01;	// Mode register 1
 	uint8_t	_r02;	// pnametbl_baddr を使うので未使用
 	uint8_t _r03;	// colortbl_baddr を使うので未使用
-	uint8_t _r04;	// patgentbl_baddr を使うので未使用
+	uint8_t _r04;	// pgentbl_baddr を使うので未使用
 	uint8_t _r05;	// sprattrtbl_baddr を使うので未使用
-	uint8_t _r06;	// sprpatgentbl_baddr を使うので未使用
+	uint8_t _r06;	// sprpgentbl_baddr を使うので未使用
 	uint8_t _r07;	// text_color / back_color を使うので未使用
 	uint8_t r08;	// Mode register 2
 	uint8_t r09;	// Mode register 3
@@ -213,11 +213,19 @@ typedef struct ms_vdp {
 	// base address registers
 	uint32_t pnametbl_baddr;		// R02: Pattern name table base address
 	uint32_t colortbl_baddr;		// R03: Color table base address
-	uint32_t patgentbl_baddr;		// R04: Pattern generator table base address
+	uint32_t pgentbl_baddr;		// R04: Pattern generator table base address
 	uint32_t sprattrtbl_baddr;		// R05: Sprite attribute table bse address
-	uint32_t sprpatgentbl_baddr;	// R06: Sprite pattern generator table base address
+	uint32_t sprpgentbl_baddr;	// R06: Sprite pattern generator table base address
 	uint16_t text_color;			// R07: Text color
 	uint16_t back_color;			// R07: Back color
+
+	//
+	uint32_t vram_addr;
+	uint32_t gram_addr;
+	//
+	uint16_t display_mode;
+	uint16_t tx_active;
+	uint16_t gr_active;
 } ms_vdp_t;
 
 
@@ -242,9 +250,9 @@ typedef struct ms_vdp_mode {
 	void (*update_palette)(ms_vdp_t* vdp);
 	void (*update_pnametbl_baddr)(ms_vdp_t* vdp, uint32_t addr);
 	void (*update_colortbl_baddr)(ms_vdp_t* vdp, uint32_t addr);
-	void (*update_patgentbl_baddr)(ms_vdp_t* vdp, uint32_t addr);
+	void (*update_pgentbl_baddr)(ms_vdp_t* vdp, uint32_t addr);
 	void (*update_sprattrtbl_baddr)(ms_vdp_t* vdp, uint32_t addr);
-	void (*update_sprpatgentbl_baddr)(ms_vdp_t* vdp, uint32_t addr);
+	void (*update_sprpgentbl_baddr)(ms_vdp_t* vdp, uint32_t addr);
 	void (*update_text_color)(ms_vdp_t* vdp);
 	void (*update_back_color)(ms_vdp_t* vdp);
 } ms_vdp_mode_t;
