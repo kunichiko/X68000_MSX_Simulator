@@ -10,7 +10,6 @@
 
 	.xref	ms_memmap_init
 
-	.xref	VideoRAM
 	.xref	slot_0_0
 	.xref	slot_3_0
 	.xref	slot_3_1

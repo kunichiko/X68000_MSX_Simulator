@@ -46,11 +46,12 @@ int init_MULTICOLOR(ms_vdp_t* vdp) {
 }
 
 uint8_t read_vram_MULTICOLOR(ms_vdp_t* vdp) {
-
+	return read_vram_TEXT1(vdp);
 }
 
 void write_vram_MULTICOLOR(ms_vdp_t* vdp, uint8_t data) {
-
+	write_vram_DEFAULT(vdp, data);
+	// まだマルチカラーモードは未実装
 }
 
 void update_palette_MULTICOLOR(ms_vdp_t* vdp) {

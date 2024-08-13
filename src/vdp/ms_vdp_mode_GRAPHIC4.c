@@ -46,15 +46,15 @@ int init_GRAPHIC4(ms_vdp_t* vdp) {
 }
 
 uint8_t read_vram_GRAPHIC4(ms_vdp_t* vdp) {
-
+	return r_GRAPHIC4_mac();
 }
 
 void write_vram_GRAPHIC4(ms_vdp_t* vdp, uint8_t data) {
-	update_palette_DEFAULT(vdp);
+	w_GRAPHIC4_mac(data);
 }
 
 void update_palette_GRAPHIC4(ms_vdp_t* vdp) {
-
+	update_palette_DEFAULT(vdp);
 }
 
 void update_pnametbl_baddr_GRAPHIC4(ms_vdp_t* vdp) {

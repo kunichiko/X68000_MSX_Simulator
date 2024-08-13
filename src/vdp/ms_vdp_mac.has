@@ -9,9 +9,9 @@
 	.include	iocscall.mac
 	.include	doscall.mac
 
-	.xref	VideoRAM
 	.xref	_writeSpritePattern
 	.xref	_writeSpriteAttribute
+	.xref	_updateSpriteVisibility
 	.xref	HEX
 
 	.xref	cpu_emu_yield
@@ -26,16 +26,35 @@
 	; functions
 	.xdef	ms_vdp_init_mac
 	.xdef	ms_vdp_deinit_mac
-	.xdef	set_GRAPHIC1_mac
+
 	.xdef	set_TEXT1_mac
+	.xdef	set_TEXT2_mac
 	.xdef	set_MULTICOLOR_mac
+	.xdef	set_GRAPHIC1_mac
 	.xdef	set_GRAPHIC2_mac
 	.xdef	set_GRAPHIC3_mac
-	.xdef	set_TEXT2_mac
 	.xdef	set_GRAPHIC4_mac
 	.xdef	set_GRAPHIC5_mac
 	.xdef	set_GRAPHIC6_mac
 	.xdef	set_GRAPHIC7_mac
+
+	.xdef	w_GRAPHIC1_mac
+	.xdef	w_GRAPHIC2_mac
+	.xdef	w_GRAPHIC3_mac
+	.xdef	w_GRAPHIC4_mac
+	.xdef	w_GRAPHIC5_mac
+	.xdef	w_GRAPHIC6_mac
+	.xdef	w_GRAPHIC7_mac
+
+	.xdef	r_GRAPHIC4_mac
+	.xdef	r_GRAPHIC5_mac
+	.xdef	r_GRAPHIC6_mac
+	.xdef	r_GRAPHIC7_mac
+
+	.xdef	w_p_name_tx1_mac
+	.xdef	w_p_gene_tx1_mac
+	.xdef	w_p_name_tx2_mac
+	.xdef	w_p_gene_tx2_mac
 
 	.xdef	read_vdp_0
 	.xdef	read_vdp_1
@@ -151,7 +170,7 @@ ms_vdp_init_mac:
 	link	a6,#0
 	movem.l	d3-d7/a0-a5,-(sp)
 
-	move.l	 8(a6),VideoRAM		* Sysvalue にセット
+	move.l	 8(a6),VideoRAM
 
 	move.l	 8(a6),a0		* ＶＲＡＭのクリア
 	move.w	#$7fff,d0		* ＶＲＡＭ１２８Ｋは前提
@@ -170,40 +189,9 @@ ms_vdp_init_mac:
 *	move.l	#1,d3
 *	IOCS	__BGCTRLST
 
-* 512 x 424にする
-*	move.w	#91,CRTR_00
-*	move.w	#9,CRTR_01
-*	move.w	#17,CRTR_02
-*	move.w	#81,CRTRC_03
-*	move.w	#524,CRTR_04
-*	move.w	#5,CRTR_05
-*	move.w	#52,CRTR_06
-*	move.w	#476,CRTR_07
-*	move.w	#27,CRTR_08	* adjust
-*
-*	move.w	#$ff,SPCON_HTOTAL 	* 常に $ff
-*	move.w	#17+4,SPCON_HDISP	* CRTC R02 + 4の値
-*	move.w	#52,SPCON_VDISP		* CRTC R06 の値
-
-* 512 x 384にする
-	move.w	#91,CRTR_00
-	move.w	#9,CRTR_01
-	move.w	#17,CRTR_02
-	move.w	#81,CRTR_03
-	move.w	#524,CRTR_04
-	move.w	#5,CRTR_05
-	move.w	#40,CRTR_06
-	move.w	#424,CRTR_07
-	move.w	#27,CRTR_08	* adjust
-
-	move.w	#$ff,SPCON_HTOTAL 	* 常に $ff
-	move.w	#17+4,SPCON_HDISP	* CRTC R02 + 4の値
-	move.w	#40,SPCON_VDISP		* CRTC R06 の値
+	bsr	set_display_lines
 
 	bsr	enable_backdrop			* バックドロップの設定
-
-	* スプライトだけ 256x256モードにする
-	move.w	#%1_00_00,SPCON_RES
 
 	* プライオリティの設定
 	* b15:14 (NONE)
@@ -252,6 +240,46 @@ ms_vdp_init_mac:
 	moveq.l	#1,d0
 
 	rts
+
+set_display_lines:
+	btst.b	#7,R_09			* R#9のbit7が1の時は512x424
+	bne	set_dispaly_lines_212
+
+set_display_lines_192:
+	* 512 x 384にする
+	move.w	#91,CRTR_00
+	move.w	#9,CRTR_01
+	move.w	#17,CRTR_02
+	move.w	#81,CRTR_03
+	move.w	#524,CRTR_04
+	move.w	#5,CRTR_05
+	move.w	#40,CRTR_06
+	move.w	#424,CRTR_07
+	move.w	#27,CRTR_08	* adjust
+
+	move.w	#$ff,SPCON_HTOTAL 	* 常に $ff
+	move.w	#17+4,SPCON_HDISP	* CRTC R02 + 4の値
+	move.w	#40,SPCON_VDISP		* CRTC R06 の値
+	rts
+
+set_dispaly_lines_212:
+	* 512 x 424にする
+	move.w	#91,CRTR_00
+	move.w	#9,CRTR_01
+	move.w	#17,CRTR_02
+	move.w	#81,CRTR_03
+	move.w	#524,CRTR_04
+	move.w	#5,CRTR_05
+	move.w	#52,CRTR_06
+	move.w	#476,CRTR_07
+	move.w	#27,CRTR_08	* adjust
+
+	move.w	#$ff,SPCON_HTOTAL 	* 常に $ff
+	move.w	#17+4,SPCON_HDISP	* CRTC R02 + 4の値
+	move.w	#52,SPCON_VDISP		* CRTC R06 の値
+	rts
+
+
 
 vdp_interrupt:
 	addq.w	#1,ms_vdp_interrupt_tick
@@ -314,8 +342,8 @@ enable_backdrop:
 
 ***************************************************************
 * VCC R02の更新
-* 	b7	
-*	b6	スプライト画面の表示
+* 	b7	常に0
+*	b6	スプライト+BG画面の表示
 *	b5	テキスト画面の表示
 *	b4	1024x1024時のグラフィック画面の表示(512x512なので使わない)
 *	b3	512x512時のグラフィック画面 GR3 の表示
@@ -328,17 +356,15 @@ update_VCRR_02:
 	movem.l	d0-d1,-(sp)
 
 	move.w	VCRR_02,d0
-	andi.w	#%11111111_11100000,d0
+	andi.w	#%11111111_00100000,d0
+	ori.w	#%00000000_01000000,d0	* スプライト+BG画面の表示
 
 	move.w	tx_active,d1
 	lsl.w	#5,d1
 	or.w	d1,d0
 	btst.b	#6,R_01			* VDP Mode register 1 (R#1) の bit6 (BL) が 0 の時は画面を表示しない
-*	beq	@f
-	or.w	gr_active,d0	
-	btst.b	#1,R_08			* VDP Mode register 2 (R#8) の bit1 (SPD) が 0 の時はスプライトを表示しない
 	beq	@f
-	or.w	#%00000000_01000000,d0
+	or.w	gr_active,d0	
 @@:	move.w	d0,VCRR_02
 
 	movem.l	(sp)+,d0-d1
@@ -354,9 +380,13 @@ update_VCRR_02:
 *
 ***************************************************************
 read_vdp_0:				* ＶＲＡＭの読み込み
-	* movea.l	read_rot(pc),a0
-	movea.l    read_rot,a0
-	jmp	(a0)
+	; 画面モードごとのVRAM読み込み処理を呼び出す
+	move.l	#ms_vdp,-(sp)		* 構造体のアドレスを引数1に
+	movea.l	ms_vdp_current_mode,a0
+	movea.l	offset_ms_vdp_read_vram(a0),a0
+	jsr	(a0)
+	lea.l	4(sp),sp
+	rts
 
 read_vdp_1:				* ステータスレジスタの読みだし
 	move.b	R_15,d0			* ステータスレジスタ番号の読みだし
@@ -449,8 +479,16 @@ read_vdp_3:
 *
 ***************************************************************
 write_vdp_0:				* VRAM への書き込み
-	movea.l	write_rot,a0
-	jmp	(a0)
+	; 画面モードごとのVRAM書き込み処理を呼び出す
+	andi.l	#$000000ff,d1
+	move.l	d1,-(sp)		* 書き込む値を引数2に
+	move.l	#ms_vdp,-(sp)		* 構造体のアドレスを引数1に
+	movea.l	ms_vdp_current_mode,a0
+	movea.l	offset_ms_vdp_write_vram(a0),a0
+	jsr	(a0)
+	lea.l	8(sp),sp
+	rts
+
 
 write_vdp_1:
 	bchg.b	#0,w_ContReg_mode	* １バイト目か２バイト目か？
@@ -539,7 +577,7 @@ write_vdp_3:
 @@:	move.w	d0,d2
 	add.w	d2,d2
 	add.w	d2,d2
-	lea		w_CReg_jpt,a0
+	lea	w_CReg_jpt,a0
 	move.l	(a0,d2.w),a0
 	jmp	(a0)
 
@@ -552,7 +590,7 @@ incmode:
 @@:	move.w	d0,d2
 	add.w	d2,d2
 	add.w	d2,d2
-	lea		w_CReg_jpt,a0
+	lea	w_CReg_jpt,a0
 	move.l	(a0,d2.w),a0
 	jmp	(a0)
 	
@@ -568,7 +606,7 @@ set_CReg_Direct:
 	move.w	d0,d2
 	add.w	d2,d2
 	add.w	d2,d2
-	lea		w_CReg_jpt,a0
+	lea	w_CReg_jpt,a0
 	move.l	(a0,d2.w),a0
 	jmp	(a0)
 
@@ -587,8 +625,8 @@ w_CReg_jpt:
 	.dc.l	w_R5			* スプライトアトリビュートテーブル(下位)
 	.dc.l	w_R6			* スプライトパターンジェネレータテーブル
 	.dc.l	w_R7
-	.dc.l	normal
-	.dc.l	normal
+	.dc.l	w_R8
+	.dc.l	w_R9
 	.dc.l	w_R10			* R#10
 	.dc.l	w_R11			* スプライトアトリビュートテーブル(上位)
 	.dc.l	normal
@@ -678,8 +716,9 @@ normal:
 
 *crtcras_:
 *	.dc.l	crtcras
-;
-; R#0	[ 0 ][ DG][IE2][IE1][ M5][ M4][ M3][ 0 ]
+
+; R#0	VDP Mode Register 0
+; 	[ 0 ][ DG][IE2][IE1][ M5][ M4][ M3][ 0 ]
 ;	DG  : カラーバスを入力モードにしてデータをＶＲＡＭへ取り込む
 ;	IE2 : ライトペン割り込み
 ;		０＝禁止
@@ -707,7 +746,8 @@ w_R0:	move.b	d1,R_00
 	bsr	set_CRT			* 画面の切り替え
 	rts
 
-; R#1	[ 0 ][ BL][IE0][ M1][ M2][ 0 ][ SI][MAG]	
+; R#1	VDP Mode Register 1
+;	[ 0 ][ BL][IE0][ M1][ M2][ 0 ][ SI][MAG]	
 ; 	BL  : 画面表示状態
 ;		０＝非表示
 ;		１＝表示
@@ -742,6 +782,8 @@ w_R1:	move.b	d1,R_01
 	andi.w	#%00000000_00011100,d2	* M5,M4,M3と混ぜる
 	or.w	d2,d0
 	bsr	set_CRT
+
+	bsr	_updateSpriteVisibility
 	rts
 
 *
@@ -875,7 +917,50 @@ w_R7:	clr.w	d0
 
 	rts
 
+; R#8	VDP Mode Register 2
+; 	[ MS][ LP][ TP][ CB][ VR][  0][SPD][ BW]
+;	MS  : マウスモード(MSXでは未使用)
+;	LP  : ライトペン割り込み (V9958には存在しない)
+;	TP  : 透明色の扱い
+;		0=色コード0が透明として扱われる
+;		1=色コード0がパレットレジスタで指定された色として扱われる
+;	CB  : カラーバスの選択
+;		0=output(デフォルト)
+;		1=input
+;	VR  : VRAMの組み合わせ
+;	SPD : スプライトの非表示
+;		0=スプライト表示
+;		1=スプライト非表示
+;	BW  : 白黒モード
+;		0=カラーモード(デフォルト)
+;		1=白黒モード
+w_R8:	move.b	d1,R_08
+	move.l	#ms_vdp,-(sp)		* 構造体のアドレス
+	bsr	_updateSpriteVisibility
+	lea.l	4(sp),sp
+	rts
 
+; R#9	VDP Mode Register 3
+;	[ LN][ 0 ][ S1][ S0][ IL][ EO][ NT][ DC]
+;	LN  : ライン数の指定
+;		0=192ライン
+;		1=212ライン
+;	S1S0: スーパーインポーズ関連の設定(未実装)
+;	IL  : インターレースモード
+;		0=非インターレース
+;		1=インターレース
+;	EO  : 画面の偶数奇数自動交互表示
+;		0=交互表示しない
+;		1=交互表示する
+;	NT  : NTSC / PAL の選択
+;		0=NTSC
+;		1=PAL
+;	DC  : ドットクロックの入出力方向
+;		0=出力
+;		1=入力
+w_R9:	move.b	d1,R_09
+	bsr	set_display_lines
+	rts
 
 w_R14:	andi.l	#%00000000_00000111,d1	* d1.l = 00000000_00000000_00000AAA
 	swap	d1			* d1.l = 00000AAA_00000000000000000
@@ -980,84 +1065,13 @@ set_CRT:
 	rts
 
 set_TEXT1_mac:
-	move.w	#0,display_mode
-
-	move.w	CRTR_20,d0			* CRT レジスタの設定
-	andi.w	#%1111100011111111,d0		* 16色モードに
-	move.w	d0,CRTR_20
-	move.w	VCRR_00,d0			* ビデオコントロールレジスタの設定
-	andi.w	#%1111111111111000,d0		* 16色モードに
-	move.w	d0,VCRR_00
-
-	lea.l	$c00000,a0			* 画面の両端をクリア
-	clr.l	d0
-	move.w	#512-1,d2
-1:	moveq.l	#4-1,d1
-2:	move.l	d0,992(a0)
-	move.l	d0,(a0)+
-	move.l	d0,992(a0)
-	move.l	d0,(a0)+
-	dbra	d1,2b
-	lea.l	992(a0),a0
-	dbra	d2,1b
-
-*
-*	VDP レベルでは、GRAPHIC7にしても他のモードのパレットは保存されるが、
-*	６８で２５６色モードにすると破壊されてしまうので、再度設定し直す必用
-*	がある
-
-	lea.l	$EB8000,a0			* バックドロップ用のＢＧを設定
-	move.l	#$11111111,d1			* パターンの定義
-	move.w	#16-1,d0
-@@:	move.l	d1,(a0)+
-	clr.l	(a0)+
-	dbra	d0,@b
-
-	move.w	#1,gr_active
-	bsr	update_VCRR_02
-
 	move.l	#s_TEXT1,set_gram_add_rot
-	move.l	#w_TEXT1,write_rot
-	move.l	#r_TEXT1,read_rot
 	move.l	#VDP_NONE,VDP_command_jpt_add
 
 	rts
 
 set_TEXT2_mac:
-	move.w	#1,display_mode
-
-	move.w	CRTR_20,d0			* CRT レジスタの設定
-	andi.w	#%1111100011111111,d0		* 16色モードに
-	move.w	d0,CRTR_20
-	move.w	VCRR_00,d0			* ビデオコントロールレジスタの設定
-	andi.w	#%1111111111111000,d0		* 16色モードに
-	move.w	d0,VCRR_00
-
-	lea.l	$c00000,a0			* 画面の両端をクリア
-	clr.l	d0
-	move.w	#512-1,d2
-1:	moveq.l	#4-1,d1
-2:	move.l	d0,992(a0)
-	move.l	d0,(a0)+
-	move.l	d0,992(a0)
-	move.l	d0,(a0)+
-	dbra	d1,2b
-	lea.l	992(a0),a0
-	dbra	d2,1b
-
-	lea.l	$EB8000,a0			* バックドロップ用のＢＧを設定
-	move.l	#$11111111,d1			* パターンの定義
-	move.w	#16-1,d0
-@@:	move.l	d1,(a0)+
-	clr.l	(a0)+
-	dbra	d0,@b
-
-	move.w	#1,gr_active
-	bsr	update_VCRR_02
-
 	move.l	#s_TEXT2,set_gram_add_rot
-	move.l	#w_TEXT2,write_rot
-	move.l	#r_TEXT2,read_rot
 	move.l	#VDP_NONE,VDP_command_jpt_add
 
 	rts
@@ -1083,8 +1097,6 @@ set_MULTICOLOR_mac:
 	bsr	update_VCRR_02
 
 	move.l	#s_MULTICOLOR,set_gram_add_rot
-	move.l	#w_MULTICOLOR,write_rot
-	move.l	#r_MULTICOLOR,read_rot
 	move.l	#VDP_NONE,VDP_command_jpt_add
 
 	rts
@@ -1111,8 +1123,6 @@ set_GRAPHIC1_mac:
 	bsr	update_VCRR_02
 
 	move.l	#s_GRAPHIC1,set_gram_add_rot
-	move.l	#w_GRAPHIC1,write_rot
-	move.l	#r_GRAPHIC1,read_rot
 	move.l	#VDP_NONE,VDP_command_jpt_add
 
 	rts
@@ -1138,8 +1148,6 @@ set_GRAPHIC2_mac:
 	bsr	update_VCRR_02
 
 	move.l	#s_GRAPHIC2,set_gram_add_rot
-	move.l	#w_GRAPHIC2,write_rot
-	move.l	#r_GRAPHIC2,read_rot
 	move.l	#VDP_NONE,VDP_command_jpt_add
 
 	rts
@@ -1175,8 +1183,6 @@ set_GRAPHIC4_mac:
 	bsr	update_VCRR_02
 
 	move.l	#s_GRAPHIC4,set_gram_add_rot
-	move.l	#w_GRAPHIC4,write_rot
-	move.l	#r_GRAPHIC4,read_rot
 	move.l	#VDP_G4_jpt,VDP_command_jpt_add
 
 	rts
@@ -1208,8 +1214,6 @@ set_GRAPHIC5_mac:
 	bsr	update_VCRR_02
 
 	move.l	#s_GRAPHIC5,set_gram_add_rot
-	move.l	#w_GRAPHIC5,write_rot
-	move.l	#r_GRAPHIC5,read_rot
 	move.l	#VDP_G5_jpt,VDP_command_jpt_add
 
 	rts
@@ -1240,8 +1244,6 @@ set_GRAPHIC6_mac:
 	bsr	update_VCRR_02
 
 	move.l	#s_GRAPHIC6,set_gram_add_rot
-	move.l	#w_GRAPHIC6,write_rot
-	move.l	#r_GRAPHIC6,read_rot
 	move.l	#VDP_G6_jpt,VDP_command_jpt_add
 
 	rts
@@ -1274,8 +1276,6 @@ set_GRAPHIC7_mac:
 	bsr	update_VCRR_02
 
 	move.l	#s_GRAPHIC7,set_gram_add_rot
-	move.l	#w_GRAPHIC7,write_rot
-	move.l	#r_GRAPHIC7,read_rot
 	move.l	#VDP_G7_jpt,VDP_command_jpt_add
 
 	rts
@@ -1405,32 +1405,8 @@ s_SCREEN12:
 *	d0.b に読みこんだ値を入れて rts
 *
 ***************************************************************
-r_TEXT1:
-r_GRAPHIC1:
-r_GRAPHIC2:
-r_MULTICOLOR:
-	movea.l	VideoRAM,a0
-	move.l	vram_add,d1
-	move.b	0(a0,d1.l),d0
-	move.w	d1,d2			* アドレスカウンタのインクリメント
-	addq.w	#1,d2			* TMS9918互換モードなので、A16～A14は
-	andi.w	#%00111111_11111111,d2	* インクリメントされない
-	andi.w	#%11000000_00000000,d1	* ワードでＯＫ	
-	or.w	d2,d1
-	move.l	d1,vram_add
-	rts
-
-r_TEXT2:
-r_GRAPHIC3:
-	movea.l	VideoRAM,a0
-	move.l	vram_add,d1
-	move.b	0(a0,d1.l),d0
-	addq.l	#1,d1
-	andi.l	#%00000001_11111111_11111111,d1
-	move.l	d1,vram_add
-	rts
-
-r_GRAPHIC4:					* SCREEN 5
+r_GRAPHIC4_mac:					* SCREEN 5
+	movea.l	gram_add,a0
 	move.w	(a0),d0				* d0 = 00000000_0000****
 	lsl.w	#4,d0				* d0 = 00000000_****0000
 	or.w	4(a0),d0			* d0 = 00000000_****&&&&
@@ -1446,7 +1422,7 @@ r_GRAPHIC4:					* SCREEN 5
 @@:	move.l	a0,gram_add
 	rts
 
-r_GRAPHIC5:					* SCREEN 6
+r_GRAPHIC5_mac:					* SCREEN 6
 	movea.l	gram_add,a0
 	move.w	(a0)+,d0
 	lsl.w	#6,d0
@@ -1472,7 +1448,7 @@ r_GRAPHIC5:					* SCREEN 6
 @@:	move.l	a0,gram_add
 	rts
 
-r_GRAPHIC6:					* SCREEN 7
+r_GRAPHIC6_mac:					* SCREEN 7
 	movea.l	gram_add,a0
 	move.w	(a0)+,d0
 	lsl.w	#4,d0
@@ -1488,7 +1464,7 @@ r_GRAPHIC6:					* SCREEN 7
 @@:	move.l	a0,gram_add
 	rts
 
-r_GRAPHIC7:					* SCREEN 8
+r_GRAPHIC7_mac:					* SCREEN 8
 	movea.l	gram_add,a0
 	move.l	(a0)+,d0			* d0 = 00000000_********
 						* 姑息な高速化
@@ -1515,32 +1491,33 @@ HALFDRAW	.equ	0		* 1:半分のみ描画 0:全て描画
 DRAWWIDTH_TX	.equ	6/(HALFDRAW+1)	* １ラインの描画回数
 DRAWWIDTH_GR	.equ	8/(HALFDRAW+1)	* １ラインの描画回数
 
-w_TEXT1:
-	movea.l	VideoRAM,a0
-	move.l	vram_add,d0			* D0 ・・書き込むアドレス
-	move.b	d1,0(a0,d0.l)			* VRAM へ書き込み
-	andi.w	#%11111100_00000000,d0		* 下位１０ビットをクリア
-	cmp.l	R_2_pnametbl_baddr,d0
-	bne	@f
-	move.l	d0,-(sp)
-	move.w	d1,-(sp)
-	bsr	w_p_name_tx1			* パターンネームテーブルへの書き込み
-	move.w	(sp)+,d1
-	move.l	(sp)+,d0
-@@:	andi.w	#%11111000_00000000,d0
-	cmp.l	R_4_patgentbl_baddr,d0
-	bne	@f
-	bsr	w_p_gene_tx1			* パターンジェネレータテーブルへの書き込み
-@@:	move.l	vram_add,d0
-	move.w	d0,d2
-	addq.w	#1,d2				* 上位ワードは変化しないからワードでＯＫ
-	andi.w	#%00111111_11111111,d2
-	andi.w	#%11000000_00000000,d0
-	or.w	d2,d0
-	move.l	d0,vram_add
-	rts
+; w_TEXT1_mac:
+; 	move.l	4(sp),d1
+; 	movea.l	VideoRAM,a0
+; 	move.l	vram_add,d0			* D0 ・・書き込むアドレス
+; 	move.b	d1,0(a0,d0.l)			* VRAM へ書き込み
+; 	andi.w	#%11111100_00000000,d0		* 下位１０ビットをクリア
+; 	cmp.l	R_2_pnametbl_baddr,d0
+; 	bne	@f
+; 	move.l	d0,-(sp)
+; 	move.w	d1,-(sp)
+; 	bsr	w_p_name_tx1_mac		* パターンネームテーブルへの書き込み
+; 	move.w	(sp)+,d1
+; 	move.l	(sp)+,d0
+; @@:	andi.w	#%11111000_00000000,d0
+; 	cmp.l	R_4_patgentbl_baddr,d0
+; 	bne	@f
+; 	bsr	w_p_gene_tx1_mac		* パターンジェネレータテーブルへの書き込み
+; @@:	move.l	vram_add,d0
+; 	move.w	d0,d2
+; 	addq.w	#1,d2				* 上位ワードは変化しないからワードでＯＫ
+; 	andi.w	#%00111111_11111111,d2
+; 	andi.w	#%11000000_00000000,d0
+; 	or.w	d2,d0
+; 	move.l	d0,vram_add
+; 	rts
 
-w_p_gene_tx1:
+w_p_gene_tx1_mac:
 *
 *	更新フラグを立てて垂直帰線期間に一度に更新するようにする。
 *
@@ -1555,6 +1532,7 @@ w_p_gene_tx1:
 *	
 	move.w	#0,rewrite_screen	* セットした画面モードを入れる
 
+ 	movea.l	VideoRAM,a0
 	move.l	vram_add,d1
 	andi.w	#%00000111_11111111,d1	
 	lsr.w	#3,d1			* d1 ・・ 書き替えたキャラクター番号０～２５５
@@ -1576,11 +1554,12 @@ w_p_gene_tx1:
 *
 * (返り値)
 *	d1,d2,d3,a0 ・・・ 破壊
-*	a1 ・・・・ 次に表示するＧＲＡＭアドレス
 *
-w_p_name_tx1:
+w_p_name_tx1_mac:
+	move.l	4(sp),d1
 	move.l	d4,-(sp)
 
+ 	movea.l	VideoRAM,a0
 	movea.l	gram_add,a1		* a1.l ・・・ 表示するＧＲＡＭアドレス
 	move.l	R_4_patgentbl_baddr,d0
 	lea.l	0(a0,d0.l),a0		* a0 = 実パターンジェネレータテーブルアドレス
@@ -1645,37 +1624,39 @@ loop1_put_char:
 	move.l	(sp)+,d4
 	rts
 
-w_TEXT2:
-	movea.l	VideoRAM,a0
-	move.l	vram_add,d0			* D0 ・・書き込むアドレス
-	move.b	d1,0(a0,d0.l)			* VRAM へ書き込み
-	andi.w	#%11111000_00000000,d0
-	cmp.l	R_4_patgentbl_baddr,d0
-	bne	@f
-	move.l	d0,-(sp)
-	move.w	d1,-(sp)
-	bsr	w_p_gene_tx2			* パターンジェネレータテーブルへの書き込み
-	move.w	(sp)+,d1
-	move.l	(sp)+,d0
-@@:	andi.w	#%11110000_00000000,d0		* 下位１２ビットをクリア
-	move.l	R_2_pnametbl_baddr,d0
-	bne	@f
-	bsr	w_p_name_tx2			* パターンネームテーブルへの書き込み
-@@:	move.l	vram_add,d0
-	move.w	d0,d2
-	addq.w	#1,d2				* 上位ワードは変化しないからワードでＯＫ
-	andi.w	#%00111111_11111111,d2
-	andi.w	#%11000000_00000000,d0
-	or.w	d2,d0
-	move.l	d0,vram_add
-	rts
+; w_TEXT2_mac:
+; 	move.l	4(sp),d1
+; 	movea.l	VideoRAM,a0
+; 	move.l	vram_add,d0			* D0 ・・書き込むアドレス
+; 	move.b	d1,0(a0,d0.l)			* VRAM へ書き込み
+; 	andi.w	#%11111000_00000000,d0
+; 	cmp.l	R_4_patgentbl_baddr,d0
+; 	bne	@f
+; 	move.l	d0,-(sp)
+; 	move.w	d1,-(sp)
+; 	bsr	w_p_gene_tx2			* パターンジェネレータテーブルへの書き込み
+; 	move.w	(sp)+,d1
+; 	move.l	(sp)+,d0
+; @@:	andi.w	#%11110000_00000000,d0		* 下位１２ビットをクリア
+; 	move.l	R_2_pnametbl_baddr,d0
+; 	bne	@f
+; 	bsr	w_p_name_tx2			* パターンネームテーブルへの書き込み
+; @@:	move.l	vram_add,d0
+; 	move.w	d0,d2
+; 	addq.w	#1,d2				* 上位ワードは変化しないからワードでＯＫ
+; 	andi.w	#%00111111_11111111,d2
+; 	andi.w	#%11000000_00000000,d0
+; 	or.w	d2,d0
+; 	move.l	d0,vram_add
+; 	rts
 
-w_p_gene_tx2:
+w_p_gene_tx2_mac:
 *
 *	更新フラグを立てて垂直帰線期間に一度に更新するようにする。
 *
 	move.w	#1,rewrite_screen	* セットした画面モードを入れる
 
+ 	movea.l	VideoRAM,a0
 	move.l	vram_add,d1
 	andi.w	#%00000111_11111111,d1	
 	lsr.w	#3,d1			* d1 ・・ 書き替えたキャラクター番号０～２５５
@@ -1699,9 +1680,11 @@ w_p_gene_tx2:
 *	d1,d2,d3,a0 ・・・ 破壊
 *	a1 ・・・・ 次に表示するＧＲＡＭアドレス
 *
-w_p_name_tx2:
+w_p_name_tx2_mac:
+	move.l	4(sp),d1
 	move.l	d4,-(sp)
 
+ 	movea.l	VideoRAM,a0
 	movea.l	gram_add,a1		* a1.l ・・・ 表示するＧＲＡＭアドレス
 	move.l	R_4_patgentbl_baddr,d0
 	lea.l	0(a0,d0.l),a0		* a0 = 実パターンジェネレータテーブルアドレス
@@ -1718,10 +1701,10 @@ w_p_name_tx2:
 
 	moveq.l	#4-1,d0			* ループカウンタ
 1:
-	move.w	(a0)+,d1		* d1 = フォントデータ
+	move.w	(a0)+,d1		* d1 = フォントデータ(2ライン分一度に読む)
 
 
-	moveq.l	#DRAWWIDTH_TX-1,d4	* ループカウンタ
+	moveq.l	#DRAWWIDTH_TX-1,d4	* ループカウンタ(偶数行目)
 2:
 	lsl.w	#1,d1			* 最上位ビットを送り出す
 	bcc	3f			* 最上位ビットが１でなければ次へ	
@@ -1737,7 +1720,7 @@ w_p_name_tx2:
 @@:	adda.l	#1024+1024-DRAWWIDTH_TX*2,a1	* １ライン下げる
 	lsl.w	#2,d1
 
-	moveq.l	#6-1,d4			* ループカウンタ
+	moveq.l	#DRAWWIDTH_TX-1,d4	* ループカウンタ(奇数行目)
 2:
 	lsl.w	#1,d1			* 最上位ビットを送り出す
 	bcc	3f			* 最上位ビットが１でなければ次へ	
@@ -1759,16 +1742,13 @@ w_p_name_tx2:
 	andi.w	#$03ff,d0		* 改行したかのチェック
 	cmpi.w	#$03e0,d0
 	bne	@f
-	adda.l	#1024*15+64,a1
+	adda.l	#1024*15+32,a1
 @@:	move.l	a1,gram_add
 	move.l	(sp)+,d4
 	rts
 
-w_MULTICOLOR:
-	rts
-
-
-w_GRAPHIC1:
+w_GRAPHIC1_mac:
+	move.l	4(sp),d1
 	movea.l	VideoRAM,a0
 	move.l	vram_add,d0			* D0 ・・書き込むアドレス
 	move.b	d1,0(a0,d0.l)			* VRAM へ書き込み
@@ -1918,7 +1898,8 @@ w_p_name_GR1:
 	rts
 
 
-w_GRAPHIC2:
+w_GRAPHIC2_mac:
+	move.l	4(sp),d1
 	movea.l	VideoRAM,a0
 	move.l	vram_add,d0			* D0 ・・書き込むアドレス
 	move.b	d1,0(a0,d0.l)			* VRAM へ書き込み
@@ -1980,15 +1961,11 @@ w_SP_attr:
 	move.l	vram_add,d0
 	sub.l	R_5_sprattrtbl_baddr,d0			* オフセット
 	and.l	#$ff,d1
-	move.l	d1,-(sp)
-	move.l	d0,-(sp)
-	move.l	VideoRAM,d0		* d0 = X68000上にあるVRAMのベースアドレス
-	add.l	R_5_sprattrtbl_baddr,d0			* d0 = X68000上におけるスプライトアトリビュートテーブルのアドレス
-	move.l	d0,-(sp)
+	movem.l	d0-d2,-(sp)
+	move.l	#ms_vdp,-(sp)		* 構造体のアドレス
 	jsr	_writeSpriteAttribute
 	lea.l	4(sp),sp
-	move.l	(sp)+,d0
-	move.l	(sp)+,d1
+	movem.l	(sp)+,d0-d2
 	rts
 
 * スプライトパターンジェネレータテーブルへの書き込み
@@ -1997,15 +1974,11 @@ w_SP_p_gene:
 	move.l	vram_add,d0
 	sub.l	R_6_sprpatgentbl_baddr,d0			* オフセット
 	and.l	#$ff,d1
-	move.l	d1,-(sp)
-	move.l	d0,-(sp)
-	move.l	VideoRAM,d0		* d0 = X68000上にあるVRAMのベースアドレス
-	add.l	R_6_sprpatgentbl_baddr,d0			* d0 = X68000上におけるスプライトパターンテーブルのアドレス
-	move.l	d0,-(sp)
+	movem.l	d0-d2,-(sp)
+	move.l	#ms_vdp,-(sp)		* 構造体のアドレス
 	jsr	_writeSpritePattern
 	lea.l	4(sp),sp
-	move.l	(sp)+,d0
-	move.l	(sp)+,d1
+	movem.l	(sp)+,d0-d2
 	rts
 
 
@@ -2137,7 +2110,8 @@ w_p_name_GR2:
 	move.l	(sp)+,d4
 	rts
 
-w_GRAPHIC3:
+w_GRAPHIC3_mac:
+	move.l	4(sp),d1
 	movea.l	VideoRAM,a0
 	move.l	vram_add,d0			* D0 ・・書き込むアドレス
 	move.b	d1,0(a0,d0.l)			* VRAM へ書き込み
@@ -2288,7 +2262,8 @@ w_p_name_GR3:
 	move.l	(sp)+,d4
 	rts
 
-w_GRAPHIC4:
+w_GRAPHIC4_mac:
+	move.l	4(sp),d1
 	movea.l	gram_add,a0
 	move.b	d1,d0
 	lsr.w	#4,d0
@@ -2307,7 +2282,8 @@ w_GRAPHIC4:
 @@:	move.l	a0,gram_add
 	rts
 
-w_GRAPHIC5:
+w_GRAPHIC5_mac:
+	move.l	4(sp),d1
 	clr.w	d0
 	movea.l	gram_add,a0
 	move.b	d1,d0
@@ -2337,7 +2313,8 @@ w_GRAPHIC5:
 @@:	move.l	a0,gram_add
 	rts
 
-w_GRAPHIC6:
+w_GRAPHIC6_mac:
+	move.l	4(sp),d1
 	clr.w	d0
 	movea.l	gram_add,a0
 	move.b	d1,d0
@@ -2357,7 +2334,8 @@ w_GRAPHIC6:
 @@:	move.l	a0,gram_add
 	rts
 	
-w_GRAPHIC7:
+w_GRAPHIC7_mac:
+	move.l	4(sp),d1
 	clr.l	d0
 	movea.l	gram_add,a0
 	move.b	d1,d0
@@ -3081,12 +3059,6 @@ vloop:	eor.w	d0,(a0)		*pset(x,y)
 	.data
 	.even
 
-read_rot:
-	.dc.l	r_TEXT1			* ＶＲＡＭ読み込みルーチンのアドレス
-
-write_rot:
-	.dc.l	w_TEXT1			* ＶＲＡＭ書き込みルーチンのアドレス
-
 set_gram_add_rot:
 	.dc.l	s_TEXT1
 
@@ -3128,7 +3100,7 @@ rewrite_f_7	.dc.l	0
 
 
 *	------ ＶＤＰ Ｒｅｇｉｓｔｅｒｓ ------
-ms_vdp:
+ms_vdp:				* 構造体の先頭アドレス
 *	コントロールレジスタ
 Control_registers:
 R_00:	.dc.b	0		* Mode register 0
@@ -3142,7 +3114,7 @@ R_05:	.dc.b	0
 R_06:	.dc.b	0		* Sprite
 R_07:	.dc.b	0
 R_08:	.dc.b	0		* Mode register 2
-	.dc.b	0		* Mode register 3
+R_09:	.dc.b	0		* Mode register 3
 R_10:	.dc.b	0		* >> R#3
 R_11:	.dc.b	0		* >> R#5
 R_12:	.dc.b	0		* TEXT color / Back color register (ブリンクで使用）
@@ -3310,6 +3282,11 @@ tx_active:
 ; MSXの画面の表示状態を勘案し、X68000の表示するグラフィックページ番号(0:OFF, 0x1-0xf:対応するページのビットを1にする)
 gr_active:
 	.dc.w	1
+
+; X68000側に確保したVRAMの先頭アドレス
+VideoRAM:
+	.dc.l	0		* ＶＲＡＭのアドレス
+
 
 *gbase:	.dc.l	GPAGE0		* ラインルーチン内等で使用
 

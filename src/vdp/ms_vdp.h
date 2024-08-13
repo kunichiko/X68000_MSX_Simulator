@@ -3,11 +3,50 @@
 
 #include <stdint.h>
 
-extern uint16_t * const X68_GR_PAL;
-extern uint16_t * const X68_TX_PAL;
-extern uint16_t * const X68_SP_PAL_B0;
-extern uint16_t * const X68_SP_PAL_B1;
-extern uint16_t * const X68_SP_PAL_B2;
+// extern uint16_t * const X68_GR_PAL;
+// extern uint16_t * const X68_TX_PAL;
+// extern uint16_t * const X68_SP_PAL_B0;
+// extern uint16_t * const X68_SP_PAL_B1;
+// extern uint16_t * const X68_SP_PAL_B2;
+
+// uint16_t * const X68_GR_PAL = (uint16_t *)0xE82000;
+// uint16_t * const X68_TX_PAL = (uint16_t *)0xE82200;
+// uint16_t * const X68_SP_PAL_B0 = (uint16_t *)0xE82200;	// ブロック0はテキストと共用
+// uint16_t * const X68_SP_PAL_B1 = (uint16_t *)0xE82220;	// ブロック1はスプライトパレットに使用
+// uint16_t * const X68_SP_PAL_B2 = (uint16_t *)0xE82240;	// ブロック2以降は使用していない
+
+#define X68_GR_PAL	((uint16_t *)0xE82000)
+#define X68_TX_PAL	((uint16_t *)0xE82200)
+#define X68_SP_PAL_B0	((uint16_t *)0xE82200)	// ブロック0はテキストと共用
+#define X68_SP_PAL_B1	((uint16_t *)0xE82220)	// ブロック1はスプライトパレットに使用
+#define X68_SP_PAL_B2	((uint16_t *)0xE82240)	// ブロック2以降は使用していない
+
+#define CRTR		((volatile uint16_t *)0xe80000)		// CRTCレジスタ
+#define CRTR_00		(*(volatile uint16_t *)0xe80000)	// CRTCレジスタ0
+#define CRTR_01		(*(volatile uint16_t *)0xe80002)	// CRTCレジスタ1
+#define CRTR_02		(*(volatile uint16_t *)0xe80004)	// CRTCレジスタ2
+#define CRTR_03		(*(volatile uint16_t *)0xe80006)	// CRTCレジスタ3
+#define CRTR_04		(*(volatile uint16_t *)0xe80008)	// CRTCレジスタ4
+#define CRTR_05		(*(volatile uint16_t *)0xe8000a)	// CRTCレジスタ5
+#define CRTR_06		(*(volatile uint16_t *)0xe8000c)	// CRTCレジスタ6
+#define CRTR_07		(*(volatile uint16_t *)0xe8000e)	// CRTCレジスタ7
+#define CRTR_08		(*(volatile uint16_t *)0xe80010)	// CRTCレジスタ8
+#define CRTR_09		(*(volatile uint16_t *)0xe80012)	// CRTCレジスタ9
+#define CRTR_10		(*(volatile uint16_t *)0xe80014)	// CRTCレジスタ10 (テキストスクロールX)
+#define CRTR_11		(*(volatile uint16_t *)0xe80016)	// CRTCレジスタ11 (テキストスクロールY)
+#define CRTR_12		(*(volatile uint16_t *)0xe80018)	// CRTCレジスタ12
+#define CRTR_13		(*(volatile uint16_t *)0xe8001a)	// CRTCレジスタ13
+#define CRTR_14		(*(volatile uint16_t *)0xe8001c)	// CRTCレジスタ14
+#define CRTR_15		(*(volatile uint16_t *)0xe8001e)	// CRTCレジスタ15
+
+#define CRTR_20		(*(volatile uint16_t *)0xe80028)	// CRTCレジスタ20
+#define CRTR_21		(*(volatile uint16_t *)0xe8002a)	// CRTCレジスタ21
+#define CRTR_23		(*(volatile uint16_t *)0xe8002e)	// CRTCレジスタ23
+
+#define VCRR_00		(*(volatile uint16_t *)0xe82400)	// ビデオコントロールレジスタ0
+#define VCRR_01		(*(volatile uint16_t *)0xe82500)	// ビデオコントロールレジスタ1
+#define VCRR_02		(*(volatile uint16_t *)0xe82600)	// ビデオコントロールレジスタ2
+
 
 /*
 Control_registers:
@@ -226,6 +265,9 @@ typedef struct ms_vdp {
 	uint16_t display_mode;
 	uint16_t tx_active;
 	uint16_t gr_active;
+
+	//
+	uint8_t* vram;	// X68000側のVRAMの先頭アドレス
 } ms_vdp_t;
 
 
@@ -259,5 +301,10 @@ typedef struct ms_vdp_mode {
 
 int ms_vdp_init( void *);
 void ms_vdp_deinit(void);
+
+void initSprite(ms_vdp_t* vdp);
+void writeSpritePattern(ms_vdp_t* vdp, int offset, unsigned int pattern);
+void writeSpriteAttribute(ms_vdp_t* vdp, int offset, unsigned int attribute);
+void updateSpriteVisibility(ms_vdp_t* vdp);
 
 #endif

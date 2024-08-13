@@ -42,15 +42,55 @@ ms_vdp_mode_t ms_vdp_TEXT2 = {
 
 
 int init_TEXT2(ms_vdp_t* vdp) {
-	set_TEXT1_mac();
+	vdp->display_mode = 1;
+
+	// CRTレジスタの設定
+	// 16色モードにする
+	CRTR_20 &= 0b1111100011111111;
+
+	// ビデオコントロールレジスタの設定
+	// 16色モードにする
+	VCRR_00 &= 0b1111111111111000;
+	// TEXT2は、横6ドットのキャラクターが80文字なので、幅が480ドット
+	// そのため、左右に16ドットずつ(X68000的にも16ドットずつ)の非表示領域があるので
+	// そこをクリアする
+	int i,j;
+	for(i=0;i<512;i++) {
+		uint32_t *addr = (uint32_t*)(0xc00000 + i*1024);
+		for(j=0;j<8;j++) { // 32ビット(2ドット分)ずつクリアするので8回でOK
+			*addr = 0;
+			*(addr+256-8) = 0;
+			addr++;
+		}
+	}
+
+	//	VDP レベルでは、GRAPHIC7にしても他のモードのパレットは保存されるが、
+	//	６８で２５６色モードにすると破壊されてしまうので、再度設定し直す必要がある
+	vdp->gr_active = 1;
+	update_VCRR_02();
+
+	set_TEXT2_mac();
 }
 
 uint8_t read_vram_TEXT2(ms_vdp_t* vdp) {
-
+	return read_vram_DEFAULT(vdp);
 }
 
 void write_vram_TEXT2(ms_vdp_t* vdp, uint8_t data) {
-
+	write_vram_DEFAULT(vdp, data);
+	//
+	uint32_t area = vdp->vram_addr & 0x1f800; // 下位11ビットをクリア
+	if (area == vdp->pgentbl_baddr) {
+		w_p_gene_tx2_mac();
+	} else {
+		area &= 0x1f000; // 下位12ビットをクリア
+		if (area == vdp->pnametbl_baddr) {
+			w_p_name_tx2_mac(data);
+		}
+	}
+	uint32_t addr_h = (vdp->vram_addr + 0) & 0xc000;
+	uint32_t addr_l = (vdp->vram_addr + 1) & 0x3fff;
+	vdp->vram_addr = (addr_h | addr_l);
 }
 
 void update_palette_TEXT2(ms_vdp_t* vdp) {

@@ -24,8 +24,6 @@
 
 #define NUM_SEGMENTS 4
 
-extern void writeSpritePattern(unsigned char* p, int offset, unsigned int pattern);
-extern void writeSpriteAttribute(unsigned char* p, int offset, unsigned int attribute);
 extern int readMemFromC(int address);
 
 void ms_exit( void);
@@ -44,8 +42,6 @@ void ms_iomap_deinit(void);
 
 // VDP関連
 int vdp_initialized = 0;
-
-void initSprite(void);
 
 // PSG関連
 int psg_initialized = 0;
@@ -122,7 +118,6 @@ void printHelpAndExit(char* progname) {
 }
 
 static unsigned char *MMem;
-static unsigned char *VideoRAM;
 static unsigned char *MainROM1;
 static unsigned char *MainROM2;
 static unsigned char *SUBROM;
@@ -329,7 +324,7 @@ int main(int argc, char *argv[]) {
 	/*
 	 VDPシステムの初期化
 	*/
-	VideoRAM = new_malloc(128 * 1024); /* ＶＲＡＭ １２８Ｋ 					*/
+	unsigned char *VideoRAM = new_malloc(128 * 1024); /* ＶＲＡＭ １２８Ｋ 					*/
 	if (VideoRAM > (unsigned char *)0x81000000)
 	{
 		printf("メモリが確保できません\n");
@@ -409,8 +404,6 @@ int main(int argc, char *argv[]) {
 	printf("emu-ini\n");
 	ms_cpu_init();
 	printf("emu-ini exit\n");
-
-	initSprite();
 
 	if (1) {
 		ms_cpu_emulate(emuLoop);
@@ -732,136 +725,6 @@ void allocateAndSetROM(const char *romFileName, int kind, int slot, int page) {
 		ms_exit();
 	}
  	close( crt_fh);
-}
-
-/*
- 	スプライトの処理
-
-	MS.Xは、MSXの256ドットをX68000の512ドットに拡大している
-	そのため、MSXの8x8ドットのスプライトは、X68000上は16x16ドットになる
-	MSXのスプライトパターンは最大256個定義することができるが、
-	X68000は16x16ドットのスプライトパターンを最大128個しか定義できず、数が足りない。
-	そこで、MSXのスプライトは最大32個しか表示できないことを利用し、
-	X68000のスプライトパターンは、現在表示中のスプライトのみを定義することにする。
-	 
- */
-
-unsigned short* X68_SP_PALETTE = (unsigned short*)0x00e82200; // スプライト/テキストパレット
-unsigned short* X68_SSR = (unsigned short*)0x00eb0000; // スプライトスクロールレジスタ
-unsigned int* X68_PCG = (unsigned int*)0x00eb8000;
-
-unsigned int* X68_PCG_buffer;
-extern unsigned char sprite_size;	// 0: 8x8, 1: 16x16
-
-/*
- スプライトの初期化
- TODO: VDP関連のソースを分離する
- */
-void initSprite(void) {
-	int i;
-
-	// X68000は 1スプライト(16x16)パターンあたり128バイトが必要
-	// MSXは 256個定義できるが、X68000は128個しか定義できないため、メモリ上に定義領域を作っておき
-	// 表示時に転送するようにしている
-	X68_PCG_buffer = (unsigned int*)malloc( 256 * 32 * sizeof(unsigned int)); 
-	if (X68_PCG_buffer > (unsigned int *)0x81000000)
-	{
-		printf("メモリが確保できません\n");
-		ms_exit();
-	}
-	// PCGバッファの初期化
-	for ( i = 0; i < 256 * 32; i++) {
-		X68_PCG_buffer[i] = 0;
-	}
-	// スプライトパレットの初期化
-//	for (int i = 1; i < 256; i++) {
-//		X68_SP_PALETTE[i] = i;
-//	}
-}
-
-/*
- スプライトパターンジェネレータテーブルへの書き込み
-     offset: パターンジェネレータテーブルのベースアドレスからのオフセットバイト
-     pattern: 書き込むパターン(下位8bitのみ使用)
-*/
-void writeSpritePattern(unsigned char* p, int offset, unsigned int pattern) {
-	int i,j;
-	int ptNum = offset / 8; // MSXのスプライトパターン番号
-	int pLine = offset % 8; // パターンの何行目か 
-	int pcgLine = pLine * 2; // MSXの1ラインはX68000では2ライン
-	unsigned int pLeft=0,pRight=0; // 1ラインの左4ドットと右4ドットを X68000の8x8のパターン2つに変換
-
-    // 右端のドットから処理
-	for(i =0; i < 4;i++) {
-		pRight >>= 8;
-		if(pattern & 1) {
-			pRight |= (0xff000000);
-		}
-		pattern >>= 1;
-	}
-    // 残りの左4ドットの処理
-	for(i =0; i < 4;i++) {
-		pLeft >>= 8;
-		if(pattern & 1) {
-			pLeft |= (0xff000000);
-		}
-		pattern >>= 1;
-	}
-	// パターンジェネレータテーブルへの書き込み
-	X68_PCG_buffer[ptNum * 32 + pcgLine+0 + 0] = pLeft;
-	X68_PCG_buffer[ptNum * 32 + pcgLine+1 + 0] = pLeft;
-	X68_PCG_buffer[ptNum * 32 + pcgLine+0 + 16] = pRight;
-	X68_PCG_buffer[ptNum * 32 + pcgLine+1 + 16] = pRight;
-}
-
-void writeSpriteAttribute(unsigned char* p, int offset, unsigned int attribute) {
-	int i,j;
-	int plNum = (offset / 4) % 32; // MSXのスプライトプレーン番号
-	int type = offset % 4; // 属性の種類
-
-	switch(type) {
-		case 0: // Y座標
-			for( i=0; i<4; i++) {
-				X68_SSR[plNum*16+i*4+1] = (((attribute + 1 ) & 0xff) * 2) + (i%2)*16 + 16; // MSXのY座標の2倍, MSXは1ライン下に表示されるので+1, X68000のスプライトの原点は(16,16)なのでずらす
-			}
-			break;
-		case 1: // X座標
-			for( i=0; i<4; i++) {
-				X68_SSR[plNum*16+i*4+0] = ((attribute & 0xff) * 2) + (i/2)*16 + 16; // MSXのX座標の2倍
-			}
-			// TODO ECビットによる位置補正処理
-			break;
-		case 2: // パターン番号
-		case 3: // 属性
-			// パターン番号、カラーが変更されたら、事前にバッファに展開しておいたパターンを転送
-			unsigned int ptNum = p[(offset & 0x1fffc)+2];
-			unsigned int color = p[(offset & 0x1fffc)+3] & 0xf;
-			unsigned int colorex = color << 28 | color << 24 | color << 20 | color << 16 | color << 12 | color << 8 | color << 4 | color; // MSXの4ドット分(X68000だと2倍の8ドットに拡大)
-			if (sprite_size == 0) { // 8x8
-				for( i = 0; i < 32; i++) { 
-					X68_PCG[plNum*32*4+i] = X68_PCG_buffer[(ptNum & 0xff)*32+i] & colorex;
-				}
-			} else { // 16x16
-				for( i = 0; i < 32*4; i++) { 
-					X68_PCG[plNum*32*4+i] = X68_PCG_buffer[(ptNum & 0xfc)*32+i] & colorex;
-				}
-			}
-			break;
-		default:
-			break;
-	}
-	if (sprite_size == 0) {
-		// 8x8モード
-		X68_SSR[plNum*4+2] = 0x100 + plNum; // パレット0x10-0x1fを使用するので 0x100を足す
-		X68_SSR[plNum*4+3] = 0x0003; // スプライト表示ON
-	} else {
-		// 16x16モードは X68000上で 32x32になるので、16x16のスプライトを4つ並べて表現する
-		for( i=0; i<4; i++) {
-			X68_SSR[plNum*16+i*4+2] = 0x100 + plNum*4+i; // パレット0x10-0x1fを使用するので 0x100を足す
-			X68_SSR[plNum*16+i*4+3] = 0x0003; // スプライト表示ON
-		}
-	}
-
 }
 
 /*

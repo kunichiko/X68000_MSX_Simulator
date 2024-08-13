@@ -55,11 +55,11 @@ int init_GRAPHIC5(ms_vdp_t* vdp) {
 }
 
 uint8_t read_vram_GRAPHIC5(ms_vdp_t* vdp) {
-
+	return r_GRAPHIC5_mac();
 }
 
 void write_vram_GRAPHIC5(ms_vdp_t* vdp, uint8_t data) {
-
+	w_GRAPHIC5_mac(data);
 }
 
 void update_palette_GRAPHIC5(ms_vdp_t* vdp) {

@@ -12,7 +12,8 @@
 		"stdio.h": "c",
 		"ms_r800.h": "c",
 		"vdp/ms_vdp.h": "c",
-		"stdint.h": "c"
+		"stdint.h": "c",
+		"stddef.h": "c"
 	},
     "files.encoding": "shiftjis",
     "editor.detectIndentation": false,

@@ -50,11 +50,11 @@ int init_GRAPHIC7(ms_vdp_t* vdp) {
 }
 
 uint8_t read_vram_GRAPHIC7(ms_vdp_t* vdp) {
-
+	return r_GRAPHIC7_mac();
 }
 
 void write_vram_GRAPHIC7(ms_vdp_t* vdp, uint8_t data) {
-
+	w_GRAPHIC7_mac(data);
 }
 
 void update_palette_GRAPHIC7(ms_vdp_t* vdp) {

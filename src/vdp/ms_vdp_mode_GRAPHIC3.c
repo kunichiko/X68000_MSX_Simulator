@@ -46,11 +46,11 @@ int init_GRAPHIC3(ms_vdp_t* vdp) {
 }
 
 uint8_t read_vram_GRAPHIC3(ms_vdp_t* vdp) {
-
+	return read_vram_DEFAULT(vdp);
 }
 
 void write_vram_GRAPHIC3(ms_vdp_t* vdp, uint8_t data) {
-
+	w_GRAPHIC3_mac(data);
 }
 
 void update_palette_GRAPHIC3(ms_vdp_t* vdp) {
