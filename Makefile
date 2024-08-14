@@ -26,10 +26,11 @@ OBJS = $(BUILD_DIR)/ms.o \
 		$(BUILD_DIR)/ms_R800_mac_30.o \
 		$(BUILD_DIR)/ms_R800_flag.o \
 		$(BUILD_DIR)/ms_iomap.o \
+		$(BUILD_DIR)/ms_iomap_mac.o \
 		$(BUILD_DIR)/ms_memmap.o \
 		$(BUILD_DIR)/ms_sysvalue.o \
 		$(BUILD_DIR)/ms_sub_mac.o \
-		$(BUILD_DIR)/ms_IO_PORT.o \
+		$(BUILD_DIR)/ms_peripherals.o \
 		$(BUILD_DIR)/ms_PSG_mac.o \
 		$(BUILD_DIR)/ms_readcart.o \
 		$(BUILD_DIR)/ms_vdp.o \
@@ -52,10 +53,11 @@ OBJS_DEBUG = $(BUILD_DIR)/ms_d.o \
 		$(BUILD_DIR)/ms_R800_mac_30_d.o \
 		$(BUILD_DIR)/ms_R800_flag_d.o \
 		$(BUILD_DIR)/ms_iomap_d.o \
+		$(BUILD_DIR)/ms_iomap_mac_d.o \
 		$(BUILD_DIR)/ms_memmap_d.o \
 		$(BUILD_DIR)/ms_sysvalue_d.o \
 		$(BUILD_DIR)/ms_sub_mac_d.o \
-		$(BUILD_DIR)/ms_IO_PORT_d.o \
+		$(BUILD_DIR)/ms_peripherals_d.o \
 		$(BUILD_DIR)/ms_PSG_mac_d.o \
 		$(BUILD_DIR)/ms_readcart_d.o \
 		$(BUILD_DIR)/ms_vdp_d.o \

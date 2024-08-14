@@ -20,6 +20,7 @@
 #include <getopt.h>
 #include "ms.h"
 #include "ms_R800.h"
+#include "ms_iomap.h"
 #include "vdp/ms_vdp.h"
 
 #define NUM_SEGMENTS 4
@@ -36,12 +37,10 @@ void ms_memmap_deinit(void);
 void ms_memmap_set_main_mem( void *, int);
 
 // I/O関連
-int io_initialized = 0;
-int ms_iomap_init();
-void ms_iomap_deinit(void);
+ms_iomap_t* iomap = NULL;
 
 // VDP関連
-int vdp_initialized = 0;
+ms_vdp_t* vdp = NULL;  // ms_vdp_shared と同じになるはず
 
 // PSG関連
 int psg_initialized = 0;
@@ -312,30 +311,25 @@ int main(int argc, char *argv[]) {
 	ms_memmap_set_main_mem(MMem, (int)NUM_SEGMENTS); /* アセンブラのルーチンへ引き渡し		*/
 
 	/*
+	 VDPシステムの初期化
+	*/
+	vdp = ms_vdp_init();
+	if (vdp == NULL)
+	{
+		printf("VDPシステムの初期化に失敗しました\n");
+		ms_exit();
+	}
+
+	/*
 	 I/Oシステムの初期化
 	 */
-	io_initialized = ms_iomap_init();
-	if (io_initialized == 0)
+	iomap = ms_iomap_init(vdp);
+	if (iomap == NULL)
 	{
 		printf("I/Oシステムの初期化に失敗しました\n");
 		ms_exit();
 	}
 
-	/*
-	 VDPシステムの初期化
-	*/
-	unsigned char *VideoRAM = new_malloc(128 * 1024); /* ＶＲＡＭ １２８Ｋ 					*/
-	if (VideoRAM > (unsigned char *)0x81000000)
-	{
-		printf("メモリが確保できません\n");
-		ms_exit();
-	}
-	vdp_initialized = ms_vdp_init(VideoRAM);
-	if (vdp_initialized == 0)
-	{
-		printf("VDPシステムの初期化に失敗しました\n");
-		ms_exit();
-	}
 
 	printf("\n\n\n\n\n\n\n\n"); // TEXT画面を上に8ラインくらい上げているので、その分改行を入れる
 	printf("[[ MSX Simulator MS.X]]\n");
@@ -422,11 +416,11 @@ void ms_exit() {
 	if ( psg_initialized ) {
 		ms_psg_deinit();
 	}
-	if ( vdp_initialized ) {
-		ms_vdp_deinit();
+	if ( vdp != NULL ) {
+		ms_vdp_deinit(vdp);
 	}
-	if ( io_initialized ) {
-		ms_iomap_deinit();
+	if ( iomap != NULL ) {
+		ms_iomap_deinit(iomap);
 	}
 	if ( mem_initialized ) {
 		ms_memmap_deinit();
@@ -634,20 +628,18 @@ void _toggleTextPlane(void) {
 	_setTextPlane(textPlaneMode);
 }
 
-extern short tx_active;
-
 void _setTextPlane(int textPlaneMode) {
 	switch (textPlaneMode)
 	{
 	case 0:
 		// テキスト表示OFF
 		*VCON_R02 &= 0xffdf;
-		tx_active = 0;
+		vdp->tx_active = 0;
 		break;
 	case 1:
 		// テキスト表示ON
 		*VCON_R02 |= 0x0020;
-		tx_active = 1;
+		vdp->tx_active = 1;
 		break;
 	}
 }
@@ -706,7 +698,7 @@ void allocateAndSetROM(const char *romFileName, int kind, int slot, int page) {
 			if(crt_length < 16 * 1024) {
 				break;
 			}
-			if( ( crt_buff = new_malloc( 16 * 1024 + h_length ) ) > (uint8_t *)0x81000000) {
+			if( ( crt_buff = new_malloc( 16 * 1024 + h_length ) ) >= (uint8_t *)0x81000000) {
 				printf("メモリが確保できません。\n");
 				ms_exit();
 				return;

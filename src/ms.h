@@ -59,3 +59,4 @@ struct slot_pointer_st	{
 };
 
 void *new_malloc( int );
+void new_free( void * );

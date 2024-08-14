@@ -7105,8 +7105,7 @@ input:
 	lea.l	ms_io_input_table,a0
 	movea.l	(a0,d1.w*4),a0			* d0 の値を変えちゃだめ（68030用→68000用にする時注意）
 	move.b	d0,-(sp)			* Cの関数でも呼べるように引数をセット
-	move.l	#@f,-(sp)			* 戻り先アドレスをセット
-	jmp	(a0)
+	jsr	(a0)
 @@:	lea	2(sp),sp
 	movem.l	(sp)+,d2-d7/a0-a5
 	rts
@@ -7133,8 +7132,7 @@ output:
 	movea.l	(a0,d2.w*4),a0			* d0 の値を変えちゃだめ（68030用→68000用にする時注意）
 	move.b	d1,-(sp)			* Cの関数でも呼べるように引数をセット
 	move.b	d0,-(sp)			* Cの関数でも呼べるように引数をセット
-	move.l	#@f,-(sp)			* 戻り先アドレスをセット
-	jmp	(a0)				* rts を省略するためジャンプにしてある
+	jsr	(a0)
 @@:	lea	4(sp),sp
 	movem.l	(sp)+,d2-d7/a0-a5
 	rts

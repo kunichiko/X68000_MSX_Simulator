@@ -5,10 +5,6 @@
 
 #include "ms_vdp.h"
 
-extern ms_vdp_t ms_vdp;
-
-ms_vdp_mode_t *ms_vdp_current_mode;
-
 extern ms_vdp_mode_t ms_vdp_DEFAULT;
 extern ms_vdp_mode_t ms_vdp_TEXT1;
 extern ms_vdp_mode_t ms_vdp_TEXT2;
@@ -94,37 +90,63 @@ ms_vdp_mode_t *ms_vdp_mode_table[32] = {
 	NULL
 };
 
-int ms_vdp_init_mac( void *);
-void ms_vdp_deinit_mac(void);
+int ms_vdp_init_mac(ms_vdp_t* vdp);
+void ms_vdp_deinit_mac(ms_vdp_t* vdp);
+void ms_vdp_init_sprite(ms_vdp_t* vdp);
 
-int ms_vdp_init(void *vram_ptr) {
-	// 画面モードの初期化
-//	ms_vdp
+// Singleton instance
+ms_vdp_t* ms_vdp_shared = NULL;
 
-	if(!ms_vdp_init_mac(vram_ptr)){
-		return 0;
+//ms_vdp_t instance;
+
+ms_vdp_t* ms_vdp_init() {
+	if( ms_vdp_shared != NULL ) {
+		return ms_vdp_shared;
 	}
 
-	initSprite(&ms_vdp);
+	if ( (ms_vdp_shared = (ms_vdp_t*)new_malloc(sizeof(ms_vdp_t))) >= (ms_vdp_t *)0x81000000)
+	{
+		printf("メモリが確保できません\n");
+		return NULL;
+	}
+	//ms_vdp_shared = &instance;
+	if ( (ms_vdp_shared->vram = (uint8_t*)new_malloc(0x20000)) >= (uint8_t *)0x81000000)
+	{
+		printf("メモリが確保できません\n");
+		return NULL;
+	}
+	// X68000は 1スプライト(16x16)パターンあたり128バイトが必要
+	// MSXは 256個定義できるが、X68000は128個しか定義できないため、メモリ上に定義領域を作っておき
+	// 表示時に転送するようにしている
+	if ( (ms_vdp_shared->x68_pcg_buffer = (unsigned int*)new_malloc( 256 * 32 * sizeof(unsigned int))) >= (unsigned int *)0x81000000)
+	{
+		printf("メモリが確保できません\n");
+		return NULL;
+	}
 
-	return 1;
+	ms_vdp_init_mac(ms_vdp_shared);
+
+	ms_vdp_init_sprite(ms_vdp_shared);
+
+	return ms_vdp_shared;
 }
 
-void ms_vdp_deinit(void) {
-	ms_vdp_deinit_mac();
+void ms_vdp_deinit(ms_vdp_t* vdp) {
+	ms_vdp_deinit_mac(ms_vdp_shared);
+	new_free(vdp->x68_pcg_buffer);
+	new_free(vdp->vram);
 }
 
 /*
 	VDPの画面モードをセットする
  */
-void ms_vdp_set_mode(int mode) {
-	ms_vdp_current_mode = ms_vdp_mode_table[mode];
-	if (ms_vdp_current_mode == NULL) {
-		ms_vdp_current_mode = &ms_vdp_DEFAULT;
+void ms_vdp_set_mode(ms_vdp_t* vdp, int mode) {
+	vdp->ms_vdp_current_mode = ms_vdp_mode_table[mode];
+	if (vdp->ms_vdp_current_mode == NULL) {
+		vdp->ms_vdp_current_mode = &ms_vdp_DEFAULT;
 	}
-	ms_vdp_current_mode->init(&ms_vdp);
+	vdp->ms_vdp_current_mode->init(vdp);
 }
-
 
 
 /*
@@ -143,34 +165,18 @@ unsigned short* X68_SP_PALETTE = (unsigned short*)0x00e82200; // スプライト/テキ
 unsigned short* X68_SSR = (unsigned short*)0x00eb0000; // スプライトスクロールレジスタ
 unsigned int* X68_PCG = (unsigned int*)0x00eb8000;
 
-unsigned int* X68_PCG_buffer;
-extern unsigned char sprite_size;	// 0: 8x8, 1: 16x16
-
-int last_visible_sprite_planes = 0;
-int last_visible_sprite_size = 0;
 /*
  プライトの初期化
  */
-void initSprite(ms_vdp_t* vdp) {
+void ms_vdp_init_sprite(ms_vdp_t* vdp) {
 	int i;
 
-	// X68000は 1スプライト(16x16)パターンあたり128バイトが必要
-	// MSXは 256個定義できるが、X68000は128個しか定義できないため、メモリ上に定義領域を作っておき
-	// 表示時に転送するようにしている
-	X68_PCG_buffer = (unsigned int*)malloc( 256 * 32 * sizeof(unsigned int)); 
-	if (X68_PCG_buffer > (unsigned int *)0x81000000)
-	{
-		printf("メモリが確保できません\n");
-		ms_exit();
-	}
 	// PCGバッファの初期化
 	for ( i = 0; i < 256 * 32; i++) {
-		X68_PCG_buffer[i] = 0;
+		vdp->x68_pcg_buffer[i] = 0;
 	}
-	// スプライトパレットの初期化
-//	for (int i = 1; i < 256; i++) {
-//		X68_SP_PALETTE[i] = i;
-//	}
+	vdp->last_visible_sprite_planes = 0;
+	vdp->last_visible_sprite_size = 0;
 }
 
 /*
@@ -202,10 +208,10 @@ void writeSpritePattern(ms_vdp_t* vdp, int offset, unsigned int pattern) {
 		pattern >>= 1;
 	}
 	// パターンジェネレータテーブルへの書き込み
-	X68_PCG_buffer[ptNum * 32 + pcgLine+0 + 0] = pLeft;
-	X68_PCG_buffer[ptNum * 32 + pcgLine+1 + 0] = pLeft;
-	X68_PCG_buffer[ptNum * 32 + pcgLine+0 + 16] = pRight;
-	X68_PCG_buffer[ptNum * 32 + pcgLine+1 + 16] = pRight;
+	vdp->x68_pcg_buffer[ptNum * 32 + pcgLine+0 + 0] = pLeft;
+	vdp->x68_pcg_buffer[ptNum * 32 + pcgLine+1 + 0] = pLeft;
+	vdp->x68_pcg_buffer[ptNum * 32 + pcgLine+0 + 16] = pRight;
+	vdp->x68_pcg_buffer[ptNum * 32 + pcgLine+1 + 16] = pRight;
 }
 
 void writeSpriteAttribute(ms_vdp_t* vdp, int offset, unsigned int attribute) {
@@ -216,7 +222,7 @@ void writeSpriteAttribute(ms_vdp_t* vdp, int offset, unsigned int attribute) {
 	uint8_t* p = vdp->vram + vdp->sprattrtbl_baddr;
 	switch(type) {
 		case 0: // Y座標
-			if(plNum >= last_visible_sprite_planes || attribute == 208) {
+			if(plNum >= vdp->last_visible_sprite_planes || attribute == 208) {
 				updateSpriteVisibility(vdp);
 			}
 			for( i=0; i<4; i++) {
@@ -235,20 +241,20 @@ void writeSpriteAttribute(ms_vdp_t* vdp, int offset, unsigned int attribute) {
 			unsigned int ptNum = p[(offset & 0x1fffc)+2];
 			unsigned int color = p[(offset & 0x1fffc)+3] & 0xf;
 			unsigned int colorex = color << 28 | color << 24 | color << 20 | color << 16 | color << 12 | color << 8 | color << 4 | color; // MSXの4ドット分(X68000だと2倍の8ドットに拡大)
-			if (sprite_size == 0) { // 8x8
+			if (vdp->sprite_size == 0) { // 8x8
 				for( i = 0; i < 32; i++) { 
-					X68_PCG[plNum*32*4+i] = X68_PCG_buffer[(ptNum & 0xff)*32+i] & colorex;
+					X68_PCG[plNum*32*4+i] = vdp->x68_pcg_buffer[(ptNum & 0xff)*32+i] & colorex;
 				}
 			} else { // 16x16
 				for( i = 0; i < 32*4; i++) { 
-					X68_PCG[plNum*32*4+i] = X68_PCG_buffer[(ptNum & 0xfc)*32+i] & colorex;
+					X68_PCG[plNum*32*4+i] = vdp->x68_pcg_buffer[(ptNum & 0xfc)*32+i] & colorex;
 				}
 			}
 			break;
 		default:
 			break;
 	}
-	if (sprite_size == 0) {
+	if (vdp->sprite_size == 0) {
 		// 8x8モード
 		X68_SSR[plNum*4+2] = 0x100 + plNum; // パレット0x10-0x1fを使用するので 0x100を足す
 	} else {
@@ -282,15 +288,15 @@ void updateSpriteVisibility(ms_vdp_t* vdp) {
 			}
 		}
 	}
-	if ((last_visible_sprite_planes == visible_sprite_planes) && //
-		(last_visible_sprite_size == sprite_size)) {
+	if ((vdp->last_visible_sprite_planes == visible_sprite_planes) && //
+		(vdp->last_visible_sprite_size == vdp->sprite_size)) {
 		return;
 	}
 
-	last_visible_sprite_planes = visible_sprite_planes;
-	last_visible_sprite_size = sprite_size;
+	vdp->last_visible_sprite_planes = visible_sprite_planes;
+	vdp->last_visible_sprite_size = vdp->sprite_size;
 	for (i = 0; i < visible_sprite_planes; i++) {
-		if (sprite_size == 0) {
+		if (vdp->sprite_size == 0) {
 			// 8x8モード
 			X68_SSR[i*4+3] = 3; // スプライト表示
 		} else {
@@ -301,7 +307,7 @@ void updateSpriteVisibility(ms_vdp_t* vdp) {
 		}
 	}
 	for (; i < 32; i++) {
-		if (sprite_size == 0) {
+		if (vdp->sprite_size == 0) {
 			// 8x8モード
 			X68_SSR[i*4+3] = 0; // スプライト非表示
 		} else {

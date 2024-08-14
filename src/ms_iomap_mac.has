@@ -12,8 +12,6 @@
 	.include	iocscall.mac
 	.include	doscall.mac
 
-	.xdef	ms_iomap_init
-	.xdef	ms_iomap_deinit
 	.xdef	ms_io_input_table
 	.xdef	ms_io_output_table
 
@@ -39,15 +37,6 @@
 	.xref	write_vdp_0,	write_vdp_1,	write_vdp_2,	write_vdp_3
 
 	.xref	HEX
-
-	.text
-
-ms_iomap_init:
-	moveq.l	#1,d0
-	rts
-
-ms_iomap_deinit:
-	rts
 
 	.data
 

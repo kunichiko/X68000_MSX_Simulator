@@ -47,6 +47,7 @@
 #define VCRR_01		(*(volatile uint16_t *)0xe82500)	// ビデオコントロールレジスタ1
 #define VCRR_02		(*(volatile uint16_t *)0xe82600)	// ビデオコントロールレジスタ2
 
+typedef struct ms_vdp_mode ms_vdp_mode_t;
 
 /*
 Control_registers:
@@ -261,13 +262,22 @@ typedef struct ms_vdp {
 	//
 	uint32_t vram_addr;
 	uint32_t gram_addr;
+
 	//
 	uint16_t display_mode;
+	ms_vdp_mode_t *ms_vdp_current_mode;
+
+	//
 	uint16_t tx_active;
 	uint16_t gr_active;
 
-	//
-	uint8_t* vram;	// X68000側のVRAMの先頭アドレス
+	// X68000側に確保したVRAMの先頭アドレス
+	uint8_t* vram;
+
+	// X68000のPCGに転送するためのバッファ領域
+	unsigned int* x68_pcg_buffer;
+	int last_visible_sprite_planes;
+	int last_visible_sprite_size;
 } ms_vdp_t;
 
 
@@ -299,8 +309,8 @@ typedef struct ms_vdp_mode {
 	void (*update_back_color)(ms_vdp_t* vdp);
 } ms_vdp_mode_t;
 
-int ms_vdp_init( void *);
-void ms_vdp_deinit(void);
+ms_vdp_t* ms_vdp_init();
+void ms_vdp_deinit(ms_vdp_t* vdp);
 
 void initSprite(ms_vdp_t* vdp);
 void writeSpritePattern(ms_vdp_t* vdp, int offset, unsigned int pattern);

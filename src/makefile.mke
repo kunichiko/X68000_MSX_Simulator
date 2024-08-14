@@ -1,5 +1,5 @@
-ms.x: ms.o ms_R800_mac_30.o ms_vdp_mac.o ms_sysvalue.o ms_sub_mac.o ms_IO_port.o ms_PSG_mac.o ms_readcart.o
-	gcc -ldos -liocs ms.o ms_R800_mac_30.o ms_vdp_mac.o ms_sysvalue.o ms_sub_mac.o ms_IO_port.o ms_PSG_mac.o ms_readcart.o
+ms.x: ms.o ms_R800_mac_30.o ms_vdp_mac.o ms_sysvalue.o ms_sub_mac.o ms_peripherals.o ms_PSG_mac.o ms_readcart.o
+	gcc -ldos -liocs ms.o ms_R800_mac_30.o ms_vdp_mac.o ms_sysvalue.o ms_sub_mac.o ms_peripherals.o ms_PSG_mac.o ms_readcart.o
 	command copy ms.x 実行ディレクトリ
 ms.o: ms.c
 	gcc -c -O -g ms.c
@@ -11,8 +11,8 @@ ms_sysvalue.o: ms_sysvalue.has
 	has ms_sysvalue.has
 ms_sub_mac.o: ms_sub_mac.has
 	has ms_sub_mac.has
-ms_IO_port.o: ms_IO_port.has
-	has ms_IO_port.has
+ms_peripherals.o: ms_peripherals.has
+	has ms_peripherals.has
 ms_PSG_mac.o: ms_PSG_mac.has
 	has ms_PSG_mac.has
 ms_readcart.o: ms_readcart.c
