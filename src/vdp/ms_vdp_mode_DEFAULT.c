@@ -12,8 +12,8 @@ void update_colortbl_baddr_DEFAULT(ms_vdp_t* vdp);
 void update_pgentbl_baddr_DEFAULT(ms_vdp_t* vdp);
 void update_sprattrtbl_baddr_DEFAULT(ms_vdp_t* vdp);
 void update_sprpgentbl_baddr_DEFAULT(ms_vdp_t* vdp);
-void update_text_color_DEFAULT(ms_vdp_t* vdp);
-void update_back_color_DEFAULT(ms_vdp_t* vdp);
+void update_r7_color_DEFAULT(ms_vdp_t* vdp, uint8_t data);
+char* get_mode_name_DEFAULT(ms_vdp_t* vdp);
 
 ms_vdp_mode_t ms_vdp_DEFAULT = {
 	// int init_DEFAULT(ms_vdp_t* vdp);
@@ -34,10 +34,10 @@ ms_vdp_mode_t ms_vdp_DEFAULT = {
 	update_sprattrtbl_baddr_DEFAULT,
 	// void update_sprpgentbl_baddr_DEFAULT(ms_vdp_t* vdp);
 	update_sprpgentbl_baddr_DEFAULT,
-	// void update_text_color_DEFAULT(ms_vdp_t* vdp);
-	update_text_color_DEFAULT,
-	// void update_back_color_DEFAULT(ms_vdp_t* vdp);
-	update_back_color_DEFAULT
+	// void update_r7_color_DEFAULT(ms_vdp_t* vdp, uint8_t data);
+	update_r7_color_DEFAULT,
+	// char* get_mode_name_DEFAULT(ms_vdp_t* vdp);
+	get_mode_name_DEFAULT
 };
 
 
@@ -112,10 +112,16 @@ void update_sprpgentbl_baddr_DEFAULT(ms_vdp_t* vdp) {
 	vdp->sprpgentbl_baddr = (vdp->_r06 << 11) & 0x1ffff;
 }
 
-void update_text_color_DEFAULT(ms_vdp_t* vdp) {
-
+/**
+ * @brief VDPレジスタ R#7 周辺色の設定
+ * 
+ * @param vdp 
+ */
+void update_r7_color_DEFAULT(ms_vdp_t* vdp, uint8_t data) {
+	vdp->text_color = data >> 4;
+	vdp->back_color = data & 0x0f;
 }
 
-void update_back_color_DEFAULT(ms_vdp_t* vdp) {
-
+char* get_mode_name_DEFAULT(ms_vdp_t* vdp) {
+	return "DEFAULT";
 }

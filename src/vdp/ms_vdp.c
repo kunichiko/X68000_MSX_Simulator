@@ -97,8 +97,6 @@ void ms_vdp_init_sprite(ms_vdp_t* vdp);
 // Singleton instance
 ms_vdp_t* ms_vdp_shared = NULL;
 
-//ms_vdp_t instance;
-
 ms_vdp_t* ms_vdp_init() {
 	if( ms_vdp_shared != NULL ) {
 		return ms_vdp_shared;
@@ -109,7 +107,6 @@ ms_vdp_t* ms_vdp_init() {
 		printf("ƒƒ‚ƒŠ‚ªŠm•Û‚Å‚«‚Ü‚¹‚ñ\n");
 		return NULL;
 	}
-	//ms_vdp_shared = &instance;
 	if ( (ms_vdp_shared->vram = (uint8_t*)new_malloc(0x20000)) >= (uint8_t *)0x81000000)
 	{
 		printf("ƒƒ‚ƒŠ‚ªŠm•Û‚Å‚«‚Ü‚¹‚ñ\n");
@@ -146,6 +143,7 @@ void ms_vdp_set_mode(ms_vdp_t* vdp, int mode) {
 		vdp->ms_vdp_current_mode = &ms_vdp_DEFAULT;
 	}
 	vdp->ms_vdp_current_mode->init(vdp);
+	printf("VDP Mode: %s\n", vdp->ms_vdp_current_mode->get_mode_name(vdp));
 }
 
 

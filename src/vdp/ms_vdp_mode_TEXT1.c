@@ -12,8 +12,8 @@ void update_colortbl_baddr_TEXT1(ms_vdp_t* vdp);
 void update_pgentbl_baddr_TEXT1(ms_vdp_t* vdp);
 void update_sprattrtbl_baddr_TEXT1(ms_vdp_t* vdp);
 void update_sprpgentbl_baddr_TEXT1(ms_vdp_t* vdp);
-void update_text_color_TEXT1(ms_vdp_t* vdp);
-void update_back_color_TEXT1(ms_vdp_t* vdp);
+void update_r7_color_TEXT1(ms_vdp_t* vdp, uint8_t data);
+char* get_mode_name_TEXT1(ms_vdp_t* vdp);
 
 ms_vdp_mode_t ms_vdp_TEXT1 = {
 	// int init_TEXT1(ms_vdp_t* vdp);
@@ -34,16 +34,14 @@ ms_vdp_mode_t ms_vdp_TEXT1 = {
 	update_sprattrtbl_baddr_TEXT1,
 	// void update_sprpgentbl_baddr_TEXT1(ms_vdp_t* vdp);
 	update_sprpgentbl_baddr_TEXT1,
-	// void update_text_color_TEXT1(ms_vdp_t* vdp);
-	update_text_color_TEXT1,
-	// void update_back_color_TEXT1(ms_vdp_t* vdp);
-	update_back_color_TEXT1
+	// void update_r7_color_TEXT1(ms_vdp_t* vdp, uint8_t data);
+	update_r7_color_TEXT1,
+	// char* get_mode_name_TEXT1(ms_vdp_t* vdp);
+	get_mode_name_TEXT1
 };
 
 
 int init_TEXT1(ms_vdp_t* vdp) {
-	vdp->display_mode = 0;
-
 	// CRTレジスタの設定
 	// 16色モードにする
 	CRTR_20 &= 0b1111100011111111;
@@ -128,12 +126,19 @@ void update_sprpgentbl_baddr_TEXT1(ms_vdp_t* vdp) {
     update_sprpgentbl_baddr_DEFAULT(vdp);
 }
 
-void update_text_color_TEXT1(ms_vdp_t* vdp) {
+void update_r7_color_TEXT1(ms_vdp_t* vdp, uint8_t data) {
+	vdp->text_color = data >> 4;
+	vdp->back_color = data & 0x0f;
 
+	// バックドロップとして設定されているBG面の色を変更する
+	// TODO BGを使わないようにする
+	uint16_t palette = vdp->palette[vdp->text_color];
+	uint16_t *p = (uint16_t*)(0xe82220 + 2);
+	*p = palette;
 }
 
-void update_back_color_TEXT1(ms_vdp_t* vdp) {
-
+char* get_mode_name_TEXT1(ms_vdp_t* vdp) {
+	return "TEXT1";
 }
 
 

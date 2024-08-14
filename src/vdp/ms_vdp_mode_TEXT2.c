@@ -12,8 +12,8 @@ void update_colortbl_baddr_TEXT2(ms_vdp_t* vdp);
 void update_pgentbl_baddr_TEXT2(ms_vdp_t* vdp);
 void update_sprattrtbl_baddr_TEXT2(ms_vdp_t* vdp);
 void update_sprpgentbl_baddr_TEXT2(ms_vdp_t* vdp);
-void update_text_color_TEXT2(ms_vdp_t* vdp);
-void update_back_color_TEXT2(ms_vdp_t* vdp);
+void update_r7_color_TEXT2(ms_vdp_t* vdp, uint8_t data);
+char* get_mode_name_TEXT2(ms_vdp_t* vdp);
 
 ms_vdp_mode_t ms_vdp_TEXT2 = {
 	// int init_TEXT2(ms_vdp_t* vdp);
@@ -34,16 +34,14 @@ ms_vdp_mode_t ms_vdp_TEXT2 = {
 	update_sprattrtbl_baddr_TEXT2,
 	// void update_sprpgentbl_baddr_TEXT2(ms_vdp_t* vdp);
 	update_sprpgentbl_baddr_TEXT2,
-	// void update_text_color_TEXT2(ms_vdp_t* vdp);
-	update_text_color_TEXT2,
-	// void update_back_color_TEXT2(ms_vdp_t* vdp);
-	update_back_color_TEXT2
+	// void update_r7_color_TEXT2(ms_vdp_t* vdp, uint8_t data);
+	update_r7_color_TEXT2,
+	// char* get_mode_name_TEXT2(ms_vdp_t* vdp);
+	get_mode_name_TEXT2
 };
 
 
 int init_TEXT2(ms_vdp_t* vdp) {
-	vdp->display_mode = 1;
-
 	// CRTレジスタの設定
 	// 16色モードにする
 	CRTR_20 &= 0b1111100011111111;
@@ -118,10 +116,10 @@ void update_sprpgentbl_baddr_TEXT2(ms_vdp_t* vdp) {
     update_sprpgentbl_baddr_DEFAULT(vdp);
 }
 
-void update_text_color_TEXT2(ms_vdp_t* vdp) {
-
+void update_r7_color_TEXT2(ms_vdp_t* vdp, uint8_t data) {
+	update_r7_color_TEXT1(vdp, data);
 }
 
-void update_back_color_TEXT2(ms_vdp_t* vdp) {
-
+char* get_mode_name_TEXT2(ms_vdp_t* vdp) {
+	return "TEXT2";
 }

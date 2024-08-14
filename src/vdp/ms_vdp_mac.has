@@ -129,8 +129,8 @@ offset_ms_vdp_update_colortbl_baddr	equ	5*4
 offset_ms_vdp_update_pgentbl_baddr	equ	6*4
 offset_ms_vdp_update_sprattrtbl_baddr	equ	7*4
 offset_ms_vdp_update_sprpgentbl_baddr 	equ	8*4
-offset_ms_vdp_update_text_color		equ	9*4
-offset_ms_vdp_update_back_color		equ	10*4
+offset_ms_vdp_update_r7_color		equ	9*4
+offset_ms_vdp_get_mode_name		equ	10*4
 
 ; typedef struct ms_vdp {
 ; 	uint8_t	r00;	// Mode register 0
@@ -296,7 +296,7 @@ offset_ms_vdp_text_color	equ	114
 offset_ms_vdp_back_color	equ	116
 offset_ms_vdp_vram_addr		equ	118
 offset_ms_vdp_gram_addr		equ	122
-offset_ms_vdp_display_mode	equ	126
+;offset_ms_vdp_display_mode	equ	126
 offset_ms_vdp_current_mode	equ	128
 offset_ms_vdp_tx_active		equ	132
 offset_ms_vdp_gr_active		equ	134
@@ -1080,37 +1080,17 @@ w_R6:	move.b	d1,offset_ms_vdp_r06_(a5)
 	rts
 
 *
-*	ＳＣＲＥＥＮ８の時の処理がまだ
+*	画面の周辺色の更新
 *
-w_R7:	clr.w	d0
-	move.b	d1,d0
-	lsr.w	#4,d0
-	move.w	d0,offset_ms_vdp_text_color(a5)
-	andi.w	#$000f,d1
-	move.w	d1,offset_ms_vdp_back_color(a5)
+w_R7:	move.b	d1,offset_ms_vdp_r07_(a5)
 
-	move.w	offset_ms_vdp_display_mode(a5),d0
-	cmpi.w	#7,d0
-	beq	1f
-
-	lea.l	offset_ms_vdp_palette(a5),a1
-	lea.l	$E82220+2,a2			* ＢＧのパレット１
-	add.w	d1,d1
-	move.w	0(a1,d1.w),(a2)
-
-	rts
-
-1:	move.w	d1,d0				* SCREEN 6 のとき
-	andi.w	#%00000011,d1			* 奇数ドットの色
-	lsr.w	#2,d0
-
-	lea.l	offset_ms_vdp_palette(a5),a1
-	lea.l	$E82220+2,a2			* ＢＧのパレット１
-*	move.w	0(a1,d1.w*2),(a2)+
-*	move.w	0(a1,d0.w*2),(a2)
-	move.w	#0,(a2)+
-	move.w	#0,(a2)
-
+	; 画面モードに応じて周辺色のの更新処理を呼び出す
+	move.l	d1,-(sp)		* 値を引数に
+	move.l	ms_vdp_shared,-(sp)		* 構造体のアドレスを引数に
+	movea.l	offset_ms_vdp_current_mode(a5),a0
+	movea.l	offset_ms_vdp_update_r7_color(a0),a0
+	jsr	(a0)
+	lea.l	8(sp),sp
 	rts
 
 ; R#8	VDP Mode Register 2
@@ -1275,7 +1255,6 @@ set_TEXT2_mac:
 
 set_MULTICOLOR_mac:
 	movea.l	ms_vdp_shared,a5		* ms_vdp_t へのポインタを取得
-	move.w	#2,offset_ms_vdp_display_mode(a5)
 
 	move.w	CRTR_20,d0			* CRT レジスタの設定
 	andi.w	#%1111100011111111,d0		* 16色モードに
@@ -1302,7 +1281,6 @@ set_MULTICOLOR_mac:
 
 set_GRAPHIC1_mac:
 	movea.l	ms_vdp_shared,a5		* ms_vdp_t へのポインタを取得
-	move.w	#3,offset_ms_vdp_display_mode(a5)
 
 	move.w	CRTR_20,d0			* CRT レジスタの設定
 	andi.w	#%1111100011111111,d0		* 16色モードに
@@ -1328,7 +1306,6 @@ set_GRAPHIC1_mac:
 
 set_GRAPHIC2_mac:
 	movea.l	ms_vdp_shared,a5		* ms_vdp_t へのポインタを取得
-	move.w	#4,offset_ms_vdp_display_mode(a5)
 
 	move.w	CRTR_20,d0			* CRT レジスタの設定
 	andi.w	#%1111100011111111,d0		* 16色モードに
@@ -1358,7 +1335,6 @@ set_GRAPHIC3_mac:
 
 set_GRAPHIC4_mac:
 	movea.l	ms_vdp_shared,a5		* ms_vdp_t へのポインタを取得
-	move.w	#6,offset_ms_vdp_display_mode(a5)
 
 	move.w	CRTR_20,d0			* CRT レジスタの設定
 	andi.w	#%1111100011111111,d0		* 16色モードに
@@ -1391,7 +1367,6 @@ set_GRAPHIC4_mac:
 
 set_GRAPHIC5_mac:
 	movea.l	ms_vdp_shared,a5		* ms_vdp_t へのポインタを取得
-	move.w	#7,offset_ms_vdp_display_mode(a5)
 
 	move.w	CRTR_20,d0			* CRT レジスタの設定
 	andi.w	#%1111100011111111,d0		* 16色モードに
@@ -1423,7 +1398,6 @@ set_GRAPHIC5_mac:
 
 set_GRAPHIC6_mac:
 	movea.l	ms_vdp_shared,a5		* ms_vdp_t へのポインタを取得
-	move.w	#8,offset_ms_vdp_display_mode(a5)
 
 	move.w	CRTR_20,d0			* CRT レジスタの設定
 	andi.w	#%1111100011111111,d0		* 16色モードに
@@ -1454,7 +1428,6 @@ set_GRAPHIC6_mac:
 
 set_GRAPHIC7_mac:
 	movea.l	ms_vdp_shared,a5		* ms_vdp_t へのポインタを取得
-	move.w	#9,offset_ms_vdp_display_mode(a5)
 
 	move.w	CRTR_20,d0			* CRT レジスタの設定
 	andi.w	#%1111100011111111,d0		* 256色モードに
