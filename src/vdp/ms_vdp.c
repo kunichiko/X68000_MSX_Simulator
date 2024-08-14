@@ -125,6 +125,12 @@ ms_vdp_t* ms_vdp_init() {
 
 	ms_vdp_init_sprite(ms_vdp_shared);
 
+	// GRAMƒNƒŠƒA
+	int i;
+	for(i=0;i<X68_GRAM_LEN;i++) {
+		X68_GRAM[i] = 0;
+	}
+
 	return ms_vdp_shared;
 }
 

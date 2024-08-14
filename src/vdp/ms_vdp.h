@@ -15,6 +15,8 @@
 // uint16_t * const X68_SP_PAL_B1 = (uint16_t *)0xE82220;	// ブロック1はスプライトパレットに使用
 // uint16_t * const X68_SP_PAL_B2 = (uint16_t *)0xE82240;	// ブロック2以降は使用していない
 
+#define X68_GRAM	((uint16_t *)0xc00000)
+#define X68_GRAM_LEN	0x100000	// ワード数
 #define X68_GR_PAL	((uint16_t *)0xE82000)
 #define X68_TX_PAL	((uint16_t *)0xE82200)
 #define X68_SP_PAL_B0	((uint16_t *)0xE82200)	// ブロック0はテキストと共用

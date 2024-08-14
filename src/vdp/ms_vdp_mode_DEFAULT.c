@@ -113,13 +113,11 @@ void update_sprpgentbl_baddr_DEFAULT(ms_vdp_t* vdp) {
 }
 
 /**
- * @brief VDPレジスタ R#7 周辺色の設定
+ * @brief VDPレジスタ R#7 の色設定
  * 
  * @param vdp 
  */
 void update_r7_color_DEFAULT(ms_vdp_t* vdp, uint8_t data) {
-	vdp->text_color = data >> 4;
-	vdp->back_color = data & 0x0f;
 }
 
 char* get_mode_name_DEFAULT(ms_vdp_t* vdp) {

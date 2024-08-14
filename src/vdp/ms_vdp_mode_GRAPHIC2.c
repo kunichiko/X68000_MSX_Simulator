@@ -80,7 +80,6 @@ void update_sprpgentbl_baddr_GRAPHIC2(ms_vdp_t* vdp) {
 }
 
 void update_r7_color_GRAPHIC2(ms_vdp_t* vdp, uint8_t data) {
-	update_r7_color_DEFAULT(vdp, data);
 }
 
 char* get_mode_name_GRAPHIC2(ms_vdp_t* vdp) {

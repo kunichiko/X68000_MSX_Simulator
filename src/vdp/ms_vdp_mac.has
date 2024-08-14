@@ -1245,11 +1245,21 @@ set_TEXT1_mac:
 	move.l	#s_TEXT1,set_gram_add_rot
 	move.l	#VDP_NONE,VDP_command_jpt_add
 
+	movea.l	ms_vdp_shared,a5	* ms_vdp_t へのポインタを取得
+	move.l	offset_ms_vdp_vram_addr(a5),d1
+	movea.l	set_gram_add_rot,a0
+	jsr	(a0)
+
 	rts
 
 set_TEXT2_mac:
 	move.l	#s_TEXT2,set_gram_add_rot
 	move.l	#VDP_NONE,VDP_command_jpt_add
+
+	movea.l	ms_vdp_shared,a5	* ms_vdp_t へのポインタを取得
+	move.l	offset_ms_vdp_vram_addr(a5),d1
+	movea.l	set_gram_add_rot,a0
+	jsr	(a0)
 
 	rts
 
@@ -1872,7 +1882,6 @@ w_p_gene_tx2_mac:
 *
 * (返り値)
 *	d1,d2,d3,a0 ・・・ 破壊
-*	a1 ・・・・ 次に表示するＧＲＡＭアドレス
 *
 w_p_name_tx2_mac:
 	move.l	4(sp),d1
@@ -1935,9 +1944,9 @@ w_p_name_tx2_mac:
 	suba.l	#1024*16-12,a1		* gram_add の更新
 	move.l	a1,d0
 	andi.w	#$03ff,d0		* 改行したかのチェック
-	cmpi.w	#$03e0,d0
+	cmpi.w	#$03e0,d0		* (16ドットオフセット+6ドットx80文字) * 2バイト = 992 = 0x03e0
 	bne	@f
-	adda.l	#1024*15+32,a1
+	adda.l	#1024*15+64,a1
 @@:	move.l	a1,offset_ms_vdp_gram_addr(a5)
 	move.l	(sp)+,d4
 	rts
