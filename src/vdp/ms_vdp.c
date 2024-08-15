@@ -125,11 +125,12 @@ ms_vdp_t* ms_vdp_init() {
 	// 実際には、MSXの画面モードに応じてこの後色々変化する
 	_iocs_crtmod(4);	// 512x512, 31kHz, 16色 4枚
 	_iocs_g_clr_on();	// グラフィックス画面初期化
-	ms_vdp_set_display_lines();
 
 	ms_vdp_init_mac(ms_vdp_shared);
 
 	ms_vdp_init_sprite(ms_vdp_shared);
+
+	update_resolution_COMMON(ms_vdp_shared, 1, 0);
 
 	// GRAMクリア
 	int i;
@@ -158,10 +159,68 @@ void ms_vdp_set_mode(ms_vdp_t* vdp, int mode) {
 	if (vdp->ms_vdp_current_mode == NULL) {
 		vdp->ms_vdp_current_mode = &ms_vdp_DEFAULT;
 	}
+	vdp->ms_vdp_current_mode->update_resolution(vdp);
 	vdp->ms_vdp_current_mode->init(vdp);
 	printf("VDP Mode: %s\n", vdp->ms_vdp_current_mode->get_mode_name(vdp));
 }
 
+
+uint16_t crtc_values[4][13] = {
+	// 256x192, 60Hz
+	{	45, 4,  6, 38, 524, 5, 40, 424, 25, // CRTCレジスタ0-8
+		0xff,   6+4,           40, // スプライトコントローラ画面モードレジスタ
+		8*8	// テキスト画面のオフセット値
+	},
+	// 256x212, 60Hz
+	{	45, 4,  6, 38, 524, 5, 52, 476, 27, // CRTCレジスタ0-8
+		0xff,   6+4,           52, // スプライトコントローラ画面モードレジスタ
+		8*5+4	// テキスト画面のオフセット値
+	},
+	// 512x384, 60Hz
+	{	91, 9, 17, 81, 524, 5, 40, 424, 25, // CRTCレジスタ0-8
+		0xff,  17+4,           40, // スプライトコントローラ画面モードレジスタ
+		16*8	// テキスト画面のオフセット値
+	},
+	// 512x424, 60Hz
+	{	91, 9, 17, 81, 524, 5, 52, 476, 27, // CRTCレジスタ0-8
+		0xff,  17+4,           52, // スプライトコントローラ画面モードレジスタ
+		16*5+8	// テキスト画面のオフセット値
+	}
+};
+
+/**
+ * @brief Set the display resolution
+ * 
+ * @param vdp 
+ * @param res 0=256ドット, 1=512ドット
+ * @param color 0=16色, 1=256色, 3=65536色
+ */
+void update_resolution_COMMON(ms_vdp_t* vdp, int res, int color) {
+	// lines 0=192ライン, 1=212ライン (MSX換算)
+	int lines = (vdp->r09 & 0x80) >> 7;
+	int m = res * 2 + lines;
+
+	CRTR_00	= crtc_values[m][0];
+	CRTR_01	= crtc_values[m][1];
+	CRTR_02	= crtc_values[m][2];
+	CRTR_03	= crtc_values[m][3];
+	CRTR_04	= crtc_values[m][4];
+	CRTR_05	= crtc_values[m][5];
+	CRTR_06	= crtc_values[m][6];
+	CRTR_07	= crtc_values[m][7];
+	CRTR_08	= crtc_values[m][8];
+	CRTR_20 = ((color&0x3) << 10) | 0x10 | ((res&0x1) << 2) | (res&0x1);
+	SPCON_HTOTAL = crtc_values[m][9];
+	SPCON_HDISP = crtc_values[m][10];
+	SPCON_VSISP = crtc_values[m][11];
+	SPCON_RES = 0x10 | ((res&0x1) << 2) | (res&0x1);
+
+	// ビデオコントロールレジスタの色設定
+	VCRR_00 = (color&0x3);
+
+	// テキスト画面のスクロール位置補正
+	CRTR_11 = crtc_values[m][12];
+}
 
 /*
  	スプライトの処理

@@ -14,6 +14,7 @@ void update_sprattrtbl_baddr_TEXT1(ms_vdp_t* vdp);
 void update_sprpgentbl_baddr_TEXT1(ms_vdp_t* vdp);
 void update_r7_color_TEXT1(ms_vdp_t* vdp, uint8_t data);
 char* get_mode_name_TEXT1(ms_vdp_t* vdp);
+void update_resolution_TEXT1(ms_vdp_t* vdp);
 
 ms_vdp_mode_t ms_vdp_TEXT1 = {
 	// int init_TEXT1(ms_vdp_t* vdp);
@@ -39,18 +40,13 @@ ms_vdp_mode_t ms_vdp_TEXT1 = {
 	// char* get_mode_name_TEXT1(ms_vdp_t* vdp);
 	get_mode_name_TEXT1,
 	// void exec_vdp_command_NONE(ms_vdp_t* vdp, uint8_t cmd);
-	exec_vdp_command_NONE
+	exec_vdp_command_NONE,
+	// void (*update_resolution)(ms_vdp_t* vdp);
+	update_resolution_TEXT1
 };
 
 
 int init_TEXT1(ms_vdp_t* vdp) {
-	// CRTレジスタの設定
-	// 16色モードにする
-	CRTR_20 &= 0b1111100011111111;
-
-	// ビデオコントロールレジスタの設定
-	// 16色モードにする
-	VCRR_00 &= 0b1111111111111000;
 	// TEXT1は、横6ドットのキャラクターが40文字なので、幅が240ドット
 	// そのため、左右に8ドットずつ(X68000的には16ドットずつ)の非表示領域があるので
 	// そこをクリアする
@@ -143,6 +139,9 @@ char* get_mode_name_TEXT1(ms_vdp_t* vdp) {
 	return "TEXT1";
 }
 
+void update_resolution_TEXT1(ms_vdp_t* vdp) {
+	update_resolution_COMMON(vdp, 1, 0); // 512, 16色
+}
 
 //
 void write_pattern_name_TEXT1(ms_vdp_t* vdp, uint32_t addr, uint8_t data) {

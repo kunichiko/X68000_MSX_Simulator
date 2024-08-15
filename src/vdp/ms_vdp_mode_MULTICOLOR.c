@@ -14,6 +14,7 @@ void update_sprattrtbl_baddr_MULTICOLOR(ms_vdp_t* vdp);
 void update_sprpgentbl_baddr_MULTICOLOR(ms_vdp_t* vdp);
 void update_r7_color_MULTICOLOR(ms_vdp_t* vdp, uint8_t data);
 char* get_mode_name_MULTICOLOR(ms_vdp_t* vdp);
+void update_resolution_MULTICOLOR(ms_vdp_t* vdp);
 
 ms_vdp_mode_t ms_vdp_MULTICOLOR = {
 	// int init_MULTICOLOR(ms_vdp_t* vdp);
@@ -39,7 +40,9 @@ ms_vdp_mode_t ms_vdp_MULTICOLOR = {
 	// char* get_mode_name_MULTICOLOR(ms_vdp_t* vdp);
 	get_mode_name_MULTICOLOR,
 	// void exec_vdp_command_NONE(ms_vdp_t* vdp, uint8_t cmd);
-	exec_vdp_command_NONE
+	exec_vdp_command_NONE,
+	// void (*update_resolution)(ms_vdp_t* vdp);
+	update_resolution_MULTICOLOR
 };
 
 
@@ -87,3 +90,6 @@ char* get_mode_name_MULTICOLOR(ms_vdp_t* vdp) {
 	return "MULTICOLOR";
 }
 
+void update_resolution_MULTICOLOR(ms_vdp_t* vdp) {
+	update_resolution_COMMON(vdp, 1, 0); // 512, 16êF
+}

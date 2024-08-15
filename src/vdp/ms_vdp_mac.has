@@ -26,7 +26,6 @@
 	; functions
 	.xdef	ms_vdp_init_mac
 	.xdef	ms_vdp_deinit_mac
-	.xdef	ms_vdp_set_display_lines
 
 	.xdef	set_TEXT1_mac
 	.xdef	set_TEXT2_mac
@@ -138,6 +137,7 @@ offset_ms_vdp_update_sprpgentbl_baddr 	equ	8*4
 offset_ms_vdp_update_r7_color		equ	9*4
 offset_ms_vdp_get_mode_name		equ	10*4
 offset_ms_vdp_exec_vdp_command		equ	11*4
+offset_ms_vdp_update_resolution		equ	12*4
 
 ; typedef struct ms_vdp {
 ; 	uint8_t	r00;	// Mode register 0
@@ -403,59 +403,6 @@ ms_vdp_init_mac:
 	moveq.l	#1,d0
 
 	rts
-
-ms_vdp_set_display_lines:
-	link	a6,#0
-	movem.l	d3-d7/a0-a5,-(sp)
-
-	btst.b	#7,offset_ms_vdp_r09(a5)	* R#9のbit7が1の時は512x424
-	bne	set_dispaly_lines_212
-
-set_display_lines_192:
-	* 512 x 384にする
-	move.w	#91,CRTR_00
-	move.w	#9,CRTR_01
-	move.w	#17,CRTR_02
-	move.w	#81,CRTR_03
-	move.w	#524,CRTR_04
-	move.w	#5,CRTR_05
-	move.w	#40,CRTR_06
-	move.w	#424,CRTR_07
-	move.w	#27,CRTR_08	* adjust
-
-	move.w	#$ff,SPCON_HTOTAL 	* 常に $ff
-	move.w	#17+4,SPCON_HDISP	* CRTC R02 + 4の値
-	move.w	#40,SPCON_VDISP		* CRTC R06 の値
-
-	* テキスト画面の下の方が切れるので、テキスト画面を少し上にスクロールさせる
-	move.w	#16*8,CRTR_11
-
-	bra	@f
-
-set_dispaly_lines_212:
-	* 512 x 424にする
-	move.w	#91,CRTR_00
-	move.w	#9,CRTR_01
-	move.w	#17,CRTR_02
-	move.w	#81,CRTR_03
-	move.w	#524,CRTR_04
-	move.w	#5,CRTR_05
-	move.w	#52,CRTR_06
-	move.w	#476,CRTR_07
-	move.w	#27,CRTR_08	* adjust
-
-	move.w	#$ff,SPCON_HTOTAL 	* 常に $ff
-	move.w	#17+4,SPCON_HDISP	* CRTC R02 + 4の値
-	move.w	#52,SPCON_VDISP		* CRTC R06 の値
-
-	* テキスト画面の下の方が切れるので、テキスト画面を少し上にスクロールさせる
-	move.w	#16*5+8,CRTR_11
-
-@@:	movem.l	(sp)+,d3-d7/a0-a5
-	unlk	a6
-	rts
-
-
 
 vdp_interrupt:
 	movem.l	a5,-(sp)
@@ -1130,7 +1077,13 @@ w_R8:	move.b	d1,offset_ms_vdp_r08(a5)
 ;		0=出力
 ;		1=入力
 w_R9:	move.b	d1,offset_ms_vdp_r09(a5)
-	bsr	ms_vdp_set_display_lines
+
+	; 画面モードに応じて解像度設定の更新処理を呼び出す
+	move.l	ms_vdp_shared,-(sp)		* 構造体のアドレスを引数に
+	movea.l	offset_ms_vdp_current_mode(a5),a0
+	movea.l	offset_ms_vdp_update_resolution(a0),a0
+	jsr	(a0)
+	lea.l	4(sp),sp
 	rts
 
 w_R14:	andi.l	#%00000000_00000111,d1	* d1.l = 00000000_00000000_00000AAA

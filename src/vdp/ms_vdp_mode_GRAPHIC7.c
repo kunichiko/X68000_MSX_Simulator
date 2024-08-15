@@ -18,6 +18,7 @@ void update_sprattrtbl_baddr_GRAPHIC7(ms_vdp_t* vdp);
 void update_sprpgentbl_baddr_GRAPHIC7(ms_vdp_t* vdp);
 void update_r7_color_GRAPHIC7(ms_vdp_t* vdp, uint8_t data);
 char* get_mode_name_GRAPHIC7(ms_vdp_t* vdp);
+void update_resolution_GRAPHIC7(ms_vdp_t* vdp);
 void exec_vdp_command_GRAPHIC7(ms_vdp_t* vdp, uint8_t cmd);
 
 ms_vdp_mode_t ms_vdp_GRAPHIC7 = {
@@ -44,7 +45,9 @@ ms_vdp_mode_t ms_vdp_GRAPHIC7 = {
 	// char* get_mode_name_GRAPHIC7(ms_vdp_t* vdp);
 	get_mode_name_GRAPHIC7,
 	// void exec_vdp_command_GRAPHIC7(ms_vdp_t* vdp, uint8_t cmd);
-	exec_vdp_command_GRAPHIC7
+	exec_vdp_command_GRAPHIC7,
+	// void (*update_resolution)(ms_vdp_t* vdp);
+	update_resolution_GRAPHIC7
 };
 
 
@@ -93,4 +96,8 @@ char* get_mode_name_GRAPHIC7(ms_vdp_t* vdp) {
 
 void exec_vdp_command_GRAPHIC7(ms_vdp_t* vdp, uint8_t cmd) {
 	exec_vdp_command_DEFAULT(vdp, cmd);
+}
+
+void update_resolution_GRAPHIC7(ms_vdp_t* vdp) {
+	update_resolution_COMMON(vdp, 0, 1);
 }

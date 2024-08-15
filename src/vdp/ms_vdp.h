@@ -49,6 +49,11 @@
 #define VCRR_01		(*(volatile uint16_t *)0xe82500)	// ビデオコントロールレジスタ1
 #define VCRR_02		(*(volatile uint16_t *)0xe82600)	// ビデオコントロールレジスタ2
 
+#define SPCON_HTOTAL (*(volatile uint16_t *)0xeb080a)	// 水平トータルレジスタ
+#define SPCON_HDISP	(*(volatile uint16_t *)0xeb080c)	// 水平解像度設定レジスタ
+#define SPCON_VSISP	(*(volatile uint16_t *)0xeb080e)	// 垂直解像度設定レジスタ
+#define SPCON_RES	(*(volatile uint16_t *)0xeb0810)	// スプライト解像度設定レジスタ
+
 typedef struct ms_vdp_mode ms_vdp_mode_t;
 
 /**
@@ -182,6 +187,7 @@ typedef struct ms_vdp_mode {
 	void (*update_r7_color)(ms_vdp_t* vdp, uint8_t data);
 	char* (*get_mode_name)(ms_vdp_t* vdp);
 	void (*exec_vdp_command)(ms_vdp_t* vdp, uint8_t cmd);
+	void (*update_resolution)(ms_vdp_t* vdp);
 } ms_vdp_mode_t;
 
 ms_vdp_t* ms_vdp_init();
@@ -194,5 +200,14 @@ void updateSpriteVisibility(ms_vdp_t* vdp);
 
 void exec_vdp_command_DEFAULT(ms_vdp_t* vdp, uint8_t cmd);
 void exec_vdp_command_NONE(ms_vdp_t* vdp, uint8_t cmd);
+
+/**
+ * @brief 
+ * 
+ * @param vdp 
+ * @param res 0=256ドット, 1=512ドット
+ * @param color 0=16色, 1=256色, 3=65536色
+ */
+void update_resolution_COMMON(ms_vdp_t* vdp, int res, int color);
 
 #endif
