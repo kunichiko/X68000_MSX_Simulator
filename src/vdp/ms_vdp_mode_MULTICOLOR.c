@@ -91,5 +91,5 @@ char* get_mode_name_MULTICOLOR(ms_vdp_t* vdp) {
 }
 
 void update_resolution_MULTICOLOR(ms_vdp_t* vdp) {
-	update_resolution_COMMON(vdp, 1, 0); // 512, 16色
+	update_resolution_COMMON(vdp, 1, 0, 1, 0); // 512, 16色, スプライトON, BG不使用
 }

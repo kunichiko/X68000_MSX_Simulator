@@ -99,5 +99,5 @@ void exec_vdp_command_GRAPHIC7(ms_vdp_t* vdp, uint8_t cmd) {
 }
 
 void update_resolution_GRAPHIC7(ms_vdp_t* vdp) {
-	update_resolution_COMMON(vdp, 0, 1);
+	update_resolution_COMMON(vdp, 1, 1, 0, 0); // 512, 256êF
 }

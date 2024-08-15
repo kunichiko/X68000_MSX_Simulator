@@ -125,12 +125,13 @@ ms_vdp_t* ms_vdp_init() {
 	// 実際には、MSXの画面モードに応じてこの後色々変化する
 	_iocs_crtmod(4);	// 512x512, 31kHz, 16色 4枚
 	_iocs_g_clr_on();	// グラフィックス画面初期化
+	_iocs_sp_init();
 
 	ms_vdp_init_mac(ms_vdp_shared);
 
 	ms_vdp_init_sprite(ms_vdp_shared);
 
-	update_resolution_COMMON(ms_vdp_shared, 1, 0);
+	update_resolution_COMMON(ms_vdp_shared, 1, 0, 0, 0); // 512, 16色, スプライトOFF, BG不使用
 
 	// GRAMクリア
 	int i;
@@ -194,8 +195,10 @@ uint16_t crtc_values[4][13] = {
  * @param vdp 
  * @param res 0=256ドット, 1=512ドット
  * @param color 0=16色, 1=256色, 3=65536色
+ * @param sprite 0=非表示, 1=表示
+ * @param bg 0=非表示, 1=表示
  */
-void update_resolution_COMMON(ms_vdp_t* vdp, int res, int color) {
+void update_resolution_COMMON(ms_vdp_t* vdp, unsigned int res, unsigned int color, unsigned int sprite, unsigned int bg) {
 	// lines 0=192ライン, 1=212ライン (MSX換算)
 	int lines = (vdp->r09 & 0x80) >> 7;
 	int m = res * 2 + lines;
@@ -220,6 +223,14 @@ void update_resolution_COMMON(ms_vdp_t* vdp, int res, int color) {
 
 	// テキスト画面のスクロール位置補正
 	CRTR_11 = crtc_values[m][12];
+
+	// スプライトとBGの設定
+	// TODO: 画面モードに応じて変えられるようにする
+	SPCON_BGCON =	(((sprite | bg) & 0x1) << 9) | // SP/BG = ON
+					(0x0 << 4 ) | // BG1 TXSEL
+					(0x0 << 3 ) | // BG1 ON
+					(0x0 << 2 ) | // BG0 TXSEL
+					((bg & 0x1) << 0 );  // BG0 ON
 }
 
 /*

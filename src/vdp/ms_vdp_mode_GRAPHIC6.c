@@ -102,5 +102,5 @@ void exec_vdp_command_GRAPHIC6(ms_vdp_t* vdp, uint8_t cmd) {
 }
 
 void update_resolution_GRAPHIC6(ms_vdp_t* vdp) {
-	update_resolution_COMMON(vdp, 1, 0); // 512, 16色
+	update_resolution_COMMON(vdp, 1, 0, 1, 0); // 512, 16色, スプライトON, BG不使用
 }

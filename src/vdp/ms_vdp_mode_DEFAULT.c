@@ -138,5 +138,5 @@ void exec_vdp_command_NONE(ms_vdp_t* vdp, uint8_t cmd) {
 }
 
 void update_resolution_DEFAULT(ms_vdp_t* vdp) {
-	update_resolution_COMMON(vdp, 1, 0); // 512, 16êF
+	update_resolution_COMMON(vdp, 1, 0, 0, 0); // 512, 16êF
 }

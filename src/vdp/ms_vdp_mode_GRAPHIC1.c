@@ -90,5 +90,5 @@ char* get_mode_name_GRAPHIC1(ms_vdp_t* vdp) {
 }
 
 void update_resolution_GRAPHIC1(ms_vdp_t* vdp) {
-	update_resolution_COMMON(vdp, 1, 0); // 512, 16êF
+	update_resolution_COMMON(vdp, 1, 0, 0, 0); // 512, 16êF
 }

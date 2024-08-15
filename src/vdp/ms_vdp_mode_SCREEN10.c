@@ -95,5 +95,5 @@ void exec_vdp_command_SCREEN10(ms_vdp_t* vdp, uint8_t cmd) {
 }
 
 void update_resolution_SCREEN10(ms_vdp_t* vdp) {
-	update_resolution_COMMON(vdp, 0, 3);
+	update_resolution_COMMON(vdp, 1, 3, 1, 0); // 512, 65536色, スプライトON, BG不使用
 }

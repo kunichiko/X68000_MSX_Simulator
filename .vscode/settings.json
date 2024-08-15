@@ -14,7 +14,8 @@
 		"vdp/ms_vdp.h": "c",
 		"stdint.h": "c",
 		"stddef.h": "c",
-		"ms_vdp.h": "c"
+		"ms_vdp.h": "c",
+		"compare": "c"
 	},
     "files.encoding": "shiftjis",
     "editor.detectIndentation": false,
