@@ -59,11 +59,14 @@ uint8_t read_vram_GRAPHIC2(ms_vdp_t* vdp) {
 void write_pname_tbl(ms_vdp_t* vdp, uint8_t data);
 
 void write_vram_GRAPHIC2(ms_vdp_t* vdp, uint8_t data) {
-	//w_GRAPHIC2_mac(data);
+	w_GRAPHIC2_mac(data);
+}
+
+void write_vram_GRAPHIC2_c(ms_vdp_t* vdp, uint8_t data) {
 	write_vram_DEFAULT(vdp, data);
 	//
 	uint32_t area = vdp->vram_addr;
-	area &= 0x1ff80;
+	area &= 0x1ff80;	// 下位7ビットをクリア
 	if (area == vdp->sprattrtbl_baddr) {
 		write_sprite_attribute(vdp, vdp->vram_addr - area, data);
 	} else {
@@ -91,7 +94,7 @@ void write_vram_GRAPHIC2(ms_vdp_t* vdp, uint8_t data) {
 }
 
 void write_pname_tbl(ms_vdp_t* vdp, uint8_t data) {
-	uint32_t addr = vdp->vram_addr & 0x3fff;
+	uint32_t addr = vdp->vram_addr & 0x03ff;
 	uint32_t posx = addr & 0x1f;
 	uint32_t posy = (addr >> 5) & 0x1f;
 	uint32_t block = (posy >> 3) & 0x3;
@@ -100,7 +103,7 @@ void write_pname_tbl(ms_vdp_t* vdp, uint8_t data) {
 
 	uint16_t* gram = X68_GRAM + posy*8*512 + posx*8;
 	int x,y;
-	for(y=0;y<8;y++) {
+	for(y=0;y<8;y+=2) {
 		uint8_t color = vdp->vram[color_addr + y];
 		uint8_t pattern = vdp->vram[pattern_addr + y];
 		for(x=0;x<8;x++) {
@@ -111,7 +114,7 @@ void write_pname_tbl(ms_vdp_t* vdp, uint8_t data) {
 			}
 			pattern <<= 1;
 		}
-		gram += 512-8;
+		gram += 512*2-8;
 	}
 }
 
