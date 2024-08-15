@@ -273,7 +273,7 @@ interrupt_history_rd:
 *
 ms_cpu_emulate:
 	link	a6,#0
-	movem.l	d3-d7/a0-a5,-(sp)
+	movem.l	d3-d7/a0-a5,-(sp)	* ※1 emu_endと対応
 	
 	move.l	8(a6),emu_loop_func	* 引数1のループ関数のポインタを保存しておく
 
@@ -308,9 +308,9 @@ check_yield:
 
 	; cpu_yieldの処理
 	cmpi.w	#0,cpu_yield
-	beq	do_emu_yield
+	beq	next_emu_yield
 	subq.w	#1,cpu_yield
-	bne	do_emu_yield
+	bne	next_emu_yield
 	; cpu_yieldが1→0になったので、割り込み判定を行う
 	cmpi.b	#1,interrupt_enable
 	bmi	skip_by_di	* DIなら割り込まない
@@ -318,11 +318,11 @@ check_yield:
 	; EI = 2だった場合、今回は割り込みを処理せず、次の命令サイクルで割り込み処理をする(EIの後1命令実行できることを実現)
 	move.b	#1,interrupt_enable
 	move.w	#1,cpu_yield
-	bra	do_emu_yield
+	bra	next_emu_yield
 1:	; EI = 1だった場合、割り込みを処理する
 	; あらためて割り込み要求端子の値(ms_cpu_int)を見て割り込み要求があるかどうかを見る
 	cmpi.b	#0,ms_cpu_int
-	beq	do_emu_yield
+	beq	next_emu_yield
 	; emu_counter の増加量が int_block_count に達していなかったら割り込みを一回スキップ(実験)
 	move.l	emu_counter,d0
 	sub.l	emu_counter_latch,d0
@@ -352,31 +352,21 @@ check_yield:
 skip_by_di:
 	move.w	#2,d0
 	bsr	add_interrupt_history
-	bra	do_emu_yield
+	bra	next_emu_yield
 
 	; emu_yieldの処理
-do_emu_yield:
-	cmpi.w	#0,emu_yield
-	bne	@f
-	bra	check_yield_rts
-@@:	subq.w	#1,emu_yield
-	beq	@f
-	bra	check_yield_rts
-
-	; emu_yieldが0になったので、C側の処理を呼び出す
-@@:	cmpi.w	#0,emu_yield_div		* さらに間引きを実施
-	beq	@f				* 0なら実行
-	subq.w	#1,emu_yield_div
-	bra	check_yield_rts
-@@:	move.w	host_rate,emu_yield_div		* 1 = 2回に一回実行, 2 = 3回に1回
-	subq.w	#1,emu_yield_div
+next_emu_yield:
+	bsr	get_emu_yield_func
+	cmpi.l	#0,d0
+	beq	check_yield_rts
+	; C側の処理を呼び出す
+	movea.l	d0,a0
 	move.l	emu_counter,d0
 	sub.l	emu_counter_latch,d0
 	move.w	(sp)+,sr			* ここで割り込み許可に戻す
 	movem.l	d1-d7/a0-a6,-(sp)
 	move.l	d0,-(sp)			* カウンタ差分を引数として渡す
 	move.l	d7,-(sp)			* PCを引数として渡す
-	movea.l	emu_loop_func,a0
 	jsr	(a0)
 	lea.l	8(sp),sp
 	movem.l	(sp)+,d1-d7/a0-a6
@@ -391,6 +381,31 @@ do_emu_yield:
 
 check_yield_rts:
 	move.w	(sp)+,sr
+	rts
+
+; emu_yieldの処理
+;
+; 返り値: d0 : C側の処理ルーチンのアドレス(NULLなら何もしない)
+get_emu_yield_func:
+	cmpi.w	#0,emu_yield
+	bne	@f
+	clr.l	d0
+	rts
+@@:	subq.w	#1,emu_yield
+	beq	@f
+	clr.l	d0
+	rts
+
+	; emu_yieldが0になったので、C側の処理を呼び出す
+@@:	cmpi.w	#0,emu_yield_div		* さらに間引きを実施
+	beq	@f				* 0なら実行
+	subq.w	#1,emu_yield_div
+	clr.l	d0
+	rts
+
+@@:	move.w	host_rate,emu_yield_div		* 1 = 2回に一回実行, 2 = 3回に1回
+	subq.w	#1,emu_yield_div
+	move.l	emu_loop_func,d0
 	rts
 
 emu_end:
@@ -3384,13 +3399,51 @@ HALT:
 	bne	9f
 	PC_page_inc
 
-9:	cmpi.b	#0,interrupt_enable
-	beq	9b		* DIなら割り込まない(永遠に出られない？ NMIなら出られるようにすべき？)
+9:	move.l	cpu_emu_yield,d0	* X68000側の割り込みがかかるまで待機
+	beq	9b
+	; 一時的に割り込み禁止
+	move.w	sr,d0
+	move.w	d0,-(sp)
+	or.w	#%00000111_00000000,d0
+	move.w	d0,sr
+
+	cmpi.b	#0,interrupt_enable
+	beq	8f		* DIなら割り込まない(永遠に出られない？ NMIなら出られるようにすべき？)
 	; あらためて割り込み要求端子の値(ms_cpu_int)を見て割り込み要求があるかどうかを見る
 	cmpi.b	#0,ms_cpu_int
-	beq	9b
+	beq	8f
 	bsr	INT		* 割り込みがかかったので割り込み処理を実施
-	rts
+	move.w	#0,d0
+	bsr	add_interrupt_history
+	move.l	emu_counter,emu_counter_latch	* この時点の値を覚えておく
+	move.w	(sp)+,sr	* ここで割り込み許可に戻す
+	rts			* HALT命令終了
+
+8:	; HALT中でも特殊キーの処理を回したいので、yieldチェック
+	add.l	#1,emu_counter
+	bsr	get_emu_yield_func
+	cmpi.l	#0,d0
+	bne	@f
+	move.w	(sp)+,sr		* ここで割り込み許可に戻す
+	bra	9b
+
+@@:	; タイミングが来たのでC側の処理を呼び出す
+	movea.l	d0,a0			* 処理ルーチンのアドレス
+	move.l	emu_counter,d0
+	sub.l	emu_counter_latch,d0
+	move.w	(sp)+,sr		* ここで割り込み許可に戻す
+	movem.l	d1-d7/a0-a6,-(sp)
+	move.l	d0,-(sp)		* カウンタ差分を引数として渡す
+	move.l	d7,-(sp)		* PCを引数として渡す
+	jsr	(a0)
+	lea.l	8(sp),sp
+	movem.l	(sp)+,d1-d7/a0-a6
+	move.l	d0,d0
+	beq	9b
+	; 0以外が帰ってきたのでエミュレータを終了
+	; サブルーチンを1段飛ばすために、SPをインクリメント
+	lea.l	4(sp),sp
+	bra	emu_end
 
 halt_msg:
 	.dc.b	'HALT',0x0d,0x0a,0x00,0x00

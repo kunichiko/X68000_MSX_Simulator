@@ -92,7 +92,7 @@ ms_vdp_mode_t *ms_vdp_mode_table[32] = {
 
 int ms_vdp_init_mac(ms_vdp_t* vdp);
 void ms_vdp_deinit_mac(ms_vdp_t* vdp);
-void ms_vdp_init_sprite(ms_vdp_t* vdp);
+void init_sprite(ms_vdp_t* vdp);
 
 // Singleton instance
 ms_vdp_t* ms_vdp_shared = NULL;
@@ -121,6 +121,14 @@ ms_vdp_t* ms_vdp_init() {
 		return NULL;
 	}
 
+	// b7: FL, b6: LPS, b5-1: V9958のID, b0: FH
+	ms_vdp_shared->s01 = 0b00000100;
+	// b7: TR, b6: VR, b5: HR, b4: BD, b3: 1, b2: 1, b1: EO, b0: CE
+	ms_vdp_shared->s02 = 0b10001100; // TRは常に1
+	ms_vdp_shared->s04 = 0b11111110; // 上位ビットは1固定
+	ms_vdp_shared->s06 = 0b11111100; // 上位ビットは1固定
+	ms_vdp_shared->s09 = 0b11111100; // 上位ビットは1固定
+
 	// 初期画面モードを 512x512にする
 	// 実際には、MSXの画面モードに応じてこの後色々変化する
 	_iocs_crtmod(4);	// 512x512, 31kHz, 16色 4枚
@@ -129,7 +137,7 @@ ms_vdp_t* ms_vdp_init() {
 
 	ms_vdp_init_mac(ms_vdp_shared);
 
-	ms_vdp_init_sprite(ms_vdp_shared);
+	init_sprite(ms_vdp_shared);
 
 	update_resolution_COMMON(ms_vdp_shared, 1, 0, 0); // 512, 16色, BG不使用
 
@@ -252,7 +260,7 @@ unsigned int* X68_PCG = (unsigned int*)0x00eb8000;
 /*
  プライトの初期化
  */
-void ms_vdp_init_sprite(ms_vdp_t* vdp) {
+void init_sprite(ms_vdp_t* vdp) {
 	int i;
 
 	// PCGバッファの初期化
@@ -263,12 +271,42 @@ void ms_vdp_init_sprite(ms_vdp_t* vdp) {
 	vdp->last_visible_sprite_size = 0;
 }
 
+void write_sprite_pattern_256(ms_vdp_t* vdp, int offset, uint32_t pattern);
+void write_sprite_pattern_512(ms_vdp_t* vdp, int offset, uint32_t pattern);
+
 /*
  スプライトパターンジェネレータテーブルへの書き込み
      offset: パターンジェネレータテーブルのベースアドレスからのオフセットバイト
      pattern: 書き込むパターン(下位8bitのみ使用)
 */
-void writeSpritePattern(ms_vdp_t* vdp, int offset, unsigned int pattern) {
+void write_sprite_pattern(ms_vdp_t* vdp, int offset, uint32_t pattern) {
+	if(vdp->ms_vdp_current_mode->sprite_mode & 0x80) {
+		write_sprite_pattern_512(vdp, offset, pattern);
+	} else {
+		write_sprite_pattern_256(vdp, offset, pattern);
+	}
+}
+
+void write_sprite_pattern_256(ms_vdp_t* vdp, int offset, uint32_t pattern) {
+	int i,j;
+	int ptNum = offset / 8; // MSXのスプライトパターン番号
+	int pLine = offset % 8; // パターンの何行目か 
+	int pcgLine = pLine; // MSXの1ラインはX68000でも1ライン
+	uint32_t pcg_pattern=0; // x68000の16x16のパターンに変換したもの
+
+    // 右端のドットから処理
+	for(i =0; i < 8; i++) {
+		pcg_pattern >>= 4;
+		if(pattern & 1) {
+			pcg_pattern |= (0xf0000000);
+		}
+		pattern >>= 1;
+	}
+	// パターンジェネレータテーブルのバッファに書き込む
+	vdp->x68_pcg_buffer[ptNum * 8 + pcgLine] = pcg_pattern;
+}
+
+void write_sprite_pattern_512(ms_vdp_t* vdp, int offset, uint32_t pattern) {
 	int i,j;
 	int ptNum = offset / 8; // MSXのスプライトパターン番号
 	int pLine = offset % 8; // パターンの何行目か 
@@ -276,7 +314,7 @@ void writeSpritePattern(ms_vdp_t* vdp, int offset, unsigned int pattern) {
 	unsigned int pLeft=0,pRight=0; // 1ラインの左4ドットと右4ドットを X68000の8x8のパターン2つに変換
 
     // 右端のドットから処理
-	for(i =0; i < 4;i++) {
+	for(i =0; i < 4; i++) {
 		pRight >>= 8;
 		if(pattern & 1) {
 			pRight |= (0xff000000);
@@ -291,14 +329,25 @@ void writeSpritePattern(ms_vdp_t* vdp, int offset, unsigned int pattern) {
 		}
 		pattern >>= 1;
 	}
-	// パターンジェネレータテーブルへの書き込み
+	// パターンジェネレータテーブルのバッファに書き込み
 	vdp->x68_pcg_buffer[ptNum * 32 + pcgLine+0 + 0] = pLeft;
 	vdp->x68_pcg_buffer[ptNum * 32 + pcgLine+1 + 0] = pLeft;
 	vdp->x68_pcg_buffer[ptNum * 32 + pcgLine+0 + 16] = pRight;
 	vdp->x68_pcg_buffer[ptNum * 32 + pcgLine+1 + 16] = pRight;
 }
 
-void writeSpriteAttribute(ms_vdp_t* vdp, int offset, unsigned int attribute) {
+void write_sprite_attribute_256(ms_vdp_t* vdp, int offset, uint32_t attribute);
+void write_sprite_attribute_512(ms_vdp_t* vdp, int offset, uint32_t attribute);
+
+void write_sprite_attribute(ms_vdp_t* vdp, int offset, uint32_t attribute) {
+	if(vdp->ms_vdp_current_mode->sprite_mode & 0x80) {
+		write_sprite_attribute_512(vdp, offset, attribute);
+	} else {
+		write_sprite_attribute_256(vdp, offset, attribute);
+	}
+}
+
+void write_sprite_attribute_256(ms_vdp_t* vdp, int offset, uint32_t attribute) {
 	int i,j;
 	int plNum = (offset / 4) % 32; // MSXのスプライトプレーン番号
 	int type = offset % 4; // 属性の種類
@@ -307,7 +356,50 @@ void writeSpriteAttribute(ms_vdp_t* vdp, int offset, unsigned int attribute) {
 	switch(type) {
 		case 0: // Y座標
 			if(plNum >= vdp->last_visible_sprite_planes || attribute == 208) {
-				updateSpriteVisibility(vdp);
+				update_sprite_visibility(vdp);
+			}
+			X68_SSR[plNum*4+1] = ((attribute + 1 ) & 0xff) + 16; // MSXのY座標の1倍, MSXは1ライン下に表示されるので+1, X68000のスプライトの原点は(16,16)なのでずらす
+			break;
+		case 1: // X座標
+			X68_SSR[plNum*4+0] = (attribute & 0xff) + 16; // MSXのX座標の1倍, X68000のスプライトの原点は(16,16)なのでずらす
+			// TODO ECビットによる位置補正処理
+			break;
+		case 2: // パターン番号
+		case 3: // 属性
+			// パターン番号、カラーが変更されたら、事前にバッファに展開しておいたパターンを転送
+			unsigned int ptNum = p[(offset & 0x1fffc)+2];
+			unsigned int color = p[(offset & 0x1fffc)+3] & 0xf;
+			unsigned int colorex = color << 28 | color << 24 | color << 20 | color << 16 | color << 12 | color << 8 | color << 4 | color;
+			if (vdp->sprite_size == 0) {
+				// 8x8
+				for( i = 0; i < 8; i++) { 
+					X68_PCG[plNum*32+i] = vdp->x68_pcg_buffer[(ptNum & 0xff)*8+i] & colorex;
+				}
+			} else {
+				// 16x16
+				for( i = 0; i < 32; i++) { 
+					X68_PCG[plNum*32+i] = vdp->x68_pcg_buffer[(ptNum & 0xfc)*8+i] & colorex;
+				}
+			}
+			break;
+		default:
+			break;
+	}
+
+	// パターン指定 & パレット指定
+	X68_SSR[plNum*4+2] = 0x100 + plNum; // パレット0x10-0x1fを使用するので 0x100を足す
+}
+
+void write_sprite_attribute_512(ms_vdp_t* vdp, int offset, uint32_t attribute) {
+	int i,j;
+	int plNum = (offset / 4) % 32; // MSXのスプライトプレーン番号
+	int type = offset % 4; // 属性の種類
+
+	uint8_t* p = vdp->vram + vdp->sprattrtbl_baddr;
+	switch(type) {
+		case 0: // Y座標
+			if(plNum >= vdp->last_visible_sprite_planes || attribute == 208) {
+				update_sprite_visibility(vdp);
 			}
 			for( i=0; i<4; i++) {
 				X68_SSR[plNum*16+i*4+1] = (((attribute + 1 ) & 0xff) * 2) + (i%2)*16 + 16; // MSXのY座標の2倍, MSXは1ライン下に表示されるので+1, X68000のスプライトの原点は(16,16)なのでずらす
@@ -356,7 +448,7 @@ void writeSpriteAttribute(ms_vdp_t* vdp, int offset, unsigned int attribute) {
   * R#8のbit1が1のときはスプライトを非表示にする
   * あるスプライトプレーンのY座標を208にすると、そのスプライトプレーン以降は全て非表示になる
  */
-void updateSpriteVisibility(ms_vdp_t* vdp) {
+void update_sprite_visibility(ms_vdp_t* vdp) {
 	int i,j;
 	uint8_t* p = vdp->vram + vdp->sprattrtbl_baddr;
 

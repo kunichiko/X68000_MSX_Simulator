@@ -55,6 +55,8 @@
 #define SPCON_VSISP	(*(volatile uint16_t *)0xeb080e)	// 垂直解像度設定レジスタ
 #define SPCON_RES	(*(volatile uint16_t *)0xeb0810)	// スプライト解像度設定レジスタ
 
+#define PCG	(*(volatile uint16_t *)0xeb8000)			// スプライトパターン
+
 typedef struct ms_vdp_mode ms_vdp_mode_t;
 
 /**
@@ -189,16 +191,15 @@ typedef struct ms_vdp_mode {
 	char* (*get_mode_name)(ms_vdp_t* vdp);
 	void (*exec_vdp_command)(ms_vdp_t* vdp, uint8_t cmd);
 	void (*update_resolution)(ms_vdp_t* vdp);
-	int sprite_mode; // 0: 未使用, 1: MODE1, 2: MODE2
+	int sprite_mode; // 0x00: 未使用, 0x01: MODE1, 0x02: MODE2, bit7: 0=256ドット, 1=512ドット
 } ms_vdp_mode_t;
 
 ms_vdp_t* ms_vdp_init();
 void ms_vdp_deinit(ms_vdp_t* vdp);
 
-void initSprite(ms_vdp_t* vdp);
-void writeSpritePattern(ms_vdp_t* vdp, int offset, unsigned int pattern);
-void writeSpriteAttribute(ms_vdp_t* vdp, int offset, unsigned int attribute);
-void updateSpriteVisibility(ms_vdp_t* vdp);
+void write_sprite_pattern(ms_vdp_t* vdp, int offset, uint32_t pattern);
+void write_sprite_attribute(ms_vdp_t* vdp, int offset, uint32_t attribute);
+void update_sprite_visibility(ms_vdp_t* vdp);
 
 void exec_vdp_command_DEFAULT(ms_vdp_t* vdp, uint8_t cmd);
 void exec_vdp_command_NONE(ms_vdp_t* vdp, uint8_t cmd);

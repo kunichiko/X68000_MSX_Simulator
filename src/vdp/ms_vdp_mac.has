@@ -10,9 +10,9 @@
 	.include	doscall.mac
 
 	.xref	ms_vdp_shared
-	.xref	_writeSpritePattern
-	.xref	_writeSpriteAttribute
-	.xref	_updateSpriteVisibility
+	.xref	_write_sprite_pattern
+	.xref	_write_sprite_attribute
+	.xref	_update_sprite_visibility
 	.xref	HEX
 
 	.xref	cpu_emu_yield
@@ -920,7 +920,7 @@ w_R1:	move.b	d1,offset_ms_vdp_r01(a5)
 	bsr	set_CRT
 
 	move.l	a5,-(sp)		* 構造体のアドレスを引数に
-	bsr	_updateSpriteVisibility
+	bsr	_update_sprite_visibility
 	lea.l	4(sp),sp
 	rts
 
@@ -1054,7 +1054,7 @@ w_R7:	move.b	d1,offset_ms_vdp_r07_(a5)
 ;		1=白黒モード
 w_R8:	move.b	d1,offset_ms_vdp_r08(a5)
 	move.l	a5,-(sp)		* 構造体のアドレスを引数に
-	bsr	_updateSpriteVisibility
+	bsr	_update_sprite_visibility
 	lea.l	4(sp),sp
 	rts
 
@@ -2065,9 +2065,9 @@ w_GRAPHIC2_mac:
 	move.w	(sp)+,d1
 	move.l	(sp)+,d0
 
-	* olortbl_baddr と一致していたらパターンジェネレータテーブルへの書き込み
+	* pgentbl_baddr と一致していたらパターンジェネレータテーブルへの書き込み
 @@:	andi.w	#%11100000_00000000,d0
-	cmp.l	offset_ms_vdp_colortbl_baddr(a5),d0
+	cmp.l	offset_ms_vdp_pgentbl_baddr(a5),d0
 	bne	@f
 	move.l	d0,-(sp)
 	move.w	d1,-(sp)
@@ -2075,8 +2075,8 @@ w_GRAPHIC2_mac:
 	move.w	(sp)+,d1
 	move.l	(sp)+,d0
 
-	* pgentbl_baddrと一致していたらカラーテーブルへの書き込み
-@@:	cmp.l	offset_ms_vdp_pgentbl_baddr(a5),d0
+	* colortbl_baddrと一致していたらカラーテーブルへの書き込み
+@@:	cmp.l	offset_ms_vdp_colortbl_baddr(a5),d0
 	bne	@f
 	move.w	d1,-(sp)
 	bsr	w_color_GR2			* カラーテーブルへの書き込み
@@ -2115,7 +2115,7 @@ w_SP_attr:
 	and.l	#$ff,d1
 	movem.l	d0-d2,-(sp)
 	move.l	ms_vdp_shared,-(sp)		* 構造体のアドレス
-	jsr	_writeSpriteAttribute
+	jsr	_write_sprite_attribute
 	lea.l	4(sp),sp
 	movem.l	(sp)+,d0-d2
 	rts
@@ -2129,7 +2129,7 @@ w_SP_p_gene:
 	and.l	#$ff,d1
 	movem.l	d0-d2,-(sp)
 	move.l	ms_vdp_shared,-(sp)		* 構造体のアドレス
-	jsr	_writeSpritePattern
+	jsr	_write_sprite_pattern
 	lea.l	4(sp),sp
 	movem.l	(sp)+,d0-d2
 	rts

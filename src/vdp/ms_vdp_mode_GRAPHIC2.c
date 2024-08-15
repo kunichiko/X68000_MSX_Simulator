@@ -56,8 +56,63 @@ uint8_t read_vram_GRAPHIC2(ms_vdp_t* vdp) {
 	return read_vram_TEXT1(vdp);
 }
 
+void write_pname_tbl(ms_vdp_t* vdp, uint8_t data);
+
 void write_vram_GRAPHIC2(ms_vdp_t* vdp, uint8_t data) {
-	w_GRAPHIC2_mac(data);
+	//w_GRAPHIC2_mac(data);
+	write_vram_DEFAULT(vdp, data);
+	//
+	uint32_t area = vdp->vram_addr;
+	area &= 0x1ff80;
+	if (area == vdp->sprattrtbl_baddr) {
+		write_sprite_attribute(vdp, vdp->vram_addr - area, data);
+	} else {
+		area &= 0x1fc00; // 下位10ビットをクリア
+		if (area == vdp->pnametbl_baddr) {
+			write_pname_tbl(vdp, data);
+		} else {
+		 	area &= 0x1f800; // 下位11ビットをクリア
+			if (area == vdp->sprpgentbl_baddr) {
+				write_sprite_pattern(vdp, vdp->vram_addr - area, data);
+			} else {
+			 	area &= 0x1e000; // 下位13ビットをクリア
+			 	if (area == vdp->colortbl_baddr) {
+					//write_color_tbl(vdp, data);
+				} else if (area == vdp->pgentbl_baddr) {
+					//write_pgen_tbl(vdp, data);
+				}
+			}
+		}
+	}
+		
+	uint32_t addr_h = (vdp->vram_addr + 0) & 0xc000;
+	uint32_t addr_l = (vdp->vram_addr + 1) & 0x3fff;
+	vdp->vram_addr = (addr_h | addr_l);
+}
+
+void write_pname_tbl(ms_vdp_t* vdp, uint8_t data) {
+	uint32_t addr = vdp->vram_addr & 0x3fff;
+	uint32_t posx = addr & 0x1f;
+	uint32_t posy = (addr >> 5) & 0x1f;
+	uint32_t block = (posy >> 3) & 0x3;
+	uint32_t color_addr = (vdp->colortbl_baddr & 0xe000) + block*256*8 + data*8;
+	uint32_t pattern_addr = (vdp->pgentbl_baddr & 0xe000) + block*256*8 + data*8;
+
+	uint16_t* gram = X68_GRAM + posy*8*512 + posx*8;
+	int x,y;
+	for(y=0;y<8;y++) {
+		uint8_t color = vdp->vram[color_addr + y];
+		uint8_t pattern = vdp->vram[pattern_addr + y];
+		for(x=0;x<8;x++) {
+			if(pattern & 0x80) {
+				*gram++ = (color >> 4);
+			} else {
+				*gram++ = (color & 0x0f);
+			}
+			pattern <<= 1;
+		}
+		gram += 512-8;
+	}
 }
 
 void update_palette_GRAPHIC2(ms_vdp_t* vdp) {
@@ -94,6 +149,5 @@ char* get_mode_name_GRAPHIC2(ms_vdp_t* vdp) {
 }
 
 void update_resolution_GRAPHIC2(ms_vdp_t* vdp) {
-	//update_resolution_COMMON(vdp, 1, 0, 1); // 512, 16色, BG使用
-	update_resolution_COMMON(vdp, 1, 0, 0); // 512, 16色, BG不使用
+	update_resolution_COMMON(vdp, 0, 0, 0); // 256, 16色, BG不使用
 }
