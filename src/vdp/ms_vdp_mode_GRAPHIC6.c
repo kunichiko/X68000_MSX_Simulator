@@ -47,7 +47,9 @@ ms_vdp_mode_t ms_vdp_GRAPHIC6 = {
 	// void exec_vdp_command_GRAPHIC6(ms_vdp_t* vdp, uint8_t cmd);
 	exec_vdp_command_GRAPHIC6,
 	// void (*update_resolution)(ms_vdp_t* vdp);
-	update_resolution_GRAPHIC6
+	update_resolution_GRAPHIC6,
+	// sprite mode
+	2
 };
 
 
@@ -102,5 +104,5 @@ void exec_vdp_command_GRAPHIC6(ms_vdp_t* vdp, uint8_t cmd) {
 }
 
 void update_resolution_GRAPHIC6(ms_vdp_t* vdp) {
-	update_resolution_COMMON(vdp, 1, 0, 1, 0); // 512, 16色, スプライトON, BG不使用
+	update_resolution_COMMON(vdp, 1, 0, 0); // 512, 16色, BG不使用
 }

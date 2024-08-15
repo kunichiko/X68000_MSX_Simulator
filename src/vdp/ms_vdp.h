@@ -189,6 +189,7 @@ typedef struct ms_vdp_mode {
 	char* (*get_mode_name)(ms_vdp_t* vdp);
 	void (*exec_vdp_command)(ms_vdp_t* vdp, uint8_t cmd);
 	void (*update_resolution)(ms_vdp_t* vdp);
+	int sprite_mode; // 0: 未使用, 1: MODE1, 2: MODE2
 } ms_vdp_mode_t;
 
 ms_vdp_t* ms_vdp_init();
@@ -207,9 +208,8 @@ void exec_vdp_command_NONE(ms_vdp_t* vdp, uint8_t cmd);
  * @param vdp 
  * @param res 0=256ドット, 1=512ドット
  * @param color 0=16色, 1=256色, 3=65536色
- * @param sprite 0=非表示, 1=表示
  * @param bg 0=非表示, 1=表示
  */
-void update_resolution_COMMON(ms_vdp_t* vdp, unsigned int res, unsigned int color, unsigned int sprite, unsigned int bg);
+void update_resolution_COMMON(ms_vdp_t* vdp, unsigned int res, unsigned int color, unsigned int bg);
 
 #endif

@@ -42,7 +42,9 @@ ms_vdp_mode_t ms_vdp_TEXT2 = {
 	// void exec_vdp_command_NONE(ms_vdp_t* vdp, uint8_t cmd);
 	exec_vdp_command_NONE,
 	// void (*update_resolution)(ms_vdp_t* vdp);
-	update_resolution_TEXT2
+	update_resolution_TEXT2,
+	// sprite mode
+	0
 };
 
 
@@ -123,5 +125,5 @@ char* get_mode_name_TEXT2(ms_vdp_t* vdp) {
 }
 
 void update_resolution_TEXT2(ms_vdp_t* vdp) {
-	update_resolution_COMMON(vdp, 1, 0, 0, 0); // 512, 16色, スプライト不使用, BG不使用
+	update_resolution_COMMON(vdp, 1, 0, 0); // 512, 16色, スプライト不使用, BG不使用
 }
