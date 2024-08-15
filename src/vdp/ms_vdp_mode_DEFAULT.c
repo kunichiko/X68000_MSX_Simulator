@@ -37,7 +37,9 @@ ms_vdp_mode_t ms_vdp_DEFAULT = {
 	// void update_r7_color_DEFAULT(ms_vdp_t* vdp, uint8_t data);
 	update_r7_color_DEFAULT,
 	// char* get_mode_name_DEFAULT(ms_vdp_t* vdp);
-	get_mode_name_DEFAULT
+	get_mode_name_DEFAULT,
+	// void exec_vdp_command_DEFAULT(ms_vdp_t* vdp, uint8_t cmd);
+	exec_vdp_command_NONE
 };
 
 
@@ -122,4 +124,11 @@ void update_r7_color_DEFAULT(ms_vdp_t* vdp, uint8_t data) {
 
 char* get_mode_name_DEFAULT(ms_vdp_t* vdp) {
 	return "DEFAULT";
+}
+
+void exec_vdp_command_DEFAULT(ms_vdp_t* vdp, uint8_t cmd) {
+	printf("%sのVDPコマンド0x%02xはまだ未実装です。\n", vdp->ms_vdp_current_mode->get_mode_name(vdp), cmd);
+}
+
+void exec_vdp_command_NONE(ms_vdp_t* vdp, uint8_t cmd) {
 }

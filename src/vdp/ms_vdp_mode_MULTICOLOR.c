@@ -37,7 +37,9 @@ ms_vdp_mode_t ms_vdp_MULTICOLOR = {
 	// void update_r7_color_MULTICOLOR(ms_vdp_t* vdp, uint8_t data);
 	update_r7_color_MULTICOLOR,
 	// char* get_mode_name_MULTICOLOR(ms_vdp_t* vdp);
-	get_mode_name_MULTICOLOR
+	get_mode_name_MULTICOLOR,
+	// void exec_vdp_command_NONE(ms_vdp_t* vdp, uint8_t cmd);
+	exec_vdp_command_NONE
 };
 
 

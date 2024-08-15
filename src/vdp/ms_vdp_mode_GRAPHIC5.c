@@ -23,6 +23,7 @@ void update_sprattrtbl_baddr_GRAPHIC5(ms_vdp_t* vdp);
 void update_sprpgentbl_baddr_GRAPHIC5(ms_vdp_t* vdp);
 void update_r7_color_GRAPHIC5(ms_vdp_t* vdp, uint8_t data);
 char* get_mode_name_GRAPHIC5(ms_vdp_t* vdp);
+void exec_vdp_command_GRAPHIC5(ms_vdp_t* vdp, uint8_t cmd);
 
 ms_vdp_mode_t ms_vdp_GRAPHIC5 = {
 	// int init_GRAPHIC5(ms_vdp_t* vdp);
@@ -46,7 +47,9 @@ ms_vdp_mode_t ms_vdp_GRAPHIC5 = {
 	// void update_r7_color_GRAPHIC5(ms_vdp_t* vdp, uint8_t data);
 	update_r7_color_GRAPHIC5,
 	// char* get_mode_name_GRAPHIC5(ms_vdp_t* vdp);
-	get_mode_name_GRAPHIC5
+	get_mode_name_GRAPHIC5,
+	// void exec_vdp_command_GRAPHIC5(ms_vdp_t* vdp, uint8_t cmd);
+	exec_vdp_command_GRAPHIC5
 };
 
 
@@ -91,4 +94,22 @@ void update_r7_color_GRAPHIC5(ms_vdp_t* vdp, uint8_t data) {
 
 char* get_mode_name_GRAPHIC5(ms_vdp_t* vdp) {
 	return "GRAPHIC5";
+}
+
+void exec_vdp_command_GRAPHIC5(ms_vdp_t* vdp, uint8_t cmd) {
+	int command = (cmd & 0b11110000) >> 4;
+	int arg = cmd & 0b00001111;
+	switch(command){
+	case 0b0101: // PSET
+		PSET_G5();
+		break;
+	case 0b0111: // LINE
+		LINE_G5();
+		break;
+	case 0b1011: // LMMC
+		LMMC_G5();
+		break;
+	default:
+		exec_vdp_command_DEFAULT(vdp, cmd);
+	}
 }

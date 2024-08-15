@@ -37,7 +37,9 @@ ms_vdp_mode_t ms_vdp_GRAPHIC1 = {
 	// void update_r7_color_GRAPHIC1(ms_vdp_t* vdp, uint8_t data);
 	update_r7_color_GRAPHIC1,
 	// char* get_mode_name_GRAPHIC1(ms_vdp_t* vdp);
-	get_mode_name_GRAPHIC1
+	get_mode_name_GRAPHIC1,
+	// void exec_vdp_command_NONE(ms_vdp_t* vdp, uint8_t cmd);
+	exec_vdp_command_NONE
 };
 
 

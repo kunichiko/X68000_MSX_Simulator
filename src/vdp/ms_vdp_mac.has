@@ -69,6 +69,11 @@
 	.xdef	ms_vdp_interrupt_tick
 	.xdef	ms_vdp_vsync_rate
 
+	.xdef	PSET_G4
+	.xdef	PSET_G5
+	.xdef	LINE_G5
+	.xdef	LMMC_G5
+
 	;.xdef	VDP_R_01
 
 	;.xdef	_sprite_size
@@ -131,6 +136,7 @@ offset_ms_vdp_update_sprattrtbl_baddr	equ	7*4
 offset_ms_vdp_update_sprpgentbl_baddr 	equ	8*4
 offset_ms_vdp_update_r7_color		equ	9*4
 offset_ms_vdp_get_mode_name		equ	10*4
+offset_ms_vdp_exec_vdp_command		equ	11*4
 
 ; typedef struct ms_vdp {
 ; 	uint8_t	r00;	// Mode register 0
@@ -855,7 +861,7 @@ w_CReg_jpt:
 	.dc.l	NX_h
 	.dc.l	NY_l
 	.dc.l	NY_h
-MC_add:	.dc.l	w_CLR
+MC_add:	.dc.l	w_CLR			* R#44 Color register : CPU-VRAM間データ転送レジスタ
 	.dc.l	w_ARG
 	.dc.l	w_R46			* R#46
 	.dc.l	noregister
@@ -1202,13 +1208,16 @@ w_CLR:	move.b	d1,offset_ms_vdp_clr(a5)
 w_ARG:	move.b	d1,offset_ms_vdp_arg(a5)
 	rts
 
-w_R46:	movea.l	VDP_command_jpt_add,a0
-	clr.w	d0
-	move.b	d1,d0
-	lsr.w	#2,d0
-	andi.w	#%11111111_11111100,d0
-	move.l	0(a0,d0.w),a0
-	jmp	(a0)			* rts 省略のため jmp にしてある
+w_R46:
+	; 画面モードに応じてVDPコマンドの実行処理を呼び出す
+	move.l	d1,-(sp)		* 引数にコマンド番号をセット
+	move.l	ms_vdp_shared,-(sp)		* 構造体のアドレスを引数に
+	movea.l	offset_ms_vdp_current_mode(a5),a0
+	movea.l	offset_ms_vdp_exec_vdp_command(a0),a0
+	jsr	(a0)
+	lea.l	8(sp),sp
+	rts
+
 
 ***************************************************************
 *
@@ -1243,7 +1252,6 @@ set_CRT:
 
 set_TEXT1_mac:
 	move.l	#s_TEXT1,set_gram_add_rot
-	move.l	#VDP_NONE,VDP_command_jpt_add
 
 	movea.l	ms_vdp_shared,a5	* ms_vdp_t へのポインタを取得
 	move.l	offset_ms_vdp_vram_addr(a5),d1
@@ -1254,7 +1262,6 @@ set_TEXT1_mac:
 
 set_TEXT2_mac:
 	move.l	#s_TEXT2,set_gram_add_rot
-	move.l	#VDP_NONE,VDP_command_jpt_add
 
 	movea.l	ms_vdp_shared,a5	* ms_vdp_t へのポインタを取得
 	move.l	offset_ms_vdp_vram_addr(a5),d1
@@ -1284,7 +1291,6 @@ set_MULTICOLOR_mac:
 	bsr	update_VCRR_02
 
 	move.l	#s_MULTICOLOR,set_gram_add_rot
-	move.l	#VDP_NONE,VDP_command_jpt_add
 
 	rts
 
@@ -1310,7 +1316,6 @@ set_GRAPHIC1_mac:
 	bsr	update_VCRR_02
 
 	move.l	#s_GRAPHIC1,set_gram_add_rot
-	move.l	#VDP_NONE,VDP_command_jpt_add
 
 	rts
 
@@ -1335,7 +1340,6 @@ set_GRAPHIC2_mac:
 	bsr	update_VCRR_02
 
 	move.l	#s_GRAPHIC2,set_gram_add_rot
-	move.l	#VDP_NONE,VDP_command_jpt_add
 
 	rts
 
@@ -1371,7 +1375,6 @@ set_GRAPHIC4_mac:
 	bsr	update_VCRR_02
 
 	move.l	#s_GRAPHIC4,set_gram_add_rot
-	move.l	#VDP_G4_jpt,VDP_command_jpt_add
 
 	rts
 
@@ -1402,7 +1405,6 @@ set_GRAPHIC5_mac:
 	bsr	update_VCRR_02
 
 	move.l	#s_GRAPHIC5,set_gram_add_rot
-	move.l	#VDP_G5_jpt,VDP_command_jpt_add
 
 	rts
 
@@ -1432,7 +1434,6 @@ set_GRAPHIC6_mac:
 	bsr	update_VCRR_02
 
 	move.l	#s_GRAPHIC6,set_gram_add_rot
-	move.l	#VDP_G6_jpt,VDP_command_jpt_add
 
 	rts
 
@@ -1464,7 +1465,6 @@ set_GRAPHIC7_mac:
 	bsr	update_VCRR_02
 
 	move.l	#s_GRAPHIC7,set_gram_add_rot
-	move.l	#VDP_G7_jpt,VDP_command_jpt_add
 
 	rts
 
@@ -2580,145 +2580,9 @@ w_GRAPHIC7_mac:
 	rts
 
 
-***************************************************************
 *
-*	ＶＤＰコマンドサブルーチン群
+* VDP コマンド
 *
-*	d1.b	書き込まれた値
-*
-***************************************************************
-	.data
-
-VDP_NONE:				* VDP コマンドの使えない画面モードの時	
-	.dc.l	no_com
-	.dc.l	no_com
-	.dc.l	no_com
-	.dc.l	no_com
-	.dc.l	no_com
-	.dc.l	no_com
-	.dc.l	no_com
-	.dc.l	no_com
-	.dc.l	no_com
-	.dc.l	no_com
-	.dc.l	no_com
-	.dc.l	no_com
-	.dc.l	no_com
-	.dc.l	no_com
-	.dc.l	no_com
-	.dc.l	no_com
-
-
-VDP_G4_jpt:
-	.dc.l	no_com
-	.dc.l	no_com
-	.dc.l	no_com
-	.dc.l	no_com
-	.dc.l	no_com
-	.dc.l	no_com
-	.dc.l	no_com
-	.dc.l	no_com
-	.dc.l	no_com
-	.dc.l	no_com
-	.dc.l	no_com
-	.dc.l	no_com
-	.dc.l	no_com
-	.dc.l	no_com
-	.dc.l	no_com
-	.dc.l	no_com
-
-VDP_G5_jpt:
-	.dc.l	no_com			* 0000
-	.dc.l	no_com
-	.dc.l	no_com
-	.dc.l	no_com
-	.dc.l	no_com			*POINT_G5		* 0100
-	.dc.l	PSET_G5
-	.dc.l	no_com			*SRCH_G5
-	.dc.l	LINE_G5			* 0111
-	.dc.l	no_com			*LMMV_G5			* 1000
-	.dc.l	no_com			*LMMM_G5
-	.dc.l	no_com			*LMCM_G5
-	.dc.l	LMMC_G5			* 1011
-	.dc.l	no_com			*HMMV_G5			* 1100
-	.dc.l	no_com			*HMMM_G5
-	.dc.l	no_com			*YMMM_G5
-	.dc.l	no_com			*HMMC_G5			* 1111
-
-VDP_G6_jpt:
-	.dc.l	no_com
-	.dc.l	no_com
-	.dc.l	no_com
-	.dc.l	no_com
-	.dc.l	no_com
-	.dc.l	no_com
-	.dc.l	no_com
-	.dc.l	no_com
-	.dc.l	no_com
-	.dc.l	no_com
-	.dc.l	no_com
-	.dc.l	no_com
-	.dc.l	no_com
-	.dc.l	no_com
-	.dc.l	no_com
-	.dc.l	no_com
-
-VDP_G7_jpt:
-	.dc.l	no_com
-	.dc.l	no_com
-	.dc.l	no_com
-	.dc.l	no_com
-	.dc.l	no_com
-	.dc.l	no_com
-	.dc.l	no_com
-	.dc.l	no_com
-	.dc.l	no_com
-	.dc.l	no_com
-	.dc.l	no_com
-	.dc.l	no_com
-	.dc.l	no_com
-	.dc.l	no_com
-	.dc.l	no_com
-	.dc.l	no_com
-
-	.text
-
-*
-*	ｎｏ ｃｏｍｍａｎｄ
-*
-no_com:
-	clr.w	d0
-	move.b	d1,d0
-	move.w	d0,d2
-	lsr.w	#4,d0
-	lea.l	HEX,a0
-	move.b	0(a0,d0.w),number+0
-	andi.w	#$0f,d2
-	move.b	0(a0,d2.w),number+1
-
-	pea.l	mes_DO
-	DOS	__PRINT
-	lea.l	4(sp),sp
-
-	rts
-
-*
-*	Ｐｏｉｎｔ
-*
-POINT_G5:
-	clr.w	d0
-	move.b	d1,d0
-	move.w	d0,d2
-	lsr.w	#4,d0
-	lea.l	HEX,a0
-	move.b	0(a0,d0.w),number+0
-	andi.w	#$0f,d2
-	move.b	0(a0,d2.w),number+1
-
-	pea.l	mes_DO
-	DOS	__PRINT
-	lea.l	4(sp),sp
-
-	rts
 
 *
 *	Ｐｓｅｔ
@@ -2736,25 +2600,6 @@ PSET_G5:
 	move.b	offset_ms_vdp_clr(a5),d0
 	andi.w	#%00000011,d0
 	move.w	d0,(a0)
-
-	rts
-
-*
-*	Ｓｅａｒｃｈ
-*
-SRCH_G5:
-	clr.w	d0
-	move.b	d1,d0
-	move.w	d0,d2
-	lsr.w	#4,d0
-	lea.l	HEX,a0
-	move.b	0(a0,d0.w),number+0
-	andi.w	#$0f,d2
-	move.b	0(a0,d2.w),number+1
-
-	pea.l	mes_DO
-	DOS	__PRINT
-	lea.l	4(sp),sp
 
 	rts
 
@@ -2816,63 +2661,6 @@ LINE_G5:
 
 9:
 	movem.l	(sp)+,d4-d6
-	rts
-
-*
-*	ＬＭＭＶ
-*
-LMMV_G5:
-	clr.w	d0
-	move.b	d1,d0
-	move.w	d0,d2
-	lsr.w	#4,d0
-	lea.l	HEX,a0
-	move.b	0(a0,d0.w),number+0
-	andi.w	#$0f,d2
-	move.b	0(a0,d2.w),number+1
-
-	pea.l	mes_DO
-	DOS	__PRINT
-	lea.l	4(sp),sp
-
-	rts
-
-*
-*	ＬＭＭＭ
-*
-LMMM_G5:
-	clr.w	d0
-	move.b	d1,d0
-	move.w	d0,d2
-	lsr.w	#4,d0
-	lea.l	HEX,a0
-	move.b	0(a0,d0.w),number+0
-	andi.w	#$0f,d2
-	move.b	0(a0,d2.w),number+1
-
-	pea.l	mes_DO
-	DOS	__PRINT
-	lea.l	4(sp),sp
-
-	rts
-
-*
-*	ＬＭＣＭ
-*
-LMCM_G5:
-	clr.w	d0
-	move.b	d1,d0
-	move.w	d0,d2
-	lsr.w	#4,d0
-	lea.l	HEX,a0
-	move.b	0(a0,d0.w),number+0
-	andi.w	#$0f,d2
-	move.b	0(a0,d2.w),number+1
-
-	pea.l	mes_DO
-	DOS	__PRINT
-	lea.l	4(sp),sp
-
 	rts
 
 *
@@ -2986,93 +2774,6 @@ NEXT_DY:
 	.dc.w	0
 
 	.text
-
-*
-*	ＨＭＭＶ
-*
-HMMV_G5:
-	clr.w	d0
-	move.b	d1,d0
-	move.w	d0,d2
-	lsr.w	#4,d0
-	lea.l	HEX,a0
-	move.b	0(a0,d0.w),number+0
-	andi.w	#$0f,d2
-	move.b	0(a0,d2.w),number+1
-
-	pea.l	mes_DO
-	DOS	__PRINT
-	lea.l	4(sp),sp
-
-	rts
-
-*
-*	ＨＭＭＭ
-*
-HMMM_G5:
-	clr.w	d0
-	move.b	d1,d0
-	move.w	d0,d2
-	lsr.w	#4,d0
-	lea.l	HEX,a0
-	move.b	0(a0,d0.w),number+0
-	andi.w	#$0f,d2
-	move.b	0(a0,d2.w),number+1
-
-	pea.l	mes_DO
-	DOS	__PRINT
-	lea.l	4(sp),sp
-
-	rts
-
-*
-*	ＹＭＭＭ
-*
-YMMM_G5:
-	clr.w	d0
-	move.b	d1,d0
-	move.w	d0,d2
-	lsr.w	#4,d0
-	lea.l	HEX,a0
-	move.b	0(a0,d0.w),number+0
-	andi.w	#$0f,d2
-	move.b	0(a0,d2.w),number+1
-
-	pea.l	mes_DO
-	DOS	__PRINT
-	lea.l	4(sp),sp
-
-	rts
-
-*
-*	ＨＭＭＣ
-*
-HMMC_G5:
-	clr.w	d0
-	move.b	d1,d0
-	move.w	d0,d2
-	lsr.w	#4,d0
-	lea.l	HEX,a0
-	move.b	0(a0,d0.w),number+0
-	andi.w	#$0f,d2
-	move.b	0(a0,d2.w),number+1
-
-	pea.l	mes_DO
-	DOS	__PRINT
-	lea.l	4(sp),sp
-
-	rts
-
-***************************************************************
-*
-*	スプライト描画ルーチン
-*
-***************************************************************
-w_SPRITE:
-
-	rts
-
-
 
 ***************************************************************
 *
@@ -3287,9 +2988,6 @@ vloop:	eor.w	d0,(a0)		*pset(x,y)
 
 set_gram_add_rot:
 	.dc.l	s_TEXT1
-
-VDP_command_jpt_add:
-	.dc.l	VDP_NONE
 
 w_ContReg_mode:				* ポート＃１は２バイトひとかたまりでアクセス
 	.dc.w	0			* するので、１バイト目か２バイト目かの区別を
@@ -3556,8 +3254,6 @@ num:	.dc.b	'1'
 	.dc.b	'にしました。',0xd,0xa,0
 
 
-mes_DO:
-	.dc.b	'ＶＤＰコマンドを実行しました。0x'
 number:
 	.dc.b	'00'
 	.dc.b	0x0d,0x0a,0x00

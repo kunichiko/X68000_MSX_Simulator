@@ -181,6 +181,7 @@ typedef struct ms_vdp_mode {
 	void (*update_sprpgentbl_baddr)(ms_vdp_t* vdp);
 	void (*update_r7_color)(ms_vdp_t* vdp, uint8_t data);
 	char* (*get_mode_name)(ms_vdp_t* vdp);
+	void (*exec_vdp_command)(ms_vdp_t* vdp, uint8_t cmd);
 } ms_vdp_mode_t;
 
 ms_vdp_t* ms_vdp_init();
@@ -190,5 +191,8 @@ void initSprite(ms_vdp_t* vdp);
 void writeSpritePattern(ms_vdp_t* vdp, int offset, unsigned int pattern);
 void writeSpriteAttribute(ms_vdp_t* vdp, int offset, unsigned int attribute);
 void updateSpriteVisibility(ms_vdp_t* vdp);
+
+void exec_vdp_command_DEFAULT(ms_vdp_t* vdp, uint8_t cmd);
+void exec_vdp_command_NONE(ms_vdp_t* vdp, uint8_t cmd);
 
 #endif

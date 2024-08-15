@@ -14,6 +14,7 @@ void update_sprattrtbl_baddr_SCREEN12(ms_vdp_t* vdp);
 void update_sprpgentbl_baddr_SCREEN12(ms_vdp_t* vdp);
 void update_r7_color_SCREEN12(ms_vdp_t* vdp, uint8_t data);
 char* get_mode_name_SCREEN12(ms_vdp_t* vdp);
+void exec_vdp_command_SCREEN12(ms_vdp_t* vdp, uint8_t cmd);
 
 ms_vdp_mode_t ms_vdp_SCREEN12 = {
 	// int init_SCREEN12(ms_vdp_t* vdp);
@@ -37,7 +38,9 @@ ms_vdp_mode_t ms_vdp_SCREEN12 = {
 	// void update_r7_color_SCREEN12(ms_vdp_t* vdp, uint8_t data);
 	update_r7_color_SCREEN12,
 	// char* get_mode_name_SCREEN12(ms_vdp_t* vdp);
-	get_mode_name_SCREEN12
+	get_mode_name_SCREEN12,
+	// void exec_vdp_command_SCREEN12(ms_vdp_t* vdp, uint8_t cmd);
+	exec_vdp_command_SCREEN12
 };
 
 
@@ -82,4 +85,8 @@ void update_r7_color_SCREEN12(ms_vdp_t* vdp, uint8_t data) {
 
 char* get_mode_name_SCREEN12(ms_vdp_t* vdp) {
 	return "SCREEN12";
+}
+
+void exec_vdp_command_SCREEN12(ms_vdp_t* vdp, uint8_t cmd) {
+	exec_vdp_command_DEFAULT(vdp, cmd);
 }

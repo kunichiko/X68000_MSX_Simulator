@@ -18,6 +18,7 @@ void update_sprattrtbl_baddr_GRAPHIC6(ms_vdp_t* vdp);
 void update_sprpgentbl_baddr_GRAPHIC6(ms_vdp_t* vdp);
 void update_r7_color_GRAPHIC6(ms_vdp_t* vdp, uint8_t data);
 char* get_mode_name_GRAPHIC6(ms_vdp_t* vdp);
+void exec_vdp_command_GRAPHIC6(ms_vdp_t* vdp, uint8_t cmd);
 
 ms_vdp_mode_t ms_vdp_GRAPHIC6 = {
 	// int init_GRAPHIC6(ms_vdp_t* vdp);
@@ -41,7 +42,9 @@ ms_vdp_mode_t ms_vdp_GRAPHIC6 = {
 	// void update_r7_color_GRAPHIC6(ms_vdp_t* vdp, uint8_t data);
 	update_r7_color_GRAPHIC6,
 	// char* get_mode_name_GRAPHIC6(ms_vdp_t* vdp);
-	get_mode_name_GRAPHIC6
+	get_mode_name_GRAPHIC6,
+	// void exec_vdp_command_GRAPHIC6(ms_vdp_t* vdp, uint8_t cmd);
+	exec_vdp_command_GRAPHIC6
 };
 
 
@@ -89,4 +92,8 @@ void update_r7_color_GRAPHIC6(ms_vdp_t* vdp, uint8_t data) {
 
 char* get_mode_name_GRAPHIC6(ms_vdp_t* vdp) {
 	return "GRAPHIC6";
+}
+
+void exec_vdp_command_GRAPHIC6(ms_vdp_t* vdp, uint8_t cmd) {
+	exec_vdp_command_DEFAULT(vdp, cmd);
 }
