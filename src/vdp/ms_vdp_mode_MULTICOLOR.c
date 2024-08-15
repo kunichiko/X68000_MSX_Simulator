@@ -86,3 +86,4 @@ void update_r7_color_MULTICOLOR(ms_vdp_t* vdp, uint8_t data) {
 char* get_mode_name_MULTICOLOR(ms_vdp_t* vdp) {
 	return "MULTICOLOR";
 }
+

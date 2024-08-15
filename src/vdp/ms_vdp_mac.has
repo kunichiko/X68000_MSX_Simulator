@@ -26,6 +26,7 @@
 	; functions
 	.xdef	ms_vdp_init_mac
 	.xdef	ms_vdp_deinit_mac
+	.xdef	ms_vdp_set_display_lines
 
 	.xdef	set_TEXT1_mac
 	.xdef	set_TEXT2_mac
@@ -358,28 +359,6 @@ ms_vdp_init_mac:
 	; APIはかならず引数に vdpインスタンスを受け取るようにしている
 	movea.l	ms_vdp_shared,a5	* ms_vdp_t へのポインタを取得
 
-	* ＶＲＡＭのクリア
-	move.l	offset_ms_vdp_vram(a5),a0
-	move.w	#$7fff,d0		* ＶＲＡＭ１２８Ｋは前提
-@@:	clr.l	(a0)+
-	dbra	d0,@b
-
-	move.b	#4,d1
-	IOCS	__CRTMOD
-
-	IOCS	__G_CLR_ON
-
-	IOCS	__SP_INIT
-	IOCS	__SP_ON
-*	move.l	#0,d1
-*	move.l	#0,d2
-*	move.l	#1,d3
-*	IOCS	__BGCTRLST
-
-	bsr	set_display_lines
-
-	bsr	enable_backdrop			* バックドロップの設定
-
 	* プライオリティの設定
 	* b15:14 (NONE)
 	* b13:12 スプライト優先順位
@@ -390,9 +369,6 @@ ms_vdp_init_mac:
 	* b03:02 ┗グラフィックページ1の優先順位
 	* b01:00 ┗グラフィックページ0の優先順位
 	move.w	#%00_01_00_10__11_10_01_00,VCRR_01
-
-	* テキスト画面の下の方が切れるので、テキスト画面を少し上にスクロールさせる
-	move.w	#16*8,CRTR_11
 
 	move.w	#1,offset_ms_vdp_tx_active(a5)
 	move.w	#1,offset_ms_vdp_gr_active(a5)
@@ -428,7 +404,10 @@ ms_vdp_init_mac:
 
 	rts
 
-set_display_lines:
+ms_vdp_set_display_lines:
+	link	a6,#0
+	movem.l	d3-d7/a0-a5,-(sp)
+
 	btst.b	#7,offset_ms_vdp_r09(a5)	* R#9のbit7が1の時は512x424
 	bne	set_dispaly_lines_212
 
@@ -447,7 +426,11 @@ set_display_lines_192:
 	move.w	#$ff,SPCON_HTOTAL 	* 常に $ff
 	move.w	#17+4,SPCON_HDISP	* CRTC R02 + 4の値
 	move.w	#40,SPCON_VDISP		* CRTC R06 の値
-	rts
+
+	* テキスト画面の下の方が切れるので、テキスト画面を少し上にスクロールさせる
+	move.w	#16*8,CRTR_11
+
+	bra	@f
 
 set_dispaly_lines_212:
 	* 512 x 424にする
@@ -464,6 +447,12 @@ set_dispaly_lines_212:
 	move.w	#$ff,SPCON_HTOTAL 	* 常に $ff
 	move.w	#17+4,SPCON_HDISP	* CRTC R02 + 4の値
 	move.w	#52,SPCON_VDISP		* CRTC R06 の値
+
+	* テキスト画面の下の方が切れるので、テキスト画面を少し上にスクロールさせる
+	move.w	#16*5+8,CRTR_11
+
+@@:	movem.l	(sp)+,d3-d7/a0-a5
+	unlk	a6
 	rts
 
 
@@ -1141,7 +1130,7 @@ w_R8:	move.b	d1,offset_ms_vdp_r08(a5)
 ;		0=出力
 ;		1=入力
 w_R9:	move.b	d1,offset_ms_vdp_r09(a5)
-	bsr	set_display_lines
+	bsr	ms_vdp_set_display_lines
 	rts
 
 w_R14:	andi.l	#%00000000_00000111,d1	* d1.l = 00000000_00000000_00000AAA

@@ -121,6 +121,12 @@ ms_vdp_t* ms_vdp_init() {
 		return NULL;
 	}
 
+	// 初期画面モードを 512x512にする
+	// 実際には、MSXの画面モードに応じてこの後色々変化する
+	_iocs_crtmod(4);	// 512x512, 31kHz, 16色 4枚
+	_iocs_g_clr_on();	// グラフィックス画面初期化
+	ms_vdp_set_display_lines();
+
 	ms_vdp_init_mac(ms_vdp_shared);
 
 	ms_vdp_init_sprite(ms_vdp_shared);
@@ -129,6 +135,10 @@ ms_vdp_t* ms_vdp_init() {
 	int i;
 	for(i=0;i<X68_GRAM_LEN;i++) {
 		X68_GRAM[i] = 0;
+	}
+	// VRAMクリア
+	for(i=0;i<0x20000;i++) {
+		ms_vdp_shared->vram[i] = 0;
 	}
 
 	return ms_vdp_shared;
