@@ -162,6 +162,12 @@ int main(int argc, char *argv[]) {
 
 	printf("[[ MSX Simulator MS.X]]\n");
 
+	unsigned int mpu_type = _iocs_mpu_stat();
+	if( (mpu_type & 0xf) < 3) {
+		printf("MS.X ‚Ì“®ì‚É‚Í 68030ˆÈã‚ª•K—v‚Å‚·\n");
+		ms_exit();
+	}
+
 	for (i = 0; i < 4; i++) {
 		for (j = 0; j < 4; j++) {
 			slot_path[i][j] = NULL;
