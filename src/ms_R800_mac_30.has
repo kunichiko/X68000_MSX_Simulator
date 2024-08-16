@@ -112,7 +112,6 @@
 
 	.xdef	f
 
-	.xdef	ms_cpu_init
 	.xdef	ms_cpu_emulate
 	.xdef	ms_cpu_step
 	.xdef	ms_cpu_step_break
@@ -211,27 +210,6 @@ PC_page_set	macro			* JP命令等で PCが変わった時の処理
 		swap	d7
 		endm
 
-*
-*	int ms_cpu_init();
-*
-ms_cpu_init:
-	link	a6,#0
-	movem.l	d3-d7/a0-a5,-(sp)
-
-	lea.l	registers,a3
-	clr.w	d1
-	jsr	w_port_A8		* スロットを０で初期化
-
-	clr.w	d7			* pc = 0
-	PC_page_set
-	clr.w	sp_(a3)			* sp = 0
-	move.b	#$00,interrupt_enable	* DI に
-	clr.b	interrupt_mode		* IM を０に
-
-	movem.l	(sp)+,d3-d7/a0-a5
-	unlk	a6
-	rts
-
 	.data
 
 emu_counter:
@@ -277,18 +255,28 @@ ms_cpu_emulate:
 	
 	move.l	8(a6),emu_loop_func	* 引数1のループ関数のポインタを保存しておく
 
+	lea.l	registers,a3
+	clr.w	d1
+	jsr	w_port_A8		* スロットを０で初期化
+
+	clr.w	d7			* pc = 0
+	PC_page_set
+	clr.w	sp_(a3)			* sp = 0
+	move.b	#$00,interrupt_enable	* DI に
+	clr.b	interrupt_mode		* IM を０に
+
 	clr.l	emu_counter
 	clr.l	emu_counter_latch
 	clr.w	emu_yield_div
 	clr.w	interrupt_history_wr
 	clr.w	interrupt_history_rd
-	lea.l	registers,a3
 cpu_main:
 	add.l	#1,emu_counter
 	move.l	cpu_emu_yield,d0
 	beq	cpu_main_next
 	bsr	check_yield
 cpu_main_next:
+	;bsr	debug_log_pc
 	clr.w	d0			* d0 の上位ビットを０にクリア
 	move.b	0(a4,d7.w),d0		* 命令を読み込む
 	lea.l	instructions,a0
@@ -298,6 +286,47 @@ cpu_main_next:
 
 rts_common:
 	rts
+
+debug_log_pc:
+	move.l	d7,d0
+	move.l	d7,d1
+	lsr.l	#2,d0			* d0 = pp00????_????????
+	andi.w	#%11000000_00000000,d0	* d1 = pp000000_00000000
+	or.w	d1,d0			* d0 = PC (R800)
+
+	lea.l	HEX,a0
+	lea.l	cpu_pc_msg+3,a1
+
+	rol.w	#4,d0
+	move.w	d0,d1
+	andi.w	#$0f,d1
+	move.b	(a0,d1.w),(a1)+
+
+	rol.w	#4,d0
+	move.w	d0,d1
+	andi.w	#$0f,d1
+	move.b	(a0,d1.w),(a1)+
+
+	rol.w	#4,d0
+	move.w	d0,d1
+	andi.w	#$0f,d1
+	move.b	(a0,d1.w),(a1)+
+
+	rol.w	#4,d0
+	move.w	d0,d1
+	andi.w	#$0f,d1
+	move.b	(a0,d1.w),(a1)+
+
+	pea.l	cpu_pc_msg
+	DOS	__PRINT
+	lea.l	4(sp),sp
+
+	rts
+
+cpu_pc_msg:
+	.dc.b	'PC:0000',$0d,$0a,$00
+
+	.even
 
 ; cpu_yieldか emu_yieldのどちらかが0でない場合の中断処理
 check_yield:

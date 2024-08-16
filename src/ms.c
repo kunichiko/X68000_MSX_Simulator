@@ -401,10 +401,6 @@ int main(int argc, char *argv[]) {
 		printf("VSYNC‰ñ”‚Í %d ‚Å‚·\n", end - start);
 	}
 
-	printf("emu-ini\n");
-	ms_cpu_init();
-	printf("emu-ini exit\n");
-
 	if (1) {
 		ms_cpu_emulate(emuLoop);
 	} else {
