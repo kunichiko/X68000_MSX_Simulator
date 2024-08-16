@@ -47,16 +47,25 @@ ms_vdp_mode_t ms_vdp_GRAPHIC2 = {
 	1
 };
 
+void write_pname_tbl(ms_vdp_t* vdp, uint32_t addr, uint8_t data);
 
 int init_GRAPHIC2(ms_vdp_t* vdp) {
 	set_GRAPHIC2_mac();
+
+	// 現在のVRAMの状態を元に画面を再描画	
+	int x,y;
+	for(y=0;y<32;y++) {
+		for(x=0;x<32;x++) {
+			uint32_t addr = vdp->pnametbl_baddr+y*32+x;
+			uint8_t data = vdp->vram[addr];
+			write_pname_tbl(vdp, addr, data);
+		}
+	}
 }
 
 uint8_t read_vram_GRAPHIC2(ms_vdp_t* vdp) {
 	return read_vram_TEXT1(vdp);
 }
-
-void write_pname_tbl(ms_vdp_t* vdp, uint8_t data);
 
 void write_vram_GRAPHIC2(ms_vdp_t* vdp, uint8_t data) {
 	w_GRAPHIC2_mac(data);
@@ -72,7 +81,8 @@ void write_vram_GRAPHIC2_c(ms_vdp_t* vdp, uint8_t data) {
 	} else {
 		area &= 0x1fc00; // 下位10ビットをクリア
 		if (area == vdp->pnametbl_baddr) {
-			write_pname_tbl(vdp, data);
+			uint32_t addr = vdp->vram_addr & 0x03ff;
+			write_pname_tbl(vdp, addr, data);
 		} else {
 		 	area &= 0x1f800; // 下位11ビットをクリア
 			if (area == vdp->sprpgentbl_baddr) {
@@ -93,8 +103,7 @@ void write_vram_GRAPHIC2_c(ms_vdp_t* vdp, uint8_t data) {
 	vdp->vram_addr = (addr_h | addr_l);
 }
 
-void write_pname_tbl(ms_vdp_t* vdp, uint8_t data) {
-	uint32_t addr = vdp->vram_addr & 0x03ff;
+void write_pname_tbl(ms_vdp_t* vdp, uint32_t addr, uint8_t data) {
 	uint32_t posx = addr & 0x1f;
 	uint32_t posy = (addr >> 5) & 0x1f;
 	uint32_t block = (posy >> 3) & 0x3;
