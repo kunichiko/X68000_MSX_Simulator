@@ -37,12 +37,12 @@ int dotest(int max_steps, char* result, bool debug);
 int compare(char*);
 
 void dump_cpu() {
-	printf("SZ CPU: PC:0x%04x SP:0x%04x\n", sz_cpu.pc, sz_cpu.sp);
+	printf("SZ CPU: PC:0x%04x SP:0x%04x CYC:0x%08x\n", sz_cpu.pc, sz_cpu.sp, sz_cpu.cyc);
 	printf(" A :%02x B :%02x C :%02x D :%02x E :%02x H :%02x L :%02x IX:%04x IY:%04x\n", sz_cpu.a, sz_cpu.b, sz_cpu.c, sz_cpu.d, sz_cpu.e, sz_cpu.h, sz_cpu.l, sz_cpu.ix, sz_cpu.iy);
 	printf(" A':%02x B':%02x C':%02x D':%02x E':%02x H':%02x L':%02x F':%02x\n", sz_cpu.a_, sz_cpu.b_, sz_cpu.c_, sz_cpu.d_, sz_cpu.e_, sz_cpu.h_, sz_cpu.l_, sz_cpu.f_);
 	printf(" sf:%d zf:%d yf:%d hf:%d xf:%d pf:%d nf:%d cf:%d\n", sz_cpu.sf, sz_cpu.zf, sz_cpu.yf, sz_cpu.hf, sz_cpu.xf, sz_cpu.pf, sz_cpu.nf, sz_cpu.cf);
 	printf(" (HL): %02x %02x\n", sz_memory[(sz_cpu.h << 8) | sz_cpu.l], sz_memory[(sz_cpu.h << 8) | sz_cpu.l + 1]);
-	printf("MS CPU: PC:0x%04x SP:0x%04x\n", ms_cpu.pc, ms_cpu.sp);
+	printf("MS CPU: PC:0x%04x SP:0x%04x CYC:0x%08x\n", ms_cpu.pc, ms_cpu.sp, ms_cpu.cyc);
 	printf(" A :%02x B :%02x C :%02x D :%02x E :%02x H :%02x L :%02x IX:%04x IY:%04x\n", ms_cpu.a, ms_cpu.b, ms_cpu.c, ms_cpu.d, ms_cpu.e, ms_cpu.h, ms_cpu.l, ms_cpu.ix, ms_cpu.iy);
 	printf(" A':%02x B':%02x C':%02x D':%02x E':%02x H':%02x L':%02x F':%02x\n", ms_cpu.a_, ms_cpu.b_, ms_cpu.c_, ms_cpu.d_, ms_cpu.e_, ms_cpu.h_, ms_cpu.l_, ms_cpu.f_);
 	printf(" sf:%d zf:%d yf:%d hf:%d xf:%d pf:%d nf:%d cf:%d\n", ms_cpu.sf, ms_cpu.zf, ms_cpu.yf, ms_cpu.hf, ms_cpu.xf, ms_cpu.pf, ms_cpu.nf, ms_cpu.cf);
@@ -93,9 +93,9 @@ int run_specific_test()
 
 	// テストコード
 	sz_memory[0x0100] = 0xdd;
-	sz_memory[0x0101] = 0xb4;
+	sz_memory[0x0101] = 0x00;
 	sz_memory[0x0102] = 0x00;
-	sz_memory[0x0103] = 0x00;
+	sz_memory[0x0103] = 0xce;
 	sz_memory[0x0104] = 0x00;
 	sz_memory[0x0105] = 0x00;
 	sz_memory[0x0106] = 0x00;
@@ -131,7 +131,7 @@ int run_specific_test()
 
 
 	char result[256];
-	if (dotest(20,result,true) ) {
+	if (dotest(1,result,true) ) {
 		printf(" ********************************************************** failed --> %s\n",result);
 		dump_cpu();
 		dump_mem(0xffff);
@@ -205,7 +205,7 @@ int through_test_normal(value_func_t value_func)
 		sz_memory[0x0100] = i;
 		bool debug = false;
 		if ( i == 0x27 ) {
-			debug = true;
+			debug = false;
 		}
 		if (dotest(20,result,debug) ) {
 			printf(" ********************************************************** failed --> %s\n",result);
@@ -326,7 +326,11 @@ int through_test_ddcb(value_func_t value_func)
 		sz_memory[0x0101] = 0xCB;
 		sz_memory[0x0102] = d;
 		sz_memory[0x0103] = i;
-		if (dotest(20,result,false) ) {
+		bool debug = false;
+		if ( i == 0xc6 | i == 0xce ) {
+			debug = false;
+		}
+		if (dotest(20,result,debug) ) {
 			printf(" ********************************************************** failed --> %s\n",result);
 			dump_cpu();
 			return 1;
@@ -366,8 +370,8 @@ int through_test_ddfd(value_func_t value_func)
 			sz_memory[0x0100] = j;
 			sz_memory[0x0101] = i;
 			bool debug = false;
-			if ( j == 0xdd && i == 0xf0 ) {
-				debug = true;
+			if ( j == 0xdd && i == 0x00 ) {
+				debug = false;
 			}
 			if (dotest(20,result,debug) ) {
 				printf(" ********************************************************** failed --> %s\n",result);
@@ -534,7 +538,7 @@ int run_through_tests(value_func_t value_func)
 	sz_memory[0x0006] = 0x00;
 	sz_memory[0x0007] = 0xC9;
 
-	if(through_test_ed(value_func)) {
+	if(through_test_ddfd(value_func)) {
 		return 1;
 	}
 	if(through_test_normal(value_func)) {
@@ -543,10 +547,10 @@ int run_through_tests(value_func_t value_func)
 	if(through_test_cb(value_func)) {
 		return 1;
 	}
-	if(through_test_ddcb(value_func)) {
+	if(through_test_ed(value_func)) {
 		return 1;
 	}
-	if(through_test_ddfd(value_func)) {
+	if(through_test_ddcb(value_func)) {
 		return 1;
 	}
 
@@ -601,13 +605,17 @@ uint8_t randomvalue()
 int main(int argc, char const *argv[])
 {
 	run_specific_test();
+
+	if(run_through_tests(NULL)) {
+		return 1;
+	}
+
 	if(through_test_ddfd_alu(randomvalue)) {
 		return 1;
 	}
 	if(through_test_DAA()) {
 		return 1;
 	}
-	run_through_tests(NULL);
 	for( int i=0; i<100; i++) {
 		if( run_through_tests(randomvalue) ) {
 			break;
@@ -649,6 +657,7 @@ int dotest(int max_steps, char* result, bool debug)
 	ms_cpu.nf = sz_cpu.nf;
 	ms_cpu.cf = sz_cpu.cf;
 	ms_cpu.mem_ptr = sz_cpu.mem_ptr;
+	ms_cpu.cyc = sz_cpu.cyc;
 
 	for (int i = 0; i <= 0x1ff; i++)
 	{
@@ -833,6 +842,11 @@ int compare(char* result)
 		sprintf(result, "mem_ptr (WZ): %04X != %04X\n", sz_cpu.mem_ptr, ms_cpu.mem_ptr);
 		return 1;
 	}*/
+	if (sz_cpu.cyc != ms_cpu.cyc)
+	{
+		sprintf(result, "cyc: %08X != %08X\n", sz_cpu.cyc, ms_cpu.cyc);
+		return 1;
+	}
 
 	for (int i = 0; i < 0x200; i++)
 	{
