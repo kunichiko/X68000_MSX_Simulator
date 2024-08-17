@@ -233,6 +233,7 @@ ms_psg_init:
 	rts
 
 err_PSG_INIT:
+	movem.l	(sp)+,d3-d7/a0-a5
 	moveq.l	#0,d0
 	rts
 
