@@ -260,7 +260,6 @@ ms_cpu_emulate:
 	lea.l	registers,a3
 	clr.w	d1
 	jsr	w_port_A8		* スロットを０で初期化
-
 	clr.w	d7			* pc = 0
 	PC_page_set
 	clr.w	sp_(a3)			* sp = 0
@@ -278,19 +277,70 @@ cpu_main:
 	beq	cpu_main_next
 	bsr	check_yield
 cpu_main_next:
-	bsr	debug_log_pc
+	;bsr	debug_log_pc
 	bsr	cpu_exec_core
 	bra	cpu_main
 
 debug_log_pc:
+	movem.l	d0-d7/a0-a6,-(sp)
 	move.l	d7,d0
 	move.l	d7,d1
 	lsr.l	#2,d0			* d0 = pp00????_????????
-	andi.w	#%11000000_00000000,d1	* d1 = pp000000_00000000
+	andi.w	#%11000000_00000000,d0	* d1 = pp000000_00000000
 	or.w	d1,d0			* d0 = PC (R800)
 
-	lea.l	HEX,a0
-	lea.l	cpu_pc_msg+3,a1
+	cmpi.w	#$0454,d0
+	blt	@f
+	cmpi.w	#$045d,d0
+	ble	9f
+
+@@:	cmpi.w	#$04b7,d0
+	blt	@f
+	cmpi.w	#$04c0,d0
+	ble	9f
+
+@@:	cmpi.w	#$0980,d0
+	blt	@f
+	cmpi.w	#$098f,d0
+	ble	9f
+
+@@:	cmpi.w	#$7b70,d0
+	blt	@f
+	cmpi.w	#$7b7f,d0
+	ble	9f
+
+@@:	cmpi.w	#$7d60,d0
+	blt	@f
+	cmpi.w	#$7d6f,d0
+	ble	9f
+
+@@:	lea.l	HEX,a0
+
+	; PC
+	lea.l	cpu_pc_msg_pc,a1
+	rol.w	#4,d0
+	move.w	d0,d1
+	andi.w	#$0f,d1
+	move.b	(a0,d1.w),(a1)+
+
+	rol.w	#4,d0
+	move.w	d0,d1
+	andi.w	#$0f,d1
+	move.b	(a0,d1.w),(a1)+
+
+	rol.w	#4,d0
+	move.w	d0,d1
+	andi.w	#$0f,d1
+	move.b	(a0,d1.w),(a1)+
+
+	rol.w	#4,d0
+	move.w	d0,d1
+	andi.w	#$0f,d1
+	move.b	(a0,d1.w),(a1)+
+
+	; SP
+	move.w	sp_(a3),d0
+	lea.l	cpu_pc_msg_sp,a1
 
 	rol.w	#4,d0
 	move.w	d0,d1
@@ -311,16 +361,80 @@ debug_log_pc:
 	move.w	d0,d1
 	andi.w	#$0f,d1
 	move.b	(a0,d1.w),(a1)+
+
+	; HL
+	move.w	hl(a3),d0
+	lea.l	cpu_pc_msg_hl,a1
+
+	rol.w	#4,d0
+	move.w	d0,d1
+	andi.w	#$0f,d1
+	move.b	(a0,d1.w),(a1)+
+
+	rol.w	#4,d0
+	move.w	d0,d1
+	andi.w	#$0f,d1
+	move.b	(a0,d1.w),(a1)+
+
+	rol.w	#4,d0
+	move.w	d0,d1
+	andi.w	#$0f,d1
+	move.b	(a0,d1.w),(a1)+
+
+	rol.w	#4,d0
+	move.w	d0,d1
+	andi.w	#$0f,d1
+	move.b	(a0,d1.w),(a1)+
+
+	; IX
+	move.w	ix(a3),d0
+	lea.l	cpu_pc_msg_ix,a1
+
+	rol.w	#4,d0
+	move.w	d0,d1
+	andi.w	#$0f,d1
+	move.b	(a0,d1.w),(a1)+
+
+	rol.w	#4,d0
+	move.w	d0,d1
+	andi.w	#$0f,d1
+	move.b	(a0,d1.w),(a1)+
+
+	rol.w	#4,d0
+	move.w	d0,d1
+	andi.w	#$0f,d1
+	move.b	(a0,d1.w),(a1)+
+
+	rol.w	#4,d0
+	move.w	d0,d1
+	andi.w	#$0f,d1
+	move.b	(a0,d1.w),(a1)+
+
 
 	pea.l	cpu_pc_msg
 	DOS	__PRINT
 	lea.l	4(sp),sp
 
+9:	movem.l	(sp)+,d0-d7/a0-a6
 	rts
 
+	.data
 cpu_pc_msg:
-	.dc.b	'PC:0000',$0d,$0a,$00
+	.dc.b	'PC:'
+cpu_pc_msg_pc:
+	.dc.b	'0000 '
+	.dc.b	'SP:'
+cpu_pc_msg_sp:
+	.dc.b	'0000 '
+	.dc.b	'HL:'
+cpu_pc_msg_hl:
+	.dc.b	'0000 '
+	.dc.b	'IX:'
+cpu_pc_msg_ix:
+	.dc.b	'0000'
+	.dc.b	$0d,$0a,$00
 
+	.text
 	.even
 
 ;---------------------------------------------------------------------------------------
@@ -354,9 +468,9 @@ cpu_exec_core_edge:
 	andi.w	#PAGEADDRMASK,d7
 @@:	; 次に、元のPCの場所の絶対アドレスを取得し、1バイトずつ読み出す
 	; TODO: 効率が悪いがここに入る確率はいくいのでとりあえず無視している。将来的には直したい
-	move.l	d7,d2
+	move.l	d0,d2
 	lsr.l	#2,d2			* d2 = pp00????_????????
-	andi.w	#%11000000_00000000,d0	* d0 = pp000000_00000000
+	andi.w	#%11000000_00000000,d2	* d0 = pp000000_00000000
 	or.w	d2,d0			* d0 = PC (R800)
 	; +1バイト目を読み直す
 	addq.w	#1,d0
@@ -403,15 +517,15 @@ cpu_exec_core_2:
 	add.w	d2,d7
 	addq.w	#1,d7			* 命令語長は-1されているので+1する
 	btst.l	#PAGEADDRBIT,d7		* PC がページ境界をまたいだか？
-	beq	@f
+	beq	cpu_exec_core_e
 	; ページ境界を跨ぐ場合
 	PC_page_inc
 	andi.w	#PAGEADDRMASK,d7
-@@:	bra	cpu_exec_core_e
+	bra	cpu_exec_core_e
 
 ; 命令語長が1のとき　
 cpu_exec_core_1:
-	; サイクル数を加算m
+	; サイクル数を加算
 	swap	d1
 	ext.l	d1
 	add.l	d1,cpu_cycle
@@ -426,7 +540,7 @@ cpu_exec_core_e:
 	; d1.l : 命令語長が1の時はN/A。それ以外は2バイト目から5バイト目の値が入っている
 	; d7.l : 命令語長だけ進めたPCの値
 ms_cpu_jmp:					* デバッガでBP設定する時用のラベル
-	jmp	(a0)				* rts を省略巣rためにjmpで呼び出す
+	jmp	(a0)				* rts を省略するためにjmpで呼び出す
 
 ;---------------------------------------------------------------------------------------
 
@@ -3181,6 +3295,8 @@ EI:	move.b	#2,interrupt_enable	* EIは１命令おいて実行されるので、2をセットして、
 
 ;---------------------------------------------------------------------------------------
 RST_XXH	macro	value
+	;move.w	value,d0
+	;bsr	print_debug_rst
 	move.l	d7,d1
 	lsr.l	#2,d7			* d7 = pp00????_????????
 	andi.w	#%11000000_00000000,d7	* d7 = pp000000_00000000
@@ -3240,6 +3356,36 @@ RST_30H:
 RST_38H:
 	RST_XXH	#$0038
 	rts
+
+print_debug_rst:
+	cmp.w	#1,debug_log_level
+	bge	@f				* ログレベルが１以上の時
+	rts
+@@:	movem.l	d0-d3/a0-a3,-(sp)
+	move.w	d0,d1
+	lsr.w	#4,d0
+	lea.l	HEX,a0
+	move.b	(a0,d0.w),debug_rst_number+0
+	andi.w	#$0f,d1
+	move.b	(a0,d1.w),debug_rst_number+1
+
+	pea.l	debug_rst_msg
+	DOS	__PRINT
+	lea.l	4(sp),sp
+	movem.l	(sp)+,d0-d3/a0-a3
+	rts
+
+	.data
+
+debug_rst_msg:
+	.dc.b	'RST 0x'
+debug_rst_number:
+	.dc.b	'00'
+debug_rst_msg2:
+	.dc.b	'が呼ばれました'
+	.dc.b	0x0d,0x0a,0x00
+
+	.text
 
 *	------ ＲＬＣＡ ------
 *	------ ＲＬＡ ------
@@ -6332,11 +6478,13 @@ LD_Idx_nn:
 	.dc.w	20			* サイクル数
 	.dc.w	4-1			* 命令語長-1
 LD_Idx_lnnl:
+	move.w	d2,-(sp)
 	* 先読みした値からnnを取り出す
 	swap	d1			* 下位ワードへ移動
 	rol.w	#8,d1			* エンディアンを逆に
 	move.w	d1,d0
 	jsr	ms_read_mem_16
+	move.w	(sp)+,d2
 	move.w	d0,ix(a3,d2.w)
 	rts
 
@@ -6569,9 +6717,11 @@ PUSH_Idx:
 	.dc.w	14			* サイクル数
 	.dc.w	2-1			* 命令語長-1
 POP_Idx:
+	move.w	d2,-(sp)
 	move.w	sp_(a3),d0
 	jsr	ms_read_mem_16
 	addq.w	#2,sp_(a3)
+	move.w	(sp)+,d2
 	move.w	d0,ix(a3,d2.w)
 	rts
 
@@ -6589,8 +6739,10 @@ JP_lIdxl:
 	.dc.w	23			* サイクル数
 	.dc.w	2-1			* 命令語長-1
 EX_lSPl_Idx:
+	move.w	d2,-(sp)
 	move.w	sp_(a3),d0
 	jsr	ms_read_mem_16
+	move.w	(sp)+,d2
 	move.w	ix(a3,d2.w),d1
 	move.w	d0,ix(a3,d2.w)
 	move.w	sp_(a3),d0
@@ -7042,7 +7194,9 @@ SET_lIdx_dl:
 	andi.w	#%00000000_00111000,d1		* BIT_n_? の n を d1にロード
 	lsr.w	#3,d1
 	move.w	d0,-(sp)			* Idx + d を退避
+	move.w	d1,-(sp)
 	jsr	ms_read_mem_8
+	move.w	(sp)+,d1
 	bset.l	d1,d0				* (Idx + d)の nビット目をセット
 	move.b	d0,d1
 	move.w	(sp)+,d0
@@ -7056,7 +7210,9 @@ RES_lIdx_dl:
 	andi.w	#%00000000_00111000,d1		* BIT_n_? の n を d1にロード
 	lsr.w	#3,d1
 	move.w	d0,-(sp)			* Idx + d をプッシュ
+	move.w	d1,-(sp)
 	jsr	ms_read_mem_8
+	move.w	(sp)+,d1
 	bclr.l	d1,d0				* (Idx + d)の nビット目をクリア
 	move.b	d0,d1
 	move.w	(sp)+,d0
@@ -7449,7 +7605,7 @@ input:
 *****************************************************************	
 output:
 	movem.l	d2-d7/a0-a5,-(sp)
-.if 1
+.if 0
 	bsr	print_debug_out
 .endif
 	clr.w	d2

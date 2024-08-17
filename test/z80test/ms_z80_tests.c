@@ -96,6 +96,7 @@ static int run_test(
 
 	z->pc = 0x100;
 	z->sp = 0xF000;
+	z->cyc = 0;
 
 	// inject "out 1,a" at 0x0000 (signal to stop the test)
 	memory[0x0000] = 0xD3;
@@ -109,6 +110,7 @@ static int run_test(
 	long nb_instructions = 0;
 
 	int steps = 10000;
+	//int steps = 1;
 	ms_test_finished = 0;
 	while (!ms_test_finished)
 	{
