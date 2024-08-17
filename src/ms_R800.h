@@ -20,6 +20,10 @@ struct ms_cpu_state {
 	uint8_t interrupt_mode;  // 0: IM0, 1: IM1, 2: IM2
 
 	uint8_t halted;	// 0: normal, 1: halted
+
+	uint8_t dummy;		// 35
+
+	uint32_t cycles;	// 36-39
 };
 
 typedef struct ms_cpu_registers ms_cpu_registers;

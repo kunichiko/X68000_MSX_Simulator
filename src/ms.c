@@ -365,6 +365,7 @@ int main(int argc, char *argv[]) {
 	for ( i = 0; i < 4; i++) {
 		for ( j = 0; j < 4; j++) {
 			if ( slot_path[i][j] != NULL) {
+				printf("スロット%d-ページ%dにROMをセットします: %s\n", i, j, slot_path[i][j]);
 				allocateAndSetROM(slot_path[i][j], ROM_TYPE_NORMAL_ROM, i<<2, j);
 			}
 		}

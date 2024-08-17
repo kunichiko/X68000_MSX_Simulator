@@ -60,6 +60,14 @@ int init_ms_z80(ms_z80 *const z)
 	ms_memory = ms_mainmem_ptr;
 
 	memset(ms_memory, 0, MEMORY_SIZE);
+	for(int i=0;i<MEMORY_SIZE;i++)
+	{
+		ms_memory[i] = ((i & 0xff) >> 8) + (i & 0xff);
+		if (ms_memory[i] == 0x76 )
+		{
+			ms_memory[i] = 0x00;
+		}
+	}
 
 	return 0;
 }

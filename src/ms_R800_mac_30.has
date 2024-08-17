@@ -212,6 +212,8 @@ PC_page_set	macro			* JP命令等で PCが変わった時の処理
 
 	.data
 
+cpu_cycle:
+	.dc.l	0
 emu_counter:
 	.dc.l	0
 emu_counter_latch:
@@ -258,7 +260,6 @@ ms_cpu_emulate:
 	lea.l	registers,a3
 	clr.w	d1
 	jsr	w_port_A8		* スロットを０で初期化
-
 	clr.w	d7			* pc = 0
 	PC_page_set
 	clr.w	sp_(a3)			* sp = 0
@@ -277,25 +278,69 @@ cpu_main:
 	bsr	check_yield
 cpu_main_next:
 	;bsr	debug_log_pc
-	clr.w	d0			* d0 の上位ビットを０にクリア
-	move.b	0(a4,d7.w),d0		* 命令を読み込む
-	lea.l	instructions,a0
-	movea.l	(a0,d0.w*4),a0
-	move.l	#cpu_main,-(sp)		* 戻り先をスタックに積む
-	jmp	(a0)
-
-rts_common:
-	rts
+	bsr	cpu_exec_core
+	bra	cpu_main
 
 debug_log_pc:
+	movem.l	d0-d7/a0-a6,-(sp)
 	move.l	d7,d0
 	move.l	d7,d1
 	lsr.l	#2,d0			* d0 = pp00????_????????
 	andi.w	#%11000000_00000000,d0	* d1 = pp000000_00000000
 	or.w	d1,d0			* d0 = PC (R800)
 
-	lea.l	HEX,a0
-	lea.l	cpu_pc_msg+3,a1
+	cmpi.w	#$0454,d0
+	blt	@f
+	cmpi.w	#$045d,d0
+	ble	9f
+
+@@:	cmpi.w	#$04b7,d0
+	blt	@f
+	cmpi.w	#$04c0,d0
+	ble	9f
+
+@@:	cmpi.w	#$0980,d0
+	blt	@f
+	cmpi.w	#$098f,d0
+	ble	9f
+
+@@:	cmpi.w	#$7b70,d0
+	blt	@f
+	cmpi.w	#$7b7f,d0
+	ble	9f
+
+@@:	cmpi.w	#$7d60,d0
+	blt	@f
+	cmpi.w	#$7d6f,d0
+	ble	9f
+
+@@:	lea.l	HEX,a0
+
+	; PC
+	lea.l	cpu_pc_msg_pc,a1
+	rol.w	#4,d0
+	move.w	d0,d1
+	andi.w	#$0f,d1
+	move.b	(a0,d1.w),(a1)+
+
+	rol.w	#4,d0
+	move.w	d0,d1
+	andi.w	#$0f,d1
+	move.b	(a0,d1.w),(a1)+
+
+	rol.w	#4,d0
+	move.w	d0,d1
+	andi.w	#$0f,d1
+	move.b	(a0,d1.w),(a1)+
+
+	rol.w	#4,d0
+	move.w	d0,d1
+	andi.w	#$0f,d1
+	move.b	(a0,d1.w),(a1)+
+
+	; SP
+	move.w	sp_(a3),d0
+	lea.l	cpu_pc_msg_sp,a1
 
 	rol.w	#4,d0
 	move.w	d0,d1
@@ -316,17 +361,189 @@ debug_log_pc:
 	move.w	d0,d1
 	andi.w	#$0f,d1
 	move.b	(a0,d1.w),(a1)+
+
+	; HL
+	move.w	hl(a3),d0
+	lea.l	cpu_pc_msg_hl,a1
+
+	rol.w	#4,d0
+	move.w	d0,d1
+	andi.w	#$0f,d1
+	move.b	(a0,d1.w),(a1)+
+
+	rol.w	#4,d0
+	move.w	d0,d1
+	andi.w	#$0f,d1
+	move.b	(a0,d1.w),(a1)+
+
+	rol.w	#4,d0
+	move.w	d0,d1
+	andi.w	#$0f,d1
+	move.b	(a0,d1.w),(a1)+
+
+	rol.w	#4,d0
+	move.w	d0,d1
+	andi.w	#$0f,d1
+	move.b	(a0,d1.w),(a1)+
+
+	; IX
+	move.w	ix(a3),d0
+	lea.l	cpu_pc_msg_ix,a1
+
+	rol.w	#4,d0
+	move.w	d0,d1
+	andi.w	#$0f,d1
+	move.b	(a0,d1.w),(a1)+
+
+	rol.w	#4,d0
+	move.w	d0,d1
+	andi.w	#$0f,d1
+	move.b	(a0,d1.w),(a1)+
+
+	rol.w	#4,d0
+	move.w	d0,d1
+	andi.w	#$0f,d1
+	move.b	(a0,d1.w),(a1)+
+
+	rol.w	#4,d0
+	move.w	d0,d1
+	andi.w	#$0f,d1
+	move.b	(a0,d1.w),(a1)+
+
 
 	pea.l	cpu_pc_msg
 	DOS	__PRINT
 	lea.l	4(sp),sp
 
+9:	movem.l	(sp)+,d0-d7/a0-a6
 	rts
 
+	.data
 cpu_pc_msg:
-	.dc.b	'PC:0000',$0d,$0a,$00
+	.dc.b	'PC:'
+cpu_pc_msg_pc:
+	.dc.b	'0000 '
+	.dc.b	'SP:'
+cpu_pc_msg_sp:
+	.dc.b	'0000 '
+	.dc.b	'HL:'
+cpu_pc_msg_hl:
+	.dc.b	'0000 '
+	.dc.b	'IX:'
+cpu_pc_msg_ix:
+	.dc.b	'0000'
+	.dc.b	$0d,$0a,$00
 
+	.text
 	.even
+
+;---------------------------------------------------------------------------------------
+cpu_exec_core:
+	clr.w	d0			* d0 の上位ビットを０にクリア
+	move.b	(a4,d7.w),d0		* 命令を読み込む
+	lea.l	instructions,a0
+	movea.l	(a0,d0.w*4),a0		* ジャンプ先を取得
+	move.l	-4(a0),d1		* 命令のサイクル数と命令語長を取得 d1:サイクル数, d2:命令語長
+	move.w	d1,d2			* 命令語長をd2にコピー(命令語長-1の値が入っているので1バイト命令の時は0が入っている)
+	beq	cpu_exec_core_1		* 命令語長が1命令の時は特殊処理へ
+	; サイクル数を加算
+	swap	d1
+	ext.l	d1
+	add.l	d1,cpu_cycle
+	; 2バイト目から5バイト目をd1に先読み
+	move.l	1(a4,d7.w),d1
+	cmpi.w	#PAGEADDRMASK-4,d7	* ページ境界をまたいでるか？
+	ble	cpu_exec_core_2
+
+; 命令語長が2以上で、かつ先読みでページ境界をまたいでいる場合
+cpu_exec_core_edge:
+	; まず先に命令語長に応じてPCを進める
+	move.l	d7,d0			* 元のPCをd0に残しておく
+	add.w	d2,d7
+	addq.w	#1,d7			* 命令語長は-1されているので+1する
+	btst.l	#PAGEADDRBIT,d7		* PC がページ境界をまたいだか？
+	beq	@f
+	; ページ境界を跨ぐ場合
+	PC_page_inc
+	andi.w	#PAGEADDRMASK,d7
+@@:	; 次に、元のPCの場所の絶対アドレスを取得し、1バイトずつ読み出す
+	; TODO: 効率が悪いがここに入る確率はいくいのでとりあえず無視している。将来的には直したい
+	move.l	d0,d2
+	lsr.l	#2,d2			* d2 = pp00????_????????
+	andi.w	#%11000000_00000000,d2	* d0 = pp000000_00000000
+	or.w	d2,d0			* d0 = PC (R800)
+	; +1バイト目を読み直す
+	addq.w	#1,d0
+	move.w	d0,-(sp)
+	bsr	ms_read_mem_8
+	move.b	d0,d1
+	move.w	(sp)+,d0
+	move.l	d1,-(sp)
+	; +2バイト目を読み直す
+	addq.w	#1,d0
+	move.w	d0,-(sp)
+	bsr	ms_read_mem_8
+	move.b	d0,d2
+	move.w	(sp)+,d0
+	move.l	(sp)+,d1
+	lsl.l	#8,d1
+	move.b	d2,d1
+	move.l	d1,-(sp)
+	; +3バイト目を読み直す
+	addq.w	#1,d0
+	move.w	d0,-(sp)
+	bsr	ms_read_mem_8
+	move.b	d0,d2
+	move.w	(sp)+,d0
+	move.l	(sp)+,d1
+	lsl.l	#8,d1
+	move.b	d2,d1
+	move.l	d1,-(sp)
+	; +4バイト目を読み直す
+	addq.w	#1,d0
+	move.w	d0,-(sp)
+	bsr	ms_read_mem_8
+	move.b	d0,d2
+	move.w	(sp)+,d0
+	move.l	(sp)+,d1
+	lsl.l	#8,d1
+	move.b	d2,d1
+
+	bra	cpu_exec_core_e
+
+; 命令語長が2以上で、かつ先読みでページ境界をまたいでいない場合
+cpu_exec_core_2:
+	; 命令語長に応じてPCを進める
+	add.w	d2,d7
+	addq.w	#1,d7			* 命令語長は-1されているので+1する
+	btst.l	#PAGEADDRBIT,d7		* PC がページ境界をまたいだか？
+	beq	cpu_exec_core_e
+	; ページ境界を跨ぐ場合
+	PC_page_inc
+	andi.w	#PAGEADDRMASK,d7
+	bra	cpu_exec_core_e
+
+; 命令語長が1のとき　
+cpu_exec_core_1:
+	; サイクル数を加算
+	swap	d1
+	ext.l	d1
+	add.l	d1,cpu_cycle
+	addq.w	#1,d7			* PC += 1
+	andi.w	#PAGEADDRMASK,d7	* PC がページ境界をまたいだか？
+	bne	cpu_exec_core_e
+	PC_page_inc
+cpu_exec_core_e:
+	; 命令を実行
+	; この時点のレジスタは以下の通り
+	; d0.l : N/A
+	; d1.l : 命令語長が1の時はN/A。それ以外は2バイト目から5バイト目の値が入っている
+	; d7.l : 命令語長だけ進めたPCの値
+ms_cpu_jmp:					* デバッガでBP設定する時用のラベル
+	jmp	(a0)				* rts を省略するためにjmpで呼び出す
+
+;---------------------------------------------------------------------------------------
+
 
 ; cpu_yieldか emu_yieldのどちらかが0でない場合の中断処理
 check_yield:
@@ -536,20 +753,18 @@ ms_cpu_step:
 	; WZレジスタのセット
 	move.w	30(a5),wz(a3)
 
+	; cycles
+	move.l	36(a5),cpu_cycle
+
 	;
 	;	d0個の命令を実行
 	clr.l	ms_cpu_step_break
 @@:
 	move.l	(sp)+,d0
 @@:	move.l	d0,-(sp)
-	clr.w	d0			* d0 の上位ビットを０にクリア
-	move.b	0(a4,d7.w),d0		* 命令を読み込む
-	lea.l	instructions,a0
-	movea.l	(a0,d0.w*4),a0
-	move.l	#1f,-(sp)		* 戻り先をスタックに積む
-ms_cpu_step_jmp:
-	jmp	(a0)
-1:					* rtsでここに戻ってくる
+
+	bsr	cpu_exec_core
+
 	;bsr	dumpsp
 
 	move.l	(sp)+,d0
@@ -595,6 +810,9 @@ ms_cpu_step_jmp:
 	; WZレジスタの書き戻し処理
 	move.w	wz(a3),30(a5)
 
+	; cycles
+	move.l	cpu_cycle,36(a5)
+
 	movem.l	(sp)+,d3-d7/a0-a5
 	unlk	a6
 	moveq.l #0,d0
@@ -626,6 +844,29 @@ history_not_full:
 	move.w	d0,interrupt_history_rd
 
 	rts
+
+
+*******************************************************************
+* Cから読み出すサブルーチン
+*******************************************************************
+_readMemFromC:
+	link	a6,#0
+	movem.l	d1-d7/a0-a5,-(sp)
+	
+	move.l	8(a6),d0	* 引数1のアドレスを取得
+
+	lea.l	registers,a3
+	jsr	ms_read_mem_8	* メモリから 8ビットのデータを読み込む
+
+	and.l	#$ff,d0		* 上位24ビットをクリア
+
+	movem.l	(sp)+,d1-d7/a0-a5
+	unlk	a6
+	rts
+
+*******************************************************************
+* 基本命令ジャンプテーブル
+*******************************************************************
 
 	.data
 	.quad
@@ -942,790 +1183,558 @@ mode2:	move.l	d7,d1
 	rts
 
 
-nop:	addq.w	#1,d7			* PC += 1
-	andi.w	#PAGEADDRMASK,d7	* PC がページ境界をまたいだか？
-	bne	rts_common
-	PC_page_inc
-	rts
+	.dc.w	4			* サイクル数
+	.dc.w	0			* 命令語長-1
+nop:	rts
 
 *
 *	-------- ＬＤ --------
 *
 *	------ ＬＤ Ａ,？ ------
-LD_A_A:
-	addq.w	#1,d7			* PC += 1
-	andi.w	#PAGEADDRMASK,d7		* PC がページ境界をまたいだか？
-	bne	rts_common
-	PC_page_inc
+	.dc.w	4			* サイクル数
+	.dc.w	0			* 命令語長-1
+LD_A_A:	rts
+
+	.dc.w	4			* サイクル数
+	.dc.w	0			* 命令語長-1
+LD_A_B:	move.b	b(a3),d4
 	rts
-LD_A_B:
-	move.b	b(a3),d4
-	addq.w	#1,d7			* PC += 1
-	andi.w	#PAGEADDRMASK,d7	* PC がページ境界をまたいだか？
-	bne	rts_common
-	PC_page_inc
+
+	.dc.w	4			* サイクル数
+	.dc.w	0			* 命令語長-1
+LD_A_C:	move.b	c(a3),d4
 	rts
-LD_A_C:
-	move.b	c(a3),d4
-	addq.w	#1,d7			* PC += 1
-	andi.w	#PAGEADDRMASK,d7	* PC がページ境界をまたいだか？
-	bne	rts_common
-	PC_page_inc
+
+	.dc.w	4			* サイクル数
+	.dc.w	0			* 命令語長-1
+LD_A_D:	move.b	d(a3),d4
 	rts
-LD_A_D:
-	move.b	d(a3),d4
-	addq.w	#1,d7			* PC += 1
-	andi.w	#PAGEADDRMASK,d7	* PC がページ境界をまたいだか？
-	bne	rts_common
-	PC_page_inc
+
+	.dc.w	4			* サイクル数
+	.dc.w	0			* 命令語長-1
+LD_A_E:	move.b	e(a3),d4
 	rts
-LD_A_E:
-	move.b	e(a3),d4
-	addq.w	#1,d7			* PC += 1
-	andi.w	#PAGEADDRMASK,d7	* PC がページ境界をまたいだか？
-	bne	rts_common
-	PC_page_inc
+
+	.dc.w	4			* サイクル数
+	.dc.w	0			* 命令語長-1
+LD_A_H:	move.b	h(a3),d4
 	rts
-LD_A_H:
-	move.b	h(a3),d4
-	addq.w	#1,d7			* PC += 1
-	andi.w	#PAGEADDRMASK,d7	* PC がページ境界をまたいだか？
-	bne	rts_common
-	PC_page_inc
+
+	.dc.w	4			* サイクル数
+	.dc.w	0			* 命令語長-1
+LD_A_L:	move.b	l(a3),d4
 	rts
-LD_A_L:
-	move.b	l(a3),d4
-	addq.w	#1,d7			* PC += 1
-	andi.w	#PAGEADDRMASK,d7	* PC がページ境界をまたいだか？
-	bne	rts_common
-	PC_page_inc
-	rts
+
+	.dc.w	7			* サイクル数
+	.dc.w	0			* 命令語長-1
 LD_A_lHLl:
 	move.w	hl(a3),d0
 	jsr	ms_read_mem_8		*メモリから 8ビットのデータを d0に読み込む。
 	move.b	d0,d4
-	addq.w	#1,d7			* PC += 1
-	andi.w	#PAGEADDRMASK,d7	* PC がページ境界をまたいだか？
-	bne	rts_common
-	PC_page_inc
 	rts
+
+	.dc.w	7			* サイクル数
+	.dc.w	0			* 命令語長-1
 LD_A_lBCl:
 	move.w	bc(a3),d0
 	jsr	ms_read_mem_8		*メモリから 8ビットのデータを d0に読み込む。
 	move.b	d0,d4
-	addq.w	#1,d7			* PC += 1
-	andi.w	#PAGEADDRMASK,d7	* PC がページ境界をまたいだか？
-	bne	rts_common
-	PC_page_inc
 	rts
+
+	.dc.w	7			* サイクル数
+	.dc.w	0			* 命令語長-1
 LD_A_lDEl:
 	move.w	de(a3),d0
 	jsr	ms_read_mem_8		*メモリから 8ビットのデータを d0に読み込む。
 	move.b	d0,d4
-	addq.w	#1,d7			* PC += 1
-	andi.w	#PAGEADDRMASK,d7	* PC がページ境界をまたいだか？
-	bne	rts_common
-	PC_page_inc
 	rts
+
+	.dc.w	13			* サイクル数
+	.dc.w	3-1			* 命令語長-1
 LD_A_lnnl:
-	move.b	2(a4,d7.w),d0		* nn の上位８ビットを読む 
-	lsl.w	#8,d0
-	move.b	1(a4,d7.w),d0		* nn の下位８ビットを読む 
-	addq.w	#3,d7			* PC += 3
-	btst.l	#PAGEADDRBIT,d7	* PC がページ境界をまたいだか？
-	bne	1f
-	jsr	ms_read_mem_8		*メモリから 8ビットのデータを d0に読み込む。
-	move.b	d0,d4
-	rts
-1:	PC_page_inc
-	andi.w	#PAGEADDRMASK,d7	* 命令がページ境界をまたぐ時
-	bne	2f
-	jsr	ms_read_mem_8		* d7 = 0 の時
-	move.b	d0,d4
-	rts
-2:	cmpi.w	#2,d7			* d7 = 2 の時
-	beq	3f
-	move.b	d0,d2			* d7 = 1 の時
-	move.b	(a4),d0			* nn の上位８ビットを読む
-	lsl.w	#8,d0
-	move.b	d2,d0
-	jsr	ms_read_mem_8		*メモリから 8ビットのデータを d0に読み込む。
-	move.b	d0,d4
-	rts
-3:	move.b	1(a4),d0		* nn の上位８ビットを読む 
-	lsl.w	#8,d0
-	move.b	 (a4),d0		* nn の下位８ビットを読む 
+	* 先読みした値からnnを取り出す
+	swap	d1			* 下位ワードへ移動
+	rol.w	#8,d1			* エンディアンを逆に
+	move.w	d1,d0
 	jsr	ms_read_mem_8		*メモリから 8ビットのデータを d0に読み込む。
 	move.b	d0,d4
 	rts
 
-LD_A_n:	move.b	1(a4,d7.w),d4
-	addq.w	#2,d7			* PC += 2
-	btst.l	#PAGEADDRBIT,d7	* PC がページ境界をまたいだか？
-	beq	rts_common
-	PC_page_inc
-	andi.w	#PAGEADDRMASK,d7	* 命令がページ境界をまたぐ時
-	beq	rts_common
-	move.b	(a4),d4			* d7 = 1 の時
+	.dc.w	7			* サイクル数
+	.dc.w	2-1			* 命令語長-1
+LD_A_n:	* 先読みした値からnを取り出す
+	rol.l	#8,d1			* 最下位バイトに移動
+	move.b	d1,d4
 	rts
 
 *	------ ＬＤ Ｂ,？ ------
+	.dc.w	4			* サイクル数
+	.dc.w	1-1			* 命令語長-1
 LD_B_A:	move.b	d4,b(a3)
-	addq.w	#1,d7			* PC += 1
-	andi.w	#PAGEADDRMASK,d7	* PC がページ境界をまたいだか？
-	bne	rts_common
-	PC_page_inc
 	rts
-LD_B_B:	addq.w	#1,d7			* PC += 1
-	andi.w	#PAGEADDRMASK,d7	* PC がページ境界をまたいだか？
-	bne	rts_common
-	PC_page_inc
-	rts
+
+	.dc.w	4			* サイクル数
+	.dc.w	1-1			* 命令語長-1
+LD_B_B:	rts
+
+	.dc.w	4			* サイクル数
+	.dc.w	1-1			* 命令語長-1
 LD_B_C:	move.b	c(a3),b(a3)
-	addq.w	#1,d7			* PC += 1
-	andi.w	#PAGEADDRMASK,d7	* PC がページ境界をまたいだか？
-	bne	rts_common
-	PC_page_inc
 	rts
+
+	.dc.w	4			* サイクル数
+	.dc.w	1-1			* 命令語長-1
 LD_B_D:	move.b	d(a3),b(a3)
-	addq.w	#1,d7			* PC += 1
-	andi.w	#PAGEADDRMASK,d7	* PC がページ境界をまたいだか？
-	bne	rts_common
-	PC_page_inc
 	rts
+
+	.dc.w	4			* サイクル数
+	.dc.w	1-1			* 命令語長-1
 LD_B_E:	move.b	e(a3),b(a3)
-	addq.w	#1,d7			* PC += 1
-	andi.w	#PAGEADDRMASK,d7	* PC がページ境界をまたいだか？
-	bne	rts_common
-	PC_page_inc
 	rts
+
+	.dc.w	4			* サイクル数
+	.dc.w	1-1			* 命令語長-1
 LD_B_H:	move.b	h(a3),b(a3)
-	addq.w	#1,d7			* PC += 1
-	andi.w	#PAGEADDRMASK,d7	* PC がページ境界をまたいだか？
-	bne	rts_common
-	PC_page_inc
 	rts
+
+	.dc.w	4			* サイクル数
+	.dc.w	1-1			* 命令語長-1
 LD_B_L:	move.b	l(a3),b(a3)
-	addq.w	#1,d7			* PC += 1
-	andi.w	#PAGEADDRMASK,d7	* PC がページ境界をまたいだか？
-	bne	rts_common
-	PC_page_inc
 	rts
+
+	.dc.w	7			* サイクル数
+	.dc.w	1-1			* 命令語長-1
 LD_B_lHLl:
 	move.w	hl(a3),d0
 	jsr	ms_read_mem_8		*メモリから 8ビットのデータを d0に読み込む。
 	move.b	d0,b(a3)
-	addq.w	#1,d7			* PC += 1
-	andi.w	#PAGEADDRMASK,d7	* PC がページ境界をまたいだか？
-	bne	rts_common
-	PC_page_inc
 	rts
-LD_B_n:	move.b	1(a4,d7.w),b(a3)
-	addq.w	#2,d7			* PC += 2
-	btst.l	#PAGEADDRBIT,d7	* PC がページ境界をまたいだか？
-	beq	rts_common
-	PC_page_inc
-	andi.w	#PAGEADDRMASK,d7	* 命令がページ境界をまたぐ時
-	beq	rts_common			* d7 = 0 の時
-	move.b	(a4),b(a3)		* d7 = 1 の時
+
+	.dc.w	7			* サイクル数
+	.dc.w	2-1			* 命令語長-1
+LD_B_n:	* 先読みした値からnを取り出す
+	rol.l	#8,d1			* 最下位バイトに移動
+	move.b	d1,b(a3)
 	rts
 
 *	------ ＬＤ Ｃ,？ ------
+	.dc.w	4			* サイクル数
+	.dc.w	1-1			* 命令語長-1
 LD_C_A:	move.b	d4,c(a3)
-	addq.w	#1,d7			* PC += 1
-	andi.w	#PAGEADDRMASK,d7	* PC がページ境界をまたいだか？
-	bne	rts_common
-	PC_page_inc
 	rts
+
+	.dc.w	4			* サイクル数
+	.dc.w	1-1			* 命令語長-1
 LD_C_B:	move.b	b(a3),c(a3)
-	addq.w	#1,d7			* PC += 1
-	andi.w	#PAGEADDRMASK,d7	* PC がページ境界をまたいだか？
-	bne	rts_common
-	PC_page_inc
 	rts
-LD_C_C:	addq.w	#1,d7			* PC += 1
-	andi.w	#PAGEADDRMASK,d7	* PC がページ境界をまたいだか？
-	bne	rts_common
-	PC_page_inc
-	rts
+
+	.dc.w	4			* サイクル数
+	.dc.w	1-1			* 命令語長-1
+LD_C_C:	rts
+
+	.dc.w	4			* サイクル数
+	.dc.w	1-1			* 命令語長-1
 LD_C_D:	move.b	d(a3),c(a3)
-	addq.w	#1,d7			* PC += 1
-	andi.w	#PAGEADDRMASK,d7	* PC がページ境界をまたいだか？
-	bne	rts_common
-	PC_page_inc
 	rts
+
+	.dc.w	4			* サイクル数
+	.dc.w	1-1			* 命令語長-1
 LD_C_E:	move.b	e(a3),c(a3)
-	addq.w	#1,d7			* PC += 1
-	andi.w	#PAGEADDRMASK,d7	* PC がページ境界をまたいだか？
-	bne	rts_common
-	PC_page_inc
 	rts
+
+	.dc.w	4			* サイクル数
+	.dc.w	1-1			* 命令語長-1
 LD_C_H:	move.b	h(a3),c(a3)
-	addq.w	#1,d7			* PC += 1
-	andi.w	#PAGEADDRMASK,d7	* PC がページ境界をまたいだか？
-	bne	rts_common
-	PC_page_inc
 	rts
+
+	.dc.w	4			* サイクル数
+	.dc.w	1-1			* 命令語長-1
 LD_C_L:	move.b	l(a3),c(a3)
-	addq.w	#1,d7			* PC += 1
-	andi.w	#PAGEADDRMASK,d7	* PC がページ境界をまたいだか？
-	bne	rts_common
-	PC_page_inc
 	rts
+
+	.dc.w	7			* サイクル数
+	.dc.w	1-1			* 命令語長-1
 LD_C_lHLl:
 	move.w	hl(a3),d0
 	jsr	ms_read_mem_8		*メモリから 8ビットのデータを d0に読み込む。
 	move.b	d0,c(a3)
-	addq.w	#1,d7			* PC += 1
-	andi.w	#PAGEADDRMASK,d7	* PC がページ境界をまたいだか？
-	bne	rts_common
-	PC_page_inc
 	rts
-LD_C_n:	move.b	1(a4,d7.w),c(a3)
-	addq.w	#2,d7			* PC += 2
-	btst.l	#PAGEADDRBIT,d7	* PC がページ境界をまたいだか？
-	beq	rts_common
-	PC_page_inc
-	andi.w	#PAGEADDRMASK,d7	* 命令がページ境界をまたぐ時
-	beq	rts_common		* d7 = 0 の時
-	move.b	(a4),c(a3)		* d7 = 1 の時
+
+	.dc.w	7			* サイクル数
+	.dc.w	2-1			* 命令語長-1
+LD_C_n:	* 先読みした値からnを取り出す
+	rol.l	#8,d1			* 最下位バイトに移動
+	move.b	d1,c(a3)
 	rts
 
 *	------ ＬＤ Ｄ,？ ------
+
+	.dc.w	4			* サイクル数
+	.dc.w	1-1			* 命令語長-1
 LD_D_A:	move.b	d4,d(a3)
-	addq.w	#1,d7			* PC += 1
-	andi.w	#PAGEADDRMASK,d7	* PC がページ境界をまたいだか？
-	bne	rts_common
-	PC_page_inc
 	rts
+
+	.dc.w	4			* サイクル数
+	.dc.w	1-1			* 命令語長-1
 LD_D_B:	move.b	b(a3),d(a3)
-	addq.w	#1,d7			* PC += 1
-	andi.w	#PAGEADDRMASK,d7	* PC がページ境界をまたいだか？
-	bne	rts_common
-	PC_page_inc
 	rts
+
+	.dc.w	4			* サイクル数
+	.dc.w	1-1			* 命令語長-1
 LD_D_C:	move.b	c(a3),d(a3)
-	addq.w	#1,d7			* PC += 1
-	andi.w	#PAGEADDRMASK,d7	* PC がページ境界をまたいだか？
-	bne	rts_common
-	PC_page_inc
 	rts
-LD_D_D:	addq.w	#1,d7			* PC += 1
-	andi.w	#PAGEADDRMASK,d7	* PC がページ境界をまたいだか？
-	bne	rts_common
-	PC_page_inc
-	rts
+
+	.dc.w	4			* サイクル数
+	.dc.w	1-1			* 命令語長-1
+LD_D_D:	rts
+
+	.dc.w	4			* サイクル数
+	.dc.w	1-1			* 命令語長-1
 LD_D_E:	move.b	e(a3),d(a3)
-	addq.w	#1,d7			* PC += 1
-	andi.w	#PAGEADDRMASK,d7	* PC がページ境界をまたいだか？
-	bne	rts_common
-	PC_page_inc
 	rts
+
+	.dc.w	4			* サイクル数
+	.dc.w	1-1			* 命令語長-1
 LD_D_H:	move.b	h(a3),d(a3)
-	addq.w	#1,d7			* PC += 1
-	andi.w	#PAGEADDRMASK,d7	* PC がページ境界をまたいだか？
-	bne	rts_common
-	PC_page_inc
 	rts
+
+	.dc.w	4			* サイクル数
+	.dc.w	1-1			* 命令語長-1
 LD_D_L:	move.b	l(a3),d(a3)
-	addq.w	#1,d7			* PC += 1
-	andi.w	#PAGEADDRMASK,d7	* PC がページ境界をまたいだか？
-	bne	rts_common
-	PC_page_inc
 	rts
+
+	.dc.w	7			* サイクル数
+	.dc.w	1-1			* 命令語長-1
 LD_D_lHLl:
 	move.w	hl(a3),d0
 	jsr	ms_read_mem_8		*メモリから 8ビットのデータを d0に読み込む。
 	move.b	d0,d(a3)
-	addq.w	#1,d7			* PC += 1
-	andi.w	#PAGEADDRMASK,d7	* PC がページ境界をまたいだか？
-	bne	rts_common
-	PC_page_inc
 	rts
-LD_D_n:	move.b	1(a4,d7.w),d(a3)
-	addq.w	#2,d7			* PC += 2
-	btst.l	#PAGEADDRBIT,d7	* PC がページ境界をまたいだか？
-	beq	rts_common
-	PC_page_inc
-	andi.w	#PAGEADDRMASK,d7	* 命令がページ境界をまたぐ時
-	beq	rts_common		* d7 = 0 の時
-	move.b	(a4),d(a3)		* d7 = 1 の時
+
+	.dc.w	7			* サイクル数
+	.dc.w	2-1			* 命令語長-1
+LD_D_n:	* 先読みした値からnを取り出す
+	rol.l	#8,d1			* 最下位バイトに移動
+	move.b	d1,d(a3)
 	rts
 
 *	------ ＬＤ Ｅ,？ ------
+	.dc.w	4			* サイクル数
+	.dc.w	1-1			* 命令語長-1
 LD_E_A:	move.b	d4,e(a3)
-	addq.w	#1,d7			* PC += 1
-	andi.w	#PAGEADDRMASK,d7	* PC がページ境界をまたいだか？
-	bne	rts_common
-	PC_page_inc
 	rts
+
+	.dc.w	4			* サイクル数
+	.dc.w	1-1			* 命令語長-1
 LD_E_B:	move.b	b(a3),e(a3)
-	addq.w	#1,d7			* PC += 1
-	andi.w	#PAGEADDRMASK,d7	* PC がページ境界をまたいだか？
-	bne	rts_common
-	PC_page_inc
 	rts
+
+	.dc.w	4			* サイクル数
+	.dc.w	1-1			* 命令語長-1
 LD_E_C:	move.b	c(a3),e(a3)
-	addq.w	#1,d7			* PC += 1
-	andi.w	#PAGEADDRMASK,d7	* PC がページ境界をまたいだか？
-	bne	rts_common
-	PC_page_inc
 	rts
+
+	.dc.w	4			* サイクル数
+	.dc.w	1-1			* 命令語長-1
 LD_E_D:	move.b	d(a3),e(a3)
-	addq.w	#1,d7			* PC += 1
-	andi.w	#PAGEADDRMASK,d7	* PC がページ境界をまたいだか？
-	bne	rts_common
-	PC_page_inc
 	rts
-LD_E_E:	addq.w	#1,d7			* PC += 1
-	andi.w	#PAGEADDRMASK,d7	* PC がページ境界をまたいだか？
-	bne	rts_common
-	PC_page_inc
-	rts
+
+	.dc.w	4			* サイクル数
+	.dc.w	1-1			* 命令語長-1
+LD_E_E:	rts
+
+	.dc.w	4			* サイクル数
+	.dc.w	1-1			* 命令語長-1
 LD_E_H:	move.b	h(a3),e(a3)
-	addq.w	#1,d7			* PC += 1
-	andi.w	#PAGEADDRMASK,d7	* PC がページ境界をまたいだか？
-	bne	rts_common
-	PC_page_inc
 	rts
+
+	.dc.w	4			* サイクル数
+	.dc.w	1-1			* 命令語長-1
 LD_E_L:	move.b	l(a3),e(a3)
-	addq.w	#1,d7			* PC += 1
-	andi.w	#PAGEADDRMASK,d7	* PC がページ境界をまたいだか？
-	bne	rts_common
-	PC_page_inc
 	rts
+
+	.dc.w	7			* サイクル数
+	.dc.w	1-1			* 命令語長-1
 LD_E_lHLl:
 	move.w	hl(a3),d0
 	jsr	ms_read_mem_8		*メモリから 8ビットのデータを d0に読み込む。
 	move.b	d0,e(a3)
-	addq.w	#1,d7			* PC += 1
-	andi.w	#PAGEADDRMASK,d7	* PC がページ境界をまたいだか？
-	bne	rts_common
-	PC_page_inc
 	rts
-LD_E_n:	move.b	1(a4,d7.w),e(a3)
-	addq.w	#2,d7			* PC += 2
-	btst.l	#PAGEADDRBIT,d7	* PC がページ境界をまたいだか？
-	beq	rts_common
-	PC_page_inc
-	andi.w	#PAGEADDRMASK,d7	* 命令がページ境界をまたぐ時
-	beq	rts_common		* d7 = 0 の時
-	move.b	(a4),e(a3)		* d7 = 1 の時
+
+	.dc.w	7			* サイクル数
+	.dc.w	2-1			* 命令語長-1
+LD_E_n:	* 先読みした値からnを取り出す
+	rol.l	#8,d1			* 最下位バイトに移動
+	move.b	d1,e(a3)
 	rts
 
 *	------ ＬＤ Ｈ,？ ------
+	.dc.w	4			* サイクル数
+	.dc.w	1-1			* 命令語長-1
 LD_H_A:	move.b	d4,h(a3)
-	addq.w	#1,d7			* PC += 1
-	andi.w	#PAGEADDRMASK,d7	* PC がページ境界をまたいだか？
-	bne	rts_common
-	PC_page_inc
 	rts
+
+	.dc.w	4			* サイクル数
+	.dc.w	1-1			* 命令語長-1
 LD_H_B:	move.b	b(a3),h(a3)
-	addq.w	#1,d7			* PC += 1
-	andi.w	#PAGEADDRMASK,d7	* PC がページ境界をまたいだか？
-	bne	rts_common
-	PC_page_inc
 	rts
+
+	.dc.w	4			* サイクル数
+	.dc.w	1-1			* 命令語長-1
 LD_H_C:	move.b	c(a3),h(a3)
-	addq.w	#1,d7			* PC += 1
-	andi.w	#PAGEADDRMASK,d7	* PC がページ境界をまたいだか？
-	bne	rts_common
-	PC_page_inc
 	rts
+
+	.dc.w	4			* サイクル数
+	.dc.w	1-1			* 命令語長-1
 LD_H_D:	move.b	d(a3),h(a3)
-	addq.w	#1,d7			* PC += 1
-	andi.w	#PAGEADDRMASK,d7	* PC がページ境界をまたいだか？
-	bne	rts_common
-	PC_page_inc
 	rts
+
+	.dc.w	4			* サイクル数
+	.dc.w	1-1			* 命令語長-1
 LD_H_E:	move.b	e(a3),h(a3)
-	addq.w	#1,d7			* PC += 1
-	andi.w	#PAGEADDRMASK,d7	* PC がページ境界をまたいだか？
-	bne	rts_common
-	PC_page_inc
 	rts
-LD_H_H:	addq.w	#1,d7			* PC += 1
-	andi.w	#PAGEADDRMASK,d7	* PC がページ境界をまたいだか？
-	bne	rts_common
-	PC_page_inc
-	rts
+
+	.dc.w	4			* サイクル数
+	.dc.w	1-1			* 命令語長-1
+LD_H_H:	rts
+
+	.dc.w	4			* サイクル数
+	.dc.w	1-1			* 命令語長-1
 LD_H_L:	move.b	l(a3),h(a3)
-	addq.w	#1,d7			* PC += 1
-	andi.w	#PAGEADDRMASK,d7	* PC がページ境界をまたいだか？
-	bne	rts_common
-	PC_page_inc
 	rts
+
+	.dc.w	7			* サイクル数
+	.dc.w	1-1			* 命令語長-1
 LD_H_lHLl:
 	move.w	hl(a3),d0
 	jsr	ms_read_mem_8		*メモリから 8ビットのデータを d0に読み込む。
 	move.b	d0,h(a3)
-	addq.w	#1,d7			* PC += 1
-	andi.w	#PAGEADDRMASK,d7	* PC がページ境界をまたいだか？
-	bne	rts_common
-	PC_page_inc
 	rts
-LD_H_n:	move.b	1(a4,d7.w),h(a3)
-	addq.w	#2,d7			* PC += 2
-	btst.l	#PAGEADDRBIT,d7	* PC がページ境界をまたいだか？
-	beq	rts_common
-	PC_page_inc
-	andi.w	#PAGEADDRMASK,d7	* 命令がページ境界をまたぐ時
-	beq	rts_common		* d7 = 0 の時
-	move.b	(a4),h(a3)		* d7 = 1 の時
+
+	.dc.w	7			* サイクル数
+	.dc.w	2-1			* 命令語長-1
+LD_H_n:	* 先読みした値からnを取り出す
+	rol.l	#8,d1			* 最下位バイトに移動
+	move.b	d1,h(a3)
 	rts
 
 *	------ ＬＤ Ｌ,？ ------
+	.dc.w	4			* サイクル数
+	.dc.w	1-1			* 命令語長-1
 LD_L_A:	move.b	d4,l(a3)
-	addq.w	#1,d7			* PC += 1
-	andi.w	#PAGEADDRMASK,d7	* PC がページ境界をまたいだか？
-	bne	rts_common
-	PC_page_inc
 	rts
+
+	.dc.w	4			* サイクル数
+	.dc.w	1-1			* 命令語長-1
 LD_L_B:	move.b	b(a3),l(a3)
-	addq.w	#1,d7			* PC += 1
-	andi.w	#PAGEADDRMASK,d7	* PC がページ境界をまたいだか？
-	bne	rts_common
-	PC_page_inc
 	rts
+
+	.dc.w	4			* サイクル数
+	.dc.w	1-1			* 命令語長-1
 LD_L_C:	move.b	c(a3),l(a3)
-	addq.w	#1,d7			* PC += 1
-	andi.w	#PAGEADDRMASK,d7	* PC がページ境界をまたいだか？
-	bne	rts_common
-	PC_page_inc
 	rts
+
+	.dc.w	4			* サイクル数
+	.dc.w	1-1			* 命令語長-1
 LD_L_D:	move.b	d(a3),l(a3)
-	addq.w	#1,d7			* PC += 1
-	andi.w	#PAGEADDRMASK,d7	* PC がページ境界をまたいだか？
-	bne	rts_common
-	PC_page_inc
 	rts
+
+	.dc.w	4			* サイクル数
+	.dc.w	1-1			* 命令語長-1
 LD_L_E:	move.b	e(a3),l(a3)
-	addq.w	#1,d7			* PC += 1
-	andi.w	#PAGEADDRMASK,d7	* PC がページ境界をまたいだか？
-	bne	rts_common
-	PC_page_inc
 	rts
+
+	.dc.w	4			* サイクル数
+	.dc.w	1-1			* 命令語長-1
 LD_L_H:	move.b	h(a3),l(a3)
-	addq.w	#1,d7			* PC += 1
-	andi.w	#PAGEADDRMASK,d7	* PC がページ境界をまたいだか？
-	bne	rts_common
-	PC_page_inc
 	rts
-LD_L_L:	addq.w	#1,d7			* PC += 1
-	andi.w	#PAGEADDRMASK,d7	* PC がページ境界をまたいだか？
-	bne	rts_common
-	PC_page_inc
-	rts
+
+	.dc.w	4			* サイクル数
+	.dc.w	1-1			* 命令語長-1
+LD_L_L:	rts
+
+	.dc.w	7			* サイクル数
+	.dc.w	1-1			* 命令語長-1
 LD_L_lHLl:
 	move.w	hl(a3),d0
 	jsr	ms_read_mem_8		*メモリから 8ビットのデータを d0に読み込む。
 	move.b	d0,l(a3)
-	addq.w	#1,d7			* PC += 1
-	andi.w	#PAGEADDRMASK,d7	* PC がページ境界をまたいだか？
-	bne	rts_common
-	PC_page_inc
-	rts
-LD_L_n:	move.b	1(a4,d7.w),l(a3)
-	addq.w	#2,d7			* PC += 2
-	btst.l	#PAGEADDRBIT,d7	* PC がページ境界をまたいだか？
-	beq	rts_common
-	PC_page_inc
-	andi.w	#PAGEADDRMASK,d7	* 命令がページ境界をまたぐ時
-	beq	rts_common		* d7 = 0 の時
-	move.b	(a4),l(a3)		* d7 = 1 の時
 	rts
 
+	.dc.w	7			* サイクル数
+	.dc.w	2-1			* 命令語長-1
+LD_L_n:	* 先読みした値からnを取り出す
+	rol.l	#8,d1			* 最下位バイトに移動
+	move.b	d1,l(a3)
+	rts
 
 *	------ ＬＤ （ＨＬ）,？
+	.dc.w	7			* サイクル数
+	.dc.w	1-1			* 命令語長-1
 LD_lHLl_A:
 	move.w	hl(a3),d0
 	move.b	d4,d1
 	jsr	ms_write_mem_8
-	addq.w	#1,d7			* PC += 1
-	andi.w	#PAGEADDRMASK,d7	* PC がページ境界をまたいだか？
-	bne	rts_common
-	PC_page_inc
 	rts
+
+	.dc.w	7			* サイクル数
+	.dc.w	1-1			* 命令語長-1
 LD_lHLl_B:
 	move.w	hl(a3),d0
 	move.b	b(a3),d1
 	jsr	ms_write_mem_8
-	addq.w	#1,d7			* PC += 1
-	andi.w	#PAGEADDRMASK,d7	* PC がページ境界をまたいだか？
-	bne	rts_common
-	PC_page_inc
 	rts
+
+	.dc.w	7			* サイクル数
+	.dc.w	1-1			* 命令語長-1
 LD_lHLl_C:
 	move.w	hl(a3),d0
 	move.b	c(a3),d1
 	jsr	ms_write_mem_8
-	addq.w	#1,d7			* PC += 1
-	andi.w	#PAGEADDRMASK,d7	* PC がページ境界をまたいだか？
-	bne	rts_common
-	PC_page_inc
 	rts
+
+	.dc.w	7			* サイクル数
+	.dc.w	1-1			* 命令語長-1
 LD_lHLl_D:
 	move.w	hl(a3),d0
 	move.b	d(a3),d1
 	jsr	ms_write_mem_8
-	addq.w	#1,d7			* PC += 1
-	andi.w	#PAGEADDRMASK,d7	* PC がページ境界をまたいだか？
-	bne	rts_common
-	PC_page_inc
 	rts
+
+	.dc.w	7			* サイクル数
+	.dc.w	1-1			* 命令語長-1
 LD_lHLl_E:
 	move.w	hl(a3),d0
 	move.b	e(a3),d1
 	jsr	ms_write_mem_8
-	addq.w	#1,d7			* PC += 1
-	andi.w	#PAGEADDRMASK,d7	* PC がページ境界をまたいだか？
-	bne	rts_common
-	PC_page_inc
 	rts
+
+	.dc.w	7			* サイクル数
+	.dc.w	1-1			* 命令語長-1
 LD_lHLl_H:
 	move.w	hl(a3),d0
 	move.b	h(a3),d1
 	jsr	ms_write_mem_8
-	addq.w	#1,d7			* PC += 1
-	andi.w	#PAGEADDRMASK,d7	* PC がページ境界をまたいだか？
-	bne	rts_common
-	PC_page_inc
 	rts
+
+	.dc.w	7			* サイクル数
+	.dc.w	1-1			* 命令語長-1
 LD_lHLl_L:
 	move.w	hl(a3),d0
 	move.b	l(a3),d1
 	jsr	ms_write_mem_8
-	addq.w	#1,d7			* PC += 1
-	andi.w	#PAGEADDRMASK,d7	* PC がページ境界をまたいだか？
-	bne	rts_common
-	PC_page_inc
 	rts
+
+	.dc.w	10			* サイクル数
+	.dc.w	2-1			* 命令語長-1
 LD_lHLl_n:
 	move.w	hl(a3),d0
-	move.b	1(a4,d7.w),d1
-	addq.w	#2,d7			* PC += 2
-	btst.l	#PAGEADDRBIT,d7	* PC がページ境界をまたいだか？
-	bne	1f
+	* 先読みした値からnを取り出す
+	rol.l	#8,d1			* 最下位バイトに移動
 	jsr	ms_write_mem_8
 	rts
-1:	PC_page_inc
-	andi.w	#PAGEADDRMASK,d7	* 命令がページ境界をまたぐ時
-	beq	2f
-	move.b	(a4),d1			* d7 = 1 の時
-2:	jsr	ms_write_mem_8
-	rts
+
+	.dc.w	7			* サイクル数
+	.dc.w	1-1			* 命令語長-1
 LD_lBCl_A:
 	move.w	bc(a3),d0
 	move.b	d4,d1
 	jsr	ms_write_mem_8
-	addq.w	#1,d7			* PC += 1
-	andi.w	#PAGEADDRMASK,d7	* PC がページ境界をまたいだか？
-	bne	rts_common
-	PC_page_inc
 	rts
+
+	.dc.w	7			* サイクル数
+	.dc.w	1-1			* 命令語長-1
 LD_lDEl_A:
 	move.w	de(a3),d0
 	move.b	d4,d1
 	jsr	ms_write_mem_8
-	addq.w	#1,d7			* PC += 1
-	andi.w	#PAGEADDRMASK,d7	* PC がページ境界をまたいだか？
-	bne	rts_common
-	PC_page_inc
 	rts
+
+	.dc.w	13			* サイクル数
+	.dc.w	3-1			* 命令語長-1
 LD_lnnl_A:
+	* 先読みした値からnnを取り出す
+	swap	d1			* 下位ワードへ移動
+	rol.w	#8,d1			* エンディアンを逆に
+	move.w	d1,d0
 	move.b	d4,d1
-	move.b	2(a4,d7.w),d0		* nn の上位８ビットを読む 
-	lsl.w	#8,d0
-	move.b	1(a4,d7.w),d0		* nn の下位８ビットを読む 
-	addq.w	#3,d7
-	btst.l	#PAGEADDRBIT,d7	* PC がページ境界をまたいだか？
-	bne	1f
-	jsr	ms_write_mem_8
-	rts
-1:	PC_page_inc			* 命令がページ境界をまたぐ時
-	andi.w	#PAGEADDRMASK,d7	* 命令がページ境界をまたぐ時
-	bne	2f
-	jsr	ms_write_mem_8		* d7 = 0 の時
-	rts
-2:	cmpi.w	#2,d7			
-	beq	3f
-	move.b	d0,d2			* d7 = 1 の時
-	move.b	(a4),d0			* nn の上位８ビットを読む
-	lsl.w	#8,d0
-	move.b	d2,d0
-	jsr	ms_write_mem_8
-	rts
-3:	move.b	1(a4),d0		* d7 = 2 の時
-	lsl.w	#8,d0
-	move.b	 (a4),d0 
 	jsr	ms_write_mem_8
 	rts
 
 
 *	------ ＬＤ ＸＸ,nn ------
+	.dc.w	10			* サイクル数
+	.dc.w	3-1			* 命令語長-1
 LD_BC_nn:
-	move.b	1(a4,d7.w),c(a3)	* nn の下位８ビットを読む 
-	move.b	2(a4,d7.w),b(a3)	* nn の上位８ビットを読む 
-	addq.w	#3,d7
-	btst.l	#PAGEADDRBIT,d7	* PC がページ境界をまたいだか？
-	beq	rts_common
-	PC_page_inc
-	andi.w	#PAGEADDRMASK,d7	* 命令がページ境界をまたぐ時
-	beq	rts_common		* d7 = 0 の時
-	cmpi.w	#2,d1
-	beq	1f
-	move.b	 (a4),b(a3)		* d7 = 1 の時
+	* 先読みした値からnnを取り出す
+	swap	d1			* 下位ワードへ移動
+	rol.w	#8,d1			* エンディアンを逆に
+	move.w	d1,bc(a3)
 	rts
-1:	move.b	 (a4),c(a3)		* d7 = 2 の時 
-	move.b	1(a4),b(a3)
-	rts
+
+	.dc.w	10			* サイクル数
+	.dc.w	3-1			* 命令語長-1
 LD_DE_nn:
-	move.b	1(a4,d7.w),e(a3)	* nn の下位８ビットを読む 
-	move.b	2(a4,d7.w),d(a3)	* nn の上位８ビットを読む 
-	addq.w	#3,d7
-	btst.l	#PAGEADDRBIT,d7	* PC がページ境界をまたいだか？
-	beq	rts_common
-	PC_page_inc
-	andi.w	#PAGEADDRMASK,d7	* 命令がページ境界をまたぐ時
-	beq	rts_common		* d7 = 0 の時
-	cmpi.w	#2,d1
-	beq	1f
-	move.b	 (a4),d(a3)		* d7 = 1 の時
+	* 先読みした値からnnを取り出す
+	swap	d1			* 下位ワードへ移動
+	rol.w	#8,d1			* エンディアンを逆に
+	move.w	d1,de(a3)
 	rts
-1:	move.b	 (a4),e(a3)		* d7 = 2 の時 
-	move.b	1(a4),d(a3)
-	rts
+
+	.dc.w	10			* サイクル数
+	.dc.w	3-1			* 命令語長-1
 LD_HL_nn:
-	move.b	1(a4,d7.w),l(a3)	* nn の下位８ビットを読む 
-	move.b	2(a4,d7.w),h(a3)	* nn の上位８ビットを読む 
-	addq.w	#3,d7
-	btst.l	#PAGEADDRBIT,d7	* PC がページ境界をまたいだか？
-	beq	rts_common
-	PC_page_inc
-	andi.w	#PAGEADDRMASK,d7	* 命令がページ境界をまたぐ時
-	beq	rts_common		* d7 = 0 の時
-	cmpi.w	#2,d1
-	beq	1f
-	move.b	 (a4),h(a3)		* d7 = 1 の時
+	* 先読みした値からnnを取り出す
+	swap	d1			* 下位ワードへ移動
+	rol.w	#8,d1			* エンディアンを逆に
+	move.w	d1,hl(a3)
 	rts
-1:	move.b	 (a4),l(a3)		* d7 = 2 の時 
-	move.b	1(a4),h(a3)
-	rts
+
+	.dc.w	10			* サイクル数
+	.dc.w	3-1			* 命令語長-1
 LD_SP_nn:
-	move.b	1(a4,d7.w),p(a3)	* nn の下位８ビットを読む 
-	move.b	2(a4,d7.w),s(a3)	* nn の上位８ビットを読む 
-	addq.w	#3,d7
-	btst.l	#PAGEADDRBIT,d7	* PC がページ境界をまたいだか？
-	beq	rts_common
-	PC_page_inc
-	andi.w	#PAGEADDRMASK,d7	* 命令がページ境界をまたぐ時
-	beq	rts_common		* d7 = 0 の時
-	cmpi.w	#2,d1
-	beq	1f
-	move.b	 (a4),s(a3)		* d7 = 1 の時
+	* 先読みした値からnnを取り出す
+	swap	d1			* 下位ワードへ移動
+	rol.w	#8,d1			* エンディアンを逆に
+	move.w	d1,sp_(a3)
 	rts
-1:	move.b	 (a4),p(a3)		* d7 = 2 の時 
-	move.b	1(a4),s(a3)
-	rts
+
+	.dc.w	6			* サイクル数
+	.dc.w	1-1			* 命令語長-1
 LD_SP_HL:
 	move.w	hl(a3),sp_(a3)
-	addq.w	#1,d7			* PC += 1
-	andi.w	#PAGEADDRMASK,d7	* PC がページ境界をまたいだか？
-	bne	rts_common
-	PC_page_inc
 	rts
 
 
 *	------ ＬＤ ＨＬ,(nn) ------
+	.dc.w	16			* サイクル数
+	.dc.w	3-1			* 命令語長-1
 LD_HL_lnnl:
-	move.b	2(a4,d7.w),d0		* nn の上位８ビットを読む 
-	lsl.w	#8,d0
-	move.b	1(a4,d7.w),d0		* nn の下位８ビットを読む 
-	addq.w	#3,d7
-	btst.l	#PAGEADDRBIT,d7	* PC がページ境界をまたいだか？
-	bne	1f
-	jsr	ms_read_mem_16
-	move.w	d0,hl(a3)
-	rts
-1:	PC_page_inc			* 命令がページ境界をまたぐ時
-	andi.w	#PAGEADDRMASK,d7	* 命令がページ境界をまたぐ時
-	bne	2f
-	jsr	ms_read_mem_16		* d7 = 0 の時
-	move.w	d0,hl(a3)
-	rts
-2:	cmpi.w	#2,d7
-	beq	3f
-	move.b	d0,d2			* d7 = 1 の時
-	move.b	(a4),d0			* nn の上位８ビットを読む
-	lsl.w	#8,d0
-	move.b	d2,d0
-	jsr	ms_read_mem_16
-	move.w	d0,hl(a3)
-	rts
-3:	move.b	1(a3),d0		* d7 = 2 の時
-	lsl.w	#8,d0
-	move.b	 (a3),d0
+	* 先読みした値からnnを取り出す
+	swap	d1			* 下位ワードへ移動
+	rol.w	#8,d1			* エンディアンを逆に
+	move.w	d1,d0
 	jsr	ms_read_mem_16
 	move.w	d0,hl(a3)
 	rts
 
 *	------ ＬＤ (nn),ＨＬ ------
+	.dc.w	16			* サイクル数
+	.dc.w	3-1			* 命令語長-1
 LD_lnnl_HL:
+	* 先読みした値からnnを取り出す
+	swap	d1			* 下位ワードへ移動
+	rol.w	#8,d1			* エンディアンを逆に
+	move.w	d1,d0
 	move.w	hl(a3),d1
-	move.b	2(a4,d7.w),d0		* nn の上位８ビットを読む 
-	lsl.w	#8,d0
-	move.b	1(a4,d7.w),d0		* nn の下位８ビットを読む 
-	addq.w	#3,d7
-	btst.l	#PAGEADDRBIT,d7	* PC がページ境界をまたいだか？
-	bne	1f
 	jsr	ms_write_mem_16
 	rts
-1:	PC_page_inc			* 命令がページ境界をまたぐ時
-	andi.w	#PAGEADDRMASK,d7	* 命令がページ境界をまたぐ時
-	bne	2f
-	jsr	ms_write_mem_16		* d7 = 0 の時
-	rts
-2:	cmpi.w	#2,d7
-	beq	3f
-	move.b	d0,d2			* d7 = 1 の時
-	move.b	(a4),d0			* nn の上位８ビットを読む
-	lsl.w	#8,d0
-	move.b	d2,d0
-	jsr	ms_write_mem_16
-	rts
-3:	move.b	1(a3),d0		* d7 = 2 の時
-	lsl.w	#8,d0
-	move.b	 (a3),d0
-	jsr	ms_write_mem_16
-	rts
-
-
-*******************************************************************
-* Cから読み出すサブルーチン
-*******************************************************************
-_readMemFromC:
-	link	a6,#0
-	movem.l	d1-d7/a0-a5,-(sp)
-	
-	move.l	8(a6),d0	* 引数1のアドレスを取得
-
-	lea.l	registers,a3
-	jsr	ms_read_mem_8	* メモリから 8ビットのデータを読み込む
-
-	and.l	#$ff,d0		* 上位24ビットをクリア
-
-	movem.l	(sp)+,d1-d7/a0-a5
-	unlk	a6
-	rts
-
 
 *------ ＡＤＤ ------
+
+;---------------------------------------------------------------------------------------
 ADD_A_X macro
-	addq.w	#1,d7			* PC += 1
-	andi.w	#PAGEADDRMASK,d7	* PC がページ境界をまたいだか？
-	bne	1f
-	PC_page_inc
-1:	; b18 : 加算なので0
+	; b18 : 加算なので0
 	; b17 : 算術演算なので0
 	; b16 : 事前キャリーなしなので0
 	; b1  : 加算なのでN=0
@@ -1739,42 +1748,59 @@ ADD_A_X macro
 	add.b	d0,d4			* 演算実行
 	move.b	d4,d5			* 結果を保存
 	endm
+;---------------------------------------------------------------------------------------
 
+	.dc.w	4			* サイクル数
+	.dc.w	1-1			* 命令語長-1
 ADD_A_A:
 	move.b	d4,target_8(a3)
 	ADD_A_X
 	rts
 
+	.dc.w	4			* サイクル数
+	.dc.w	1-1			* 命令語長-1
 ADD_A_B:
 	move.b	b(a3),target_8(a3)
 	ADD_A_X
 	rts
 
+	.dc.w	4			* サイクル数
+	.dc.w	1-1			* 命令語長-1
 ADD_A_C:
 	move.b	c(a3),target_8(a3)
 	ADD_A_X
 	rts
 
+	.dc.w	4			* サイクル数
+	.dc.w	1-1			* 命令語長-1
 ADD_A_D:
 	move.b	d(a3),target_8(a3)
 	ADD_A_X
 	rts
 
+	.dc.w	4			* サイクル数
+	.dc.w	1-1			* 命令語長-1
 ADD_A_E:
 	move.b	e(a3),target_8(a3)
 	ADD_A_X
 	rts
 
+	.dc.w	4			* サイクル数
+	.dc.w	1-1			* 命令語長-1
 ADD_A_H:
 	move.b	h(a3),target_8(a3)
 	ADD_A_X
 	rts
 
+	.dc.w	4			* サイクル数
+	.dc.w	1-1			* 命令語長-1
 ADD_A_L:
 	move.b	l(a3),target_8(a3)
 	ADD_A_X
 	rts
 
+	.dc.w	7			* サイクル数
+	.dc.w	1-1			* 命令語長-1
 ADD_A_lHLl:
 	move.w	hl(a3),d0
 	jsr	ms_read_mem_8
@@ -1782,30 +1808,16 @@ ADD_A_lHLl:
 	ADD_A_X
 	rts
 
+	.dc.w	7			* サイクル数
+	.dc.w	2-1			* 命令語長-1
 ADD_A_n:
-	andi.w	#%01110100_11111111,d6	* Ｎ,Ｃ,HC mode をクリア
-	move.b	1(a4,d7.w),d0
-	addq.w	#2,d7			* PC += 2
-	btst.l	#PAGEADDRBIT,d7	* PC がページ境界をまたいだか？
-	beq	1f
-	PC_page_inc
-	andi.w	#PAGEADDRMASK,d7	* 命令がページ境界をまたぐ時
-	beq	1f			* d7 = 0 の時
-	move.b	(a4),d0			* d7 = 1 の時
-1:	; b18 : 加算なので0
-	; b17 : 算術演算なので0
-	; b16 : キャリーなしなので0
-	; b1  : 加算なのでN=0
-	andi.l	#%000_11111101_11111101,d6
-	ori.l	#%000_11111101_00000000,d6	* S,Z,F5,H,F3,PV,Cのダーティビットを立てる
-	move.b	d4,d5			* 第1項
-	lsl.w	#8,d5
-	move.b	d0,d5			* 足す数を 第2項に
-	swap	d5
-	add.b	d0,d4			* 演算実行
-	move.b	d4,d5			* 結果を保存
+	* 先読みした値からnを取り出す
+	rol.l	#8,d1			* 最下位バイトに移動
+	move.b	d1,target_8(a3)
+	ADD_A_X
 	rts
 
+;---------------------------------------------------------------------------------------
 ; ADD HL,XX の挙動は以下の通り
 ; * S : 変化しない
 ; * Z : 変化しない
@@ -1816,11 +1828,7 @@ ADD_A_n:
 ; * N : 0
 ; * C : 上位8bitの加算の実行によるキャリー
 ADD_HL_XX macro
-	addq.w	#1,d7			* PC += 1
-	andi.w	#PAGEADDRMASK,d7	* PC がページ境界をまたいだか？
-	bne	1f
-	PC_page_inc
-1:	bsr	eval_flag_all
+	bsr	eval_flag_all
 	; b18 : 加算なので0
 	; b17 : 算術演算なので0
 	; b16 : キャリーなしなので0
@@ -1847,22 +1855,31 @@ ADD_HL_XX macro
 	move.b	d0,d5			* 結果を保存
 	move.b	d0,h(a3)		* 上位８ビットを保存
 	endm
+;---------------------------------------------------------------------------------------
 
+	.dc.w	11			* サイクル数
+	.dc.w	1-1			* 命令語長-1
 ADD_HL_BC:
 	move.w	bc(a3),target_16(a3)
 	ADD_HL_XX
 	rts
 
+	.dc.w	11			* サイクル数
+	.dc.w	1-1			* 命令語長-1
 ADD_HL_DE:
 	move.w	de(a3),target_16(a3)
 	ADD_HL_XX
 	rts
 
+	.dc.w	11			* サイクル数
+	.dc.w	1-1			* 命令語長-1
 ADD_HL_HL:
 	move.w	hl(a3),target_16(a3)
 	ADD_HL_XX
 	rts
 
+	.dc.w	11			* サイクル数
+	.dc.w	1-1			* 命令語長-1
 ADD_HL_SP:
 	move.w	sp_(a3),target_16(a3)
 	ADD_HL_XX
@@ -1870,17 +1887,14 @@ ADD_HL_SP:
 
 
 *	------ ＡＤＣ ------
+;---------------------------------------------------------------------------------------
 ADC_A_X macro
 	move.w	d0,-(sp)
 	bsr	eval_flag_HC_C		* HC,C フラグを再評価
 	move.w	(sp)+,d0
 	btst.l	#0,d6
 	beq	ADC_A_X_fallback	* Cy が０の時 ADD と同じ
-	addq.w	#1,d7			* PC += 1
-	andi.w	#PAGEADDRMASK,d7	* PC がページ境界をまたいだか？
-	bne	1f
-	PC_page_inc
-1:	; b18 : 加算なので0
+	; b18 : 加算なので0
 	; b17 : 算術演算なので0
 	; b16 : 事前キャリーありなので1
 	; b1  : 加算なのでN=0
@@ -1899,42 +1913,59 @@ ADC_A_X macro
 ADC_A_X_fallback:
 	ADD_A_X
 	rts
+;---------------------------------------------------------------------------------------
 
+	.dc.w	4			* サイクル数
+	.dc.w	1-1			* 命令語長-1
 ADC_A_A:
 	move.b	d4,target_8(a3)
 	ADC_A_X
 	rts
 
+	.dc.w	4			* サイクル数
+	.dc.w	1-1			* 命令語長-1
 ADC_A_B:
 	move.b	b(a3),target_8(a3)
 	ADC_A_X
 	rts
 
+	.dc.w	4			* サイクル数
+	.dc.w	1-1			* 命令語長-1
 ADC_A_C:
 	move.b	c(a3),target_8(a3)
 	ADC_A_X
 	rts
 
+	.dc.w	4			* サイクル数
+	.dc.w	1-1			* 命令語長-1
 ADC_A_D:
 	move.b	d(a3),target_8(a3)
 	ADC_A_X
 	rts
 
+	.dc.w	4			* サイクル数
+	.dc.w	1-1			* 命令語長-1
 ADC_A_E:
 	move.b	e(a3),target_8(a3)
 	ADC_A_X
 	rts
 
+	.dc.w	4			* サイクル数
+	.dc.w	1-1			* 命令語長-1
 ADC_A_H:
 	move.b	h(a3),target_8(a3)
 	ADC_A_X
 	rts
 
+	.dc.w	4			* サイクル数
+	.dc.w	1-1			* 命令語長-1
 ADC_A_L:
 	move.b	l(a3),target_8(a3)
 	ADC_A_X
 	rts
 
+	.dc.w	7			* サイクル数
+	.dc.w	1-1			* 命令語長-1
 ADC_A_lHLl:
 	move.w	hl(a3),d0
 	jsr	ms_read_mem_8
@@ -1942,40 +1973,19 @@ ADC_A_lHLl:
 	ADC_A_X
 	rts
 
+	.dc.w	7			* サイクル数
+	.dc.w	2-1			* 命令語長-1
 ADC_A_n:
-	bsr	eval_flag_HC_C		* HC,C フラグを再評価
-	btst.l	#0,d6
-	beq	ADD_A_n			* Cy が０の時 ADD と同じ
-	move.b	1(a4,d7.w),d0
-	addq.w	#2,d7			* PC += 2
-	btst.l	#PAGEADDRBIT,d7	* PC がページ境界をまたいだか？
-	beq	1f
-	PC_page_inc
-	andi.w	#PAGEADDRMASK,d7	* 命令がページ境界をまたぐ時
-	beq	1f
-	move.b	(a4),d0
-1:	; b18 : 加算なので0
-	; b17 : 算術演算なので0
-	; b16 : 事前キャリーありなので1
-	; b1  : 加算なのでN=0
-	andi.l	#%000_11111101_11111101,d6
-	ori.l	#%001_11111101_00000000,d6	* S,Z,F5,H,F3,PV,Cのダーティビットを立てる
-	move.b	d4,d5			* 第1項
-	lsl.w	#8,d5
-	move.b	d0,d5			* 足す数を 第2項に
-	swap	d5
-	or.b	#%00010000,ccr		* Xフラグをセット
-	addx.b	d0,d4			* 演算実行
-	move.b	d4,d5			* 結果を保存
+	* 先読みした値からnを取り出す
+	rol.l	#8,d1			* 最下位バイトに移動
+	move.b	d1,target_8(a3)
+	ADC_A_X
 	rts
 
 *	------ ＳＵＢ ------
+;---------------------------------------------------------------------------------------
 SUB_A_X macro
-	addq.w	#1,d7			* PC += 1
-	andi.w	#PAGEADDRMASK,d7	* PC がページ境界をまたいだか？
-	bne	1f
-	PC_page_inc
-1:	; b18 : 減算なので1
+	; b18 : 減算なので1
 	; b17 : 算術演算なので0
 	; b16 : 事前キャリーなしなので0
 	; b1  : 減算なのでN=1
@@ -1989,35 +1999,52 @@ SUB_A_X macro
 	sub.b	d0,d4			* 演算実行
 	move.b	d4,d5			* 結果を保存
 	endm
+;---------------------------------------------------------------------------------------
 
+	.dc.w	4			* サイクル数
+	.dc.w	1-1			* 命令語長-1
 SUB_A:	move.b	d4,target_8(a3)
 	SUB_A_X
 	rts
 
+	.dc.w	4			* サイクル数
+	.dc.w	1-1			* 命令語長-1
 SUB_B:	move.b	b(a3),target_8(a3)
 	SUB_A_X
 	rts
 
+	.dc.w	4			* サイクル数
+	.dc.w	1-1			* 命令語長-1
 SUB_C:	move.b	c(a3),target_8(a3)
 	SUB_A_X
 	rts
 
+	.dc.w	4			* サイクル数
+	.dc.w	1-1			* 命令語長-1
 SUB_D:	move.b	d(a3),target_8(a3)
 	SUB_A_X
 	rts
 
+	.dc.w	4			* サイクル数
+	.dc.w	1-1			* 命令語長-1
 SUB_E:	move.b	e(a3),target_8(a3)
 	SUB_A_X
 	rts
 
+	.dc.w	4			* サイクル数
+	.dc.w	1-1			* 命令語長-1
 SUB_H:	move.b	h(a3),target_8(a3)
 	SUB_A_X
 	rts
 
+	.dc.w	4			* サイクル数
+	.dc.w	1-1			* 命令語長-1
 SUB_L:	move.b	l(a3),target_8(a3)
 	SUB_A_X
 	rts
 
+	.dc.w	7			* サイクル数
+	.dc.w	1-1			* 命令語長-1
 SUB_lHLl:
 	move.w	hl(a3),d0
 	jsr	ms_read_mem_8
@@ -2025,39 +2052,22 @@ SUB_lHLl:
 	SUB_A_X
 	rts
 
+	.dc.w	7			* サイクル数
+	.dc.w	2-1			* 命令語長-1
 SUB_n:
-	move.b	1(a4,d7.w),d0
-	addq.w	#2,d7			* PC += 2
-	btst.l	#PAGEADDRBIT,d7	* PC がページ境界をまたいだか？
-	beq	1f
-	PC_page_inc
-	andi.w	#PAGEADDRMASK,d7	* 命令がページ境界をまたぐ時
-	beq	1f
-	move.b	(a4),d0			* d7 = 1 の時
-1:	; b18 : 減算なので1
-	; b17 : 算術演算なので0
-	; b16 : 事前キャリーなしなので0
-	; b1  : 減算なのでN=1
-	andi.l	#%000_11111101_11111101,d6	* 加算なのでN=0
-	ori.l	#%100_11111101_00000010,d6	* S,Z,F5,H,F3,PV,Cのダーティビットを立てる
-	move.b	d4,d5			* 第1項
-	lsl.w	#8,d5
-	move.b	d0,d5			* 引く数を 第2項に
-	swap	d5
-	sub.b	d0,d4			* 演算実行
-	move.b	d4,d5			* 結果を保存
+	* 先読みした値からnを取り出す
+	rol.l	#8,d1			* 最下位バイトに移動
+	move.b	d1,target_8(a3)
+	SUB_A_X
 	rts
 
 *	------ ＳＢＣ ------
+;---------------------------------------------------------------------------------------
 SBC_A_X macro
 	bsr	eval_flag_HC_C		* HC,C フラグを再評価
 	btst.l	#0,d6
 	beq	SBC_A_X_fallback		* Cy が０の時 SUB と同じ
-	addq.w	#1,d7			* PC += 1
-	andi.w	#PAGEADDRMASK,d7	* PC がページ境界をまたいだか？
-	bne	1f
-	PC_page_inc
-1:	; b18 : 減算なので1
+	; b18 : 減算なので1
 	; b17 : 算術演算なので0
 	; b16 : 事前キャリーありなので1
 	; b1  : 減算なのでN=1
@@ -2076,42 +2086,59 @@ SBC_A_X macro
 SBC_A_X_fallback:
 	SUB_A_X
 	rts
+;---------------------------------------------------------------------------------------
 
+	.dc.w	4			* サイクル数
+	.dc.w	1-1			* 命令語長-1
 SBC_A_A:
 	move.b	d4,target_8(a3)
 	SBC_A_X
 	rts
 
+	.dc.w	4			* サイクル数
+	.dc.w	1-1			* 命令語長-1
 SBC_A_B:
 	move.b	b(a3),target_8(a3)
 	SBC_A_X
 	rts
 
+	.dc.w	4			* サイクル数
+	.dc.w	1-1			* 命令語長-1
 SBC_A_C:
 	move.b	c(a3),target_8(a3)
 	SBC_A_X
 	rts
 
+	.dc.w	4			* サイクル数
+	.dc.w	1-1			* 命令語長-1
 SBC_A_D:
 	move.b	d(a3),target_8(a3)
 	SBC_A_X
 	rts
 
+	.dc.w	4			* サイクル数
+	.dc.w	1-1			* 命令語長-1
 SBC_A_E:
 	move.b	e(a3),target_8(a3)
 	SBC_A_X
 	rts
 
+	.dc.w	4			* サイクル数
+	.dc.w	1-1			* 命令語長-1
 SBC_A_H:
 	move.b	h(a3),target_8(a3)
 	SBC_A_X
 	rts
 
+	.dc.w	4			* サイクル数
+	.dc.w	1-1			* 命令語長-1
 SBC_A_L:
 	move.b	l(a3),target_8(a3)
 	SBC_A_X
 	rts
 
+	.dc.w	7			* サイクル数
+	.dc.w	1-1			* 命令語長-1
 SBC_A_lHLl:
 	move.w	hl(a3),d0
 	jsr	ms_read_mem_8
@@ -2119,41 +2146,20 @@ SBC_A_lHLl:
 	SBC_A_X
 	rts
 
+	.dc.w	7			* サイクル数
+	.dc.w	2-1			* 命令語長-1
 SBC_A_n:
-	bsr	eval_flag_HC_C		* HC,C フラグを再評価
-	btst.l	#0,d6
-	beq	SUB_n			* Cy が０の時 SUB と同じ
-	move.b	1(a4,d7.w),d0
-	addq.w	#2,d7			* PC += 2
-	btst.l	#PAGEADDRBIT,d7	* PC がページ境界をまたいだか？
-	beq	1f
-	PC_page_inc
-	andi.w	#PAGEADDRMASK,d7	* PC がページ境界をまたいだか？
-	beq	1f
-	move.b	(a4),d0			* d7 = 1 の時
-1:	; b18 : 減算なので1
-	; b17 : 算術演算なので0
-	; b16 : 事前キャリーありなので1
-	; b1  : 減算なのでN=1
-	andi.l	#%000_11111101_11111101,d6
-	ori.l	#%101_11111101_00000010,d6	* S,Z,F5,H,F3,PV,Cのダーティビットを立てる
-	move.b	d4,d5			* 第1項
-	lsl.w	#8,d5
-	move.b	d0,d5			* 引く数を 第2項に
-	swap	d5
-	or.b	#%00010000,ccr		* Xフラグをセット
-	subx.b	d0,d4			* 演算実行
-	move.b	d4,d5			* 結果を保存
+	* 先読みした値からnを取り出す
+	rol.l	#8,d1			* 最下位バイトに移動
+	move.b	d1,target_8(a3)
+	SBC_A_X
 	rts
 
 
 *	------ ＡＮＤ ------
+;---------------------------------------------------------------------------------------
 AND_X	macro
-	addq.w	#1,d7			* PC += 1
-	andi.w	#PAGEADDRMASK,d7	* PC がページ境界をまたいだか？
-	bne	1f
-	PC_page_inc
-1:	; b18 : Don't care
+	; b18 : Don't care
 	; b17 : 論理演算なので1
 	; b16 : Don't care
 	; b4  : AND演算時はH=1固定
@@ -2169,35 +2175,52 @@ AND_X	macro
 	and.b	d0,d4			* 演算実行
 	move.b	d4,d5			* 結果を保存
 	endm
+;---------------------------------------------------------------------------------------
 
+	.dc.w	4			* サイクル数
+	.dc.w	1-1			* 命令語長-1
 AND_A:	move.b	d4,target_8(a3)
 	AND_X
 	rts
 
+	.dc.w	4			* サイクル数
+	.dc.w	1-1			* 命令語長-1
 AND_B:	move.b	b(a3),target_8(a3)
 	AND_X
 	rts
 
+	.dc.w	4			* サイクル数
+	.dc.w	1-1			* 命令語長-1
 AND_C:	move.b	c(a3),target_8(a3)
 	AND_X
 	rts
 
+	.dc.w	4			* サイクル数
+	.dc.w	1-1			* 命令語長-1
 AND_D:	move.b	d(a3),target_8(a3)
 	AND_X
 	rts
 
+	.dc.w	4			* サイクル数
+	.dc.w	1-1			* 命令語長-1
 AND_E:	move.b	e(a3),target_8(a3)
 	AND_X
 	rts
 
+	.dc.w	4			* サイクル数
+	.dc.w	1-1			* 命令語長-1
 AND_H:	move.b	h(a3),target_8(a3)
 	AND_X
 	rts
 
+	.dc.w	4			* サイクル数
+	.dc.w	1-1			* 命令語長-1
 AND_L:	move.b	l(a3),target_8(a3)
 	AND_X
 	rts
 
+	.dc.w	7			* サイクル数
+	.dc.w	1-1			* 命令語長-1
 AND_lHLl:
 	move.w	hl(a3),d0
 	jsr	ms_read_mem_8
@@ -2205,37 +2228,18 @@ AND_lHLl:
 	AND_X
 	rts
 
-AND_n:	move.b	1(a4,d7.w),d0
-	addq.w	#2,d7			* PC += 2
-	btst.l	#PAGEADDRBIT,d7	* PC がページ境界をまたいだか？
-	beq	1f
-	PC_page_inc
-	andi.w	#PAGEADDRMASK,d7	* 命令がページ境界をまたぐ時
-	beq	1f
-	move.b	(a4),d0
-1:	; b18 : Don't care
-	; b17 : 論理演算なので1
-	; b16 : Don't care
-	; b4  : AND演算時はH=1固定
-	; b1  : 論理演算時はN=0
-	; b0  : AND演算時はC=0固定
-	andi.l	#%000_11101100_11101100,d6
-	ori.l	#%010_11101100_00010000,d6	* S,Z,F5,F3,PV,Cのダーティビットを立てる
-	move.b	d4,d5			* 第1項
-	lsl.w	#8,d5
-	move.b	d0,d5			* 演算対象を 第2項に
-	swap	d5
-	and.b	d0,d4			* 演算実行
-	move.b	d4,d5			* 結果を保存
+	.dc.w	7			* サイクル数
+	.dc.w	2-1			* 命令語長-1
+AND_n:	* 先読みした値からnを取り出す
+	rol.l	#8,d1			* 最下位バイトに移動
+	move.b	d1,target_8(a3)
+	AND_X
 	rts
 
 *	------ ＸＯＲ ------
+;---------------------------------------------------------------------------------------
 _OR_X	macro	opname
-	addq.w	#1,d7			* PC += 1
-	andi.w	#PAGEADDRMASK,d7	* PC がページ境界をまたいだか？
-	bne	1f
-	PC_page_inc
-1:	; b18 : Don't care
+	; b18 : Don't care
 	; b17 : 論理演算なので1
 	; b16 : Don't care
 	; b4  : OR/XOR演算時はH=0固定
@@ -2251,60 +2255,52 @@ _OR_X	macro	opname
 	opname.b	d0,d4			* 演算実行
 	move.b	d4,d5			* 結果を保存
 	endm
+;---------------------------------------------------------------------------------------
 
-_OR_n	macro	opname
-	move.b	1(a4,d7.w),d0
-	addq.w	#2,d7			* PC += 2
-	btst.l	#PAGEADDRBIT,d7	* PC がページ境界をまたいだか？		* PC がページ境界をまたいだか？
-	beq	1f
-	PC_page_inc
-	andi.w	#PAGEADDRMASK,d7	* 命令がページ境界をまたぐ時
-	beq	1f
-	move.b	(a4),d0
-1:	; b18 : Don't care
-	; b17 : 論理演算なので1
-	; b16 : Don't care
-	; b4  : OR/XOR演算時はH=0固定
-	; b1  : 論理演算時はN=0
-	; b0  : AND演算時はC=0固定
-	andi.l	#%000_11101100_11101100,d6
-	ori.l	#%010_11101100_00000000,d6	* S,Z,F5,F3,PV,Cのダーティビットを立てる
-	move.b	d4,d5		* 第1項
-	lsl.w	#8,d5
-	move.b	d0,d5		* 演算対象を 第2項に
-	swap	d5
-	opname.b d0,d4		* 演算実行
-	move.b	d4,d5		* 結果を保存
-	endm
-
+	.dc.w	4			* サイクル数
+	.dc.w	1-1			* 命令語長-1
 XOR_A:	move.b	d4,target_8(a3)
 	_OR_X	eor
 	rts	
 
+	.dc.w	4			* サイクル数
+	.dc.w	1-1			* 命令語長-1
 XOR_B:	move.b	b(a3),target_8(a3)
 	_OR_X	eor
 	rts
 
+	.dc.w	4			* サイクル数
+	.dc.w	1-1			* 命令語長-1
 XOR_C:	move.b	c(a3),target_8(a3)
 	_OR_X	eor
 	rts
 
+	.dc.w	4			* サイクル数
+	.dc.w	1-1			* 命令語長-1
 XOR_D:	move.b	d(a3),target_8(a3)
 	_OR_X	eor
 	rts
 
+	.dc.w	4			* サイクル数
+	.dc.w	1-1			* 命令語長-1
 XOR_E:	move.b	e(a3),target_8(a3)
 	_OR_X	eor
 	rts
 
+	.dc.w	4			* サイクル数
+	.dc.w	1-1			* 命令語長-1
 XOR_H:	move.b	h(a3),target_8(a3)
 	_OR_X	eor
 	rts
 
+	.dc.w	4			* サイクル数
+	.dc.w	1-1			* 命令語長-1
 XOR_L:	move.b	l(a3),target_8(a3)
 	_OR_X	eor
 	rts
 
+	.dc.w	7			* サイクル数
+	.dc.w	1-1			* 命令語長-1
 XOR_lHLl:
 	move.w	hl(a3),d0
 	jsr	ms_read_mem_8
@@ -2312,38 +2308,59 @@ XOR_lHLl:
 	_OR_X	eor
 	rts
 
-XOR_n:	_OR_n	eor
+	.dc.w	7			* サイクル数
+	.dc.w	2-1			* 命令語長-1
+XOR_n:	* 先読みした値からnを取り出す
+	rol.l	#8,d1			* 最下位バイトに移動
+	move.b	d1,target_8(a3)
+	_OR_X	eor
 	rts
 
 *	------ ＯＲ ------
+	.dc.w	4			* サイクル数
+	.dc.w	1-1			* 命令語長-1
 OR_A:	move.b	d4,target_8(a3)
 	_OR_X	or
 	rts
 
+	.dc.w	4			* サイクル数
+	.dc.w	1-1			* 命令語長-1
 OR_B:	move.b	b(a3),target_8(a3)
 	_OR_X	or
 	rts
 
+	.dc.w	4			* サイクル数
+	.dc.w	1-1			* 命令語長-1
 OR_C:	move.b	c(a3),target_8(a3)
 	_OR_X	or
 	rts
 
+	.dc.w	4			* サイクル数
+	.dc.w	1-1			* 命令語長-1
 OR_D:	move.b	d(a3),target_8(a3)
 	_OR_X	or
 	rts
 
+	.dc.w	4			* サイクル数
+	.dc.w	1-1			* 命令語長-1
 OR_E:	move.b	e(a3),target_8(a3)
 	_OR_X	or
 	rts
 
+	.dc.w	4			* サイクル数
+	.dc.w	1-1			* 命令語長-1
 OR_H:	move.b	h(a3),target_8(a3)
 	_OR_X	or
 	rts
 
+	.dc.w	4			* サイクル数
+	.dc.w	1-1			* 命令語長-1
 OR_L:	move.b	l(a3),target_8(a3)
 	_OR_X	or
 	rts
 
+	.dc.w	7			* サイクル数
+	.dc.w	1-1			* 命令語長-1
 OR_lHLl:
 	move.w	hl(a3),d0
 	jsr	ms_read_mem_8
@@ -2351,10 +2368,16 @@ OR_lHLl:
 	_OR_X	or
 	rts
 
-OR_n:	_OR_n	or
+	.dc.w	7			* サイクル数
+	.dc.w	2-1			* 命令語長-1
+OR_n:	* 先読みした値からnを取り出す
+	rol.l	#8,d1			* 最下位バイトに移動
+	move.b	d1,target_8(a3)
+	_OR_X	or
 	rts
 
 *	------ ＣＰ ------
+;---------------------------------------------------------------------------------------
 ; CP X の挙動は以下の通り
 ; * S : 結果の最上位ビット
 ; * Z : 結果が0の時 1、それ以外の時 0
@@ -2365,11 +2388,7 @@ OR_n:	_OR_n	or
 ; * N : 1
 ; * C : 演算の結果のキャリー
 CP_A_X	macro
-	addq.w	#1,d7			* PC += 1
-	andi.w	#PAGEADDRMASK,d7	* PC がページ境界をまたいだか？
-	bne	1f
-	PC_page_inc
-1:	; b18 : 減算なので1
+	; b18 : 減算なので1
 	; b17 : 算術演算なので0
 	; b16 : 事前キャリーなしなので0
 	; b1  : 減算なのでN=1
@@ -2385,35 +2404,52 @@ CP_A_X	macro
 	andi.b	#%00101000,d0		* F5,F3 のみを取り出す
 	or.b	d0,d6			* F5,F3 をセット
 	endm
+;---------------------------------------------------------------------------------------
 
+	.dc.w	4			* サイクル数
+	.dc.w	1-1			* 命令語長-1
 CP_A:	move.b	d4,target_8(a3)
 	CP_A_X
 	rts
 
+	.dc.w	4			* サイクル数
+	.dc.w	1-1			* 命令語長-1
 CP_B:	move.b	b(a3),target_8(a3)
 	CP_A_X
 	rts
 
+	.dc.w	4			* サイクル数
+	.dc.w	1-1			* 命令語長-1
 CP_C:	move.b	c(a3),target_8(a3)
 	CP_A_X
 	rts
 
+	.dc.w	4			* サイクル数
+	.dc.w	1-1			* 命令語長-1
 CP_D:	move.b	d(a3),target_8(a3)
 	CP_A_X
 	rts
 
+	.dc.w	4			* サイクル数
+	.dc.w	1-1			* 命令語長-1
 CP_E:	move.b	e(a3),target_8(a3)
 	CP_A_X
 	rts
 
+	.dc.w	4			* サイクル数
+	.dc.w	1-1			* 命令語長-1
 CP_H:	move.b	h(a3),target_8(a3)
 	CP_A_X
 	rts
 
+	.dc.w	4			* サイクル数
+	.dc.w	1-1			* 命令語長-1
 CP_L:	move.b	l(a3),target_8(a3)
 	CP_A_X
 	rts
 
+	.dc.w	7			* サイクル数
+	.dc.w	1-1			* 命令語長-1
 CP_lHLl:
 	move.w	hl(a3),d0
 	jsr	ms_read_mem_8
@@ -2421,47 +2457,19 @@ CP_lHLl:
 	CP_A_X
 	rts
 
-; CP n の挙動は以下の通り
-; * S : 結果の最上位ビット
-; * Z : 結果が0の時 1、それ以外の時 0
-; * F5: 引く n の bit5 (SUBとは動作が違う)
-; * H : 演算の結果
-; * F3: 引く n の bit3 (SUBとは動作が違う)
-; * PV: 演算の結果のオーバーフロー
-; * N : 1
-; * C : 演算の結果のキャリー
-CP_n:	move.b	1(a4,d7.w),d0
-	addq.w	#2,d7			* PC += 2
-	btst.l	#PAGEADDRBIT,d7	* PC がページ境界をまたいだか？
-	beq	1f
-	PC_page_inc
-	andi.w	#PAGEADDRMASK,d7	* 命令がページ境界をまたぐ時
-	beq	1f
-	move.b	(a4),d0
-1:	; b18 : 減算なので1
-	; b17 : 算術演算なので0
-	; b16 : 事前キャリーなしなので0
-	; b1  : 減算なのでN=1
-	andi.l	#%000_11010101_11010101,d6
-	ori.l	#%100_11010101_00000010,d6	* S,Z,H,PV,Cのダーティビットを立てる、N=1にする
-	move.b	d4,d5			* 第1項
-	lsl.w	#8,d5
-	move.b	d0,d5			* 引く数を 第2項に
-	swap	d5
-	move.b	d4,d5			* Aレジスタをd5にコピー
-	sub.b	d0,d5			* 比較(減算)演算の結果をd5のみに反映(Aレジスタ(d4)は破壊されない)
-	andi.b	#%00101000,d0		* F5,F3 のみを取り出す
-	or.b	d0,d6			* F5,F3 をセット
+	.dc.w	7			* サイクル数
+	.dc.w	2-1			* 命令語長-1
+CP_n:	* 先読みした値からnを取り出す
+	rol.l	#8,d1			* 最下位バイトに移動
+	move.b	d1,target_8(a3)
+	CP_A_X
 	rts
 
 *	------ ＩＮＣ ------
+;---------------------------------------------------------------------------------------
 INC_X	macro
 	bsr	eval_flag_HC_C		* incでCフラグは変化しないので、この時点のHC,C フラグを再評価
-	addq.w	#1,d7			* PC += 1
-	andi.w	#PAGEADDRMASK,d7	* PC がページ境界をまたいだか？
-	bne	1f
-	PC_page_inc
-1:	; b18 : 加算なので0
+	; b18 : 加算なので0
 	; b17 : 算術演算なので0
 	; b16 : 事前キャリーなしなので0
 	; b1  : 加算なのでN=0
@@ -2475,42 +2483,59 @@ INC_X	macro
 	addq.b	#1,d0			* 演算実行
 	move.b	d0,d5			* 結果を保存
 	endm
+;---------------------------------------------------------------------------------------
 
+	.dc.w	4			* サイクル数
+	.dc.w	1-1			* 命令語長-1
 INC_A:	move.b	d4,target_8(a3)
 	INC_X
 	move.b	d0,d4			* 結果を反映
 	rts
 
+	.dc.w	4			* サイクル数
+	.dc.w	1-1			* 命令語長-1
 INC_B:	move.b	b(a3),target_8(a3)
 	INC_X
 	move.b	d0,b(a3)		* 結果を反映
 	rts
 
+	.dc.w	4			* サイクル数
+	.dc.w	1-1			* 命令語長-1
 INC_C:	move.b	c(a3),target_8(a3)
 	INC_X
 	move.b	d0,c(a3)		* 結果を反映
 	rts
 
+	.dc.w	4			* サイクル数
+	.dc.w	1-1			* 命令語長-1
 INC_D:	move.b	d(a3),target_8(a3)
 	INC_X
 	move.b	d0,d(a3)		* 結果を反映
 	rts
 
+	.dc.w	4			* サイクル数
+	.dc.w	1-1			* 命令語長-1
 INC_E:	move.b	e(a3),target_8(a3)
 	INC_X
 	move.b	d0,e(a3)		* 結果を反映
 	rts
 
+	.dc.w	4			* サイクル数
+	.dc.w	1-1			* 命令語長-1
 INC_H:	move.b	h(a3),target_8(a3)
 	INC_X
 	move.b	d0,h(a3)		* 結果を反映
 	rts
 
+	.dc.w	4			* サイクル数
+	.dc.w	1-1			* 命令語長-1
 INC_L:	move.b	l(a3),target_8(a3)
 	INC_X
 	move.b	d0,l(a3)		* 結果を反映
 	rts
 
+	.dc.w	11			* サイクル数
+	.dc.w	1-1			* 命令語長-1
 INC_lHLl:
 	move.w	hl(a3),d0		* d0にHLの値をロード
 	jsr	ms_read_mem_8
@@ -2521,42 +2546,35 @@ INC_lHLl:
 	jsr	ms_write_mem_8		* (HL) に結果を書き込む
 	rts
 
-INC_XX	macro
-	addq.w	#1,d7			* PC += 1
-	andi.w	#PAGEADDRMASK,d7	* PC がページ境界をまたいだか？
-	bne	1f
-	PC_page_inc
-1:	addq.w	#1,target_16(a3)
-	endm
+;---------------------------------------------------------------------------------------
+; INC_XX
+;---------------------------------------------------------------------------------------
 
-INC_BC:	move.w	bc(a3),target_16(a3)
-	INC_XX
-	move.w	target_16(a3),bc(a3)
+	.dc.w	6			* サイクル数
+	.dc.w	1-1			* 命令語長-1
+INC_BC:	addi.w	#1,bc(a3)
 	rts
 
-INC_DE:	move.w	de(a3),target_16(a3)
-	INC_XX
-	move.w	target_16(a3),de(a3)
+	.dc.w	6			* サイクル数
+	.dc.w	1-1			* 命令語長-1
+INC_DE:	addi.w	#1,de(a3)
 	rts
 
-INC_HL:	move.w	hl(a3),target_16(a3)
-	INC_XX
-	move.w	target_16(a3),hl(a3)
+	.dc.w	6			* サイクル数
+	.dc.w	1-1			* 命令語長-1
+INC_HL:	addi.w	#1,hl(a3)
 	rts
 
-INC_SP:	move.w	sp_(a3),target_16(a3)
-	INC_XX
-	move.w	target_16(a3),sp_(a3)
+	.dc.w	6			* サイクル数
+	.dc.w	1-1			* 命令語長-1
+INC_SP:	addi.w	#1,sp_(a3)
 	rts
 
 *	------ ＤＥＣ ------
+;---------------------------------------------------------------------------------------
 DEC_X	macro
 	bsr	eval_flag_HC_C		* incでCフラグは変化しないので、この時点のHC,C フラグを再評価
-	addq.w	#1,d7			* PC += 1
-	andi.w	#PAGEADDRMASK,d7	* PC がページ境界をまたいだか？
-	bne	1f
-	PC_page_inc
-1:	; b18 : 減算なので1
+	; b18 : 減算なので1
 	; b17 : 算術演算なので0
 	; b16 : 事前キャリーなしなので0
 	; b1  : 減算なのでN=1
@@ -2570,42 +2588,59 @@ DEC_X	macro
 	subq.b	#1,d0			* 演算実行
 	move.b	d0,d5			* 結果を保存
 	endm
+;---------------------------------------------------------------------------------------
 
+	.dc.w	4			* サイクル数
+	.dc.w	1-1			* 命令語長-1
 DEC_A:	move.b	d4,target_8(a3)
 	DEC_X
 	move.b	d0,d4			* 結果を反映
 	rts
 
+	.dc.w	4			* サイクル数
+	.dc.w	1-1			* 命令語長-1
 DEC_B:	move.b	b(a3),target_8(a3)
 	DEC_X
 	move.b	d0,b(a3)		* 結果を反映
 	rts
 
+	.dc.w	4			* サイクル数
+	.dc.w	1-1			* 命令語長-1
 DEC_C:	move.b	c(a3),target_8(a3)
 	DEC_X
 	move.b	d0,c(a3)		* 結果を反映
 	rts
 
+	.dc.w	4			* サイクル数
+	.dc.w	1-1			* 命令語長-1
 DEC_D:	move.b	d(a3),target_8(a3)
 	DEC_X
 	move.b	d0,d(a3)		* 結果を反映
 	rts
 
+	.dc.w	4			* サイクル数
+	.dc.w	1-1			* 命令語長-1
 DEC_E:	move.b	e(a3),target_8(a3)
 	DEC_X
 	move.b	d0,e(a3)		* 結果を反映
 	rts
 
+	.dc.w	4			* サイクル数
+	.dc.w	1-1			* 命令語長-1
 DEC_H:	move.b	h(a3),target_8(a3)
 	DEC_X
 	move.b	d0,h(a3)		* 結果を反映
 	rts
 
+	.dc.w	4			* サイクル数
+	.dc.w	1-1			* 命令語長-1
 DEC_L:	move.b	l(a3),target_8(a3)
 	DEC_X
 	move.b	d0,l(a3)		* 結果を反映
 	rts
 
+	.dc.w	11			* サイクル数
+	.dc.w	1-1			* 命令語長-1
 DEC_lHLl:
 	move.w	hl(a3),d0		* d0にHLの値をロード
 	jsr	ms_read_mem_8
@@ -2616,32 +2651,28 @@ DEC_lHLl:
 	jsr	ms_write_mem_8		* (HL) に結果を書き込む
 	rts
 
-DEC_XX	macro
-	addq.w	#1,d7			* PC += 1
-	andi.w	#PAGEADDRMASK,d7	* PC がページ境界をまたいだか？
-	bne	1f
-	PC_page_inc
-1:	subq.w	#1,target_16(a3)
-	endm
+;---------------------------------------------------------------------------------------
+; DEC_XX
+;---------------------------------------------------------------------------------------
 
-DEC_BC:	move.w	bc(a3),target_16(a3)
-	DEC_XX
-	move.w	target_16(a3),bc(a3)
+	.dc.w	6			* サイクル数
+	.dc.w	1-1			* 命令語長-1
+DEC_BC:	subi.w	#1,bc(a3)
 	rts
 
-DEC_DE:	move.w	de(a3),target_16(a3)
-	DEC_XX
-	move.w	target_16(a3),de(a3)
+	.dc.w	6			* サイクル数
+	.dc.w	1-1			* 命令語長-1
+DEC_DE:	subi.w	#1,de(a3)
 	rts
 
-DEC_HL:	move.w	hl(a3),target_16(a3)
-	DEC_XX
-	move.w	target_16(a3),hl(a3)
+	.dc.w	6			* サイクル数
+	.dc.w	1-1			* 命令語長-1
+DEC_HL:	subi.w	#1,hl(a3)
 	rts
 
-DEC_SP:	move.w	sp_(a3),target_16(a3)
-	DEC_XX
-	move.w	target_16(a3),sp_(a3)
+	.dc.w	6			* サイクル数
+	.dc.w	1-1			* 命令語長-1
+DEC_SP:	subi.w	#1,sp_(a3)
 	rts
 
 
@@ -2683,11 +2714,9 @@ DEC_SP:	move.w	sp_(a3),target_16(a3)
 *       7. Cは上位4ビットの補正があった場合に1、それ以外は0になる
 *
 *	------ ＤＡＡ ------
-DAA:	addq.w	#1,d7			* PC += 1
-	andi.w	#PAGEADDRMASK,d7	* PC がページ境界をまたいだか？
-	bne	1f
-	PC_page_inc
-1:	bsr	eval_flag_HC_C		* HC,C フラグを再評価
+	.dc.w	4			* サイクル数
+	.dc.w	1-1			* 命令語長-1
+DAA:	bsr	eval_flag_HC_C		* HC,C フラグを再評価
 	clr.b	d0			* 補正係数を 0 に初期化
 	move.b	d4,d1
 	andi.b	#$0f,d1			* 下位4ビットを取り出す
@@ -2747,197 +2776,144 @@ DAA:	addq.w	#1,d7			* PC += 1
 
 
 *	------ ＪＰ ------
-JP:	move.b	2(a4,d7.w),d0		* nn の上位８ビットを読む 
-	lsl.w	#8,d0
-	move.b	1(a4,d7.w),d0		* nn の下位８ビットを読む 
-	cmpi.w	#$3ffe,d7
-	bcc	@f
-	move.w	d0,d7
-	PC_page_set
-	rts
-@@:	bne	9f			* ページ境界をまたいだ時
-	PC_page_inc			* d7 = $3ffe の時
-	move.b	(a4),d7			* nn の上位８ビットを読む
-	lsl.w	#8,d7
-	move.b	d0,d7
-	PC_page_set
-	rts
-9:	PC_page_inc			* d7 = $3fff の時
-	move.b	1(a4),d7
-	lsl.w	#8,d7
-	move.b	 (a4),d7
+	.dc.w	10			* サイクル数
+	.dc.w	3-1			* 命令語長-1
+JP:	* 先読みした値からnnを取り出す
+	swap	d1			* 下位ワードへ移動
+	rol.w	#8,d1			* エンディアンを逆に
+	move.w	d1,d7
 	PC_page_set
 	rts
 
+	.dc.w	4			* サイクル数
+	.dc.w	1-1			* 命令語長-1
 JP_lHLl:
 	move.w	hl(a3),d7
 	PC_page_set
 	rts
 
+	.dc.w	10			* サイクル数
+	.dc.w	3-1			* 命令語長-1
 JP_C:	bsr	eval_flag_HC_C	* HC,C フラグを再評価
 	btst.l	#0,d6		* Cフラグをテスト
 	bne	JP		* Cが１ならジャンプ
-	addq.w	#3,d7
-	btst.l	#PAGEADDRBIT,d7	* PC がページ境界をまたいだか？
-	beq	rts_common
-	andi.w	#PAGEADDRMASK,d7	* 命令がページ境界をまたぐ時
-	PC_page_inc		* 命令がページ境界をまたいだ時
 	rts
 
+	.dc.w	10			* サイクル数
+	.dc.w	3-1			* 命令語長-1
 JP_NC:	bsr	eval_flag_HC_C	* HC,C フラグを再評価
 	btst.l	#0,d6		* Cフラグをテスト
 	beq	JP		* Cが０ならジャンプ
-	addq.w	#3,d7
-	btst.l	#PAGEADDRBIT,d7	* PC がページ境界をまたいだか？
-	beq	rts_common
-	andi.w	#PAGEADDRMASK,d7	* 命令がページ境界をまたぐ時
-	PC_page_inc		* 命令がページ境界をまたいだ時
 	rts
 
+	.dc.w	10			* サイクル数
+	.dc.w	3-1			* 命令語長-1
 JP_Z:	bsr	eval_flag_SZ	* SZ フラグを再評価
 	btst.l	#6,d6		* Zフラグをテスト
 	bne	JP		* Zが1ならジャンプ
-	addq.w	#3,d7
-	btst.l	#PAGEADDRBIT,d7	* PC がページ境界をまたいだか？
-	beq	rts_common
-	andi.w	#PAGEADDRMASK,d7	* 命令がページ境界をまたぐ時
-	PC_page_inc		* 命令がページ境界をまたいだ時
 	rts
 
+	.dc.w	10			* サイクル数
+	.dc.w	3-1			* 命令語長-1
 JP_NZ:	bsr	eval_flag_SZ	* SZ フラグを再評価
 	btst.l	#6,d6		* Zフラグをテスト
 	beq	JP		* Zが0ならジャンプ
-	addq.w	#3,d7
-	btst.l	#PAGEADDRBIT,d7	* PC がページ境界をまたいだか？
-	beq	rts_common
-	andi.w	#PAGEADDRMASK,d7	* 命令がページ境界をまたぐ時
-	PC_page_inc		* 命令がページ境界をまたいだ時
 	rts
 
+	.dc.w	10			* サイクル数
+	.dc.w	3-1			* 命令語長-1
 JP_PE:	bsr	eval_flag_PV_N	* PV フラグを再評価
 	btst.l	#2,d6		* PVフラグをテスト
 	bne	JP		* PVが偶数(=1)ならジャンプ
-	addq.w	#3,d7
-	btst.l	#PAGEADDRBIT,d7	* PC がページ境界をまたいだか？
-	beq	rts_common
-	andi.w	#PAGEADDRMASK,d7	* 命令がページ境界をまたぐ時
-	PC_page_inc		* 命令がページ境界をまたいだ時
 	rts
 
+	.dc.w	10			* サイクル数
+	.dc.w	3-1			* 命令語長-1
 JP_PO:	bsr	eval_flag_PV_N	* PV フラグを再評価
 	btst.l	#2,d6		* PVフラグをテスト
 	beq	JP		* PVが奇数(=0)ならジャンプ
-	addq.w	#3,d7
-	btst.l	#PAGEADDRBIT,d7	* PC がページ境界をまたいだか？
-	beq	rts_common
-	andi.w	#PAGEADDRMASK,d7	* 命令がページ境界をまたぐ時
-	PC_page_inc		* 命令がページ境界をまたいだ時
 	rts
 
+	.dc.w	10			* サイクル数
+	.dc.w	3-1			* 命令語長-1
 JP_P:	bsr	eval_flag_SZ	* SZ フラグを再評価
 	btst.l	#7,d6		* Sフラグをテスト
 	beq	JP		* Sが0ならジャンプ
-	addq.w	#3,d7
-	btst.l	#PAGEADDRBIT,d7	* PC がページ境界をまたいだか？
-	beq	rts_common
-	andi.w	#PAGEADDRMASK,d7	* 命令がページ境界をまたぐ時
-	PC_page_inc		* 命令がページ境界をまたいだ時
 	rts
 
+	.dc.w	10			* サイクル数
+	.dc.w	3-1			* 命令語長-1
 JP_M:	bsr	eval_flag_SZ	* SZ フラグを再評価
 	btst.l	#7,d6		* Sフラグをテスト
 	bne	JP		* Sが1ならジャンプ
-	addq.w	#3,d7
-	btst.l	#PAGEADDRBIT,d7	* PC がページ境界をまたいだか？
-	beq	rts_common
-	andi.w	#PAGEADDRMASK,d7	* 命令がページ境界をまたぐ時
-	PC_page_inc		* 命令がページ境界をまたいだ時
 	rts
 
 *	------ ＪＲ ------
-JR:	cmpi.w	#$3fff,d7
-	beq	9f
-	move.b	1(a4,d7.w),d1		* 相対移動量を読み込む
+	.dc.w	12			* サイクル数
+	.dc.w	2-1			* 命令語長-1
+JR:	; この時点でPC(d7)は次の命令の位置を指しているので、そこの絶対アドレスを計算し
+	; そこからの相対番地にジャンプする
+	rol.l	#8,d1			* 先読みしていた相対移動量 nを取得
 	ext.w	d1			* ワードに符号拡張
 	move.l	d7,d0
 	lsr.l	#2,d0			* d0 = pp00????_????????
 	andi.w	#%11000000_00000000,d0	* d0 = pp000000_00000000
 	or.w	d0,d7			* d7 = PC (R800)
-	addq.w	#2,d7			* d7 = 次の命令の位置
-	add.w	d1,d7			* 足し算
-	PC_page_set
-	rts
-9:	PC_page_inc			* d7 = $3fff の時
-	move.b	(a4),d1			* 相対移動量を読み込む
-	ext.w	d1			* ワードに符号拡張
-	lsr.l	#2,d7			* d0 = pp001111_11111111
-	andi.w	#%11000000_00000001,d7	* d7 = pp000000_00000001 (次の命令の位置)
-	add.w	d1,d7			* 足し算
+	add.w	d1,d7			* 相対量を足す
 	PC_page_set
 	rts
 
+	.dc.w	12			* サイクル数
+	.dc.w	2-1			* 命令語長-1
 JR_NZ:	bsr	eval_flag_SZ	* SZ フラグを再評価
 	btst.l	#6,d6		* Zフラグをテスト
 	beq	JR		* Zが0ならジャンプ
-	addq.w	#2,d7
-	btst.l	#PAGEADDRBIT,d7	* PC がページ境界をまたいだか？		* PC がページ境界をまたいだか？
-	beq	rts_common
-	andi.w	#PAGEADDRMASK,d7	* 命令がページ境界をまたぐ時
-	PC_page_inc		* 命令がページ境界をまたいだ時
+	;　条件不成立時はサイクル数が7なので、5引く
+	subq.l	#5,cpu_cycle
 	rts
 
+	.dc.w	12			* サイクル数
+	.dc.w	2-1			* 命令語長-1
 JR_Z:	bsr	eval_flag_SZ	* SZ フラグを再評価
 	btst.l	#6,d6		* Zフラグをテスト
 	bne	JR		* Zが1ならジャンプ
-	addq.w	#2,d7
-	btst.l	#PAGEADDRBIT,d7	* PC がページ境界をまたいだか？		* PC がページ境界をまたいだか？
-	beq	rts_common
-	andi.w	#PAGEADDRMASK,d7	* 命令がページ境界をまたぐ時
-	PC_page_inc		* 命令がページ境界をまたいだ時
+	;　条件不成立時はサイクル数が7なので、5引く
+	subq.l	#5,cpu_cycle
 	rts
 
+	.dc.w	12			* サイクル数
+	.dc.w	2-1			* 命令語長-1
 JR_NC:	bsr	eval_flag_HC_C	* HC,C フラグを再評価
 	btst.l	#0,d6		* Cフラグをテスト
 	beq	JR		* Cが０ならジャンプ
-	addq.w	#2,d7
-	btst.l	#PAGEADDRBIT,d7	* PC がページ境界をまたいだか？		* PC がページ境界をまたいだか？
-	beq	rts_common
-	andi.w	#PAGEADDRMASK,d7	* 命令がページ境界をまたぐ時
-	PC_page_inc		* 命令がページ境界をまたいだ時
+	;　条件不成立時はサイクル数が7なので、5引く
+	subq.l	#5,cpu_cycle
 	rts
 
+	.dc.w	12			* サイクル数
+	.dc.w	2-1			* 命令語長-1
 JR_C:	bsr	eval_flag_HC_C	* HC,C フラグを再評価
 	btst.l	#0,d6		* Cフラグをテスト
 	bne	JR		* Cが１ならジャンプ
-	addq.w	#2,d7
-	btst.l	#PAGEADDRBIT,d7	* PC がページ境界をまたいだか？		* PC がページ境界をまたいだか？
-	beq	rts_common
-	andi.w	#PAGEADDRMASK,d7	* 命令がページ境界をまたぐ時
-	PC_page_inc		* 命令がページ境界をまたいだ時
+	;　条件不成立時はサイクル数が7なので、5引く
+	subq.l	#5,cpu_cycle
 	rts
 
 *	------ ＣＡＬＬ ------
-CALL:	addq.w	#1,d7		* PC += 1
-	andi.w	#PAGEADDRMASK,d7	* 命令がページ境界をまたぐ時
-	bne	@f
-	PC_page_inc		* 命令がページ境界をまたいだ時
-@@:	clr.w	d1
-	move.b	(a4,d7.w),d1	* nn の下位８ビットを読む 
-	addq.w	#1,d7		* PC += 1
-	andi.w	#PAGEADDRMASK,d7	* 命令がページ境界をまたぐ時
-	bne	@f
-	PC_page_inc		* 命令がページ境界をまたいだ時
-@@:	move.b	(a4,d7.w),d0	* nn の上位８ビットを読む 
-	lsl.w	#8,d0
-	or.w	d0,d1
+	.dc.w	17			* サイクル数
+	.dc.w	3-1			* 命令語長-1
+CALL:	* 先読みした値からnnを取り出す
+	swap	d1			* 下位ワードへ移動
+	rol.w	#8,d1			* エンディアンを逆に
 	move.w	d1,-(sp)
-
+	; 戻り先アドレスを計算
+	; この時点でPC(d7)は次の命令の位置を指しているので、そこの絶対アドレスを計算し
+	; スタックに積む
 	move.l	d7,d0
 	move.w	d7,d1
 	lsr.l	#2,d0			* d0 = pp00????_????????
 	andi.w	#%11000000_00000000,d0	* d0 = pp000000_00000000
 	or.w	d0,d1			* d1 = PC (R800)
-	addq.w	#1,d1			* d1 = next Instruction (戻り先アドレス)
 	subq.w	#2,sp_(a3)		* PUSH	
 	move.w	sp_(a3),d0
 	jsr	ms_write_mem_16
@@ -2945,91 +2921,85 @@ CALL:	addq.w	#1,d7		* PC += 1
 	PC_page_set
 	rts
 
+	.dc.w	17			* サイクル数
+	.dc.w	3-1			* 命令語長-1
 CALL_C:	bsr	eval_flag_HC_C	* HC,C フラグを再評価
 	btst.l	#0,d6		* Cフラグをテスト
 	bne	CALL		* Cが１ならコール
-	addq.w	#3,d7
-	btst.l	#PAGEADDRBIT,d7	* PC がページ境界をまたいだか？
-	beq	rts_common
-	andi.w	#PAGEADDRMASK,d7	* 命令がページ境界をまたぐ時
-	PC_page_inc
+	;　条件不成立時はサイクル数が10なので、7引く
+	subq.l	#7,cpu_cycle
 	rts
 
+	.dc.w	17			* サイクル数
+	.dc.w	3-1			* 命令語長-1
 CALL_NC:
 	bsr	eval_flag_HC_C	* HC,C フラグを再評価
 	btst.l	#0,d6		* Cフラグをテスト
 	beq	CALL		* Cが０ならコール
-	addq.w	#3,d7
-	btst.l	#PAGEADDRBIT,d7	* PC がページ境界をまたいだか？
-	beq	rts_common
-	andi.w	#PAGEADDRMASK,d7	* 命令がページ境界をまたぐ時
-	PC_page_inc
+	;　条件不成立時はサイクル数が10なので、7引く
+	subq.l	#7,cpu_cycle
 	rts
 
+	.dc.w	17			* サイクル数
+	.dc.w	3-1			* 命令語長-1
 CALL_Z:	bsr	eval_flag_SZ	* SZ フラグを再評価
 	btst.l	#6,d6		* Zフラグをテスト
 	bne	CALL		* Zが1ならコール
-	addq.w	#3,d7
-	btst.l	#PAGEADDRBIT,d7	* PC がページ境界をまたいだか？
-	beq	rts_common
-	andi.w	#PAGEADDRMASK,d7	* 命令がページ境界をまたぐ時
-	PC_page_inc
+	;　条件不成立時はサイクル数が10なので、7引く
+	subq.l	#7,cpu_cycle
 	rts
 
+	.dc.w	17			* サイクル数
+	.dc.w	3-1			* 命令語長-1
 CALL_NZ:
 	bsr	eval_flag_SZ	* SZ フラグを再評価
 	btst.l	#6,d6		* Zフラグをテスト
 	beq	CALL		* Zが0ならコール
-	addq.w	#3,d7
-	btst.l	#PAGEADDRBIT,d7	* PC がページ境界をまたいだか？
-	beq	rts_common
-	andi.w	#PAGEADDRMASK,d7	* 命令がページ境界をまたぐ時
-	PC_page_inc
+	;　条件不成立時はサイクル数が10なので、7引く
+	subq.l	#7,cpu_cycle
 	rts
 
+	.dc.w	17			* サイクル数
+	.dc.w	3-1			* 命令語長-1
 CALL_PE:
 	bsr	eval_flag_PV_N	* PV フラグを再評価
 	btst.l	#2,d6		* PVフラグをテスト
 	bne	CALL		* PVが偶数(=1)ならコール
-	addq.w	#3,d7
-	btst.l	#PAGEADDRBIT,d7	* PC がページ境界をまたいだか？
-	beq	rts_common
-	andi.w	#PAGEADDRMASK,d7	* 命令がページ境界をまたぐ時
-	PC_page_inc
+	;　条件不成立時はサイクル数が10なので、7引く
+	subq.l	#7,cpu_cycle
 	rts
 
+	.dc.w	17			* サイクル数
+	.dc.w	3-1			* 命令語長-1
 CALL_PO:
 	bsr	eval_flag_PV_N	* PV フラグを再評価
 	btst.l	#2,d6		* PVフラグをテスト
 	beq	CALL		* PVが奇数(=0)ならコール
-	addq.w	#3,d7
-	btst.l	#PAGEADDRBIT,d7	* PC がページ境界をまたいだか？
-	beq	rts_common
-	andi.w	#PAGEADDRMASK,d7	* 命令がページ境界をまたぐ時
-	PC_page_inc
+	;　条件不成立時はサイクル数が10なので、7引く
+	subq.l	#7,cpu_cycle
 	rts
 
+	.dc.w	17			* サイクル数
+	.dc.w	3-1			* 命令語長-1
 CALL_P:	bsr	eval_flag_SZ	* SZ フラグを再評価
 	btst.l	#7,d6		* Sフラグをテスト
 	beq	CALL		* Sが0ならコール
-	addq.w	#3,d7
-	btst.l	#PAGEADDRBIT,d7	* PC がページ境界をまたいだか？
-	beq	rts_common
-	andi.w	#PAGEADDRMASK,d7	* 命令がページ境界をまたぐ時
-	PC_page_inc
+	;　条件不成立時はサイクル数が10なので、7引く
+	subq.l	#7,cpu_cycle
 	rts
 
+	.dc.w	17			* サイクル数
+	.dc.w	3-1			* 命令語長-1
 CALL_M:	bsr	eval_flag_SZ	* SZ フラグを再評価
 	btst.l	#7,d6		* Sフラグをテスト
 	bne	CALL		* Sが1ならコール
-	addq.w	#3,d7
-	btst.l	#PAGEADDRBIT,d7	* PC がページ境界をまたいだか？
-	beq	rts_common
-	andi.w	#PAGEADDRMASK,d7	* 命令がページ境界をまたぐ時
-	PC_page_inc
+	;　条件不成立時はサイクル数が10なので、7引く
+	subq.l	#7,cpu_cycle
 	rts
 
 *	------ ＲＥＴ ------
+	.dc.w	10			* サイクル数
+	.dc.w	1-1			* 命令語長-1
 RET:	move.w	sp_(a3),d0
 	jsr	ms_read_mem_16
 	addq.w	#2,sp_(a3)
@@ -3037,111 +3007,108 @@ RET:	move.w	sp_(a3),d0
 	PC_page_set
 	rts
 
+	.dc.w	11			* サイクル数
+	.dc.w	1-1			* 命令語長-1
 RET_C:	bsr	eval_flag_HC_C	* HC,C フラグを再評価
 	btst.l	#0,d6		* Ｃｙフラグをテスト
 	bne	RET		* Ｃｙが１ならリターン
-	addq.w	#1,d7		* PC += 1
-	andi.w	#PAGEADDRMASK,d7	* 命令がページ境界をまたぐ時
-	bne	rts_common
-	PC_page_inc
+	;　条件不成立時はサイクル数が5なので、6引く
+	subq.l	#6,cpu_cycle
 	rts
 	
+	.dc.w	11			* サイクル数
+	.dc.w	1-1			* 命令語長-1
 RET_NC:	bsr	eval_flag_HC_C	* HC,C フラグを再評価
 	btst.l	#0,d6		* Ｃｙフラグをテスト
 	beq	RET		* Ｃｙが０ならリターン
-	addq.w	#1,d7		* PC += 1
-	andi.w	#PAGEADDRMASK,d7	* 命令がページ境界をまたぐ時
-	bne	rts_common
-	PC_page_inc
+	;　条件不成立時はサイクル数が5なので、6引く
+	subq.l	#6,cpu_cycle
 	rts
 
+	.dc.w	11			* サイクル数
+	.dc.w	1-1			* 命令語長-1
 RET_Z:	bsr	eval_flag_SZ	* SZ フラグを再評価
 	btst.l	#6,d6		* Zフラグをテスト
 	bne	RET		* Zが1ならリターン
-	addq.w	#1,d7		* PC += 1
-	andi.w	#PAGEADDRMASK,d7	* 命令がページ境界をまたぐ時
-	bne	rts_common
-	PC_page_inc
+	;　条件不成立時はサイクル数が5なので、6引く
+	subq.l	#6,cpu_cycle
 	rts
 
+	.dc.w	11			* サイクル数
+	.dc.w	1-1			* 命令語長-1
 RET_NZ:	bsr	eval_flag_SZ	* SZ フラグを再評価
 	btst.l	#6,d6		* Zフラグをテスト
 	beq	RET		* Zが0ならリターン
-	addq.w	#1,d7		* PC += 1
-	andi.w	#PAGEADDRMASK,d7	* 命令がページ境界をまたぐ時
-	bne	rts_common
-	PC_page_inc
+	;　条件不成立時はサイクル数が5なので、6引く
+	subq.l	#6,cpu_cycle
 	rts
 
+	.dc.w	11			* サイクル数
+	.dc.w	1-1			* 命令語長-1
 RET_M:	bsr	eval_flag_SZ	* SZ フラグを再評価
 	btst.l	#7,d6		* Sフラグをテスト
 	bne	RET		* Sが1ならリターン
-	addq.w	#1,d7		* PC += 1
-	andi.w	#PAGEADDRMASK,d7	* 命令がページ境界をまたぐ時
-	bne	rts_common
-	PC_page_inc
+	;　条件不成立時はサイクル数が5なので、6引く
+	subq.l	#6,cpu_cycle
 	rts
 
+	.dc.w	11			* サイクル数
+	.dc.w	1-1			* 命令語長-1
 RET_P:	bsr	eval_flag_SZ	* SZ フラグを再評価
 	btst.l	#7,d6		* Sフラグをテスト
 	beq	RET		* Sが0ならリターン
-	addq.w	#1,d7		* PC += 1
-	andi.w	#PAGEADDRMASK,d7	* 命令がページ境界をまたぐ時
-	bne	rts_common
-	PC_page_inc
+	;　条件不成立時はサイクル数が5なので、6引く
+	subq.l	#6,cpu_cycle
 	rts
 
+	.dc.w	11			* サイクル数
+	.dc.w	1-1			* 命令語長-1
 RET_PE:	bsr	eval_flag_PV_N	* PV フラグを再評価
 	btst.l	#2,d6		* PVフラグをテスト
 	bne	RET		* PVが偶数(=1)ならリターン
-	addq.w	#1,d7		* PC += 1
-	andi.w	#PAGEADDRMASK,d7	* 命令がページ境界をまたぐ時
-	bne	rts_common
-	PC_page_inc
+	;　条件不成立時はサイクル数が5なので、6引く
+	subq.l	#6,cpu_cycle
 	rts
 
+	.dc.w	11			* サイクル数
+	.dc.w	1-1			* 命令語長-1
 RET_PO:	bsr	eval_flag_PV_N	* PV フラグを再評価
 	btst.l	#2,d6		* PVフラグをテスト
 	beq	RET		* PVが奇数(=0)ならリターン
-	addq.w	#1,d7		* PC += 1
-	andi.w	#PAGEADDRMASK,d7	* 命令がページ境界をまたぐ時
-	bne	rts_common
-	PC_page_inc
+	;　条件不成立時はサイクル数が5なので、6引く
+	subq.l	#6,cpu_cycle
 	rts
 
 *	------ ＤＪＮＺ ------
+	.dc.w	13			* サイクル数
+	.dc.w	2-1			* 命令語長-1
 DJNZ:	subq.b	#1,b(a3)	* b = b-1
 	bne	JR		* b != 0 ならブランチ
-	addq.w	#2,d7
-	btst.l	#PAGEADDRBIT,d7	* PC がページ境界をまたいだか？		* PC がページ境界をまたいだか？
-	beq	rts_common
-	PC_page_inc
-	andi.w	#PAGEADDRMASK,d7	* 命令がページ境界をまたぐ時
+	;　ループしない時はサイクル数が8なので、5引く
+	subq.l	#5,cpu_cycle
 	rts
 
 
 *	------ ＰＵＳＨ  ＰＯＰ ------
+;---------------------------------------------------------------------------------------
 PUSH_XX	macro
-	addq.w	#1,d7
-	andi.w	#PAGEADDRMASK,d7	* 命令がページ境界をまたぐ時
-	bne	1f
-	PC_page_inc
-1:	subq.w	#2,sp_(a3)		; スタックを2バイト減らす
+	subq.w	#2,sp_(a3)		; スタックを2バイト減らす
 	move.w	sp_(a3),d0
 	move.w	target_16(a3),d1
 	jsr	ms_write_mem_16		; スタックに書き込む
 	endm
+;---------------------------------------------------------------------------------------
 
+;---------------------------------------------------------------------------------------
 POP_XX	macro
-	addq.w	#1,d7
-	andi.w	#PAGEADDRMASK,d7	* 命令がページ境界をまたぐ時
-	bne	1f
-	PC_page_inc
-1:	move.w	sp_(a3),d0		; スタックから読み込む
+	move.w	sp_(a3),d0		; スタックから読み込む
 	jsr	ms_read_mem_16
 	addq.w	#2,sp_(a3)		; スタックを2バイト増やす
 	endm
+;---------------------------------------------------------------------------------------
 
+	.dc.w	11			* サイクル数
+	.dc.w	1-1			* 命令語長-1
 PUSH_AF:
 	bsr	eval_flag_all
 	move.b	d4,d1
@@ -3150,6 +3117,9 @@ PUSH_AF:
 	move.w	d1,target_16(a3)
 	PUSH_XX	d1
 	rts
+
+	.dc.w	10			* サイクル数
+	.dc.w	1-1			* 命令語長-1
 POP_AF:
 	POP_XX
 	move.w	d0,d4			; Aレジスタのロード
@@ -3158,34 +3128,51 @@ POP_AF:
 	andi.l	#%000_00000000_11111111,d6	; フラグのダーティビットをクリア
 	rts
 
+	.dc.w	11			* サイクル数
+	.dc.w	1-1			* 命令語長-1
 PUSH_BC:
 	move.w	bc(a3),target_16(a3)
 	PUSH_XX
 	rts
+
+	.dc.w	10			* サイクル数
+	.dc.w	1-1			* 命令語長-1
 POP_BC:
 	POP_XX
 	move.w	d0,bc(a3)
 	rts
 
+	.dc.w	11			* サイクル数
+	.dc.w	1-1			* 命令語長-1
 PUSH_DE:
 	move.w	de(a3),target_16(a3)
 	PUSH_XX
 	rts
+
+	.dc.w	10			* サイクル数
+	.dc.w	1-1			* 命令語長-1
 POP_DE:
 	POP_XX	de(a3)
 	move.w	d0,de(a3)
 	rts
 
+	.dc.w	11			* サイクル数
+	.dc.w	1-1			* 命令語長-1
 PUSH_HL:
 	move.w	hl(a3),target_16(a3)
 	PUSH_XX
 	rts
+
+	.dc.w	10			* サイクル数
+	.dc.w	1-1			* 命令語長-1
 POP_HL:
 	POP_XX	hl(a3)
 	move.w	d0,hl(a3)
 	rts
 
 *	------ ＥＸ ------
+	.dc.w	19			* サイクル数
+	.dc.w	1-1			* 命令語長-1
 EX_lSPl_HL:
 	move.w	sp_(a3),d0
 	jsr	ms_read_mem_16
@@ -3193,12 +3180,10 @@ EX_lSPl_HL:
 	move.w	d0,hl(a3)
 	move.w	sp_(a3),d0
 	jsr	ms_write_mem_16
-	addq.w	#1,d7
-	andi.w	#PAGEADDRMASK,d7	* 命令がページ境界をまたぐ時
-	bne	rts_common
-	PC_page_inc
 	rts
 
+	.dc.w	4			* サイクル数
+	.dc.w	1-1			* 命令語長-1
 EXX:	move.l	bc(a3),d0		* d0 = bc, de
 	move.w	hl(a3),d1
 
@@ -3208,22 +3193,18 @@ EXX:	move.l	bc(a3),d0		* d0 = bc, de
 	move.l	d0,bc_(a3)
 	move.w	d1,hl_(a3)
 
-	addq.w	#1,d7
-	andi.w	#PAGEADDRMASK,d7	* 命令がページ境界をまたぐ時
-	bne	rts_common
-	PC_page_inc
 	rts
 
+	.dc.w	4			* サイクル数
+	.dc.w	1-1			* 命令語長-1
 EX_DE_HL:
 	move.l	de(a3),d0
 	swap	d0
 	move.l	d0,de(a3)
-	addq.w	#1,d7
-	andi.w	#PAGEADDRMASK,d7	* 命令がページ境界をまたぐ時
-	bne	rts_common
-	PC_page_inc
 	rts
 
+	.dc.w	4			* サイクル数
+	.dc.w	1-1			* 命令語長-1
 EX_AF_AFd:
 	move.b	d4,d1
 	move.b	a_(a3),d4
@@ -3234,10 +3215,6 @@ EX_AF_AFd:
 	andi.l	#%000_00000000_11111111,d6	; フラグのダーティビットをクリア
 	move.b	d1,f_(a3)
 
-	addq.w	#1,d7
-	andi.w	#PAGEADDRMASK,d7	* 命令がページ境界をまたぐ時
-	bne	rts_common
-	PC_page_inc
 	rts
 
 
@@ -3250,6 +3227,8 @@ EX_AF_AFd:
 ; * PV: 変化しない
 ; * N : 0
 ; * C : Cの反転
+	.dc.w	4			* サイクル数
+	.dc.w	1-1			* 命令語長-1
 CCF:	bsr	eval_flag_all		* 全てのフラグを再評価
 	move.b	d6,d0			* 元のCフラグの値を保存
 	andi.b	#%00000001,d0		* Cフラグのみを取得
@@ -3260,11 +3239,6 @@ CCF:	bsr	eval_flag_all		* 全てのフラグを再評価
 	and.l	#%000_00000000_11000101,d6	* S,Z,PV,Cのみを保存し、あとはクリア
 	bchg	#0,d6			* Cフラグを反転
 	or.b	d0,d6			* F5,H,F3を反映
-	;
-	addq.w	#1,d7
-	andi.w	#PAGEADDRMASK,d7	* 命令がページ境界をまたぐ時
-	bne	rts_common
-	PC_page_inc
 	rts	
 
 ; SCFの挙動は以下の通り
@@ -3276,6 +3250,8 @@ CCF:	bsr	eval_flag_all		* 全てのフラグを再評価
 ; * PV: 変化しない
 ; * N : 0
 ; * C : 1
+	.dc.w	4			* サイクル数
+	.dc.w	1-1			* 命令語長-1
 SCF:	bsr	eval_flag_all		* 全てのフラグを再評価
 	move.b	d4,d0			* Aレジスタの値を取得
 	andi.b	#%00101000,d0		* AレジスタからF5,F3を取得
@@ -3283,10 +3259,6 @@ SCF:	bsr	eval_flag_all		* 全てのフラグを再評価
 	bset	#0,d6			* Cフラグを1に
 	or.b	d0,d6			* F5,F3を反映
 	;
-	addq.w	#1,d7
-	andi.w	#PAGEADDRMASK,d7	* 命令がページ境界をまたぐ時
-	bne	rts_common
-	PC_page_inc
 	rts
 
 ; CPLの挙動は以下の通り
@@ -3299,6 +3271,8 @@ SCF:	bsr	eval_flag_all		* 全てのフラグを再評価
 ; * PV: 変化しない
 ; * N : 1
 ; * C : 変化しない
+	.dc.w	4			* サイクル数
+	.dc.w	1-1			* 命令語長-1
 CPL:	bsr	eval_flag_all		* 全てのフラグを再評価
 	eori.b	#$ff,d4			* Aレジスタの値を反転
 	move.b	d4,d0			* 反転後のAレジスタの値を取得
@@ -3307,76 +3281,120 @@ CPL:	bsr	eval_flag_all		* 全てのフラグを再評価
 	ori.b	#%00010010,d6		* N,Hを1に
 	or.b	d0,d6			* F5,F3を反映
 	;
-	addq.w	#1,d7
-	andi.w	#PAGEADDRMASK,d7	* 命令がページ境界をまたぐ時
-	bne	rts_common
-	PC_page_inc
 	rts
 
+	.dc.w	4			* サイクル数
+	.dc.w	1-1			* 命令語長-1
 DI:	move.b	#0,interrupt_enable
-	addq.w	#1,d7
-	andi.w	#PAGEADDRMASK,d7	* 命令がページ境界をまたぐ時
-	bne	rts_common
-	PC_page_inc
 	rts
 
+	.dc.w	4			* サイクル数
+	.dc.w	1-1			* 命令語長-1
 EI:	move.b	#2,interrupt_enable	* EIは１命令おいて実行されるので、2をセットして、最低1命令無視されるようにする
-	;move.w	#1,cpu_yield		* DI中に割り込みがあった場合に割り込みをかけられるよう、yieldをセットする → 負荷高いので削除
-	addq.w	#1,d7
-	andi.w	#PAGEADDRMASK,d7	* 命令がページ境界をまたぐ時
-	bne	1f
-	PC_page_inc
-1:	rts
+	rts
 
+;---------------------------------------------------------------------------------------
 RST_XXH	macro	value
+	;move.w	value,d0
+	;bsr	print_debug_rst
 	move.l	d7,d1
 	lsr.l	#2,d7			* d7 = pp00????_????????
 	andi.w	#%11000000_00000000,d7	* d7 = pp000000_00000000
-	or.w	d7,d1
-	addq.w	#1,d1			* d1 = PC (R800) = next instruction
+	or.w	d7,d1			* d1 = PC (R800) = next instruction
 	subq.w	#2,sp_(a3)		* PUSH	
 	move.w	sp_(a3),d0
 	jsr	ms_write_mem_16
 	move.w	value,d7
 	PC_page_set
 	endm
+;---------------------------------------------------------------------------------------
 
+	.dc.w	11			* サイクル数
+	.dc.w	1-1			* 命令語長-1
 RST_00H:
 	RST_XXH	#$0000
 	rts
+
+	.dc.w	11			* サイクル数
+	.dc.w	1-1			* 命令語長-1
 RST_08H:
 	RST_XXH	#$0008
 	rts
+
+	.dc.w	11			* サイクル数
+	.dc.w	1-1			* 命令語長-1
 RST_10H:
 	RST_XXH	#$0010
 	rts
+
+	.dc.w	11			* サイクル数
+	.dc.w	1-1			* 命令語長-1
 RST_18H:
 	RST_XXH	#$0018
 	rts
+
+	.dc.w	11			* サイクル数
+	.dc.w	1-1			* 命令語長-1
 RST_20H:
 	RST_XXH	#$0020
 	rts
+
+	.dc.w	11			* サイクル数
+	.dc.w	1-1			* 命令語長-1
 RST_28H:
 	RST_XXH	#$0028
 	rts
+
+	.dc.w	11			* サイクル数
+	.dc.w	1-1			* 命令語長-1
 RST_30H:
 	RST_XXH	#$0030
 	rts
+
+	.dc.w	11			* サイクル数
+	.dc.w	1-1			* 命令語長-1
 RST_38H:
 	RST_XXH	#$0038
 	rts
+
+print_debug_rst:
+	cmp.w	#1,debug_log_level
+	bge	@f				* ログレベルが１以上の時
+	rts
+@@:	movem.l	d0-d3/a0-a3,-(sp)
+	move.w	d0,d1
+	lsr.w	#4,d0
+	lea.l	HEX,a0
+	move.b	(a0,d0.w),debug_rst_number+0
+	andi.w	#$0f,d1
+	move.b	(a0,d1.w),debug_rst_number+1
+
+	pea.l	debug_rst_msg
+	DOS	__PRINT
+	lea.l	4(sp),sp
+	movem.l	(sp)+,d0-d3/a0-a3
+	rts
+
+	.data
+
+debug_rst_msg:
+	.dc.b	'RST 0x'
+debug_rst_number:
+	.dc.b	'00'
+debug_rst_msg2:
+	.dc.b	'が呼ばれました'
+	.dc.b	0x0d,0x0a,0x00
+
+	.text
 
 *	------ ＲＬＣＡ ------
 *	------ ＲＬＡ ------
 *	------ ＲＲＣＡ ------
 *	------ ＲＲＡ ------
 
+;---------------------------------------------------------------------------------------
 RXXA	macro	isLeft, isCircular
-	addq.w	#1,d7			* PC += 1
-	andi.w	#PAGEADDRMASK,d7	* PC がページ境界をまたいだか？
-	bne	1f
-	PC_page_inc
-1:	bsr	eval_flag_HC_C
+	bsr	eval_flag_HC_C
 	.if isCircular
 	  ; キャリーを経由せずにローテート
 	  .if isLeft
@@ -3408,26 +3426,35 @@ RXXA	macro	isLeft, isCircular
 	ori.l	#%010_00101000_00000001,d6	* F5,F3のダーティビットをセット、Cをセット
 2:	move.b	d4,d5
 	endm
+;---------------------------------------------------------------------------------------
 
+	.dc.w	4			* サイクル数
+	.dc.w	1-1			* 命令語長-1
 RLCA:	RXXA	1, 1
 	rts
+
+	.dc.w	4			* サイクル数
+	.dc.w	1-1			* 命令語長-1
 RRCA:	RXXA	0, 1
 	rts
+
+	.dc.w	4			* サイクル数
+	.dc.w	1-1			* 命令語長-1
 RLA:	RXXA	1, 0
 	rts
+
+	.dc.w	4			* サイクル数
+	.dc.w	1-1			* 命令語長-1
 RRA:	RXXA	0, 0
 	rts
 
 *	------ ＨＡＬＴ ------
+	.dc.w	4			* サイクル数
+	.dc.w	1-1			* 命令語長-1
 HALT:
 	; pea.l	halt_msg
 	; DOS	__PRINT
 	; lea.l	4(sp),sp
-	addq.w	#1,d7			* PC += 1
-	andi.w	#PAGEADDRMASK,d7	* PC がページ境界をまたいだか？
-	bne	9f
-	PC_page_inc
-
 9:	move.l	cpu_emu_yield,d0	* X68000側の割り込みがかかるまで待機
 	beq	9b
 	; 一時的に割り込み禁止
@@ -3479,8 +3506,6 @@ halt_msg:
 
 	.even
 
-*************************** ここまで
-
 *
 *	＄ＣＢライン命令
 *
@@ -3518,21 +3543,19 @@ halt_msg:
 *			 111 - a
 *
 *
-CB:	move.b	1(a4,d7.w),d0		* 第二オペコードを読み込む
-	addq.w	#2,d7
-	btst.l	#PAGEADDRBIT,d7	* PC がページ境界をまたいだか？
-	beq	@f			* PC がページ境界をまたいだか？
-	PC_page_inc			* またいだ時
-	andi.w	#PAGEADDRMASK,d7	* 命令がページ境界をまたぐ時
-	beq	@f
-	move.b	(a4),d0			* 読み直し
+;	CBラインのSET命令はほとんどサイクル数=8
+	.dc.w	8			* サイクル数
+	.dc.w	2-1			* 命令語長-1
+CB:	* 先読みした値から第二オペコードを取り出す
+	rol.l	#8,d1			* 最下位バイトに移動
+	move.b	d1,d0
 @@:	bclr.l	#7,d0			* ００Ｈ～７ＦＨの命令かどうか
 	beq	case2			* そうなら case2へ
 case1:
 	bclr.l	#6,d0
 	beq	RES			* ＲＥＳ命令
 
-*	------ ＳＥＴ ------
+;	------ ＳＥＴ ------
 SET:	move.b	d0,d1
 	andi.w	#%00000000_00111000,d0		* BIT_n_? の n を d0にロード
 	lsr.w	#3,d0
@@ -3550,6 +3573,8 @@ SET_aorhl:
 	bset.l	d0,d4				* A レジスタの nビット目をセット
 	rts
 set_lhll
+	; (HL) の場合はサイクル数が15なので7を足す
+	add.l	#7,cpu_cycle
 	move.w	d0,-(sp)
 	move.w	hl(a3),d0
 	jsr	ms_read_mem_8
@@ -3560,7 +3585,7 @@ set_lhll
 	jsr	ms_write_mem_8		
 	rts
 
-*	------ ＲＥＳ ------
+;	------ ＲＥＳ ------
 RES:	move.b	d0,d1
 	andi.w	#%00000000_00111000,d0		* BIT_n_? の n を d0にロード
 	lsr.w	#3,d0
@@ -3577,6 +3602,8 @@ RES_aorhl:
 	bclr.l	d0,d4				* A レジスタの nビット目をクリア
 	rts
 RES_lhll
+	; (HL) の場合はサイクル数が15なので7を足す
+	add.l	#7,cpu_cycle
 	move.w	d0,-(sp)
 	move.w	hl(a3),d0
 	jsr	ms_read_mem_8
@@ -3587,12 +3614,12 @@ RES_lhll
 	jsr	ms_write_mem_8		
 	rts
 
-
+;	------ CASE2 ------
 case2:
 	bclr.l	#6,d0
 	beq	rot_sft			* ローテート、シフト関係の命令
 
-*	------ ＢＩＴ ------
+;	------ ＢＩＴ ------
 ; ＢＩＴ命令の挙動は以下の通り
 ; * S : BIT 7,?の時だけ、対象のbit7が1なら1。それ以外の時は0
 ; * Z : 対象のbitが0なら1。それ以外の時は0
@@ -3628,6 +3655,8 @@ BIT_a:
 	move.b	d0,d1			* F5,F3に反映させるレジスタ値をd1にロード
 	bra	@f
 BIT_lhll:
+	; (HL) の場合はサイクル数が12なので4を足す
+	add.l	#4,cpu_cycle
 	move.w	d2,-(sp)
 	move.w	hl(a3),d0
 	jsr	ms_read_mem_8
@@ -3644,7 +3673,7 @@ BIT_lhll:
 	rts
 
 
-*	------ ローテート,シフト ------
+;	------ ローテート,シフト ------
 rot_sft:
 	andi.w	#%0000_0000_0011_1111,d0	* 命令にジャンプ
 	move.w	Rot_Sft_JPT(pc,d0.w*2),d0
@@ -3801,6 +3830,8 @@ RLC_L:	move.b	l(a3),target_8(a3)
 	move.b	d0,l(a3)
 	rts
 RLC_lHLl:
+	; (HL) の場合はサイクル数が15なので7を足す
+	add.l	#7,cpu_cycle
 	move.w	hl(a3),d0
 	jsr	ms_read_mem_8
 	move.b	d0,target_8(a3)
@@ -3840,6 +3871,8 @@ RRC_L:	move.b	l(a3),target_8(a3)
 	move.b	d0,l(a3)
 	rts
 RRC_lHLl:
+	; (HL) の場合はサイクル数が15なので7を足す
+	add.l	#7,cpu_cycle
 	move.w	hl(a3),d0
 	jsr	ms_read_mem_8
 	move.b	d0,target_8(a3)
@@ -3879,6 +3912,8 @@ RL_L:	move.b	l(a3),target_8(a3)
 	move.b	d0,l(a3)
 	rts
 RL_lHLl:
+	; (HL) の場合はサイクル数が15なので7を足す
+	add.l	#7,cpu_cycle
 	move.w	hl(a3),d0
 	jsr	ms_read_mem_8
 	move.b	d0,target_8(a3)
@@ -3918,6 +3953,8 @@ RR_L:	move.b	l(a3),target_8(a3)
 	move.b	d0,l(a3)
 	rts
 RR_lHLl:
+	; (HL) の場合はサイクル数が15なので7を足す
+	add.l	#7,cpu_cycle
 	move.w	hl(a3),d0
 	jsr	ms_read_mem_8
 	move.b	d0,target_8(a3)
@@ -4021,6 +4058,8 @@ SLA_L:
 	move.b	d0,l(a3)
 	rts
 SLA_lHLl:
+	; (HL) の場合はサイクル数が15なので7を足す
+	add.l	#7,cpu_cycle
 	move.w	hl(a3),d0
 	jsr	ms_read_mem_8
 	move.b	d0,target_8(a3)
@@ -4067,6 +4106,8 @@ SRA_L:
 	move.b	d0,l(a3)
 	rts
 SRA_lHLl:
+	; (HL) の場合はサイクル数が15なので7を足す
+	add.l	#7,cpu_cycle
 	move.w	hl(a3),d0
 	jsr	ms_read_mem_8
 	move.b	d0,target_8(a3)
@@ -4113,6 +4154,8 @@ SRL_L:
 	move.b	d0,l(a3)
 	rts
 SRL_lHLl:
+	; (HL) の場合はサイクル数が15なので7を足す
+	add.l	#7,cpu_cycle
 	move.w	hl(a3),d0
 	jsr	ms_read_mem_8
 	move.b	d0,target_8(a3)
@@ -4159,6 +4202,8 @@ SLI_L:
 	move.b	d0,l(a3)
 	rts
 SLI_lHLl:
+	; (HL) の場合はサイクル数が15なので7を足す
+	add.l	#7,cpu_cycle
 	move.w	hl(a3),d0
 	jsr	ms_read_mem_8
 	move.b	d0,target_8(a3)
@@ -4168,80 +4213,38 @@ SLI_lHLl:
 	jsr	ms_write_mem_8
 	rts
 
-
-*	------ ＲＬＤ,ＲＲＤ ------
-;
-; RLD, RRD の挙動は以下の通り
-; * S : 結果の最上位ビット
-; * Z : 結果が0なら1。それ以外の時は0
-; * F5: 結果のAレジスタのbit5
-; * H : 0
-; * F3: 結果のAレジスタのbit3
-; * PV: 結果のAレジスタのパリティ
-; * N : 0
-; * C : 変化しない
-RLD_lHLl:
-	move.w	hl(a3),d0		* d0.w = |00|00|(H|L)|
-	jsr	ms_read_mem_8
-	andi.w	#%00000000_11111111,d0
-
-	lsl.w	#4,d0			* d0.w = |00|(H|L)|00|
-	move.b	d4,d1
-	andi.w 	#%00000000_00001111,d1
-	or.b	d0,d1			* d1.w = |00|(H|L)|Al|
-
-	andi.b	#%11110000,d4		* d4.b = |Ah|00|
-	lsr.w	#8,d0			* d0.b = |00|(H|
-	or.b	d0,d4			* d4.b = |Ah|(H|
-
-	move.w	hl(a3),d0
-	jsr	ms_write_mem_8
-
-	andi.l	#%000_11101101_11101101,d6	* HC,Nをクリア
-	ori.l	#%010_11101100_00000000,d6	* S,Z,F5,F5,PVのダーティビットを立てる
-	move.b	d4,d5			* 論理演算結果を保存
-	rts
-
-RRD_lHLl:
-	move.w	hl(a3),d0		* d0.w = |??|??|(H|L)|
-	jsr	ms_read_mem_8
-
-	move.b	d4,d1
-	lsl.w	#8,d1			* d1.w = |Ah|Al|00|00|
-	move.b	d0,d1			* d1.w = |Ah|Al|(H|L)|
-
-	lsr.w	#4,d1			* d1.w = |00|Ah|Al|(H|
-	andi.w 	#%00000000_00001111,d0	
-					* d0.w = |00|00|00|L)| 
-	andi.b	#%11110000,d4		* d4.b =       |Ah|00|
-	or.b	d0,d4			* d4.b =       |Ah|L)|
-
-	move.w	hl(a3),d0
-	jsr	ms_write_mem_8
-
-	andi.l	#%000_11101101_11101101,d6	* HC,Nをクリア
-	ori.l	#%010_11101100_00000000,d6	* S,Z,F5,F5,PVのダーティビットを立てる
-	move.b	d4,d5			* 論理演算結果を保存
-
-	rts
-
 ********************************************************************
 *
 *	＄ＥＤライン命令
 *
 ********************************************************************
-ED:	clr.w	d0
-	move.b	1(a4,d7.w),d0		* 第二オペコードを読み込む
-	addq.w	#2,d7
-	btst.l	#PAGEADDRBIT,d7	* PC がページ境界をまたいだか？
-	beq	@f			* PC がページ境界をまたいだか？
-	PC_page_inc			* またいだ時
-	andi.w	#PAGEADDRMASK,d7	* 命令がページ境界をまたぐ時
-	beq	@f
-	move.b	(a4),d0			* 読み直し
-@@:	subi.w	#$40,d0
+;	EDライン命令のサイクル数は不定なので0にしておき、各命令ごとに加算する
+;	EDラインの命令語長は2-4バイトなので、ここは2にしておき、各命令ごとに加算する
+	.dc.w	0			* サイクル数
+	.dc.w	2-1			* 命令語長-1
+ED:	* 先読みした値から第二オペコードを取り出す
+	clr.w	d0
+	rol.l	#8,d1			* 最下位バイトに移動
+	move.b	d1,d0
+	subi.w	#$40,d0
 	bcs	other			* ＄３ｆ以下の時は特殊命令へ
-	movea.l	ED_JPT(pc,d0.w*4),a0
+	movea.l	ED_JPT(pc,d0.w*4),a0	* ジャンプ先を取得
+	move.w	-4(a0),d0		* 命令のサイクル数を取得
+	ext.l	d0
+	add.l	d0,cpu_cycle		* サイクル数を加算
+	move.w	-2(a0),d0		* 命令語長-1を取得
+	subq.w	#1,d0
+	ble	@f			* 2バイトの場合
+	; 3バイト以上の時
+	add.w	d0,d7
+	btst.l	#PAGEADDRBIT,d7		* PC がページ境界をまたいだか？
+	beq	@f
+	PC_page_inc
+	andi.w	#PAGEADDRMASK,d7
+@@:	; この時点のレジスタは以下の通り
+	; d0.l : N/A
+	; d1.l : 命令語長が2の時はN/A。それ以外は3バイト目から5バイト目の値が入っている
+	; d7.l : 命令語長だけ進めたPCの値
 	jmp	(a0)
 
 ED_JPT:	.dc.l	IN_B_c			* $40
@@ -4281,7 +4284,7 @@ ED_JPT:	.dc.l	IN_B_c			* $40
 	.dc.l	IN_H_c			* $60
 	.dc.l	OUT_c_H
 	.dc.l	SBC_HL_HL
-	.dc.l	none_ED
+	.dc.l	LD_lnnl_HL_2
 	.dc.l	none_ED
 	.dc.l	none_ED
 	.dc.l	none_ED
@@ -4289,7 +4292,7 @@ ED_JPT:	.dc.l	IN_B_c			* $40
 	.dc.l	IN_L_c			* $68
 	.dc.l	OUT_c_L
 	.dc.l	ADC_HL_HL
-	.dc.l	none_ED
+	.dc.l	LD_HL_lnnl_2
 	.dc.l	none_ED
 	.dc.l	none_ED
 	.dc.l	none_ED
@@ -4448,6 +4451,8 @@ ED_JPT:	.dc.l	IN_B_c			* $40
 	.dc.l	none_ED
 	.dc.l	none_ED			* $ff
 
+	.dc.w	8			* サイクル数は仮
+	.dc.w	2-1			* 命令語長-1
 none_ED:				* おかしな命令を実行しました
 	move.w	d0,d1
 	lsr.w	#4,d0
@@ -4474,6 +4479,8 @@ number_ed:
 *	６８０ｘ０ネイティブルーチンの呼びだし
 *
 *
+	.dc.w	0			* サイクル数
+	.dc.w	2-1			* 命令語長-1
 other:					* ＭＳ用に拡張した命令
 	; この時点の d0 には、0x00-0x3f の値に -0x40 した値が入っている
 	move.b	d0,-(sp)
@@ -4534,159 +4541,176 @@ next_jp_call_68:
 	rts
 	
 
+
+*	------ ＲＬＤ,ＲＲＤ ------
+;
+; RLD, RRD の挙動は以下の通り
+; * S : 結果の最上位ビット
+; * Z : 結果が0なら1。それ以外の時は0
+; * F5: 結果のAレジスタのbit5
+; * H : 0
+; * F3: 結果のAレジスタのbit3
+; * PV: 結果のAレジスタのパリティ
+; * N : 0
+; * C : 変化しない
+	.dc.w	18			* サイクル数
+	.dc.w	2-1			* 命令語長-1
+RLD_lHLl:
+	move.w	hl(a3),d0		* d0.w = |00|00|(H|L)|
+	jsr	ms_read_mem_8
+	andi.w	#%00000000_11111111,d0
+
+	lsl.w	#4,d0			* d0.w = |00|(H|L)|00|
+	move.b	d4,d1
+	andi.w 	#%00000000_00001111,d1
+	or.b	d0,d1			* d1.w = |00|(H|L)|Al|
+
+	andi.b	#%11110000,d4		* d4.b = |Ah|00|
+	lsr.w	#8,d0			* d0.b = |00|(H|
+	or.b	d0,d4			* d4.b = |Ah|(H|
+
+	move.w	hl(a3),d0
+	jsr	ms_write_mem_8
+
+	andi.l	#%000_11101101_11101101,d6	* HC,Nをクリア
+	ori.l	#%010_11101100_00000000,d6	* S,Z,F5,F5,PVのダーティビットを立てる
+	move.b	d4,d5			* 論理演算結果を保存
+	rts
+
+	.dc.w	18			* サイクル数
+	.dc.w	2-1			* 命令語長-1
+RRD_lHLl:
+	move.w	hl(a3),d0		* d0.w = |??|??|(H|L)|
+	jsr	ms_read_mem_8
+
+	move.b	d4,d1
+	lsl.w	#8,d1			* d1.w = |Ah|Al|00|00|
+	move.b	d0,d1			* d1.w = |Ah|Al|(H|L)|
+
+	lsr.w	#4,d1			* d1.w = |00|Ah|Al|(H|
+	andi.w 	#%00000000_00001111,d0	
+					* d0.w = |00|00|00|L)| 
+	andi.b	#%11110000,d4		* d4.b =       |Ah|00|
+	or.b	d0,d4			* d4.b =       |Ah|L)|
+
+	move.w	hl(a3),d0
+	jsr	ms_write_mem_8
+
+	andi.l	#%000_11101101_11101101,d6	* HC,Nをクリア
+	ori.l	#%010_11101100_00000000,d6	* S,Z,F5,F5,PVのダーティビットを立てる
+	move.b	d4,d5			* 論理演算結果を保存
+
+	rts
+
 *	------ ＩＭ ------
+	.dc.w	8			* サイクル数
+	.dc.w	2-1			* 命令語長-1
 IM_0:	move.b	#0,interrupt_mode
 	rts
 
+	.dc.w	8			* サイクル数
+	.dc.w	2-1			* 命令語長-1
 IM_1:	move.b	#1,interrupt_mode
 	rts
 
+	.dc.w	8			* サイクル数
+	.dc.w	2-1			* 命令語長-1
 IM_2:	move.b	#2,interrupt_mode
 	rts
 
 *	------ ＬＤ ＸＸ,(nn) ------
+	.dc.w	20			* サイクル数
+	.dc.w	4-1			* 命令語長-1
 LD_BC_lnnl:
-	move.b	1(a4,d7.w),d0		* nn の上位８ビットを読む 
-	lsl.w	#8,d0
-	move.b	0(a4,d7.w),d0		* nn の下位８ビットを読む 
-	addq.w	#2,d7
-	btst.l	#PAGEADDRBIT,d7	* PC がページ境界をまたいだか？
-	bne	1f
-	jsr	ms_read_mem_16
-	move.w	d0,bc(a3)
-	rts
-1:	PC_page_inc
-	andi.w	#PAGEADDRMASK,d7	* 命令がページ境界をまたぐ時
-	bne	2f
-	jsr	ms_read_mem_16		* d7 = 0 の時
-	move.w	d0,bc(a3)
-	rts
-2:	move.b	d0,d2			* d7 = 1 の時
-	move.b	(a4),d0			* nn の上位８ビットを読む
-	lsl.w	#8,d0
-	move.b	d2,d0
+	* 先読みした値からnnを取り出す
+	swap	d1			* 下位ワードへ移動
+	rol.w	#8,d1			* エンディアンを逆に
+	move.w	d1,d0			* d0.w = nn
 	jsr	ms_read_mem_16
 	move.w	d0,bc(a3)
 	rts
 
+	.dc.w	20			* サイクル数
+	.dc.w	4-1			* 命令語長-1
 LD_DE_lnnl:
-	move.b	1(a4,d7.w),d0		* nn の上位８ビットを読む 
-	lsl.w	#8,d0
-	move.b	0(a4,d7.w),d0		* nn の下位８ビットを読む 
-	addq.w	#2,d7
-	btst.l	#PAGEADDRBIT,d7	* PC がページ境界をまたいだか？
-	bne	1f
-	jsr	ms_read_mem_16
-	move.w	d0,de(a3)
-	rts
-1:	PC_page_inc
-	andi.w	#PAGEADDRMASK,d7	* 命令がページ境界をまたぐ時
-	bne	2f
-	jsr	ms_read_mem_16
-	move.w	d0,de(a3)
-	rts
-2:	move.b	d0,d2			* d7 = 1 の時
-	move.b	(a4),d0			* nn の上位８ビットを読む
-	lsl.w	#8,d0
-	move.b	d2,d0
+	* 先読みした値からnnを取り出す
+	swap	d1			* 下位ワードへ移動
+	rol.w	#8,d1			* エンディアンを逆に
+	move.w	d1,d0			* d0.w = nn
 	jsr	ms_read_mem_16
 	move.w	d0,de(a3)
 	rts
 
+	.dc.w	20			* サイクル数
+	.dc.w	4-1			* 命令語長-1
+LD_HL_lnnl_2:
+	* 先読みした値からnnを取り出す
+	swap	d1			* 下位ワードへ移動
+	rol.w	#8,d1			* エンディアンを逆に
+	move.w	d1,d0			* d0.w = nn
+	jsr	ms_read_mem_16
+	move.w	d0,hl(a3)
+	rts
+
+	.dc.w	20			* サイクル数
+	.dc.w	4-1			* 命令語長-1
 LD_SP_lnnl:
-	move.b	1(a4,d7.w),d0		* nn の上位８ビットを読む 
-	lsl.w	#8,d0
-	move.b	0(a4,d7.w),d0		* nn の下位８ビットを読む 
-	addq.w	#2,d7
-	btst.l	#PAGEADDRBIT,d7	* PC がページ境界をまたいだか？
-	bne	1f
-	jsr	ms_read_mem_16
-	move.w	d0,sp_(a3)
-	rts
-1:	PC_page_inc
-	andi.w	#PAGEADDRMASK,d7	* 命令がページ境界をまたぐ時
-	bne	2f
-	jsr	ms_read_mem_16
-	move.w	d0,sp_(a3)
-	rts
-2:	move.b	d0,d2			* d7 = 1 の時
-	move.b	(a4),d0			* nn の上位８ビットを読む
-	lsl.w	#8,d0
-	move.b	d2,d0
+	* 先読みした値からnnを取り出す
+	swap	d1			* 下位ワードへ移動
+	rol.w	#8,d1			* エンディアンを逆に
+	move.w	d1,d0			* d0.w = nn
 	jsr	ms_read_mem_16
 	move.w	d0,sp_(a3)
 	rts
 
 *	------ ＬＤ (nn),ＸＸ ------
+	.dc.w	20			* サイクル数
+	.dc.w	4-1			* 命令語長-1
 LD_lnnl_BC:
+	* 先読みした値からnnを取り出す
+	swap	d1			* 下位ワードへ移動
+	rol.w	#8,d1			* エンディアンを逆に
+	move.w	d1,d0			* d0.w = nn
 	move.w	bc(a3),d1
-	move.b	1(a4,d7.w),d0		* nn の上位８ビットを読む 
-	lsl.w	#8,d0
-	move.b	0(a4,d7.w),d0		* nn の下位８ビットを読む 
-	addq.w	#2,d7
-	btst.l	#PAGEADDRBIT,d7	* PC がページ境界をまたいだか？
-	bne	@f
-	jsr	ms_write_mem_16
-	rts
-@@:	PC_page_inc
-	andi.w	#PAGEADDRMASK,d7	* 命令がページ境界をまたぐ時
-	bne	@f
-	jsr	ms_write_mem_16
-	rts
-@@:	move.b	d0,d2			* d7 = 1 の時
-	move.b	(a4),d0			* nn の上位８ビットを読む
-	lsl.w	#8,d0
-	move.b	d2,d0
 	jsr	ms_write_mem_16
 	rts
 
+	.dc.w	20			* サイクル数
+	.dc.w	4-1			* 命令語長-1
 LD_lnnl_DE:
+	* 先読みした値からnnを取り出す
+	swap	d1			* 下位ワードへ移動
+	rol.w	#8,d1			* エンディアンを逆に
+	move.w	d1,d0			* d0.w = nn
 	move.w	de(a3),d1
-	move.b	1(a4,d7.w),d0		* nn の上位８ビットを読む 
-	lsl.w	#8,d0
-	move.b	0(a4,d7.w),d0		* nn の下位８ビットを読む 
-	addq.w	#2,d7
-	btst.l	#PAGEADDRBIT,d7	* PC がページ境界をまたいだか？
-	bne	@f
-	jsr	ms_write_mem_16
-	rts
-@@:	PC_page_inc
-	andi.w	#PAGEADDRMASK,d7	* 命令がページ境界をまたぐ時
-	bne	@f
-	jsr	ms_write_mem_16
-	rts
-@@:	move.b	d0,d2			* d7 = 1 の時
-	move.b	(a4),d0			* nn の上位８ビットを読む
-	lsl.w	#8,d0
-	move.b	d2,d0
 	jsr	ms_write_mem_16
 	rts
 
+	.dc.w	20			* サイクル数
+	.dc.w	4-1			* 命令語長-1
+LD_lnnl_HL_2:
+	* 先読みした値からnnを取り出す
+	swap	d1			* 下位ワードへ移動
+	rol.w	#8,d1			* エンディアンを逆に
+	move.w	d1,d0			* d0.w = nn
+	move.w	hl(a3),d1
+	jsr	ms_write_mem_16
+	rts
+
+	.dc.w	20			* サイクル数
+	.dc.w	4-1			* 命令語長-1
 LD_lnnl_SP:
+	* 先読みした値からnnを取り出す
+	swap	d1			* 下位ワードへ移動
+	rol.w	#8,d1			* エンディアンを逆に
+	move.w	d1,d0			* d0.w = nn
 	move.w	sp_(a3),d1
-	move.b	1(a4,d7.w),d0		* nn の上位８ビットを読む 
-	lsl.w	#8,d0
-	move.b	0(a4,d7.w),d0		* nn の下位８ビットを読む 
-	addq.w	#2,d7
-	btst.l	#PAGEADDRBIT,d7	* PC がページ境界をまたいだか？
-	bne	@f
 	jsr	ms_write_mem_16
 	rts
-@@:	PC_page_inc			* 命令がページ境界をまたぐ時
-	andi.w	#PAGEADDRMASK,d7	* 命令がページ境界をまたぐ時
-	bne	@f
-	jsr	ms_write_mem_16		* d7 = 0 の時
-	rts
-@@:	move.b	d0,d2			* d7 = 1 の時
-	move.b	(a4),d0			* nn の上位８ビットを読む
-	lsl.w	#8,d0
-	move.b	d2,d0
-	jsr	ms_write_mem_16
-	rts
-
 
 *	------ ＡＤＣ ------
 
+;---------------------------------------------------------------------------------------
 ; ADC HL,XX の挙動は以下の通り
 ; * S : 結果のHLのbit15
 ; * Z : 結果のHLが0の時1、それ以外の時0
@@ -4736,22 +4760,31 @@ ADC_HL_XX macro
 	ori.l	#%000_00000000_01000000,d6	* Zフラグをセット
 1:
 	endm
+;---------------------------------------------------------------------------------------
 
+	.dc.w	15			* サイクル数
+	.dc.w	2-1			* 命令語長-1
 ADC_HL_BC:
 	move.w	bc(a3),target_16(a3)
 	ADC_HL_XX
 	rts
 
+	.dc.w	15			* サイクル数
+	.dc.w	2-1			* 命令語長-1
 ADC_HL_DE:
 	move.w	de(a3),target_16(a3)
 	ADC_HL_XX
 	rts
 
+	.dc.w	15			* サイクル数
+	.dc.w	2-1			* 命令語長-1
 ADC_HL_HL:
 	move.w	hl(a3),target_16(a3)
 	ADC_HL_XX
 	rts
 
+	.dc.w	15			* サイクル数
+	.dc.w	2-1			* 命令語長-1
 ADC_HL_SP:
 	move.w	sp_(a3),target_16(a3)
 	ADC_HL_XX
@@ -4759,6 +4792,7 @@ ADC_HL_SP:
 
 *	------ ＳＢＣ ------
 
+;---------------------------------------------------------------------------------------
 ; SBC HL,XX の挙動は以下の通り
 ; * S : 結果のHLのbit15
 ; * Z : 結果のHLが0の時1、それ以外の時0
@@ -4809,22 +4843,31 @@ SBC_HL_XX macro
 	ori.l	#%000_00000000_01000000,d6	* Zフラグをセット
 1:
 	endm
+;---------------------------------------------------------------------------------------
 
+	.dc.w	15			* サイクル数
+	.dc.w	2-1			* 命令語長-1
 SBC_HL_BC:
 	move.w	bc(a3),target_16(a3)
 	SBC_HL_XX
 	rts
 
+	.dc.w	15			* サイクル数
+	.dc.w	2-1			* 命令語長-1
 SBC_HL_DE:
 	move.w	de(a3),target_16(a3)
 	SBC_HL_XX
 	rts
 
+	.dc.w	15			* サイクル数
+	.dc.w	2-1			* 命令語長-1
 SBC_HL_HL:
 	move.w	hl(a3),target_16(a3)
 	SBC_HL_XX
 	rts
 
+	.dc.w	15			* サイクル数
+	.dc.w	2-1			* 命令語長-1
 SBC_HL_SP:
 	move.w	sp_(a3),target_16(a3)
 	SBC_HL_XX
@@ -4843,6 +4886,8 @@ SBC_HL_SP:
 ; * PV: bc が 0 の時0、それ以外の時1
 ; * N : 0
 ; * C : 変化しない
+	.dc.w	16			* サイクル数
+	.dc.w	2-1			* 命令語長-1
 LDI:	andi.l	#%111_11000001_11000001,d6	* S,Z,C以外をクリア
 	move.w	hl(a3),d0
 	jsr	ms_read_mem_8
@@ -4859,9 +4904,9 @@ LDI:	andi.l	#%111_11000001_11000001,d6	* S,Z,C以外をクリア
 	addq.w	#1,hl(a3)
 	addq.w	#1,de(a3)
 	subq.w	#1,bc(a3)
-	beq	rts_common
+	beq	@f
 	ori.b	#%00000100,d6		* PVをセット
-	rts
+@@:	rts
 
 
 ; LDIR の挙動は以下の通り
@@ -4873,10 +4918,14 @@ LDI:	andi.l	#%111_11000001_11000001,d6	* S,Z,C以外をクリア
 ;
 ; LDIRの命令内で転送を繰り返すのではなく、PCを-2するというのがポイント
 ; なのでLDIRの実行中に割り込みが入ることも想定される(はず)
+	.dc.w	21			* サイクル数
+	.dc.w	2-1			* 命令語長-1
 LDIR:
 	bsr	LDI
 	cmpi.w	#0,bc(a3)
 	bne	@f
+	; 最終の場合はサイクル数が16なので5サイクル引く
+	subq.l	#5,cpu_cycle
 	rts
 @@:	subq.w	#2,d7
 	btst.l	#PAGEADDRBIT,d7	* PC がページ境界をまたいだか？
@@ -4897,6 +4946,8 @@ LDIR:
 ; * PV: bc が 0 の時0、それ以外の時1
 ; * N : 0
 ; * C : 変化しない
+	.dc.w	16			* サイクル数
+	.dc.w	2-1			* 命令語長-1
 LDD:	andi.l	#%111_11000001_11000001,d6	* S,Z,C以外をクリア
 	move.w	hl(a3),d0
 	jsr	ms_read_mem_8
@@ -4913,9 +4964,9 @@ LDD:	andi.l	#%111_11000001_11000001,d6	* S,Z,C以外をクリア
 	subq.w	#1,hl(a3)
 	subq.w	#1,de(a3)
 	subq.w	#1,bc(a3)
-	beq	rts_common
+	beq	@f
 	ori.b	#%00000100,d6		* PVをセット
-	rts
+@@:	rts
 
 ; LDDR の挙動は以下の通り
 ; LDD実行後、
@@ -4926,10 +4977,14 @@ LDD:	andi.l	#%111_11000001_11000001,d6	* S,Z,C以外をクリア
 ;
 ; LDDRの命令内で転送を繰り返すのではなく、PCを-2するというのがポイント
 ; なのでLDDRの実行中に割り込みが入ることも想定される(はず)
+	.dc.w	21			* サイクル数
+	.dc.w	2-1			* 命令語長-1
 LDDR:
 	bsr	LDD
 	cmpi.w	#0,bc(a3)
 	bne	@f
+	; 最終の場合はサイクル数が16なので5サイクル引く
+	subq.l	#5,cpu_cycle
 	rts
 @@:	subq.w	#2,d7
 	btst.l	#PAGEADDRBIT,d7	* PC がページ境界をまたいだか？
@@ -4952,6 +5007,8 @@ LDDR:
 ; * PV: BC が 0 の時0、それ以外の時1
 ; * N : 1
 ; * C : 変化しない
+	.dc.w	16			* サイクル数
+	.dc.w	2-1			* 命令語長-1
 CPI:	bsr	eval_flag_HC_C		* HC,Cの再評価
 	move.w	hl(a3),d0
 	jsr	ms_read_mem_8
@@ -4981,17 +5038,23 @@ CPI:	bsr	eval_flag_HC_C		* HC,Cの再評価
 	or.b	d1,d6			* F5をセット
 	addq.w	#1,hl(a3)
 	subq.w	#1,bc(a3)
-	beq	rts_common
+	beq	@f
 	ori.b	#%00000100,d6		* PVをセット
-	rts
+@@:	rts
 
+	.dc.w	21			* サイクル数
+	.dc.w	2-1			* 命令語長-1
 CPIR:	bsr	CPI
 	cmpi.w	#0,bc(a3)
 	bne	@f
+	; 最終の場合はサイクル数が16なので5サイクル引く
+	subq.l	#5,cpu_cycle
 	rts
 @@:	bsr	eval_flag_SZ
 	btst.l	#6,d6			* Zフラグを評価
 	beq	@f
+	; 最終の場合はサイクル数が16なので5サイクル引く
+	subq.l	#5,cpu_cycle
 	rts
 @@:	subq.w	#2,d7
 	btst.l	#PAGEADDRBIT,d7	* PC がページ境界をまたいだか？
@@ -5013,6 +5076,8 @@ CPIR:	bsr	CPI
 ; * PV: BC が 0 の時0、それ以外の時1
 ; * N : 1
 ; * C : 変化しない
+	.dc.w	16			* サイクル数
+	.dc.w	2-1			* 命令語長-1
 CPD:	bsr	eval_flag_HC_C		* HC,Cの再評価
 	move.w	hl(a3),d0
 	jsr	ms_read_mem_8
@@ -5042,19 +5107,24 @@ CPD:	bsr	eval_flag_HC_C		* HC,Cの再評価
 	or.b	d1,d6			* F5をセット
 	subq.w	#1,hl(a3)
 	subq.w	#1,bc(a3)
-	beq	rts_common
+	beq	@f
 	ori.b	#%00000100,d6		* PVをセット
-	rts
+@@:	rts
 
 
-
+	.dc.w	21			* サイクル数
+	.dc.w	2-1			* 命令語長-1
 CPDR:	bsr	CPD
 	cmpi.w	#0,bc(a3)
 	bne	@f
+	; 最終の場合はサイクル数が16なので5サイクル引く
+	subq.l	#5,cpu_cycle
 	rts
 @@:	bsr	eval_flag_SZ
 	btst.l	#6,d6			* Zフラグを評価
 	beq	@f
+	; 最終の場合はサイクル数が16なので5サイクル引く
+	subq.l	#5,cpu_cycle
 	rts
 @@:	subq.w	#2,d7
 	btst.l	#PAGEADDRBIT,d7	* PC がページ境界をまたいだか？
@@ -5077,6 +5147,8 @@ CPDR:	bsr	CPD
 ; * PV: 結果がオーバーフローした時1、それ以外の時0
 ; * N : 1
 ; * C : 結果がキャリーした時1、それ以外の時0
+	.dc.w	8			* サイクル数
+	.dc.w	2-1			* 命令語長-1
 NEG:
 	; b18 : 減算なので1
 	; b17 : 算術演算なので0
@@ -5095,6 +5167,8 @@ NEG:
 	rts
 
 *	------ 掛け算命令 ------
+
+;---------------------------------------------------------------------------------------
 ; MULB A,X の挙動は以下の通り https://www.msx.org/forum/development/msx-development/r800-multiply-instruction
 ; HL <= A * X
 ; ※ ただしXがb,c,d,eのとき以外は動作が保証されないという仕様がある
@@ -5123,36 +5197,58 @@ MULB_A_X macro
 	ori.w	#%00000001,d6		* Cフラグをセット
 @@:
 	endm
+;---------------------------------------------------------------------------------------
 
+	.dc.w	0			* サイクル数は仮
+	.dc.w	2-1			* 命令語長-1
 MULB_A_A:
 	move.b	d4,target_8(a3)
 	MULB_A_X
 	rts
+
+	.dc.w	0			* サイクル数は仮
+	.dc.w	2-1			* 命令語長-1
 MULB_A_B:
 	move.b	b(a3),target_8(a3)
 	MULB_A_X
 	rts
+
+	.dc.w	0			* サイクル数は仮
+	.dc.w	2-1			* 命令語長-1
 MULB_A_C:
 	move.b	c(a3),target_8(a3)
 	MULB_A_X
 	rts
+
+	.dc.w	0			* サイクル数は仮
+	.dc.w	2-1			* 命令語長-1
 MULB_A_D:
 	move.b	d(a3),target_8(a3)
 	MULB_A_X
 	rts
+
+	.dc.w	0			* サイクル数は仮
+	.dc.w	2-1			* 命令語長-1
 MULB_A_E:
 	move.b	e(a3),target_8(a3)
 	MULB_A_X
 	rts
+
+	.dc.w	0			* サイクル数は仮
+	.dc.w	2-1			* 命令語長-1
 MULB_A_H:
 	move.b	h(a3),target_8(a3)
 	MULB_A_X
 	rts
+
+	.dc.w	0			* サイクル数は仮
+	.dc.w	2-1			* 命令語長-1
 MULB_A_L:
 	move.b	l(a3),target_8(a3)
 	MULB_A_X
 	rts
 
+;---------------------------------------------------------------------------------------
 ; MULW HL,XX の挙動は以下の通り https://www.msx.org/forum/development/msx-development/r800-multiply-instruction
 ; DE:HL <= HL * XX
 ; ※ ただしXがBC,SPのとき以外は動作が保証されないという仕様がある
@@ -5179,22 +5275,31 @@ MULW_HL_XX macro
 	ori.w	#%00000001,d6		* 上位16bitが0じゃない場合はCフラグをセット
 @@:
 	endm
+;---------------------------------------------------------------------------------------
 
+	.dc.w	0			* サイクル数は仮
+	.dc.w	2-1			* 命令語長-1
 MULW_HL_BC:
 	move.w	bc(a3),target_16(a3)
 	MULW_HL_XX
 	rts
 
+	.dc.w	0			* サイクル数は仮
+	.dc.w	2-1			* 命令語長-1
 MULW_HL_DE:
 	move.w	de(a3),target_16(a3)
 	MULW_HL_XX
 	rts
 
+	.dc.w	0			* サイクル数は仮
+	.dc.w	2-1			* 命令語長-1
 MULW_HL_HL:
 	move.w	hl(a3),target_16(a3)
 	MULW_HL_XX
 	rts
 
+	.dc.w	0			* サイクル数は仮
+	.dc.w	2-1			* 命令語長-1
 MULW_HL_SP:
 	move.w	sp_(a3),target_16(a3)
 	MULW_HL_XX
@@ -5215,6 +5320,8 @@ MULW_HL_SP:
 ; * PV: IFF2の値
 ; * N : 0
 ; * C : 変化しない
+	.dc.w	9			* サイクル数
+	.dc.w	2-1			* 命令語長-1
 LD_A_R:	bsr	eval_flag_all
 	andi.l	#%000_00000000_00101001,d6	* S,Z,HC,PV,Nをクリア
 	move.b	emu_counter,d0
@@ -5233,10 +5340,14 @@ LD_A_R:	bsr	eval_flag_all
 	ori.w	#%00000100,d6		* EI 状態の時 P/V <= 1
 1:	rts
 
+	.dc.w	9			* サイクル数
+	.dc.w	2-1			* 命令語長-1
 LD_R_A:	move.b	d4,r(a3)
 	rts
 
 *	------ ＬＤ Ｉ ------
+	.dc.w	9			* サイクル数
+	.dc.w	2-1			* 命令語長-1
 LD_A_I: bsr	eval_flag_all
 	andi.l	#%000_00000000_00101001,d6	* S,Z,HC,PV,Nをクリア
 	move.b	emu_counter,d0
@@ -5255,11 +5366,15 @@ LD_A_I: bsr	eval_flag_all
 	ori.w	#%00000100,d6		* EI 状態の時 P/V <= 1
 1:	rts
 
+	.dc.w	9			* サイクル数
+	.dc.w	2-1			* 命令語長-1
 LD_I_A:	move.b	d4,i(a3)
 	rts
 
 *	ちゃんとやってない
 *	------ ＲＥＴＮ ------
+	.dc.w	14			* サイクル数
+	.dc.w	2-1			* 命令語長-1
 RETN:	move.w	sp_(a3),d0
 	jsr	ms_read_mem_16
 	addq.w	#2,sp_(a3)
@@ -5268,6 +5383,8 @@ RETN:	move.w	sp_(a3),d0
 	rts
 
 *	------ ＲＥＴＩ ------
+	.dc.w	14			* サイクル数
+	.dc.w	2-1			* 命令語長-1
 RETI:	move.w	sp_(a3),d0
 	jsr	ms_read_mem_16
 	addq.w	#2,sp_(a3)
@@ -5281,511 +5398,675 @@ RETI:	move.w	sp_(a3),d0
 *		（Ｉｎｄｅｘ関係）
 *
 *************************************************************************
-DD:	clr.w	d0
-	move.b	1(a4,d7.w),d0
-	addq.w	#2,d7
-	btst.l	#PAGEADDRBIT,d7	* PC がページ境界をまたいだか？
-	beq	@f			* PC がページ境界をまたいだか？
-	PC_page_inc			* またいだ時
-	andi.w	#PAGEADDRMASK,d7	* 命令がページ境界をまたぐ時
+;	DDライン命令のサイクル数は不定なので0にしておき、各命令ごとに加算する
+;	DDラインの命令語長は2-4バイトなので、ここは2にしておき、各命令ごとに加算する
+	.dc.w	0			* サイクル数
+	.dc.w	2-1			* 命令語長-1
+DD:	moveq.l	#0,d2
+	bra	@f
+
+;	FDライン命令のサイクル数は不定なので0にしておき、各命令ごとに加算する
+;	FDラインの命令語長は2-4バイトなので、ここは2にしておき、各命令ごとに加算する
+	.dc.w	0			* サイクル数
+	.dc.w	2-1			* 命令語長-1
+FD:	moveq.l	#2,d2
+	bra	@f
+
+	* 先読みした値から第二オペコードを取り出す
+@@:	clr.w	d0
+	rol.l	#8,d1			* 最下位バイトに移動
+	move.b	d1,d0
+	movea.l	DDFD_JPT(pc,d0.w*4),a0	* ジャンプ先を取得
+	move.w	-4(a0),d0		* 命令のサイクル数を取得
+	ext.l	d0
+	add.l	d0,cpu_cycle		* サイクル数を加算
+	move.w	-2(a0),d0		* 命令語長-1を取得
+	subq.w	#1,d0
+	ble	@f			* 2バイトの場合
+	; 3バイト以上の時
+	add.w	d0,d7
+	btst.l	#PAGEADDRBIT,d7		* PC がページ境界をまたいだか？
 	beq	@f
-	move.b	(a4),d0			* 読み直し
-@@:	move.w	DD_FD_JPT(pc,d0.w*2),d2
-	clr.l	d1
-	jmp	DD_FD_JPT(pc,d2.w)
+	PC_page_inc
+	andi.w	#PAGEADDRMASK,d7
+@@:	; この時点のレジスタは以下の通り
+	; d0.l : N/A
+	; d1.l : 命令語長が2の時はN/A。それ以外は3バイト目から5バイト目の値が入っている
+	; d2.l : DDの場合は0、FDの場合は2
+	; d7.l : 命令語長だけ進めたPCの値
+	jmp	(a0)
 
-FD:	clr.w	d0
-	move.b	1(a4,d7.w),d0
-	addq.w	#2,d7
-	btst.l	#PAGEADDRBIT,d7	* PC がページ境界をまたいだか？
-	beq	@f			* PC がページ境界をまたいだか？
-	PC_page_inc			* またいだ時
-	andi.w	#PAGEADDRMASK,d7	* 命令がページ境界をまたぐ時
-	beq	@f
-	move.b	(a4),d0			* 読み直し
-@@:	move.w	DD_FD_JPT(pc,d0.w*2),d2
-	moveq.l	#2,d1
-	jmp	DD_FD_JPT(pc,d2.w)
+DDFD_JPT:
+	.dc.l	none_DDFD		* $00
+	.dc.l	none_DDFD
+	.dc.l	none_DDFD
+	.dc.l	none_DDFD
+	.dc.l	none_DDFD
+	.dc.l	none_DDFD
+	.dc.l	LD_B_n_2
+	.dc.l	none_DDFD
+	.dc.l	none_DDFD		* $08
+	.dc.l	ADD_Idx_BC
+	.dc.l	none_DDFD
+	.dc.l	none_DDFD
+	.dc.l	none_DDFD
+	.dc.l	none_DDFD
+	.dc.l	LD_C_n_2
+	.dc.l	none_DDFD		* $0f
 
-DD_FD_JPT:
-	.dc.w	none_DD_FD-DD_FD_JPT		* $00
-	.dc.w	none_DD_FD-DD_FD_JPT
-	.dc.w	none_DD_FD-DD_FD_JPT
-	.dc.w	none_DD_FD-DD_FD_JPT
-	.dc.w	none_DD_FD-DD_FD_JPT
-	.dc.w	none_DD_FD-DD_FD_JPT
-	.dc.w	LD_B_n_2-DD_FD_JPT
-	.dc.w	none_DD_FD-DD_FD_JPT
-	.dc.w	none_DD_FD-DD_FD_JPT		* $08
-	.dc.w	ADD_Idx_BC-DD_FD_JPT
-	.dc.w	none_DD_FD-DD_FD_JPT
-	.dc.w	none_DD_FD-DD_FD_JPT
-	.dc.w	none_DD_FD-DD_FD_JPT
-	.dc.w	none_DD_FD-DD_FD_JPT
-	.dc.w	LD_C_n_2-DD_FD_JPT
-	.dc.w	none_DD_FD-DD_FD_JPT		* $0f
+	.dc.l	none_DDFD		* $10
+	.dc.l	none_DDFD
+	.dc.l	none_DDFD
+	.dc.l	none_DDFD
+	.dc.l	none_DDFD
+	.dc.l	none_DDFD
+	.dc.l	LD_D_n_2
+	.dc.l	none_DDFD
+	.dc.l	none_DDFD		* $18
+	.dc.l	ADD_Idx_DE
+	.dc.l	none_DDFD
+	.dc.l	none_DDFD
+	.dc.l	none_DDFD
+	.dc.l	none_DDFD
+	.dc.l	LD_E_n_2
+	.dc.l	none_DDFD		* $1f
 
-	.dc.w	none_DD_FD-DD_FD_JPT		* $10
-	.dc.w	none_DD_FD-DD_FD_JPT
-	.dc.w	none_DD_FD-DD_FD_JPT
-	.dc.w	none_DD_FD-DD_FD_JPT
-	.dc.w	none_DD_FD-DD_FD_JPT
-	.dc.w	none_DD_FD-DD_FD_JPT
-	.dc.w	LD_D_n_2-DD_FD_JPT
-	.dc.w	none_DD_FD-DD_FD_JPT
-	.dc.w	none_DD_FD-DD_FD_JPT		* $18
-	.dc.w	ADD_Idx_DE-DD_FD_JPT
-	.dc.w	none_DD_FD-DD_FD_JPT
-	.dc.w	none_DD_FD-DD_FD_JPT
-	.dc.w	none_DD_FD-DD_FD_JPT
-	.dc.w	none_DD_FD-DD_FD_JPT
-	.dc.w	LD_E_n_2-DD_FD_JPT
-	.dc.w	none_DD_FD-DD_FD_JPT		* $1f
+	.dc.l	none_DDFD		* $20
+	.dc.l	LD_Idx_nn
+	.dc.l	LD_lnnl_Idx
+	.dc.l	INC_Idx
+	.dc.l	INC_IdxH
+	.dc.l	DEC_IdxH
+	.dc.l	LD_IdxH_n
+	.dc.l	none_DDFD
+	.dc.l	none_DDFD		* $28
+	.dc.l	ADD_Idx_Idx
+	.dc.l	LD_Idx_lnnl
+	.dc.l	DEC_Idx
+	.dc.l	INC_IdxL
+	.dc.l	DEC_IdxL
+	.dc.l	LD_IdxL_n
+	.dc.l	none_DDFD		* $2f
 
-	.dc.w	none_DD_FD-DD_FD_JPT		* $20
-	.dc.w	LD_Idx_nn-DD_FD_JPT
-	.dc.w	LD_lnnl_Idx-DD_FD_JPT
-	.dc.w	INC_Idx-DD_FD_JPT
-	.dc.w	INC_IdxH-DD_FD_JPT
-	.dc.w	DEC_IdxH-DD_FD_JPT
-	.dc.w	LD_IdxH_n-DD_FD_JPT
-	.dc.w	none_DD_FD-DD_FD_JPT
-	.dc.w	none_DD_FD-DD_FD_JPT		* $28
-	.dc.w	ADD_Idx_Idx-DD_FD_JPT
-	.dc.w	LD_Idx_lnnl-DD_FD_JPT
-	.dc.w	DEC_Idx-DD_FD_JPT
-	.dc.w	INC_IdxL-DD_FD_JPT
-	.dc.w	DEC_IdxL-DD_FD_JPT
-	.dc.w	LD_IdxL_n-DD_FD_JPT
-	.dc.w	none_DD_FD-DD_FD_JPT		* $2f
+	.dc.l	none_DDFD		* $30
+	.dc.l	none_DDFD
+	.dc.l	none_DDFD
+	.dc.l	none_DDFD
+	.dc.l	INC_lIdx_dl
+	.dc.l	DEC_lIdx_dl
+	.dc.l	LD_lIdx_dl_n
+	.dc.l	none_DDFD
+	.dc.l	none_DDFD		* $38
+	.dc.l	ADD_Idx_SP
+	.dc.l	none_DDFD
+	.dc.l	none_DDFD
+	.dc.l	none_DDFD
+	.dc.l	none_DDFD
+	.dc.l	LD_A_n_2
+	.dc.l	none_DDFD		* $3f
 
-	.dc.w	none_DD_FD-DD_FD_JPT		* $30
-	.dc.w	none_DD_FD-DD_FD_JPT
-	.dc.w	none_DD_FD-DD_FD_JPT
-	.dc.w	none_DD_FD-DD_FD_JPT
-	.dc.w	INC_lIdx_dl-DD_FD_JPT
-	.dc.w	DEC_lIdx_dl-DD_FD_JPT
-	.dc.w	LD_lIdx_dl_n-DD_FD_JPT
-	.dc.w	none_DD_FD-DD_FD_JPT
-	.dc.w	none_DD_FD-DD_FD_JPT		* $38
-	.dc.w	ADD_Idx_SP-DD_FD_JPT
-	.dc.w	none_DD_FD-DD_FD_JPT
-	.dc.w	none_DD_FD-DD_FD_JPT
-	.dc.w	none_DD_FD-DD_FD_JPT
-	.dc.w	none_DD_FD-DD_FD_JPT
-	.dc.w	LD_A_n_2-DD_FD_JPT
-	.dc.w	none_DD_FD-DD_FD_JPT		* $3f
+	.dc.l	LD_B_B_2		* $40
+	.dc.l	LD_B_C_2
+	.dc.l	LD_B_D_2
+	.dc.l	LD_B_E_2
+	.dc.l	LD_B_IdxH
+	.dc.l	LD_B_IdxL
+	.dc.l	LD_B_lIdx_dl
+	.dc.l	LD_B_A_2
+	.dc.l	LD_C_B_2		* $48
+	.dc.l	LD_C_C_2
+	.dc.l	LD_C_D_2
+	.dc.l	LD_C_E_2
+	.dc.l	LD_C_IdxH
+	.dc.l	LD_C_IdxL
+	.dc.l	LD_C_lIdx_dl
+	.dc.l	LD_C_A_2		* $4f
 
-	.dc.w	LD_B_B_2-DD_FD_JPT		* $40
-	.dc.w	LD_B_C_2-DD_FD_JPT
-	.dc.w	LD_B_D_2-DD_FD_JPT
-	.dc.w	LD_B_E_2-DD_FD_JPT
-	.dc.w	LD_B_IdxH-DD_FD_JPT
-	.dc.w	LD_B_IdxL-DD_FD_JPT
-	.dc.w	LD_B_lIdx_dl-DD_FD_JPT
-	.dc.w	LD_B_A_2-DD_FD_JPT
-	.dc.w	LD_C_B_2-DD_FD_JPT		* $48
-	.dc.w	LD_C_C_2-DD_FD_JPT
-	.dc.w	LD_C_D_2-DD_FD_JPT
-	.dc.w	LD_C_E_2-DD_FD_JPT
-	.dc.w	LD_C_IdxH-DD_FD_JPT
-	.dc.w	LD_C_IdxL-DD_FD_JPT
-	.dc.w	LD_C_lIdx_dl-DD_FD_JPT
-	.dc.w	LD_C_A_2-DD_FD_JPT		* $4f
+	.dc.l	LD_D_B_2		* $50
+	.dc.l	LD_D_C_2
+	.dc.l	LD_D_D_2
+	.dc.l	LD_D_E_2
+	.dc.l	LD_D_IdxH
+	.dc.l	LD_D_IdxL
+	.dc.l	LD_D_lIdx_dl
+	.dc.l	LD_D_A_2
+	.dc.l	LD_E_B_2		* $58
+	.dc.l	LD_E_C_2
+	.dc.l	LD_E_D_2
+	.dc.l	LD_E_E_2
+	.dc.l	LD_E_IdxH
+	.dc.l	LD_E_IdxL
+	.dc.l	LD_E_lIdx_dl
+	.dc.l	LD_E_A_2		* $5f
 
-	.dc.w	LD_D_B_2-DD_FD_JPT		* $50
-	.dc.w	LD_D_C_2-DD_FD_JPT
-	.dc.w	LD_D_D_2-DD_FD_JPT
-	.dc.w	LD_D_E_2-DD_FD_JPT
-	.dc.w	LD_D_IdxH-DD_FD_JPT
-	.dc.w	LD_D_IdxL-DD_FD_JPT
-	.dc.w	LD_D_lIdx_dl-DD_FD_JPT
-	.dc.w	LD_D_A_2-DD_FD_JPT
-	.dc.w	LD_E_B_2-DD_FD_JPT		* $58
-	.dc.w	LD_E_C_2-DD_FD_JPT
-	.dc.w	LD_E_D_2-DD_FD_JPT
-	.dc.w	LD_E_E_2-DD_FD_JPT
-	.dc.w	LD_E_IdxH-DD_FD_JPT
-	.dc.w	LD_E_IdxL-DD_FD_JPT
-	.dc.w	LD_E_lIdx_dl-DD_FD_JPT
-	.dc.w	LD_E_A_2-DD_FD_JPT		* $5f
+	.dc.l	LD_IdxH_B		* $60
+	.dc.l	LD_IdxH_C
+	.dc.l	LD_IdxH_D
+	.dc.l	LD_IdxH_E
+	.dc.l	LD_IdxH_IdxH
+	.dc.l	LD_IdxH_IdxL
+	.dc.l	LD_H_lIdx_dl
+	.dc.l	LD_IdxH_A
+	.dc.l	LD_IdxL_B		* $68
+	.dc.l	LD_IdxL_C
+	.dc.l	LD_IdxL_D
+	.dc.l	LD_IdxL_E
+	.dc.l	LD_IdxL_IdxH
+	.dc.l	LD_IdxL_IdxL
+	.dc.l	LD_L_lIdx_dl
+	.dc.l	LD_IdxL_A		* $6f
 
-	.dc.w	LD_IdxH_B-DD_FD_JPT		* $60
-	.dc.w	LD_IdxH_C-DD_FD_JPT
-	.dc.w	LD_IdxH_D-DD_FD_JPT
-	.dc.w	LD_IdxH_E-DD_FD_JPT
-	.dc.w	LD_IdxH_IdxH-DD_FD_JPT
-	.dc.w	LD_IdxH_IdxL-DD_FD_JPT
-	.dc.w	LD_H_lIdx_dl-DD_FD_JPT
-	.dc.w	LD_IdxH_A-DD_FD_JPT
-	.dc.w	LD_IdxL_B-DD_FD_JPT		* $68
-	.dc.w	LD_IdxL_C-DD_FD_JPT
-	.dc.w	LD_IdxL_D-DD_FD_JPT
-	.dc.w	LD_IdxL_E-DD_FD_JPT
-	.dc.w	LD_IdxL_IdxH-DD_FD_JPT
-	.dc.w	LD_IdxL_IdxL-DD_FD_JPT
-	.dc.w	LD_L_lIdx_dl-DD_FD_JPT
-	.dc.w	LD_IdxL_A-DD_FD_JPT		* $6f
+	.dc.l	LD_lIdx_dl_B	* $70
+	.dc.l	LD_lIdx_dl_C
+	.dc.l	LD_lIdx_dl_D
+	.dc.l	LD_lIdx_dl_E
+	.dc.l	LD_lIdx_dl_H
+	.dc.l	LD_lIdx_dl_L
+	.dc.l	none_DDFD
+	.dc.l	LD_lIdx_dl_A
+	.dc.l	LD_A_B_2		* $78
+	.dc.l	LD_A_C_2
+	.dc.l	LD_A_D_2
+	.dc.l	LD_A_E_2
+	.dc.l	LD_A_IdxH
+	.dc.l	LD_A_IdxL
+	.dc.l	LD_A_lIdx_dl
+	.dc.l	LD_A_A_2		* $7f
 
-	.dc.w	LD_lIdx_dl_B-DD_FD_JPT	* $70
-	.dc.w	LD_lIdx_dl_C-DD_FD_JPT
-	.dc.w	LD_lIdx_dl_D-DD_FD_JPT
-	.dc.w	LD_lIdx_dl_E-DD_FD_JPT
-	.dc.w	LD_lIdx_dl_H-DD_FD_JPT
-	.dc.w	LD_lIdx_dl_L-DD_FD_JPT
-	.dc.w	none_DD_FD-DD_FD_JPT
-	.dc.w	LD_lIdx_dl_A-DD_FD_JPT
-	.dc.w	LD_A_B_2-DD_FD_JPT		* $78
-	.dc.w	LD_A_C_2-DD_FD_JPT
-	.dc.w	LD_A_D_2-DD_FD_JPT
-	.dc.w	LD_A_E_2-DD_FD_JPT
-	.dc.w	LD_A_IdxH-DD_FD_JPT
-	.dc.w	LD_A_IdxL-DD_FD_JPT
-	.dc.w	LD_A_lIdx_dl-DD_FD_JPT
-	.dc.w	LD_A_A_2-DD_FD_JPT		* $7f
+	.dc.l	none_DDFD		* $80
+	.dc.l	none_DDFD
+	.dc.l	none_DDFD
+	.dc.l	none_DDFD
+	.dc.l	ADD_A_IdxH
+	.dc.l	ADD_A_IdxL
+	.dc.l	ADD_A_lIdx_dl
+	.dc.l	none_DDFD
+	.dc.l	none_DDFD		* $88
+	.dc.l	none_DDFD
+	.dc.l	none_DDFD
+	.dc.l	none_DDFD
+	.dc.l	ADC_A_IdxH
+	.dc.l	ADC_A_IdxL
+	.dc.l	ADC_A_lIdx_dl
+	.dc.l	none_DDFD		* $8f
 
-	.dc.w	none_DD_FD-DD_FD_JPT		* $80
-	.dc.w	none_DD_FD-DD_FD_JPT
-	.dc.w	none_DD_FD-DD_FD_JPT
-	.dc.w	none_DD_FD-DD_FD_JPT
-	.dc.w	ADD_A_IdxH-DD_FD_JPT
-	.dc.w	ADD_A_IdxL-DD_FD_JPT
-	.dc.w	ADD_A_lIdx_dl-DD_FD_JPT
-	.dc.w	none_DD_FD-DD_FD_JPT
-	.dc.w	none_DD_FD-DD_FD_JPT		* $88
-	.dc.w	none_DD_FD-DD_FD_JPT
-	.dc.w	none_DD_FD-DD_FD_JPT
-	.dc.w	none_DD_FD-DD_FD_JPT
-	.dc.w	ADC_A_IdxH-DD_FD_JPT
-	.dc.w	ADC_A_IdxL-DD_FD_JPT
-	.dc.w	ADC_A_lIdx_dl-DD_FD_JPT
-	.dc.w	none_DD_FD-DD_FD_JPT		* $8f
+	.dc.l	none_DDFD		* $90
+	.dc.l	none_DDFD
+	.dc.l	none_DDFD
+	.dc.l	none_DDFD
+	.dc.l	SUB_IdxH
+	.dc.l	SUB_IdxL
+	.dc.l	SUB_lIdx_dl
+	.dc.l	none_DDFD
+	.dc.l	none_DDFD		* $98
+	.dc.l	none_DDFD
+	.dc.l	none_DDFD
+	.dc.l	none_DDFD
+	.dc.l	SBC_A_IdxH
+	.dc.l	SBC_A_IdxL
+	.dc.l	SBC_A_lIdx_dl
+	.dc.l	none_DDFD		* $9f
 
-	.dc.w	none_DD_FD-DD_FD_JPT		* $90
-	.dc.w	none_DD_FD-DD_FD_JPT
-	.dc.w	none_DD_FD-DD_FD_JPT
-	.dc.w	none_DD_FD-DD_FD_JPT
-	.dc.w	SUB_IdxH-DD_FD_JPT
-	.dc.w	SUB_IdxL-DD_FD_JPT
-	.dc.w	SUB_lIdx_dl-DD_FD_JPT
-	.dc.w	none_DD_FD-DD_FD_JPT
-	.dc.w	none_DD_FD-DD_FD_JPT		* $98
-	.dc.w	none_DD_FD-DD_FD_JPT
-	.dc.w	none_DD_FD-DD_FD_JPT
-	.dc.w	none_DD_FD-DD_FD_JPT
-	.dc.w	SBC_A_IdxH-DD_FD_JPT
-	.dc.w	SBC_A_IdxL-DD_FD_JPT
-	.dc.w	SBC_A_lIdx_dl-DD_FD_JPT
-	.dc.w	none_DD_FD-DD_FD_JPT		* $9f
+	.dc.l	none_DDFD		* $a0
+	.dc.l	none_DDFD
+	.dc.l	none_DDFD
+	.dc.l	none_DDFD
+	.dc.l	AND_IdxH
+	.dc.l	AND_IdxL
+	.dc.l	AND_lIdx_dl
+	.dc.l	none_DDFD
+	.dc.l	none_DDFD		* $a8
+	.dc.l	none_DDFD
+	.dc.l	none_DDFD
+	.dc.l	none_DDFD
+	.dc.l	XOR_IdxH
+	.dc.l	XOR_IdxL
+	.dc.l	XOR_lIdx_dl
+	.dc.l	none_DDFD		* $af
 
-	.dc.w	none_DD_FD-DD_FD_JPT		* $a0
-	.dc.w	none_DD_FD-DD_FD_JPT
-	.dc.w	none_DD_FD-DD_FD_JPT
-	.dc.w	none_DD_FD-DD_FD_JPT
-	.dc.w	AND_IdxH-DD_FD_JPT
-	.dc.w	AND_IdxL-DD_FD_JPT
-	.dc.w	AND_lIdx_dl-DD_FD_JPT
-	.dc.w	none_DD_FD-DD_FD_JPT
-	.dc.w	none_DD_FD-DD_FD_JPT		* $a8
-	.dc.w	none_DD_FD-DD_FD_JPT
-	.dc.w	none_DD_FD-DD_FD_JPT
-	.dc.w	none_DD_FD-DD_FD_JPT
-	.dc.w	XOR_IdxH-DD_FD_JPT
-	.dc.w	XOR_IdxL-DD_FD_JPT
-	.dc.w	XOR_lIdx_dl-DD_FD_JPT
-	.dc.w	none_DD_FD-DD_FD_JPT		* $af
+	.dc.l	none_DDFD		* $b0
+	.dc.l	none_DDFD
+	.dc.l	none_DDFD
+	.dc.l	none_DDFD
+	.dc.l	OR_IdxH
+	.dc.l	OR_IdxL
+	.dc.l	OR_lIdx_dl
+	.dc.l	none_DDFD
+	.dc.l	none_DDFD		* $b8
+	.dc.l	none_DDFD
+	.dc.l	none_DDFD
+	.dc.l	none_DDFD
+	.dc.l	CP_IdxH
+	.dc.l	CP_IdxL
+	.dc.l	CP_lIdx_dl
+	.dc.l	none_DDFD		* $bf
 
-	.dc.w	none_DD_FD-DD_FD_JPT		* $b0
-	.dc.w	none_DD_FD-DD_FD_JPT
-	.dc.w	none_DD_FD-DD_FD_JPT
-	.dc.w	none_DD_FD-DD_FD_JPT
-	.dc.w	OR_IdxH-DD_FD_JPT
-	.dc.w	OR_IdxL-DD_FD_JPT
-	.dc.w	OR_lIdx_dl-DD_FD_JPT
-	.dc.w	none_DD_FD-DD_FD_JPT
-	.dc.w	none_DD_FD-DD_FD_JPT		* $b8
-	.dc.w	none_DD_FD-DD_FD_JPT
-	.dc.w	none_DD_FD-DD_FD_JPT
-	.dc.w	none_DD_FD-DD_FD_JPT
-	.dc.w	CP_IdxH-DD_FD_JPT
-	.dc.w	CP_IdxL-DD_FD_JPT
-	.dc.w	CP_lIdx_dl-DD_FD_JPT
-	.dc.w	none_DD_FD-DD_FD_JPT		* $bf
+	.dc.l	none_DDFD		* $c0
+	.dc.l	none_DDFD
+	.dc.l	none_DDFD
+	.dc.l	none_DDFD
+	.dc.l	none_DDFD
+	.dc.l	none_DDFD
+	.dc.l	none_DDFD
+	.dc.l	none_DDFD
+	.dc.l	none_DDFD		* $c8
+	.dc.l	none_DDFD
+	.dc.l	none_DDFD
+	.dc.l	DDFD_CB
+	.dc.l	none_DDFD
+	.dc.l	none_DDFD
+	.dc.l	none_DDFD
+	.dc.l	none_DDFD		* $cf
 
-	.dc.w	none_DD_FD-DD_FD_JPT		* $c0
-	.dc.w	none_DD_FD-DD_FD_JPT
-	.dc.w	none_DD_FD-DD_FD_JPT
-	.dc.w	none_DD_FD-DD_FD_JPT
-	.dc.w	none_DD_FD-DD_FD_JPT
-	.dc.w	none_DD_FD-DD_FD_JPT
-	.dc.w	none_DD_FD-DD_FD_JPT
-	.dc.w	none_DD_FD-DD_FD_JPT
-	.dc.w	none_DD_FD-DD_FD_JPT		* $c8
-	.dc.w	none_DD_FD-DD_FD_JPT
-	.dc.w	none_DD_FD-DD_FD_JPT
-	.dc.w	DD_FD_CB-DD_FD_JPT
-	.dc.w	none_DD_FD-DD_FD_JPT
-	.dc.w	none_DD_FD-DD_FD_JPT
-	.dc.w	none_DD_FD-DD_FD_JPT
-	.dc.w	none_DD_FD-DD_FD_JPT		* $cf
+	.dc.l	none_DDFD		* $d0
+	.dc.l	none_DDFD
+	.dc.l	none_DDFD
+	.dc.l	none_DDFD
+	.dc.l	none_DDFD
+	.dc.l	none_DDFD
+	.dc.l	none_DDFD
+	.dc.l	none_DDFD
+	.dc.l	none_DDFD		* $d8
+	.dc.l	none_DDFD
+	.dc.l	none_DDFD
+	.dc.l	none_DDFD
+	.dc.l	none_DDFD
+	.dc.l	none_DDFD
+	.dc.l	none_DDFD
+	.dc.l	none_DDFD		* $df
 
-	.dc.w	none_DD_FD-DD_FD_JPT		* $d0
-	.dc.w	none_DD_FD-DD_FD_JPT
-	.dc.w	none_DD_FD-DD_FD_JPT
-	.dc.w	none_DD_FD-DD_FD_JPT
-	.dc.w	none_DD_FD-DD_FD_JPT
-	.dc.w	none_DD_FD-DD_FD_JPT
-	.dc.w	none_DD_FD-DD_FD_JPT
-	.dc.w	none_DD_FD-DD_FD_JPT
-	.dc.w	none_DD_FD-DD_FD_JPT		* $d8
-	.dc.w	none_DD_FD-DD_FD_JPT
-	.dc.w	none_DD_FD-DD_FD_JPT
-	.dc.w	none_DD_FD-DD_FD_JPT
-	.dc.w	none_DD_FD-DD_FD_JPT
-	.dc.w	none_DD_FD-DD_FD_JPT
-	.dc.w	none_DD_FD-DD_FD_JPT
-	.dc.w	none_DD_FD-DD_FD_JPT		* $df
+	.dc.l	none_DDFD		* $e0
+	.dc.l	POP_Idx
+	.dc.l	none_DDFD
+	.dc.l	EX_lSPl_Idx
+	.dc.l	none_DDFD
+	.dc.l	PUSH_Idx
+	.dc.l	none_DDFD
+	.dc.l	none_DDFD
+	.dc.l	none_DDFD		* $e8
+	.dc.l	JP_lIdxl
+	.dc.l	none_DDFD
+	.dc.l	none_DDFD
+	.dc.l	none_DDFD
+	.dc.l	none_DDFD
+	.dc.l	none_DDFD
+	.dc.l	none_DDFD		* $ef
 
-	.dc.w	none_DD_FD-DD_FD_JPT		* $e0
-	.dc.w	POP_Idx-DD_FD_JPT
-	.dc.w	none_DD_FD-DD_FD_JPT
-	.dc.w	EX_lSPl_Idx-DD_FD_JPT
-	.dc.w	none_DD_FD-DD_FD_JPT
-	.dc.w	PUSH_Idx-DD_FD_JPT
-	.dc.w	none_DD_FD-DD_FD_JPT
-	.dc.w	none_DD_FD-DD_FD_JPT
-	.dc.w	none_DD_FD-DD_FD_JPT		* $e8
-	.dc.w	JP_lIdxl-DD_FD_JPT
-	.dc.w	none_DD_FD-DD_FD_JPT
-	.dc.w	none_DD_FD-DD_FD_JPT
-	.dc.w	none_DD_FD-DD_FD_JPT
-	.dc.w	none_DD_FD-DD_FD_JPT
-	.dc.w	none_DD_FD-DD_FD_JPT
-	.dc.w	none_DD_FD-DD_FD_JPT		* $ef
+	.dc.l	none_DDFD		* $f0
+	.dc.l	none_DDFD
+	.dc.l	none_DDFD
+	.dc.l	none_DDFD
+	.dc.l	none_DDFD
+	.dc.l	none_DDFD
+	.dc.l	none_DDFD
+	.dc.l	none_DDFD
+	.dc.l	none_DDFD		* $f8
+	.dc.l	LD_SP_Idx
+	.dc.l	none_DDFD
+	.dc.l	none_DDFD
+	.dc.l	none_DDFD
+	.dc.l	none_DDFD
+	.dc.l	none_DDFD
+	.dc.l	none_DDFD		* $ff
 
-	.dc.w	none_DD_FD-DD_FD_JPT		* $f0
-	.dc.w	none_DD_FD-DD_FD_JPT
-	.dc.w	none_DD_FD-DD_FD_JPT
-	.dc.w	none_DD_FD-DD_FD_JPT
-	.dc.w	none_DD_FD-DD_FD_JPT
-	.dc.w	none_DD_FD-DD_FD_JPT
-	.dc.w	none_DD_FD-DD_FD_JPT
-	.dc.w	none_DD_FD-DD_FD_JPT
-	.dc.w	none_DD_FD-DD_FD_JPT		* $f8
-	.dc.w	LD_SP_Idx-DD_FD_JPT
-	.dc.w	none_DD_FD-DD_FD_JPT
-	.dc.w	none_DD_FD-DD_FD_JPT
-	.dc.w	none_DD_FD-DD_FD_JPT
-	.dc.w	none_DD_FD-DD_FD_JPT
-	.dc.w	none_DD_FD-DD_FD_JPT
-	.dc.w	none_DD_FD-DD_FD_JPT		* $ff
-
-none_DD_FD:				* その他の DD/FD系の命令は、DD/FDを除いた命令を実行する(例: 0xdd 0x00 なら 0x00 のNOPになる)
-	subq.w	#1,d7			* DD/FDなしの命令を呼び出すが、すでにPCを+2しているので、-1する
+	.dc.w	4			* サイクル数は+4されるので4をセットしておく
+	.dc.w	2-1			* 命令語長-1
+none_DDFD:				* その他の DD/FD系の命令は、DD/FDを除いた命令を実行する(例: 0xdd 0x00 なら 0x00 のNOPになる)
+	subq.w	#1,d7			* DD/FDなしの命令を呼び出すが、すでにPCを+2しているので、-1し、再解釈する
 	btst.l	#PAGEADDRBIT,d7	* PC がページ境界をまたいだか？
 	beq	@f			* PC -1 でページ境界をまたいだか？
 	PC_page_dec			* またいだ時
 	andi.w	#PAGEADDRMASK,d7	* 命令がページ境界をまたぐ時
-@@:	lea.l	instructions,a0
-	movea.l	(a0,d0.w*4),a0
-	jmp	(a0)
+@@:	bsr 	cpu_exec_core
+	rts
 
+	.dc.w	8			* サイクル数
+	.dc.w	2-1			* 命令語長-1
 LD_A_A_2:
 	rts
+
+	.dc.w	8			* サイクル数
+	.dc.w	2-1			* 命令語長-1
 LD_A_B_2:
 	move.b	b(a3),d4
 	rts
+
+	.dc.w	8			* サイクル数
+	.dc.w	2-1			* 命令語長-1
 LD_A_C_2:
 	move.b	c(a3),d4
 	rts
+
+	.dc.w	8			* サイクル数
+	.dc.w	2-1			* 命令語長-1
 LD_A_D_2:
 	move.b	d(a3),d4
 	rts
+
+	.dc.w	8			* サイクル数
+	.dc.w	2-1			* 命令語長-1
 LD_A_E_2:
 	move.b	e(a3),d4
 	rts
+
+	.dc.w	8			* サイクル数
+	.dc.w	2-1			* 命令語長-1
 LD_A_IdxH:
-	move.b	ix_h(a3,d1.w),d4
-	rts
-LD_A_IdxL:
-	move.b	ix_l(a3,d1.w),d4
-	rts
-LD_A_n_2:
-	move.b	0(a4,d7.w),d4
-	addq.w	#1,d7			* PC += 1
-	andi.w	#PAGEADDRMASK,d7	* PC がページ境界をまたいだか？
-	bne	rts_common
-	PC_page_inc
+	move.b	ix_h(a3,d2.w),d4
 	rts
 
+	.dc.w	8			* サイクル数
+	.dc.w	2-1			* 命令語長-1
+LD_A_IdxL:
+	move.b	ix_l(a3,d2.w),d4
+	rts
+
+	.dc.w	11			* サイクル数
+	.dc.w	3-1			* 命令語長-1
+LD_A_n_2:
+	* 先読みした値からnを取り出す
+	rol.l	#8,d1			* 最下位バイトに移動
+	move.b	d1,d4
+	rts
+
+	.dc.w	8			* サイクル数
+	.dc.w	2-1			* 命令語長-1
 LD_B_A_2:
 	move.b	d4,b(a3)
 	rts
+
+	.dc.w	8			* サイクル数
+	.dc.w	2-1			* 命令語長-1
 LD_B_B_2:
 	rts
+
+	.dc.w	8			* サイクル数
+	.dc.w	2-1			* 命令語長-1
 LD_B_C_2:
 	move.b	c(a3),b(a3)
 	rts
+
+	.dc.w	8			* サイクル数
+	.dc.w	2-1			* 命令語長-1
 LD_B_D_2:
 	move.b	d(a3),b(a3)
 	rts
+
+	.dc.w	8			* サイクル数
+	.dc.w	2-1			* 命令語長-1
 LD_B_E_2:
 	move.b	e(a3),b(a3)
 	rts
+
+	.dc.w	8			* サイクル数
+	.dc.w	2-1			* 命令語長-1
 LD_B_IdxH:
-	move.b	ix_h(a3,d1.w),b(a3)
-	rts
-LD_B_IdxL:
-	move.b	ix_l(a3,d1.w),b(a3)
-	rts
-LD_B_n_2:
-	move.b	0(a4,d7.w),b(a3)
-	addq.w	#1,d7			* PC += 1
-	andi.w	#PAGEADDRMASK,d7	* PC がページ境界をまたいだか？
-	bne	rts_common
-	PC_page_inc
+	move.b	ix_h(a3,d2.w),b(a3)
 	rts
 
+	.dc.w	8			* サイクル数
+	.dc.w	2-1			* 命令語長-1
+LD_B_IdxL:
+	move.b	ix_l(a3,d2.w),b(a3)
+	rts
+
+	.dc.w	11			* サイクル数
+	.dc.w	3-1			* 命令語長-1
+LD_B_n_2:
+	* 先読みした値からnを取り出す
+	rol.l	#8,d1			* 最下位バイトに移動
+	move.b	d1,b(a3)
+	rts
+
+
+	.dc.w	8			* サイクル数
+	.dc.w	2-1			* 命令語長-1
 LD_C_A_2:
 	move.b	d4,c(a3)
 	rts
+
+	.dc.w	8			* サイクル数
+	.dc.w	2-1			* 命令語長-1
 LD_C_B_2:
 	move.b	b(a3),c(a3)
 	rts
+
+	.dc.w	8			* サイクル数
+	.dc.w	2-1			* 命令語長-1
 LD_C_C_2:
 	rts
+
+	.dc.w	8			* サイクル数
+	.dc.w	2-1			* 命令語長-1
 LD_C_D_2:
 	move.b	d(a3),c(a3)
 	rts
+
+	.dc.w	8			* サイクル数
+	.dc.w	2-1			* 命令語長-1
 LD_C_E_2:
 	move.b	e(a3),c(a3)
 	rts
+
+	.dc.w	8			* サイクル数
+	.dc.w	2-1			* 命令語長-1
 LD_C_IdxH:
-	move.b	ix_h(a3,d1.w),c(a3)
-	rts
-LD_C_IdxL:
-	move.b	ix_l(a3,d1.w),c(a3)
-	rts
-LD_C_n_2:
-	move.b	0(a4,d7.w),c(a3)
-	addq.w	#1,d7			* PC += 1
-	andi.w	#PAGEADDRMASK,d7	* PC がページ境界をまたいだか？
-	bne	rts_common
-	PC_page_inc
+	move.b	ix_h(a3,d2.w),c(a3)
 	rts
 
+	.dc.w	8			* サイクル数
+	.dc.w	2-1			* 命令語長-1
+LD_C_IdxL:
+	move.b	ix_l(a3,d2.w),c(a3)
+	rts
+
+	.dc.w	11			* サイクル数
+	.dc.w	3-1			* 命令語長-1
+LD_C_n_2:
+	* 先読みした値からnを取り出す
+	rol.l	#8,d1			* 最下位バイトに移動
+	move.b	d1,c(a3)
+	rts
+
+
+	.dc.w	8			* サイクル数
+	.dc.w	2-1			* 命令語長-1
 LD_D_A_2:
 	move.b	d4,d(a3)
 	rts
+
+	.dc.w	8			* サイクル数
+	.dc.w	2-1			* 命令語長-1
 LD_D_B_2:
 	move.b	b(a3),d(a3)
 	rts
+
+	.dc.w	8			* サイクル数
+	.dc.w	2-1			* 命令語長-1
 LD_D_C_2:
 	move.b	c(a3),d(a3)
 	rts
+
+	.dc.w	8			* サイクル数
+	.dc.w	2-1			* 命令語長-1
 LD_D_D_2:
 	rts
+
+	.dc.w	8			* サイクル数
+	.dc.w	2-1			* 命令語長-1
 LD_D_E_2:
 	move.b	e(a3),d(a3)
 	rts
+
+	.dc.w	8			* サイクル数
+	.dc.w	2-1			* 命令語長-1
 LD_D_IdxH:
-	move.b	ix_h(a3,d1.w),d(a3)
-	rts
-LD_D_IdxL:
-	move.b	ix_l(a3,d1.w),d(a3)
-	rts
-LD_D_n_2:
-	move.b	0(a4,d7.w),d(a3)
-	addq.w	#1,d7			* PC += 1
-	andi.w	#PAGEADDRMASK,d7	* PC がページ境界をまたいだか？
-	bne	rts_common
-	PC_page_inc
+	move.b	ix_h(a3,d2.w),d(a3)
 	rts
 
+	.dc.w	8			* サイクル数
+	.dc.w	2-1			* 命令語長-1
+LD_D_IdxL:
+	move.b	ix_l(a3,d2.w),d(a3)
+	rts
+
+	.dc.w	11			* サイクル数
+	.dc.w	3-1			* 命令語長-1
+LD_D_n_2:
+	* 先読みした値からnを取り出す
+	rol.l	#8,d1			* 最下位バイトに移動
+	move.b	d1,d(a3)
+	rts
+
+	.dc.w	8			* サイクル数
+	.dc.w	2-1			* 命令語長-1
 LD_E_A_2:
 	move.b	d4,e(a3)
 	rts
+
+	.dc.w	8			* サイクル数
+	.dc.w	2-1			* 命令語長-1
 LD_E_B_2:
 	move.b	b(a3),e(a3)
 	rts
+
+	.dc.w	8			* サイクル数
+	.dc.w	2-1			* 命令語長-1
 LD_E_C_2:
 	move.b	c(a3),e(a3)
 	rts
+
+	.dc.w	8			* サイクル数
+	.dc.w	2-1			* 命令語長-1
 LD_E_D_2:
 	move.b	d(a3),e(a3)
 	rts
+
+	.dc.w	8			* サイクル数
+	.dc.w	2-1			* 命令語長-1
 LD_E_E_2:
 	rts
+
+	.dc.w	8			* サイクル数
+	.dc.w	2-1			* 命令語長-1
 LD_E_IdxH:
-	move.b	ix_h(a3,d1.w),e(a3)
-	rts
-LD_E_IdxL:
-	move.b	ix_l(a3,d1.w),e(a3)
-	rts
-LD_E_n_2:
-	move.b	0(a4,d7.w),e(a3)
-	addq.w	#1,d7			* PC += 1
-	andi.w	#PAGEADDRMASK,d7	* 命令がページ境界をまたぐ時
-	bne	rts_common
-	PC_page_inc
+	move.b	ix_h(a3,d2.w),e(a3)
 	rts
 
+	.dc.w	8			* サイクル数
+	.dc.w	2-1			* 命令語長-1
+LD_E_IdxL:
+	move.b	ix_l(a3,d2.w),e(a3)
+	rts
+
+	.dc.w	11			* サイクル数
+	.dc.w	3-1			* 命令語長-1
+LD_E_n_2:
+	* 先読みした値からnを取り出す
+	rol.l	#8,d1			* 最下位バイトに移動
+	move.b	d1,e(a3)
+	rts
+
+	.dc.w	8			* サイクル数
+	.dc.w	2-1			* 命令語長-1
 LD_IdxH_A:
-	move.b	d4,ix_h(a3,d1.w)
+	move.b	d4,ix_h(a3,d2.w)
 	rts
+
+	.dc.w	8			* サイクル数
+	.dc.w	2-1			* 命令語長-1
 LD_IdxL_A:
-	move.b	d4,ix_l(a3,d1.w)
+	move.b	d4,ix_l(a3,d2.w)
 	rts
+
+	.dc.w	8			* サイクル数
+	.dc.w	2-1			* 命令語長-1
 LD_IdxH_B:
-	move.b	b(a3),ix_h(a3,d1.w)
+	move.b	b(a3),ix_h(a3,d2.w)
 	rts
+
+	.dc.w	8			* サイクル数
+	.dc.w	2-1			* 命令語長-1
 LD_IdxL_B:
-	move.b	b(a3),ix_l(a3,d1.w)
+	move.b	b(a3),ix_l(a3,d2.w)
 	rts
+
+	.dc.w	8			* サイクル数
+	.dc.w	2-1			* 命令語長-1
 LD_IdxH_C:
-	move.b	c(a3),ix_h(a3,d1.w)
+	move.b	c(a3),ix_h(a3,d2.w)
 	rts
+
+	.dc.w	8			* サイクル数
+	.dc.w	2-1			* 命令語長-1
 LD_IdxL_C:
-	move.b	c(a3),ix_l(a3,d1.w)
+	move.b	c(a3),ix_l(a3,d2.w)
 	rts
+
+	.dc.w	8			* サイクル数
+	.dc.w	2-1			* 命令語長-1
 LD_IdxH_D:
-	move.b	d(a3),ix_h(a3,d1.w)
+	move.b	d(a3),ix_h(a3,d2.w)
 	rts
+
+	.dc.w	8			* サイクル数
+	.dc.w	2-1			* 命令語長-1
 LD_IdxL_D:
-	move.b	d(a3),ix_l(a3,d1.w)
+	move.b	d(a3),ix_l(a3,d2.w)
 	rts
+
+	.dc.w	8			* サイクル数
+	.dc.w	2-1			* 命令語長-1
 LD_IdxH_E:
-	move.b	e(a3),ix_h(a3,d1.w)
+	move.b	e(a3),ix_h(a3,d2.w)
 	rts
+
+	.dc.w	8			* サイクル数
+	.dc.w	2-1			* 命令語長-1
 LD_IdxL_E:
-	move.b	e(a3),ix_l(a3,d1.w)
+	move.b	e(a3),ix_l(a3,d2.w)
 	rts
+
+	.dc.w	8			* サイクル数
+	.dc.w	2-1			* 命令語長-1
 LD_IdxH_IdxH:
 	rts
+
+	.dc.w	8			* サイクル数
+	.dc.w	2-1			* 命令語長-1
 LD_IdxL_IdxH:
-	move.b	ix_h(a3,d1.w),ix_l(a3,d1.w)
-	rts
-LD_IdxH_IdxL:
-	move.b	ix_l(a3,d1.w),ix_h(a3,d1.w)
-	rts
-LD_IdxL_IdxL:
-	rts
-LD_IdxH_n:
-	move.b	0(a4,d7.w),ix_h(a3,d1.w)
-	addq.w	#1,d7			* PC += 1
-	andi.w	#PAGEADDRMASK,d7	* PC がページ境界をまたいだか？
-	bne	rts_common
-	PC_page_inc
-	rts
-LD_IdxL_n:
-	move.b	0(a4,d7.w),ix_l(a3,d1.w)
-	addq.w	#1,d7			* PC += 1
-	andi.w	#PAGEADDRMASK,d7	* PC がページ境界をまたいだか？
-	bne	rts_common
-	PC_page_inc
+	move.b	ix_h(a3,d2.w),ix_l(a3,d2.w)
 	rts
 
-DECPC	macro
+	.dc.w	8			* サイクル数
+	.dc.w	2-1			* 命令語長-1
+LD_IdxH_IdxL:
+	move.b	ix_l(a3,d2.w),ix_h(a3,d2.w)
+	rts
+
+	.dc.w	8			* サイクル数
+	.dc.w	2-1			* 命令語長-1
+LD_IdxL_IdxL:
+	rts
+
+	.dc.w	11			* サイクル数
+	.dc.w	3-1			* 命令語長-1
+LD_IdxH_n:
+	* 先読みした値からnを取り出す
+	rol.l	#8,d1			* 最下位バイトに移動
+	move.b	d1,ix_h(a3,d2.w)
+	rts
+
+	.dc.w	11			* サイクル数
+	.dc.w	3-1			* 命令語長-1
+LD_IdxL_n:
+	* 先読みした値からnを取り出す
+	rol.l	#8,d1			* 最下位バイトに移動
+	move.b	d1,ix_l(a3,d2.w)
+	rts
+
+;---------------------------------------------------------------------------------------
+DECPC__	macro
 	subq.w	#1,d7
 	btst.l	#PAGEADDRBIT,d7	* PC がページ境界をまたいだか？
 	beq	@f			* PC -1 でページ境界をまたいだか？
@@ -5793,133 +6074,167 @@ DECPC	macro
 	andi.w	#PAGEADDRMASK,d7	* 命令がページ境界をまたぐ時
 @@:
 	endm
+;---------------------------------------------------------------------------------------
 
+	.dc.w	8			* サイクル数
+	.dc.w	2-1			* 命令語長-1
 ADD_A_IdxH:
-	DECPC
-	move.b	ix_h(a3,d1.w),target_8(a3)
+	move.b	ix_h(a3,d2.w),target_8(a3)
 	ADD_A_X
 	rts
+
+	.dc.w	8			* サイクル数
+	.dc.w	2-1			* 命令語長-1
 ADD_A_IdxL:
-	DECPC
-	move.b	ix_l(a3,d1.w),target_8(a3)
+	move.b	ix_l(a3,d2.w),target_8(a3)
 	ADD_A_X
 	rts
 
+	.dc.w	8			* サイクル数
+	.dc.w	2-1			* 命令語長-1
 ADC_A_IdxH:
-	DECPC
-	move.b	ix_h(a3,d1.w),target_8(a3)
+	move.b	ix_h(a3,d2.w),target_8(a3)
 	ADC_A_X
 	rts
+
+	.dc.w	8			* サイクル数
+	.dc.w	2-1			* 命令語長-1
 ADC_A_IdxL:
-	DECPC
-	move.b	ix_l(a3,d1.w),target_8(a3)
+	move.b	ix_l(a3,d2.w),target_8(a3)
 	ADC_A_X
 	rts
 
+	.dc.w	8			* サイクル数
+	.dc.w	2-1			* 命令語長-1
 SUB_IdxH:
-	DECPC
-	move.b	ix_h(a3,d1.w),target_8(a3)
+	move.b	ix_h(a3,d2.w),target_8(a3)
 	SUB_A_X
 	rts
+
+	.dc.w	8			* サイクル数
+	.dc.w	2-1			* 命令語長-1
 SUB_IdxL:
-	DECPC
-	move.b	ix_l(a3,d1.w),target_8(a3)
+	move.b	ix_l(a3,d2.w),target_8(a3)
 	SUB_A_X
 	rts
 
+	.dc.w	8			* サイクル数
+	.dc.w	2-1			* 命令語長-1
 SBC_A_IdxH:
-	DECPC
-	move.b	ix_h(a3,d1.w),target_8(a3)
+	move.b	ix_h(a3,d2.w),target_8(a3)
 	SBC_A_X
 	rts
+
+	.dc.w	8			* サイクル数
+	.dc.w	2-1			* 命令語長-1
 SBC_A_IdxL:
-	DECPC
-	move.b	ix_l(a3,d1.w),target_8(a3)
+	move.b	ix_l(a3,d2.w),target_8(a3)
 	SBC_A_X
 	rts
 
+	.dc.w	8			* サイクル数
+	.dc.w	2-1			* 命令語長-1
 AND_IdxH:
-	DECPC
-	move.b	ix_h(a3,d1.w),target_8(a3)
+	move.b	ix_h(a3,d2.w),target_8(a3)
 	AND_X
 	rts
+
+	.dc.w	8			* サイクル数
+	.dc.w	2-1			* 命令語長-1
 AND_IdxL:
-	DECPC
-	move.b	ix_l(a3,d1.w),target_8(a3)
+	move.b	ix_l(a3,d2.w),target_8(a3)
 	AND_X
 	rts
 
+	.dc.w	8			* サイクル数
+	.dc.w	2-1			* 命令語長-1
 XOR_IdxH:
-	DECPC
-	move.b	ix_h(a3,d1.w),target_8(a3)
+	move.b	ix_h(a3,d2.w),target_8(a3)
 	_OR_X	eor
 	rts
+
+	.dc.w	8			* サイクル数
+	.dc.w	2-1			* 命令語長-1
 XOR_IdxL:
-	DECPC
-	move.b	ix_l(a3,d1.w),target_8(a3)
+	move.b	ix_l(a3,d2.w),target_8(a3)
 	_OR_X	eor
 	rts
 
+	.dc.w	8			* サイクル数
+	.dc.w	2-1			* 命令語長-1
 OR_IdxH:
-	DECPC
-	move.b	ix_h(a3,d1.w),target_8(a3)
+	move.b	ix_h(a3,d2.w),target_8(a3)
 	_OR_X	or
 	rts
+
+	.dc.w	8			* サイクル数
+	.dc.w	2-1			* 命令語長-1
 OR_IdxL:
-	DECPC
-	move.b	ix_l(a3,d1.w),target_8(a3)
+	move.b	ix_l(a3,d2.w),target_8(a3)
 	_OR_X	or
 	rts
 
+	.dc.w	8			* サイクル数
+	.dc.w	2-1			* 命令語長-1
 CP_IdxH:
-	DECPC
-	move.b	ix_h(a3,d1.w),target_8(a3)
+	move.b	ix_h(a3,d2.w),target_8(a3)
 	CP_A_X
 	rts
+
+	.dc.w	8			* サイクル数
+	.dc.w	2-1			* 命令語長-1
 CP_IdxL:
-	DECPC
-	move.b	ix_l(a3,d1.w),target_8(a3)
+	move.b	ix_l(a3,d2.w),target_8(a3)
 	CP_A_X
 	rts
 
+	.dc.w	8			* サイクル数
+	.dc.w	2-1			* 命令語長-1
 INC_IdxH:
-	DECPC
 	move.w	d1,-(sp)
-	move.b	ix_h(a3,d1.w),target_8(a3)
+	move.b	ix_h(a3,d2.w),target_8(a3)
 	INC_X
 	move.w	(sp)+,d1
-	move.b	d0,ix_h(a3,d1.w)
+	move.b	d0,ix_h(a3,d2.w)
 	rts
+
+	.dc.w	8			* サイクル数
+	.dc.w	2-1			* 命令語長-1
 INC_IdxL:
-	DECPC
 	move.w	d1,-(sp)
-	move.b	ix_l(a3,d1.w),target_8(a3)
+	move.b	ix_l(a3,d2.w),target_8(a3)
 	INC_X
 	move.w	(sp)+,d1
-	move.b	d0,ix_l(a3,d1.w)
+	move.b	d0,ix_l(a3,d2.w)
 	rts
 
+	.dc.w	8			* サイクル数
+	.dc.w	2-1			* 命令語長-1
 DEC_IdxH:
-	DECPC
-	move.w	d1,-(sp)
-	move.b	ix_h(a3,d1.w),target_8(a3)
+	move.w	d2,-(sp)
+	move.b	ix_h(a3,d2.w),target_8(a3)
 	DEC_X
-	move.w	(sp)+,d1
-	move.b	d0,ix_h(a3,d1.w)
+	move.w	(sp)+,d2
+	move.b	d0,ix_h(a3,d2.w)
 	rts
+
+	.dc.w	8			* サイクル数
+	.dc.w	2-1			* 命令語長-1
 DEC_IdxL:
-	DECPC
-	move.w	d1,-(sp)
-	move.b	ix_l(a3,d1.w),target_8(a3)
+	move.w	d2,-(sp)
+	move.b	ix_l(a3,d2.w),target_8(a3)
 	DEC_X
-	move.w	(sp)+,d1
-	move.b	d0,ix_l(a3,d1.w)
+	move.w	(sp)+,d2
+	move.b	d0,ix_l(a3,d2.w)
 	rts
 
 
+	.dc.w	19			* サイクル数
+	.dc.w	3-1			* 命令語長-1
 ADD_A_lIdx_dl:
-	move.w	ix(a3,d1.w),d0		* IX or IYを読む
-	move.b	0(a4,d7.w),d1		* オフセットd を d1に読んで加える
+	move.w	ix(a3,d2.w),d0		* IX or IYを読む
+	* 先読みした値から dを取り出す
+	rol.l	#8,d1			* 最下位バイトに移動
 	ext.w	d1
 	add.w	d1,d0
 	jsr	ms_read_mem_8
@@ -5927,10 +6242,12 @@ ADD_A_lIdx_dl:
 	ADD_A_X
 	rts
 
-
+	.dc.w	19			* サイクル数
+	.dc.w	3-1			* 命令語長-1
 ADC_A_lIdx_dl:
-	move.w	ix(a3,d1.w),d0		* IX or IYを読む
-	move.b	0(a4,d7.w),d1		* オフセットd を d1に読んで加える
+	move.w	ix(a3,d2.w),d0		* IX or IYを読む
+	* 先読みした値から dを取り出す
+	rol.l	#8,d1			* 最下位バイトに移動
 	ext.w	d1
 	add.w	d1,d0
 	jsr	ms_read_mem_8
@@ -5942,9 +6259,12 @@ ADC_A_lIdx_dl_fallback:
 	ADD_A_X
 	rts
 
+	.dc.w	19			* サイクル数
+	.dc.w	3-1			* 命令語長-1
 SUB_lIdx_dl:
-	move.w	ix(a3,d1.w),d0		* IX or IYを読む
-	move.b	0(a4,d7.w),d1		* オフセットd を d1に読んで加える
+	move.w	ix(a3,d2.w),d0		* IX or IYを読む
+	* 先読みした値から dを取り出す
+	rol.l	#8,d1			* 最下位バイトに移動
 	ext.w	d1
 	add.w	d1,d0
 	jsr	ms_read_mem_8
@@ -5953,9 +6273,12 @@ SUB_lIdx_dl:
 	rts
 
 
+	.dc.w	19			* サイクル数
+	.dc.w	3-1			* 命令語長-1
 SBC_A_lIdx_dl:
-	move.w	ix(a3,d1.w),d0		* IX or IYを読む
-	move.b	0(a4,d7.w),d1		* オフセットd を d1に読んで加える
+	move.w	ix(a3,d2.w),d0		* IX or IYを読む
+	* 先読みした値から dを取り出す
+	rol.l	#8,d1			* 最下位バイトに移動
 	ext.w	d1
 	add.w	d1,d0
 	jsr	ms_read_mem_8
@@ -5968,9 +6291,12 @@ SBC_A_lIdx_dl_fallback:
 	rts
 
 
+	.dc.w	19			* サイクル数
+	.dc.w	3-1			* 命令語長-1
 AND_lIdx_dl:
-	move.w	ix(a3,d1.w),d0		* IX or IYを読む
-	move.b	0(a4,d7.w),d1		* オフセットd を d1に読んで加える
+	move.w	ix(a3,d2.w),d0		* IX or IYを読む
+	* 先読みした値から dを取り出す
+	rol.l	#8,d1			* 最下位バイトに移動
 	ext.w	d1
 	add.w	d1,d0
 	jsr	ms_read_mem_8
@@ -5978,9 +6304,12 @@ AND_lIdx_dl:
 	AND_X
 	rts	
 
+	.dc.w	19			* サイクル数
+	.dc.w	3-1			* 命令語長-1
 XOR_lIdx_dl:
-	move.w	ix(a3,d1.w),d0		* IX or IYを読む
-	move.b	0(a4,d7.w),d1		* オフセットd を d1に読んで加える
+	move.w	ix(a3,d2.w),d0		* IX or IYを読む
+	* 先読みした値から dを取り出す
+	rol.l	#8,d1			* 最下位バイトに移動
 	ext.w	d1
 	add.w	d1,d0
 	jsr	ms_read_mem_8
@@ -5988,9 +6317,12 @@ XOR_lIdx_dl:
 	_OR_X	eor
 	rts		
 
+	.dc.w	19			* サイクル数
+	.dc.w	3-1			* 命令語長-1
 OR_lIdx_dl:
-	move.w	ix(a3,d1.w),d0		* IX or IYを読む
-	move.b	0(a4,d7.w),d1		* オフセットd を d1に読んで加える
+	move.w	ix(a3,d2.w),d0		* IX or IYを読む
+	* 先読みした値から dを取り出す
+	rol.l	#8,d1			* 最下位バイトに移動
 	ext.w	d1
 	add.w	d1,d0
 	jsr	ms_read_mem_8
@@ -5998,9 +6330,12 @@ OR_lIdx_dl:
 	_OR_X	or
 	rts
 
+	.dc.w	19			* サイクル数
+	.dc.w	3-1			* 命令語長-1
 CP_lIdx_dl:
-	move.w	ix(a3,d1.w),d0		* IX or IYを読む
-	move.b	0(a4,d7.w),d1		* オフセットd を d1に読んで加える
+	move.w	ix(a3,d2.w),d0		* IX or IYを読む
+	* 先読みした値から dを取り出す
+	rol.l	#8,d1			* 最下位バイトに移動
 	ext.w	d1
 	add.w	d1,d0
 	jsr	ms_read_mem_8
@@ -6008,9 +6343,12 @@ CP_lIdx_dl:
 	CP_A_X
 	rts
 
+	.dc.w	23			* サイクル数
+	.dc.w	3-1			* 命令語長-1
 INC_lIdx_dl:
-	move.w	ix(a3,d1.w),d0		* IX or IYを読む
-	move.b	0(a4,d7.w),d1		* オフセットd を d1に読んで加える
+	move.w	ix(a3,d2.w),d0		* IX or IYを読む
+	* 先読みした値から dを取り出す
+	rol.l	#8,d1			* 最下位バイトに移動
 	ext.w	d1
 	add.w	d1,d0
 	move.w	d0,-(sp)
@@ -6022,9 +6360,12 @@ INC_lIdx_dl:
 	jsr	ms_write_mem_8
 	rts
 
+	.dc.w	23			* サイクル数
+	.dc.w	3-1			* 命令語長-1
 DEC_lIdx_dl:
-	move.w	ix(a3,d1.w),d0		* IX or IYを読む
-	move.b	0(a4,d7.w),d1		* オフセットd を d1に読んで加える
+	move.w	ix(a3,d2.w),d0		* IX or IYを読む
+	* 先読みした値から dを取り出す
+	rol.l	#8,d1			* 最下位バイトに移動
 	ext.w	d1
 	add.w	d1,d0
 	move.w	d0,-(sp)
@@ -6036,6 +6377,8 @@ DEC_lIdx_dl:
 	jsr	ms_write_mem_8
 	rts
 
+
+;---------------------------------------------------------------------------------------
 ; ADD Idx,XX の挙動は以下の通り
 ; * S : 変化しない
 ; * Z : 変化しない
@@ -6073,10 +6416,13 @@ ADD_Idx_XX macro	ixiy
 	move.b	d0,d5			* 結果を保存
 	move.b	d0,(ixiy+0)(a3)		* 上位８ビットを保存
 	endm
+;---------------------------------------------------------------------------------------
 
+	.dc.w	15			* サイクル数
+	.dc.w	2-1			* 命令語長-1
 ADD_Idx_BC:
 	move.w	bc(a3),target_16(a3)
-	cmpi.w	#0,d1
+	cmpi.w	#0,d2
 	bne	ADD_IY_XX
 	ADD_Idx_XX	ix
 	rts
@@ -6084,26 +6430,35 @@ ADD_IY_XX:
 	ADD_Idx_XX	iy
 	rts
 
+	.dc.w	15			* サイクル数
+	.dc.w	2-1			* 命令語長-1
 ADD_Idx_DE:
 	move.w	de(a3),target_16(a3)
-	cmpi.w	#0,d1
+	cmpi.w	#0,d2
 	bne	ADD_IY_XX
 	ADD_Idx_XX	ix
 	rts
 
+	.dc.w	15			* サイクル数
+	.dc.w	2-1			* 命令語長-1
 ADD_Idx_SP:
 	move.w	sp_(a3),target_16(a3)
-	cmpi.w	#0,d1
+	cmpi.w	#0,d2
 	bne	ADD_IY_XX
 	ADD_Idx_XX	ix
 	rts
 
+	.dc.w	15			* サイクル数
+	.dc.w	2-1			* 命令語長-1
 ADD_Idx_Idx:
-	cmpi.w	#0,d1
+	cmpi.w	#0,d2
 	bne	ADD_IY_IY
 	move.w	ix(a3),target_16(a3)
 	ADD_Idx_XX	ix
 	rts
+
+	.dc.w	15			* サイクル数
+	.dc.w	2-1			* 命令語長-1
 ADD_IY_IY:
 	move.w	iy(a3),target_16(a3)
 	ADD_Idx_XX	iy
@@ -6111,338 +6466,285 @@ ADD_IY_IY:
 
 
 *	------ ＬＤ Ｉｄｘ ------
+	.dc.w	14			* サイクル数
+	.dc.w	4-1			* 命令語長-1
 LD_Idx_nn:
-	move.b	0(a4,d7.w),ix_l(a3,d1.w)	* nn の下位８ビットを読む 
-	move.b	1(a4,d7.w),ix_h(a3,d1.w)	* nn の上位８ビットを読む 
-	addq.w	#2,d7
-	btst.l	#PAGEADDRBIT,d7	* PC がページ境界をまたいだか？
-	beq	rts_common
-	andi.w	#PAGEADDRMASK,d7	* 命令がページ境界をまたぐ時
-	bne	@f
-	PC_page_inc		* d7 = 0 の時
-	rts
-@@:	PC_page_inc		* d7 = 1 の時
-	move.b	(a4),ix_h(a3,d1.w)	* nn の上位８ビットを読む
+	* 先読みした値からnnを取り出す
+	swap	d1			* 下位ワードへ移動
+	rol.w	#8,d1			* エンディアンを逆に
+	move.w	d1,ix(a3,d2.w)
 	rts
 
+	.dc.w	20			* サイクル数
+	.dc.w	4-1			* 命令語長-1
 LD_Idx_lnnl:
-	move.b	1(a4,d7.w),d0		* nn の上位８ビットを読む 
-	lsl.w	#8,d0
-	move.b	0(a4,d7.w),d0		* nn の下位８ビットを読む 
-	addq.w	#2,d7
-	btst.l	#PAGEADDRBIT,d7	* PC がページ境界をまたいだか？
-	bne	@f
+	move.w	d2,-(sp)
+	* 先読みした値からnnを取り出す
+	swap	d1			* 下位ワードへ移動
+	rol.w	#8,d1			* エンディアンを逆に
+	move.w	d1,d0
 	jsr	ms_read_mem_16
-	move.w	d0,ix(a3,d1.w)
-	rts
-@@:	andi.w	#PAGEADDRMASK,d7	* 命令がページ境界をまたぐ時
-	bne	@f
-	PC_page_inc		* d7 = 0 の時
-	jsr	ms_read_mem_16
-	move.w	d0,ix(a3,d1.w)
-	rts
-@@:
-	move.b	d0,d2			* d7 = 1 の時
-	PC_page_inc
-	move.b	(a4),d0			* nn の上位８ビットを読む
-	lsl.w	#8,d0
-	move.b	d2,d0
-	jsr	ms_read_mem_16
-	move.w	d0,ix(a3,d1.w)
+	move.w	(sp)+,d2
+	move.w	d0,ix(a3,d2.w)
 	rts
 
+	.dc.w	20			* サイクル数
+	.dc.w	4-1			* 命令語長-1
 LD_lnnl_Idx:
-	move.w	ix(a3,d1.w),d1
-	move.b	1(a4,d7.w),d0		* nn の上位８ビットを読む 
-	lsl.w	#8,d0
-	move.b	0(a4,d7.w),d0		* nn の下位８ビットを読む 
-	addq.w	#2,d7
-	btst.l	#PAGEADDRBIT,d7	* PC がページ境界をまたいだか？
-	bne	@f
-	jsr	ms_write_mem_16
-	rts
-@@:	andi.w	#PAGEADDRMASK,d7	* 命令がページ境界をまたぐ時
-	bne	@f
-	PC_page_inc		* d7 = 0 の時
-	jsr	ms_write_mem_16
-	rts
-@@:
-	move.b	d0,d2			* d7 = 1 の時
-	PC_page_inc
-	move.b	(a4),d0			* nn の上位８ビットを読む
-	lsl.w	#8,d0
-	move.b	d2,d0
+	* 先読みした値からnnを取り出す
+	swap	d1			* 下位ワードへ移動
+	rol.w	#8,d1			* エンディアンを逆に
+	move.w	d1,d0
+	move.w	ix(a3,d2.w),d1
 	jsr	ms_write_mem_16
 	rts
 
+	.dc.w	10			* サイクル数
+	.dc.w	2-1			* 命令語長-1
 LD_SP_Idx:
-	move.w	ix(a3,d1.w),sp_(a3)
+	move.w	ix(a3,d2.w),sp_(a3)
 	rts
 
 
 *	------ ＩＮＣ ------
+	.dc.w	10			* サイクル数
+	.dc.w	2-1			* 命令語長-1
 INC_Idx:				* フラグは不変
-	addq.w	#1,ix(a3,d1.w)
+	addq.w	#1,ix(a3,d2.w)
 	rts
+
+	.dc.w	10			* サイクル数
+	.dc.w	2-1			* 命令語長-1
 DEC_Idx:
-	subq.w	#1,ix(a3,d1.w)
+	subq.w	#1,ix(a3,d2.w)
 	rts
 
 *	------ ＬＤ ？,（Ｉｄｘ＋ｄ） ------
+	.dc.w	19			* サイクル数
+	.dc.w	3-1			* 命令語長-1
 LD_A_lIdx_dl:
-	move.w	ix(a3,d1.w),d0
-	move.b	0(a4,d7.w),d1		* d を加える
+	move.w	ix(a3,d2.w),d0
+	* 先読みした値から dを取り出す
+	rol.l	#8,d1			* 最下位バイトに移動
 	ext.w	d1
 	add.w	d1,d0
-	add.w	#1,d7
-	andi.w	#PAGEADDRMASK,d7	* PC がページ境界をまたいだか？
-	bne	1f
-	PC_page_inc
-1:
 	jsr	ms_read_mem_8		*メモリから 8ビットのデータを d0に読み込む。
 	move.b	d0,d4
 	rts
 
+	.dc.w	19			* サイクル数
+	.dc.w	3-1			* 命令語長-1
 LD_B_lIdx_dl:
-	move.w	ix(a3,d1.w),d0
-	move.b	0(a4,d7.w),d1		* d を加える
+	move.w	ix(a3,d2.w),d0
+	* 先読みした値から dを取り出す
+	rol.l	#8,d1			* 最下位バイトに移動
 	ext.w	d1
 	add.w	d1,d0
-	add.w	#1,d7
-	andi.w	#PAGEADDRMASK,d7	* PC がページ境界をまたいだか？
-	bne	1f
-	PC_page_inc
-1:
 	jsr	ms_read_mem_8		*メモリから 8ビットのデータを d0に読み込む。
 	move.b	d0,b(a3)
 	rts
 
+	.dc.w	19			* サイクル数
+	.dc.w	3-1			* 命令語長-1
 LD_C_lIdx_dl:
-	move.w	ix(a3,d1.w),d0
-	move.b	0(a4,d7.w),d1		* d を加える
+	move.w	ix(a3,d2.w),d0
+	* 先読みした値から dを取り出す
+	rol.l	#8,d1			* 最下位バイトに移動
 	ext.w	d1
 	add.w	d1,d0
-	add.w	#1,d7
-	andi.w	#PAGEADDRMASK,d7	* PC がページ境界をまたいだか？
-	bne	1f
-	PC_page_inc
-1:
 	jsr	ms_read_mem_8		*メモリから 8ビットのデータを d0に読み込む。
 	move.b	d0,c(a3)
 	rts
 
+	.dc.w	19			* サイクル数
+	.dc.w	3-1			* 命令語長-1
 LD_D_lIdx_dl:
-	move.w	ix(a3,d1.w),d0
-	move.b	0(a4,d7.w),d1		* d を加える
+	move.w	ix(a3,d2.w),d0
+	* 先読みした値から dを取り出す
+	rol.l	#8,d1			* 最下位バイトに移動
 	ext.w	d1
 	add.w	d1,d0
-	add.w	#1,d7
-	andi.w	#PAGEADDRMASK,d7	* PC がページ境界をまたいだか？
-	bne	1f
-	PC_page_inc
-1:
 	jsr	ms_read_mem_8		*メモリから 8ビットのデータを d0に読み込む。
 	move.b	d0,d(a3)
 	rts
 
+	.dc.w	19			* サイクル数
+	.dc.w	3-1			* 命令語長-1
 LD_E_lIdx_dl:
-	move.w	ix(a3,d1.w),d0
-	move.b	0(a4,d7.w),d1		* d を加える
+	move.w	ix(a3,d2.w),d0
+	* 先読みした値から dを取り出す
+	rol.l	#8,d1			* 最下位バイトに移動
 	ext.w	d1
 	add.w	d1,d0
-	add.w	#1,d7
-	andi.w	#PAGEADDRMASK,d7	* PC がページ境界をまたいだか？
-	bne	1f
-	PC_page_inc
-1:
 	jsr	ms_read_mem_8		*メモリから 8ビットのデータを d0に読み込む。
 	move.b	d0,e(a3)
 	rts
 
+	.dc.w	19			* サイクル数
+	.dc.w	3-1			* 命令語長-1
 LD_H_lIdx_dl:
-	move.w	ix(a3,d1.w),d0
-	move.b	0(a4,d7.w),d1		* d を加える
+	move.w	ix(a3,d2.w),d0
+	* 先読みした値から dを取り出す
+	rol.l	#8,d1			* 最下位バイトに移動
 	ext.w	d1
 	add.w	d1,d0
-	add.w	#1,d7
-	andi.w	#PAGEADDRMASK,d7	* PC がページ境界をまたいだか？
-	bne	1f
-	PC_page_inc
-1:
 	jsr	ms_read_mem_8		*メモリから 8ビットのデータを d0に読み込む。
 	move.b	d0,h(a3)
 	rts
 
+	.dc.w	19			* サイクル数
+	.dc.w	3-1			* 命令語長-1
 LD_L_lIdx_dl:
-	move.w	ix(a3,d1.w),d0
-	move.b	0(a4,d7.w),d1		* d を加える
+	move.w	ix(a3,d2.w),d0
+	* 先読みした値から dを取り出す
+	rol.l	#8,d1			* 最下位バイトに移動
 	ext.w	d1
 	add.w	d1,d0
-	add.w	#1,d7
-	andi.w	#PAGEADDRMASK,d7	* PC がページ境界をまたいだか？
-	bne	1f
-	PC_page_inc
-1:
 	jsr	ms_read_mem_8		*メモリから 8ビットのデータを d0に読み込む。
 	move.b	d0,l(a3)
 	rts
 
 
 *	------ ＬＤ （Ｉｄｘ＋ｄ）,？ ------
+	.dc.w	19			* サイクル数
+	.dc.w	3-1			* 命令語長-1
 LD_lIdx_dl_A:
-	move.w	ix(a3,d1.w),d0
-	move.b	0(a4,d7.w),d1		* d を加える
+	move.w	ix(a3,d2.w),d0
+	* 先読みした値から dを取り出す
+	rol.l	#8,d1			* 最下位バイトに移動
 	ext.w	d1
 	add.w	d1,d0
-	add.w	#1,d7
-	andi.w	#PAGEADDRMASK,d7	* PC がページ境界をまたいだか？
-	bne	1f
-	PC_page_inc
-1:
 	move.b	d4,d1
 	jsr	ms_write_mem_8
 	rts
 
+	.dc.w	19			* サイクル数
+	.dc.w	3-1			* 命令語長-1
 LD_lIdx_dl_B:
-	move.w	ix(a3,d1.w),d0
-	move.b	0(a4,d7.w),d1		* d を加える
+	move.w	ix(a3,d2.w),d0
+	* 先読みした値から dを取り出す
+	rol.l	#8,d1			* 最下位バイトに移動
 	ext.w	d1
 	add.w	d1,d0
-	add.w	#1,d7
-	andi.w	#PAGEADDRMASK,d7	* PC がページ境界をまたいだか？
-	bne	1f
-	PC_page_inc
-1:
 	move.b	b(a3),d1
 	jsr	ms_write_mem_8
 	rts
 
+	.dc.w	19			* サイクル数
+	.dc.w	3-1			* 命令語長-1
 LD_lIdx_dl_C:
-	move.w	ix(a3,d1.w),d0
-	move.b	0(a4,d7.w),d1		* d を加える
+	move.w	ix(a3,d2.w),d0
+	* 先読みした値から dを取り出す
+	rol.l	#8,d1			* 最下位バイトに移動
 	ext.w	d1
 	add.w	d1,d0
-	add.w	#1,d7
-	andi.w	#PAGEADDRMASK,d7	* PC がページ境界をまたいだか？
-	bne	1f
-	PC_page_inc
-1:
 	move.b	c(a3),d1
 	jsr	ms_write_mem_8
 	rts
 
+	.dc.w	19			* サイクル数
+	.dc.w	3-1			* 命令語長-1
 LD_lIdx_dl_D:
-	move.w	ix(a3,d1.w),d0
-	move.b	0(a4,d7.w),d1		* d を加える
+	move.w	ix(a3,d2.w),d0
+	* 先読みした値から dを取り出す
+	rol.l	#8,d1			* 最下位バイトに移動
 	ext.w	d1
 	add.w	d1,d0
-	add.w	#1,d7
-	andi.w	#PAGEADDRMASK,d7	* PC がページ境界をまたいだか？
-	bne	1f
-	PC_page_inc
-1:
 	move.b	d(a3),d1
 	jsr	ms_write_mem_8
 	rts
 
+	.dc.w	19			* サイクル数
+	.dc.w	3-1			* 命令語長-1
 LD_lIdx_dl_E:
-	move.w	ix(a3,d1.w),d0
-	move.b	0(a4,d7.w),d1		* d を加える
+	move.w	ix(a3,d2.w),d0
+	* 先読みした値から dを取り出す
+	rol.l	#8,d1			* 最下位バイトに移動
 	ext.w	d1
 	add.w	d1,d0
-	add.w	#1,d7
-	andi.w	#PAGEADDRMASK,d7	* PC がページ境界をまたいだか？
-	bne	1f
-	PC_page_inc
-1:
 	move.b	e(a3),d1
 	jsr	ms_write_mem_8
 	rts
 
+	.dc.w	19			* サイクル数
+	.dc.w	3-1			* 命令語長-1
 LD_lIdx_dl_H:
-	move.w	ix(a3,d1.w),d0
-	move.b	0(a4,d7.w),d1		* d を加える
+	move.w	ix(a3,d2.w),d0
+	* 先読みした値から dを取り出す
+	rol.l	#8,d1			* 最下位バイトに移動
 	ext.w	d1
 	add.w	d1,d0
-	add.w	#1,d7
-	andi.w	#PAGEADDRMASK,d7	* PC がページ境界をまたいだか？
-	bne	1f
-	PC_page_inc
-1:
 	move.b	h(a3),d1
 	jsr	ms_write_mem_8
 	rts
 
+	.dc.w	19			* サイクル数
+	.dc.w	3-1			* 命令語長-1
 LD_lIdx_dl_L:
-	move.w	ix(a3,d1.w),d0
-	move.b	0(a4,d7.w),d1		* d を加える
+	move.w	ix(a3,d2.w),d0
+	* 先読みした値から dを取り出す
+	rol.l	#8,d1			* 最下位バイトに移動
 	ext.w	d1
 	add.w	d1,d0
-	add.w	#1,d7
-	andi.w	#PAGEADDRMASK,d7	* PC がページ境界をまたいだか？
-	bne	1f
-	PC_page_inc
-1:
 	move.b	l(a3),d1
 	jsr	ms_write_mem_8
 	rts
 
+	.dc.w	19			* サイクル数
+	.dc.w	4-1			* 命令語長-1
 LD_lIdx_dl_n:
-	move.w	ix(a3,d1.w),d0
-	move.b	0(a4,d7.w),d1		* d を加える
+	move.w	ix(a3,d2.w),d0
+	* 先読みした値から dを取り出す
+	rol.l	#8,d1			* 最下位バイトに移動
 	ext.w	d1
 	add.w	d1,d0
-	move.b	1(a4,d7.w),d1		* n を読む
-	add.w	#2,d7
-	btst.l	#PAGEADDRBIT,d7	* PC がページ境界をまたいだか？
-	bne	1f
-	jsr	ms_write_mem_8
-	rts
-1:	andi.w	#PAGEADDRMASK,d7	* 命令がページ境界をまたぐ時
-	bne	1f
-	PC_page_inc		* d7 = 0 の時
-	jsr	ms_write_mem_8
-	rts
-1:
-	move.b	d0,d2			* d7 = 1 の時
-	PC_page_inc
-	move.b	(a4),d0			* nn の上位８ビットを読む
-	lsl.w	#8,d0
-	move.b	d2,d0
+	* 先読みした値から nを取り出す
+	rol.l	#8,d1			* 最下位バイトに移動
 	jsr	ms_write_mem_8
 	rts
 
 
 *	------ ＰＵＳＨ Ｉｄｘ
+	.dc.w	15			* サイクル数
+	.dc.w	2-1			* 命令語長-1
 PUSH_Idx:
 	subq.w	#2,sp_(a3)
 	move.w	sp_(a3),d0
-	move.w	ix(a3,d1.w),d1
+	move.w	ix(a3,d2.w),d1
 	jsr	ms_write_mem_16
 	rts
 
+	.dc.w	14			* サイクル数
+	.dc.w	2-1			* 命令語長-1
 POP_Idx:
+	move.w	d2,-(sp)
 	move.w	sp_(a3),d0
 	jsr	ms_read_mem_16
 	addq.w	#2,sp_(a3)
-	move.w	d0,ix(a3,d1.w)
+	move.w	(sp)+,d2
+	move.w	d0,ix(a3,d2.w)
 	rts
 
 
 *	------ ＪＰ (Ｉｄｘ) ------
+	.dc.w	8			* サイクル数
+	.dc.w	2-1			* 命令語長-1
 JP_lIdxl:
-	move.w	ix(a3,d1.w),d7
+	move.w	ix(a3,d2.w),d7
 	PC_page_set
 	rts
 
 
 *	------ ＥＸ ------
+	.dc.w	23			* サイクル数
+	.dc.w	2-1			* 命令語長-1
 EX_lSPl_Idx:
+	move.w	d2,-(sp)
 	move.w	sp_(a3),d0
 	jsr	ms_read_mem_16
-	move.w	ix(a3,d1.w),d2
-	move.w	d0,ix(a3,d1.w)
-	move.w	d2,d1
+	move.w	(sp)+,d2
+	move.w	ix(a3,d2.w),d1
+	move.w	d0,ix(a3,d2.w)
 	move.w	sp_(a3),d0
 	jsr	ms_write_mem_16
 	rts
@@ -6459,305 +6761,312 @@ stop:
 
 **********************************************************************
 *
-*	ＤＤ，ＦＤ ＣＢライン命令
+*	ＤＤ/ＦＤ ＣＢライン命令
 *
 **********************************************************************
-DD_FD_CB:
-	move.w	ix(a3,d1.w),d0
-	move.b	0(a4,d7.w),d1		* d を加える
+;	DD/FD CBライン命令のサイクル数は不定なので0にしておき、各命令ごとに加算する
+;	DD/FD CBラインの命令語長は4バイトなので、ここで4にしておき、各命令ごとに加算しなくて済むようにする
+	.dc.w	0			* サイクル数
+	.dc.w	4-1			* 命令語長-1
+DDFD_CB:
+	move.w	ix(a3,d2.w),d0		* IX or IYを読む
+	* 先読みした値から dを取り出す
+	rol.l	#8,d1			* 最下位バイトに移動
 	ext.w	d1
 	add.w	d1,d0			* d0 = Idx + d
-	clr.w	d2
-	move.b	1(a4,d7.w),d2		* OP CODE を読む
-	add.w	#2,d7
-	btst.l	#PAGEADDRBIT,d7	* PC がページ境界をまたいだか？
-	beq	1f
-	andi.w	#PAGEADDRMASK,d7	* 命令がページ境界をまたぐ時
-	bne	@f
-	PC_page_inc			* d7 = 0 のとき
-	bra	1f
-@@:	PC_page_inc			* d7 = 1 のとき
-	move.b	(a4),d2			* -1(a4,d7.w) = (a4)
+	* 先読みした値から OP CODEを取り出す
+	clr.w	d1
+	rol.l	#8,d1			* 最下位バイトに移動
+	movea.l	DDFD_CB_JPT(pc,d1.w*4),a0	* ジャンプ先を取得
+	move.w	-4(a0),d3		* 命令のサイクル数を取得
+	ext.l	d3
+	add.l	d3,cpu_cycle		* サイクル数を加算
+	; この時点のレジスタは以下の通り
+	; d0.l : IX or IY + d
+	; d1.l : OP CODE
+	; d2.l : DDの場合は0、FDの場合は2
+	; d7.l : 命令語長だけ進めたPCの値
+	jmp	(a0)
 
-1:	move.w	DD_FD_CB_JPT(pc,d2.w*2),d1
-	jmp	DD_FD_CB_JPT(pc,d1.w)
+DDFD_CB_JPT:
+	.dc.l	none_DDFD_CB	* $00
+	.dc.l	none_DDFD_CB
+	.dc.l	none_DDFD_CB
+	.dc.l	none_DDFD_CB
+	.dc.l	none_DDFD_CB
+	.dc.l	none_DDFD_CB
+	.dc.l	RLC_lIdx_dl	* $06
+	.dc.l	none_DDFD_CB
+	.dc.l	none_DDFD_CB	* $08
+	.dc.l	none_DDFD_CB
+	.dc.l	none_DDFD_CB
+	.dc.l	none_DDFD_CB
+	.dc.l	none_DDFD_CB
+	.dc.l	none_DDFD_CB
+	.dc.l	RRC_lIdx_dl	* $0e
+	.dc.l	none_DDFD_CB	* $0f
 
-DD_FD_CB_JPT:
-	.dc.w	none_DD_FD_CB-DD_FD_CB_JPT	* $00
-	.dc.w	none_DD_FD_CB-DD_FD_CB_JPT
-	.dc.w	none_DD_FD_CB-DD_FD_CB_JPT
-	.dc.w	none_DD_FD_CB-DD_FD_CB_JPT
-	.dc.w	none_DD_FD_CB-DD_FD_CB_JPT
-	.dc.w	none_DD_FD_CB-DD_FD_CB_JPT
-	.dc.w	RLC_lIdx_dl-DD_FD_CB_JPT	* $06
-	.dc.w	none_DD_FD_CB-DD_FD_CB_JPT
-	.dc.w	none_DD_FD_CB-DD_FD_CB_JPT	* $08
-	.dc.w	none_DD_FD_CB-DD_FD_CB_JPT
-	.dc.w	none_DD_FD_CB-DD_FD_CB_JPT
-	.dc.w	none_DD_FD_CB-DD_FD_CB_JPT
-	.dc.w	none_DD_FD_CB-DD_FD_CB_JPT
-	.dc.w	none_DD_FD_CB-DD_FD_CB_JPT
-	.dc.w	RRC_lIdx_dl-DD_FD_CB_JPT	* $0e
-	.dc.w	none_DD_FD_CB-DD_FD_CB_JPT	* $0f
+	.dc.l	none_DDFD_CB	* $10
+	.dc.l	none_DDFD_CB
+	.dc.l	none_DDFD_CB
+	.dc.l	none_DDFD_CB
+	.dc.l	none_DDFD_CB
+	.dc.l	none_DDFD_CB
+	.dc.l	RL_lIdx_dl		* $16
+	.dc.l	none_DDFD_CB
+	.dc.l	none_DDFD_CB	* $18
+	.dc.l	none_DDFD_CB
+	.dc.l	none_DDFD_CB
+	.dc.l	none_DDFD_CB
+	.dc.l	none_DDFD_CB
+	.dc.l	none_DDFD_CB
+	.dc.l	RR_lIdx_dl		* $1e
+	.dc.l	none_DDFD_CB	* $1f
 
-	.dc.w	none_DD_FD_CB-DD_FD_CB_JPT	* $10
-	.dc.w	none_DD_FD_CB-DD_FD_CB_JPT
-	.dc.w	none_DD_FD_CB-DD_FD_CB_JPT
-	.dc.w	none_DD_FD_CB-DD_FD_CB_JPT
-	.dc.w	none_DD_FD_CB-DD_FD_CB_JPT
-	.dc.w	none_DD_FD_CB-DD_FD_CB_JPT
-	.dc.w	RL_lIdx_dl-DD_FD_CB_JPT		* $16
-	.dc.w	none_DD_FD_CB-DD_FD_CB_JPT
-	.dc.w	none_DD_FD_CB-DD_FD_CB_JPT	* $18
-	.dc.w	none_DD_FD_CB-DD_FD_CB_JPT
-	.dc.w	none_DD_FD_CB-DD_FD_CB_JPT
-	.dc.w	none_DD_FD_CB-DD_FD_CB_JPT
-	.dc.w	none_DD_FD_CB-DD_FD_CB_JPT
-	.dc.w	none_DD_FD_CB-DD_FD_CB_JPT
-	.dc.w	RR_lIdx_dl-DD_FD_CB_JPT		* $1e
-	.dc.w	none_DD_FD_CB-DD_FD_CB_JPT	* $1f
+	.dc.l	none_DDFD_CB	* $20
+	.dc.l	none_DDFD_CB
+	.dc.l	none_DDFD_CB
+	.dc.l	none_DDFD_CB
+	.dc.l	none_DDFD_CB
+	.dc.l	none_DDFD_CB
+	.dc.l	SLA_lIdx_dl	* $26
+	.dc.l	none_DDFD_CB
+	.dc.l	none_DDFD_CB	* $28
+	.dc.l	none_DDFD_CB
+	.dc.l	none_DDFD_CB
+	.dc.l	none_DDFD_CB
+	.dc.l	none_DDFD_CB
+	.dc.l	none_DDFD_CB
+	.dc.l	SRA_lIdx_dl	* $2e
+	.dc.l	none_DDFD_CB	* $2f
 
-	.dc.w	none_DD_FD_CB-DD_FD_CB_JPT	* $20
-	.dc.w	none_DD_FD_CB-DD_FD_CB_JPT
-	.dc.w	none_DD_FD_CB-DD_FD_CB_JPT
-	.dc.w	none_DD_FD_CB-DD_FD_CB_JPT
-	.dc.w	none_DD_FD_CB-DD_FD_CB_JPT
-	.dc.w	none_DD_FD_CB-DD_FD_CB_JPT
-	.dc.w	SLA_lIdx_dl-DD_FD_CB_JPT	* $26
-	.dc.w	none_DD_FD_CB-DD_FD_CB_JPT
-	.dc.w	none_DD_FD_CB-DD_FD_CB_JPT	* $28
-	.dc.w	none_DD_FD_CB-DD_FD_CB_JPT
-	.dc.w	none_DD_FD_CB-DD_FD_CB_JPT
-	.dc.w	none_DD_FD_CB-DD_FD_CB_JPT
-	.dc.w	none_DD_FD_CB-DD_FD_CB_JPT
-	.dc.w	none_DD_FD_CB-DD_FD_CB_JPT
-	.dc.w	SRA_lIdx_dl-DD_FD_CB_JPT	* $2e
-	.dc.w	none_DD_FD_CB-DD_FD_CB_JPT	* $2f
+	.dc.l	none_DDFD_CB	* $30
+	.dc.l	none_DDFD_CB
+	.dc.l	none_DDFD_CB
+	.dc.l	none_DDFD_CB
+	.dc.l	none_DDFD_CB
+	.dc.l	none_DDFD_CB
+	.dc.l	SLI_lIdx_dl	* $36
+	.dc.l	none_DDFD_CB
+	.dc.l	none_DDFD_CB	* $38
+	.dc.l	none_DDFD_CB
+	.dc.l	none_DDFD_CB
+	.dc.l	none_DDFD_CB
+	.dc.l	none_DDFD_CB
+	.dc.l	none_DDFD_CB
+	.dc.l	SRL_lIdx_dl	* $3e
+	.dc.l	none_DDFD_CB	* $3f
 
-	.dc.w	none_DD_FD_CB-DD_FD_CB_JPT	* $30
-	.dc.w	none_DD_FD_CB-DD_FD_CB_JPT
-	.dc.w	none_DD_FD_CB-DD_FD_CB_JPT
-	.dc.w	none_DD_FD_CB-DD_FD_CB_JPT
-	.dc.w	none_DD_FD_CB-DD_FD_CB_JPT
-	.dc.w	none_DD_FD_CB-DD_FD_CB_JPT
-	.dc.w	SLI_lIdx_dl-DD_FD_CB_JPT	* $36
-	.dc.w	none_DD_FD_CB-DD_FD_CB_JPT
-	.dc.w	none_DD_FD_CB-DD_FD_CB_JPT	* $38
-	.dc.w	none_DD_FD_CB-DD_FD_CB_JPT
-	.dc.w	none_DD_FD_CB-DD_FD_CB_JPT
-	.dc.w	none_DD_FD_CB-DD_FD_CB_JPT
-	.dc.w	none_DD_FD_CB-DD_FD_CB_JPT
-	.dc.w	none_DD_FD_CB-DD_FD_CB_JPT
-	.dc.w	SRL_lIdx_dl-DD_FD_CB_JPT	* $3e
-	.dc.w	none_DD_FD_CB-DD_FD_CB_JPT	* $3f
+	.dc.l	none_DDFD_CB	* $40
+	.dc.l	none_DDFD_CB
+	.dc.l	none_DDFD_CB
+	.dc.l	none_DDFD_CB
+	.dc.l	none_DDFD_CB
+	.dc.l	none_DDFD_CB
+	.dc.l	BIT_lIdx_dl	* $46
+	.dc.l	none_DDFD_CB
+	.dc.l	none_DDFD_CB	* $48
+	.dc.l	none_DDFD_CB
+	.dc.l	none_DDFD_CB
+	.dc.l	none_DDFD_CB
+	.dc.l	none_DDFD_CB
+	.dc.l	none_DDFD_CB
+	.dc.l	BIT_lIdx_dl	* $4e
+	.dc.l	none_DDFD_CB	* $4f
 
-	.dc.w	none_DD_FD_CB-DD_FD_CB_JPT	* $40
-	.dc.w	none_DD_FD_CB-DD_FD_CB_JPT
-	.dc.w	none_DD_FD_CB-DD_FD_CB_JPT
-	.dc.w	none_DD_FD_CB-DD_FD_CB_JPT
-	.dc.w	none_DD_FD_CB-DD_FD_CB_JPT
-	.dc.w	none_DD_FD_CB-DD_FD_CB_JPT
-	.dc.w	BIT_lIdx_dl-DD_FD_CB_JPT	* $46
-	.dc.w	none_DD_FD_CB-DD_FD_CB_JPT
-	.dc.w	none_DD_FD_CB-DD_FD_CB_JPT	* $48
-	.dc.w	none_DD_FD_CB-DD_FD_CB_JPT
-	.dc.w	none_DD_FD_CB-DD_FD_CB_JPT
-	.dc.w	none_DD_FD_CB-DD_FD_CB_JPT
-	.dc.w	none_DD_FD_CB-DD_FD_CB_JPT
-	.dc.w	none_DD_FD_CB-DD_FD_CB_JPT
-	.dc.w	BIT_lIdx_dl-DD_FD_CB_JPT	* $4e
-	.dc.w	none_DD_FD_CB-DD_FD_CB_JPT	* $4f
+	.dc.l	none_DDFD_CB	* $50
+	.dc.l	none_DDFD_CB
+	.dc.l	none_DDFD_CB
+	.dc.l	none_DDFD_CB
+	.dc.l	none_DDFD_CB
+	.dc.l	none_DDFD_CB
+	.dc.l	BIT_lIdx_dl	* $56
+	.dc.l	none_DDFD_CB
+	.dc.l	none_DDFD_CB	* $58
+	.dc.l	none_DDFD_CB
+	.dc.l	none_DDFD_CB
+	.dc.l	none_DDFD_CB
+	.dc.l	none_DDFD_CB
+	.dc.l	none_DDFD_CB
+	.dc.l	BIT_lIdx_dl	* $5e
+	.dc.l	none_DDFD_CB	* $5f
 
-	.dc.w	none_DD_FD_CB-DD_FD_CB_JPT	* $50
-	.dc.w	none_DD_FD_CB-DD_FD_CB_JPT
-	.dc.w	none_DD_FD_CB-DD_FD_CB_JPT
-	.dc.w	none_DD_FD_CB-DD_FD_CB_JPT
-	.dc.w	none_DD_FD_CB-DD_FD_CB_JPT
-	.dc.w	none_DD_FD_CB-DD_FD_CB_JPT
-	.dc.w	BIT_lIdx_dl-DD_FD_CB_JPT	* $56
-	.dc.w	none_DD_FD_CB-DD_FD_CB_JPT
-	.dc.w	none_DD_FD_CB-DD_FD_CB_JPT	* $58
-	.dc.w	none_DD_FD_CB-DD_FD_CB_JPT
-	.dc.w	none_DD_FD_CB-DD_FD_CB_JPT
-	.dc.w	none_DD_FD_CB-DD_FD_CB_JPT
-	.dc.w	none_DD_FD_CB-DD_FD_CB_JPT
-	.dc.w	none_DD_FD_CB-DD_FD_CB_JPT
-	.dc.w	BIT_lIdx_dl-DD_FD_CB_JPT	* $5e
-	.dc.w	none_DD_FD_CB-DD_FD_CB_JPT	* $5f
+	.dc.l	none_DDFD_CB	* $60
+	.dc.l	none_DDFD_CB
+	.dc.l	none_DDFD_CB
+	.dc.l	none_DDFD_CB
+	.dc.l	none_DDFD_CB
+	.dc.l	none_DDFD_CB
+	.dc.l	BIT_lIdx_dl	* $66
+	.dc.l	none_DDFD_CB
+	.dc.l	none_DDFD_CB	* $68
+	.dc.l	none_DDFD_CB
+	.dc.l	none_DDFD_CB
+	.dc.l	none_DDFD_CB
+	.dc.l	none_DDFD_CB
+	.dc.l	none_DDFD_CB
+	.dc.l	BIT_lIdx_dl	* $6e
+	.dc.l	none_DDFD_CB	* $6f
 
-	.dc.w	none_DD_FD_CB-DD_FD_CB_JPT	* $60
-	.dc.w	none_DD_FD_CB-DD_FD_CB_JPT
-	.dc.w	none_DD_FD_CB-DD_FD_CB_JPT
-	.dc.w	none_DD_FD_CB-DD_FD_CB_JPT
-	.dc.w	none_DD_FD_CB-DD_FD_CB_JPT
-	.dc.w	none_DD_FD_CB-DD_FD_CB_JPT
-	.dc.w	BIT_lIdx_dl-DD_FD_CB_JPT	* $66
-	.dc.w	none_DD_FD_CB-DD_FD_CB_JPT
-	.dc.w	none_DD_FD_CB-DD_FD_CB_JPT	* $68
-	.dc.w	none_DD_FD_CB-DD_FD_CB_JPT
-	.dc.w	none_DD_FD_CB-DD_FD_CB_JPT
-	.dc.w	none_DD_FD_CB-DD_FD_CB_JPT
-	.dc.w	none_DD_FD_CB-DD_FD_CB_JPT
-	.dc.w	none_DD_FD_CB-DD_FD_CB_JPT
-	.dc.w	BIT_lIdx_dl-DD_FD_CB_JPT	* $6e
-	.dc.w	none_DD_FD_CB-DD_FD_CB_JPT	* $6f
+	.dc.l	none_DDFD_CB	* $70
+	.dc.l	none_DDFD_CB
+	.dc.l	none_DDFD_CB
+	.dc.l	none_DDFD_CB
+	.dc.l	none_DDFD_CB
+	.dc.l	none_DDFD_CB
+	.dc.l	BIT_lIdx_dl	* $76
+	.dc.l	none_DDFD_CB
+	.dc.l	none_DDFD_CB	* $78
+	.dc.l	none_DDFD_CB
+	.dc.l	none_DDFD_CB
+	.dc.l	none_DDFD_CB
+	.dc.l	none_DDFD_CB
+	.dc.l	none_DDFD_CB
+	.dc.l	BIT_lIdx_dl	* $7e
+	.dc.l	none_DDFD_CB	* $7f
 
-	.dc.w	none_DD_FD_CB-DD_FD_CB_JPT	* $70
-	.dc.w	none_DD_FD_CB-DD_FD_CB_JPT
-	.dc.w	none_DD_FD_CB-DD_FD_CB_JPT
-	.dc.w	none_DD_FD_CB-DD_FD_CB_JPT
-	.dc.w	none_DD_FD_CB-DD_FD_CB_JPT
-	.dc.w	none_DD_FD_CB-DD_FD_CB_JPT
-	.dc.w	BIT_lIdx_dl-DD_FD_CB_JPT	* $76
-	.dc.w	none_DD_FD_CB-DD_FD_CB_JPT
-	.dc.w	none_DD_FD_CB-DD_FD_CB_JPT	* $78
-	.dc.w	none_DD_FD_CB-DD_FD_CB_JPT
-	.dc.w	none_DD_FD_CB-DD_FD_CB_JPT
-	.dc.w	none_DD_FD_CB-DD_FD_CB_JPT
-	.dc.w	none_DD_FD_CB-DD_FD_CB_JPT
-	.dc.w	none_DD_FD_CB-DD_FD_CB_JPT
-	.dc.w	BIT_lIdx_dl-DD_FD_CB_JPT	* $7e
-	.dc.w	none_DD_FD_CB-DD_FD_CB_JPT	* $7f
+	.dc.l	none_DDFD_CB	* $80
+	.dc.l	none_DDFD_CB
+	.dc.l	none_DDFD_CB
+	.dc.l	none_DDFD_CB
+	.dc.l	none_DDFD_CB
+	.dc.l	none_DDFD_CB
+	.dc.l	RES_lIdx_dl	* $86
+	.dc.l	none_DDFD_CB
+	.dc.l	none_DDFD_CB	* $88
+	.dc.l	none_DDFD_CB
+	.dc.l	none_DDFD_CB
+	.dc.l	none_DDFD_CB
+	.dc.l	none_DDFD_CB
+	.dc.l	none_DDFD_CB
+	.dc.l	RES_lIdx_dl
+	.dc.l	none_DDFD_CB	* $8f
 
-	.dc.w	none_DD_FD_CB-DD_FD_CB_JPT	* $80
-	.dc.w	none_DD_FD_CB-DD_FD_CB_JPT
-	.dc.w	none_DD_FD_CB-DD_FD_CB_JPT
-	.dc.w	none_DD_FD_CB-DD_FD_CB_JPT
-	.dc.w	none_DD_FD_CB-DD_FD_CB_JPT
-	.dc.w	none_DD_FD_CB-DD_FD_CB_JPT
-	.dc.w	RES_lIdx_dl-DD_FD_CB_JPT	* $86
-	.dc.w	none_DD_FD_CB-DD_FD_CB_JPT
-	.dc.w	none_DD_FD_CB-DD_FD_CB_JPT	* $88
-	.dc.w	none_DD_FD_CB-DD_FD_CB_JPT
-	.dc.w	none_DD_FD_CB-DD_FD_CB_JPT
-	.dc.w	none_DD_FD_CB-DD_FD_CB_JPT
-	.dc.w	none_DD_FD_CB-DD_FD_CB_JPT
-	.dc.w	none_DD_FD_CB-DD_FD_CB_JPT
-	.dc.w	RES_lIdx_dl-DD_FD_CB_JPT
-	.dc.w	none_DD_FD_CB-DD_FD_CB_JPT	* $8f
+	.dc.l	none_DDFD_CB	* $90
+	.dc.l	none_DDFD_CB
+	.dc.l	none_DDFD_CB
+	.dc.l	none_DDFD_CB
+	.dc.l	none_DDFD_CB
+	.dc.l	none_DDFD_CB
+	.dc.l	RES_lIdx_dl
+	.dc.l	none_DDFD_CB
+	.dc.l	none_DDFD_CB	* $98
+	.dc.l	none_DDFD_CB
+	.dc.l	none_DDFD_CB
+	.dc.l	none_DDFD_CB
+	.dc.l	none_DDFD_CB
+	.dc.l	none_DDFD_CB
+	.dc.l	RES_lIdx_dl
+	.dc.l	none_DDFD_CB	* $9f
 
-	.dc.w	none_DD_FD_CB-DD_FD_CB_JPT	* $90
-	.dc.w	none_DD_FD_CB-DD_FD_CB_JPT
-	.dc.w	none_DD_FD_CB-DD_FD_CB_JPT
-	.dc.w	none_DD_FD_CB-DD_FD_CB_JPT
-	.dc.w	none_DD_FD_CB-DD_FD_CB_JPT
-	.dc.w	none_DD_FD_CB-DD_FD_CB_JPT
-	.dc.w	RES_lIdx_dl-DD_FD_CB_JPT
-	.dc.w	none_DD_FD_CB-DD_FD_CB_JPT
-	.dc.w	none_DD_FD_CB-DD_FD_CB_JPT	* $98
-	.dc.w	none_DD_FD_CB-DD_FD_CB_JPT
-	.dc.w	none_DD_FD_CB-DD_FD_CB_JPT
-	.dc.w	none_DD_FD_CB-DD_FD_CB_JPT
-	.dc.w	none_DD_FD_CB-DD_FD_CB_JPT
-	.dc.w	none_DD_FD_CB-DD_FD_CB_JPT
-	.dc.w	RES_lIdx_dl-DD_FD_CB_JPT
-	.dc.w	none_DD_FD_CB-DD_FD_CB_JPT	* $9f
+	.dc.l	none_DDFD_CB	* $a0
+	.dc.l	none_DDFD_CB
+	.dc.l	none_DDFD_CB
+	.dc.l	none_DDFD_CB
+	.dc.l	none_DDFD_CB
+	.dc.l	none_DDFD_CB
+	.dc.l	RES_lIdx_dl
+	.dc.l	none_DDFD_CB
+	.dc.l	none_DDFD_CB	* $a8
+	.dc.l	none_DDFD_CB
+	.dc.l	none_DDFD_CB
+	.dc.l	none_DDFD_CB
+	.dc.l	none_DDFD_CB
+	.dc.l	none_DDFD_CB
+	.dc.l	RES_lIdx_dl
+	.dc.l	none_DDFD_CB	* $af
 
-	.dc.w	none_DD_FD_CB-DD_FD_CB_JPT	* $a0
-	.dc.w	none_DD_FD_CB-DD_FD_CB_JPT
-	.dc.w	none_DD_FD_CB-DD_FD_CB_JPT
-	.dc.w	none_DD_FD_CB-DD_FD_CB_JPT
-	.dc.w	none_DD_FD_CB-DD_FD_CB_JPT
-	.dc.w	none_DD_FD_CB-DD_FD_CB_JPT
-	.dc.w	RES_lIdx_dl-DD_FD_CB_JPT
-	.dc.w	none_DD_FD_CB-DD_FD_CB_JPT
-	.dc.w	none_DD_FD_CB-DD_FD_CB_JPT	* $a8
-	.dc.w	none_DD_FD_CB-DD_FD_CB_JPT
-	.dc.w	none_DD_FD_CB-DD_FD_CB_JPT
-	.dc.w	none_DD_FD_CB-DD_FD_CB_JPT
-	.dc.w	none_DD_FD_CB-DD_FD_CB_JPT
-	.dc.w	none_DD_FD_CB-DD_FD_CB_JPT
-	.dc.w	RES_lIdx_dl-DD_FD_CB_JPT
-	.dc.w	none_DD_FD_CB-DD_FD_CB_JPT	* $af
+	.dc.l	none_DDFD_CB	* $b0
+	.dc.l	none_DDFD_CB
+	.dc.l	none_DDFD_CB
+	.dc.l	none_DDFD_CB
+	.dc.l	none_DDFD_CB
+	.dc.l	none_DDFD_CB
+	.dc.l	RES_lIdx_dl
+	.dc.l	none_DDFD_CB
+	.dc.l	none_DDFD_CB	* $b8
+	.dc.l	none_DDFD_CB
+	.dc.l	none_DDFD_CB
+	.dc.l	none_DDFD_CB
+	.dc.l	none_DDFD_CB
+	.dc.l	none_DDFD_CB
+	.dc.l	RES_lIdx_dl	* $be
+	.dc.l	none_DDFD_CB	* $bf
 
-	.dc.w	none_DD_FD_CB-DD_FD_CB_JPT	* $b0
-	.dc.w	none_DD_FD_CB-DD_FD_CB_JPT
-	.dc.w	none_DD_FD_CB-DD_FD_CB_JPT
-	.dc.w	none_DD_FD_CB-DD_FD_CB_JPT
-	.dc.w	none_DD_FD_CB-DD_FD_CB_JPT
-	.dc.w	none_DD_FD_CB-DD_FD_CB_JPT
-	.dc.w	RES_lIdx_dl-DD_FD_CB_JPT
-	.dc.w	none_DD_FD_CB-DD_FD_CB_JPT
-	.dc.w	none_DD_FD_CB-DD_FD_CB_JPT	* $b8
-	.dc.w	none_DD_FD_CB-DD_FD_CB_JPT
-	.dc.w	none_DD_FD_CB-DD_FD_CB_JPT
-	.dc.w	none_DD_FD_CB-DD_FD_CB_JPT
-	.dc.w	none_DD_FD_CB-DD_FD_CB_JPT
-	.dc.w	none_DD_FD_CB-DD_FD_CB_JPT
-	.dc.w	RES_lIdx_dl-DD_FD_CB_JPT	* $be
-	.dc.w	none_DD_FD_CB-DD_FD_CB_JPT	* $bf
+	.dc.l	none_DDFD_CB	* $c0
+	.dc.l	none_DDFD_CB
+	.dc.l	none_DDFD_CB
+	.dc.l	none_DDFD_CB
+	.dc.l	none_DDFD_CB
+	.dc.l	none_DDFD_CB
+	.dc.l	SET_lIdx_dl	* $c6
+	.dc.l	none_DDFD_CB
+	.dc.l	none_DDFD_CB	* $c8
+	.dc.l	none_DDFD_CB
+	.dc.l	none_DDFD_CB
+	.dc.l	none_DDFD_CB
+	.dc.l	none_DDFD_CB
+	.dc.l	none_DDFD_CB
+	.dc.l	SET_lIdx_dl
+	.dc.l	none_DDFD_CB	* $cf
 
-	.dc.w	none_DD_FD_CB-DD_FD_CB_JPT	* $c0
-	.dc.w	none_DD_FD_CB-DD_FD_CB_JPT
-	.dc.w	none_DD_FD_CB-DD_FD_CB_JPT
-	.dc.w	none_DD_FD_CB-DD_FD_CB_JPT
-	.dc.w	none_DD_FD_CB-DD_FD_CB_JPT
-	.dc.w	none_DD_FD_CB-DD_FD_CB_JPT
-	.dc.w	SET_lIdx_dl-DD_FD_CB_JPT	* $c6
-	.dc.w	none_DD_FD_CB-DD_FD_CB_JPT
-	.dc.w	none_DD_FD_CB-DD_FD_CB_JPT	* $c8
-	.dc.w	none_DD_FD_CB-DD_FD_CB_JPT
-	.dc.w	none_DD_FD_CB-DD_FD_CB_JPT
-	.dc.w	none_DD_FD_CB-DD_FD_CB_JPT
-	.dc.w	none_DD_FD_CB-DD_FD_CB_JPT
-	.dc.w	none_DD_FD_CB-DD_FD_CB_JPT
-	.dc.w	SET_lIdx_dl-DD_FD_CB_JPT
-	.dc.w	none_DD_FD_CB-DD_FD_CB_JPT	* $cf
+	.dc.l	none_DDFD_CB	* $d0
+	.dc.l	none_DDFD_CB
+	.dc.l	none_DDFD_CB
+	.dc.l	none_DDFD_CB
+	.dc.l	none_DDFD_CB
+	.dc.l	none_DDFD_CB
+	.dc.l	SET_lIdx_dl
+	.dc.l	none_DDFD_CB
+	.dc.l	none_DDFD_CB	* $d8
+	.dc.l	none_DDFD_CB
+	.dc.l	none_DDFD_CB
+	.dc.l	none_DDFD_CB
+	.dc.l	none_DDFD_CB
+	.dc.l	none_DDFD_CB
+	.dc.l	SET_lIdx_dl
+	.dc.l	none_DDFD_CB	* $df
 
-	.dc.w	none_DD_FD_CB-DD_FD_CB_JPT	* $d0
-	.dc.w	none_DD_FD_CB-DD_FD_CB_JPT
-	.dc.w	none_DD_FD_CB-DD_FD_CB_JPT
-	.dc.w	none_DD_FD_CB-DD_FD_CB_JPT
-	.dc.w	none_DD_FD_CB-DD_FD_CB_JPT
-	.dc.w	none_DD_FD_CB-DD_FD_CB_JPT
-	.dc.w	SET_lIdx_dl-DD_FD_CB_JPT
-	.dc.w	none_DD_FD_CB-DD_FD_CB_JPT
-	.dc.w	none_DD_FD_CB-DD_FD_CB_JPT	* $d8
-	.dc.w	none_DD_FD_CB-DD_FD_CB_JPT
-	.dc.w	none_DD_FD_CB-DD_FD_CB_JPT
-	.dc.w	none_DD_FD_CB-DD_FD_CB_JPT
-	.dc.w	none_DD_FD_CB-DD_FD_CB_JPT
-	.dc.w	none_DD_FD_CB-DD_FD_CB_JPT
-	.dc.w	SET_lIdx_dl-DD_FD_CB_JPT
-	.dc.w	none_DD_FD_CB-DD_FD_CB_JPT	* $df
+	.dc.l	none_DDFD_CB	* $e0
+	.dc.l	none_DDFD_CB
+	.dc.l	none_DDFD_CB
+	.dc.l	none_DDFD_CB
+	.dc.l	none_DDFD_CB
+	.dc.l	none_DDFD_CB
+	.dc.l	SET_lIdx_dl
+	.dc.l	none_DDFD_CB
+	.dc.l	none_DDFD_CB	* $e8
+	.dc.l	none_DDFD_CB
+	.dc.l	none_DDFD_CB
+	.dc.l	none_DDFD_CB
+	.dc.l	none_DDFD_CB
+	.dc.l	none_DDFD_CB
+	.dc.l	SET_lIdx_dl
+	.dc.l	none_DDFD_CB	* $ef
 
-	.dc.w	none_DD_FD_CB-DD_FD_CB_JPT	* $e0
-	.dc.w	none_DD_FD_CB-DD_FD_CB_JPT
-	.dc.w	none_DD_FD_CB-DD_FD_CB_JPT
-	.dc.w	none_DD_FD_CB-DD_FD_CB_JPT
-	.dc.w	none_DD_FD_CB-DD_FD_CB_JPT
-	.dc.w	none_DD_FD_CB-DD_FD_CB_JPT
-	.dc.w	SET_lIdx_dl-DD_FD_CB_JPT
-	.dc.w	none_DD_FD_CB-DD_FD_CB_JPT
-	.dc.w	none_DD_FD_CB-DD_FD_CB_JPT	* $e8
-	.dc.w	none_DD_FD_CB-DD_FD_CB_JPT
-	.dc.w	none_DD_FD_CB-DD_FD_CB_JPT
-	.dc.w	none_DD_FD_CB-DD_FD_CB_JPT
-	.dc.w	none_DD_FD_CB-DD_FD_CB_JPT
-	.dc.w	none_DD_FD_CB-DD_FD_CB_JPT
-	.dc.w	SET_lIdx_dl-DD_FD_CB_JPT
-	.dc.w	none_DD_FD_CB-DD_FD_CB_JPT	* $ef
+	.dc.l	none_DDFD_CB	* $f0
+	.dc.l	none_DDFD_CB
+	.dc.l	none_DDFD_CB
+	.dc.l	none_DDFD_CB
+	.dc.l	none_DDFD_CB
+	.dc.l	none_DDFD_CB
+	.dc.l	SET_lIdx_dl
+	.dc.l	none_DDFD_CB
+	.dc.l	none_DDFD_CB	* $f8
+	.dc.l	none_DDFD_CB
+	.dc.l	none_DDFD_CB
+	.dc.l	none_DDFD_CB
+	.dc.l	none_DDFD_CB
+	.dc.l	none_DDFD_CB
+	.dc.l	SET_lIdx_dl	* $fe
+	.dc.l	none_DDFD_CB	* $ff
 
-	.dc.w	none_DD_FD_CB-DD_FD_CB_JPT	* $f0
-	.dc.w	none_DD_FD_CB-DD_FD_CB_JPT
-	.dc.w	none_DD_FD_CB-DD_FD_CB_JPT
-	.dc.w	none_DD_FD_CB-DD_FD_CB_JPT
-	.dc.w	none_DD_FD_CB-DD_FD_CB_JPT
-	.dc.w	none_DD_FD_CB-DD_FD_CB_JPT
-	.dc.w	SET_lIdx_dl-DD_FD_CB_JPT
-	.dc.w	none_DD_FD_CB-DD_FD_CB_JPT
-	.dc.w	none_DD_FD_CB-DD_FD_CB_JPT	* $f8
-	.dc.w	none_DD_FD_CB-DD_FD_CB_JPT
-	.dc.w	none_DD_FD_CB-DD_FD_CB_JPT
-	.dc.w	none_DD_FD_CB-DD_FD_CB_JPT
-	.dc.w	none_DD_FD_CB-DD_FD_CB_JPT
-	.dc.w	none_DD_FD_CB-DD_FD_CB_JPT
-	.dc.w	SET_lIdx_dl-DD_FD_CB_JPT	* $fe
-	.dc.w	none_DD_FD_CB-DD_FD_CB_JPT	* $ff
+; d0 には Idx + d がセットされて呼ばれる
 
-
-none_DD_FD_CB:					* おかしな命令を実行しました
-	move.w	d0,d1
+	.dc.w	0			* サイクル数
+	.dc.w	4-1			* 命令語長-1 (使っていない)
+none_DDFD_CB:				* おかしな命令を実行しました
+	move.w	d1,d0			* d1はOP CODE
 	lsr.w	#4,d0
 	lea.l	HEX,a0
 	move.b	(a0,d0.w),number_ddfdcb+0
@@ -6771,7 +7080,7 @@ none_DD_FD_CB:					* おかしな命令を実行しました
 	rts
 
 errms_ddfdcb:
-	.dc.b	'おかしな命令を実行しました。0xdd or 0xfd,0xcb,0x'
+	.dc.b	'おかしな命令を実行しました。0xdd or 0xfd,0xcb,nn,0x'
 number_ddfdcb:
 	.dc.b	'00'
 	.dc.b	0x0d,0x0a,0x00
@@ -6780,6 +7089,8 @@ number_ddfdcb:
 
 
 ; d0 には Idx + d がセットされて呼ばれる
+	.dc.w	23			* サイクル数
+	.dc.w	4-1			* 命令語長-1 (使っていない)
 RLC_lIdx_dl:
 	move.w	d0,-(sp)		* Idx + d を退避
 	jsr	ms_read_mem_8
@@ -6790,6 +7101,8 @@ RLC_lIdx_dl:
 	jsr	ms_write_mem_8
 	rts
 
+	.dc.w	23			* サイクル数
+	.dc.w	4-1			* 命令語長-1 (使っていない)
 RRC_lIdx_dl:
 	move.w	d0,-(sp)		* Idx + d を退避
 	jsr	ms_read_mem_8
@@ -6800,6 +7113,8 @@ RRC_lIdx_dl:
 	jsr	ms_write_mem_8
 	rts
 
+	.dc.w	23			* サイクル数
+	.dc.w	4-1			* 命令語長-1 (使っていない)
 RL_lIdx_dl:
 	move.w	d0,-(sp)		* Idx + d を退避
 	jsr	ms_read_mem_8
@@ -6810,6 +7125,8 @@ RL_lIdx_dl:
 	jsr	ms_write_mem_8
 	rts
 
+	.dc.w	23			* サイクル数
+	.dc.w	4-1			* 命令語長-1 (使っていない)
 RR_lIdx_dl:
 	move.w	d0,-(sp)		* Idx + d を退避
 	jsr	ms_read_mem_8
@@ -6820,6 +7137,8 @@ RR_lIdx_dl:
 	jsr	ms_write_mem_8
 	rts
 
+	.dc.w	23			* サイクル数
+	.dc.w	4-1			* 命令語長-1 (使っていない)
 SLA_lIdx_dl:
 	move.w	d0,-(sp)		* Idx + d を退避
 	jsr	ms_read_mem_8
@@ -6830,6 +7149,8 @@ SLA_lIdx_dl:
 	jsr	ms_write_mem_8
 	rts
 
+	.dc.w	23			* サイクル数
+	.dc.w	4-1			* 命令語長-1 (使っていない)
 SRA_lIdx_dl:
 	move.w	d0,-(sp)		* Idx + d を退避
 	jsr	ms_read_mem_8
@@ -6840,6 +7161,8 @@ SRA_lIdx_dl:
 	jsr	ms_write_mem_8
 	rts
 
+	.dc.w	23			* サイクル数
+	.dc.w	4-1			* 命令語長-1 (使っていない)
 SRL_lIdx_dl:
 	move.w	d0,-(sp)		* Idx + d を退避
 	jsr	ms_read_mem_8
@@ -6850,6 +7173,8 @@ SRL_lIdx_dl:
 	jsr	ms_write_mem_8
 	rts
 
+	.dc.w	23			* サイクル数
+	.dc.w	4-1			* 命令語長-1 (使っていない)
 SLI_lIdx_dl:
 	move.w	d0,-(sp)		* Idx + d を退避
 	jsr	ms_read_mem_8
@@ -6862,25 +7187,33 @@ SLI_lIdx_dl:
 
 *	------ ＳＥＴ n,(Idx+d) ------
 ; d0 には Idx + d がセットされて呼ばれる
-; d2 には DD CB dd XX の XXが入っている
+; d1 には DD CB dd XX の XX (OP CODE)が入っている
+	.dc.w	23			* サイクル数
+	.dc.w	4-1			* 命令語長-1 (使っていない)
 SET_lIdx_dl:
-	andi.w	#%00000000_00111000,d2		* BIT_n_? の n を d2にロード
-	lsr.w	#3,d2
+	andi.w	#%00000000_00111000,d1		* BIT_n_? の n を d1にロード
+	lsr.w	#3,d1
 	move.w	d0,-(sp)			* Idx + d を退避
+	move.w	d1,-(sp)
 	jsr	ms_read_mem_8
-	bset.l	d2,d0				* (Idx + d)の nビット目をセット
+	move.w	(sp)+,d1
+	bset.l	d1,d0				* (Idx + d)の nビット目をセット
 	move.b	d0,d1
 	move.w	(sp)+,d0
 	jsr	ms_write_mem_8		
 	rts
 
 *	------ ＲＥＳ n,(Idx+d) ------
+	.dc.w	23			* サイクル数
+	.dc.w	4-1			* 命令語長-1 (使っていない)
 RES_lIdx_dl:
-	andi.w	#%00000000_00111000,d2		* BIT_n_? の n を d2にロード
-	lsr.w	#3,d2
+	andi.w	#%00000000_00111000,d1		* BIT_n_? の n を d1にロード
+	lsr.w	#3,d1
 	move.w	d0,-(sp)			* Idx + d をプッシュ
+	move.w	d1,-(sp)
 	jsr	ms_read_mem_8
-	bclr.l	d2,d0				* (Idx + d)の nビット目をクリア
+	move.w	(sp)+,d1
+	bclr.l	d1,d0				* (Idx + d)の nビット目をクリア
 	move.b	d0,d1
 	move.w	(sp)+,d0
 	jsr	ms_write_mem_8		
@@ -6899,13 +7232,16 @@ RES_lIdx_dl:
 ; ただし、対象が(HL)の場合だけ、F5,F3は内部のWZレジスタの上位8bitの値(bit13,11)が入るらしい
 
 ; d0 には Idx + d がセットされて呼ばれる
+; d1 には DD CB dd XX の XX (OP CODE)が入っている
+	.dc.w	20			* サイクル数
+	.dc.w	4-1			* 命令語長-1 (使っていない)
 BIT_lIdx_dl:
-	andi.w	#%00000000_00111000,d2	* BIT_n_? の n を d2にロード
-	lsr.w	#3,d2
-	moveq.l	#1,d1
-	lsl	d2,d1			* 対象位置のビットをセット
+	andi.w	#%00000000_00111000,d1	* BIT_n_? の n を d1にロード
+	lsr.w	#3,d1
+	moveq.l	#1,d2
+	lsl	d1,d2			* 対象位置のビットをセット
 	move.w	d0,-(sp)		* Idx + d を退避
-	move.w	d1,-(sp)
+	move.w	d2,-(sp)
 	move.w	d0,-(sp)		* Idx + d を退避
 	bsr	eval_flag_HC_C		* HC,C フラグを再評価
 	andi.l	#%000_00000000_00000001,d6	* Cフラグ以外をクリア
@@ -6931,18 +7267,16 @@ BIT_lIdx_dl:
 *****************************************************
 
 *	------ ＩＮ ------
-IN_A_n:	move.b	1(a4,d7.w),d0		* n を読む
-	addq.w	#2,d7			* PC += 2
-	btst.l	#PAGEADDRBIT,d7	* PC がページ境界をまたいだか？
-	beq	@f
-	PC_page_inc
-	andi.w	#PAGEADDRMASK,d7	* 命令がページ境界をまたぐ時
-	beq	@f
-	move.b	(a4),d0
-@@:	bsr	input
+	.dc.w	11			* サイクル数
+	.dc.w	2-1			* 命令語長-1
+IN_A_n:	* 先読みした値からnを取り出す
+	rol.l	#8,d1			* 最下位バイトに移動
+	move.b	d1,d0
+	bsr	input
 	move.b	d0,d4
 	rts
 
+;---------------------------------------------------------------------------------------
 ; IN r,(C) の挙動
 ; * S : 読み込んだ値のbit7
 ; * Z : 読み込んだ値が0なら1。それ以外の時は0
@@ -6963,29 +7297,52 @@ IN_X_C	macro
 	bsr	input
 	move.b	d0,d5				* 論理演算結果を保存
 	endm
+;---------------------------------------------------------------------------------------
 
+	.dc.w	12			* サイクル数
+	.dc.w	2-1			* 命令語長-1
 IN_A_c:	IN_X_C
 	move.b	d0,d4
 	rts
+
+	.dc.w	12			* サイクル数
+	.dc.w	2-1			* 命令語長-1
 IN_B_c:	IN_X_C
 	move.b	d0,b(a3)
 	rts
+
+	.dc.w	12			* サイクル数
+	.dc.w	2-1			* 命令語長-1
 IN_C_c:	IN_X_C
 	move.b	d0,c(a3)
 	rts
+
+	.dc.w	12			* サイクル数
+	.dc.w	2-1			* 命令語長-1
 IN_D_c:	IN_X_C
 	move.b	d0,d(a3)
 	rts
+
+	.dc.w	12			* サイクル数
+	.dc.w	2-1			* 命令語長-1
 IN_E_c:	IN_X_C
 	move.b	d0,e(a3)
 	rts
+
+	.dc.w	12			* サイクル数
+	.dc.w	2-1			* 命令語長-1
 IN_H_c:	IN_X_C
 	move.b	d0,h(a3)
 	rts
+
+	.dc.w	12			* サイクル数
+	.dc.w	2-1			* 命令語長-1
 IN_L_c:	IN_X_C
 	move.b	d0,l(a3)
 	rts
 
+	.dc.w	12			* サイクル数
+	.dc.w	2-1			* 命令語長-1
 IN_F_c:	IN_X_C
 	; IN F,(C) は、読み込んだ値に対してフラグが変化するだけでどこにも結果は保存されない
 	rts
@@ -7000,6 +7357,8 @@ IN_F_c:	IN_X_C
 ; * PV: 変化しない
 ; * N : 1
 ; * C : 変化しない
+	.dc.w	16			* サイクル数
+	.dc.w	2-1			* 命令語長-1
 INI:	bsr	eval_flag_all		* 全フラグを再評価
 	andi.l	#%000_00000000_10111111,d6	* Zをクリア
 	ori.l	#%000_00000000_00000010,d6	* N=1にセット
@@ -7015,6 +7374,8 @@ INI:	bsr	eval_flag_all		* 全フラグを再評価
 @@:	rts
 
 *	------ ＩＮＤ ------
+	.dc.w	16			* サイクル数
+	.dc.w	2-1			* 命令語長-1
 IND:	bsr	eval_flag_all		* 全フラグを再評価
 	andi.l	#%000_00000000_10111111,d6	* Zをクリア
 	ori.l	#%000_00000000_00000010,d6	* N=1にセット
@@ -7030,9 +7391,13 @@ IND:	bsr	eval_flag_all		* 全フラグを再評価
 @@:	rts
 
 *	------ ＩＮＩＲ ------
+	.dc.w	21			* サイクル数
+	.dc.w	2-1			* 命令語長-1
 INIR:	bsr	INI
 	cmpi.b	#0,b(a3)
 	bne	@f
+	; 最終読み込みの場合はサイクル数が16なので5サイクル引く
+	subq.l	#5,cpu_cycle
 	rts
 @@:	subq.w	#2,d7
 	btst.l	#PAGEADDRBIT,d7	* PC がページ境界をまたいだか？
@@ -7042,9 +7407,13 @@ INIR:	bsr	INI
 @@:	rts
 
 *	------ ＩＮＤＲ ------
+	.dc.w	21			* サイクル数
+	.dc.w	2-1			* 命令語長-1
 INDR:	bsr	IND
 	cmpi.b	#0,b(a3)
 	bne	@f
+	; 最終読み込みの場合はサイクル数が16なので5サイクル引く
+	subq.l	#5,cpu_cycle
 	rts
 @@:	subq.w	#2,d7
 	btst.l	#PAGEADDRBIT,d7	* PC がページ境界をまたいだか？
@@ -7055,19 +7424,17 @@ INDR:	bsr	IND
 
 	
 *	------ ＯＵＴ ------
+	.dc.w	11			* サイクル数
+	.dc.w	2-1			* 命令語長-1
 OUT_n_A:
-	move.b	1(a4,d7.w),d0		* n を読む
-	addq.w	#2,d7			* PC += 2
-	btst.l	#PAGEADDRBIT,d7	* PC がページ境界をまたいだか？
-	beq	@f
-	PC_page_inc
-	andi.w	#PAGEADDRMASK,d7	* 命令がページ境界をまたぐ時
-	beq	@f
-	move.b	(a4),d0
-@@:	move.b	d4,d1
+	* 先読みした値からnを取り出す
+	rol.l	#8,d1			* 最下位バイトに移動
+	move.b	d1,d0
+	move.b	d4,d1
 	bsr	output
 	rts
 
+;---------------------------------------------------------------------------------------
 ; OUT (C),r の挙動
 ; フラグ変化はしない
 OUT_C_X	macro
@@ -7076,31 +7443,52 @@ OUT_C_X	macro
 	bsr	output
 	move.b	d0,d5				* 論理演算結果を保存
 	endm
+;---------------------------------------------------------------------------------------
 
+	.dc.w	12			* サイクル数
+	.dc.w	2-1			* 命令語長-1
 OUT_c_A:
 	move.b	d4,target_8(a3)
 	OUT_C_X
 	rts
+
+	.dc.w	12			* サイクル数
+	.dc.w	2-1			* 命令語長-1
 OUT_c_B:
 	move.b	b(a3),target_8(a3)
 	OUT_C_X
 	rts
+
+	.dc.w	12			* サイクル数
+	.dc.w	2-1			* 命令語長-1
 OUT_c_C:
 	move.b	c(a3),target_8(a3)
 	OUT_C_X
 	rts
+
+	.dc.w	12			* サイクル数
+	.dc.w	2-1			* 命令語長-1
 OUT_c_D:
 	move.b	d(a3),target_8(a3)
 	OUT_C_X
 	rts
+
+	.dc.w	12			* サイクル数
+	.dc.w	2-1			* 命令語長-1
 OUT_c_E:
 	move.b	e(a3),target_8(a3)
 	OUT_C_X
 	rts
+
+	.dc.w	12			* サイクル数
+	.dc.w	2-1			* 命令語長-1
 OUT_c_H:
 	move.b	h(a3),target_8(a3)
 	OUT_C_X
 	rts
+
+	.dc.w	12			* サイクル数
+	.dc.w	2-1			* 命令語長-1
 OUT_c_L:
 	move.b	l(a3),target_8(a3)
 	OUT_C_X
@@ -7116,6 +7504,8 @@ OUT_c_L:
 ; * PV: 変化しない
 ; * N : 1
 ; * C : 変化しない
+	.dc.w	16			* サイクル数
+	.dc.w	2-1			* 命令語長-1
 OUTI:	bsr	eval_flag_all		* 全フラグを再評価
 	andi.l	#%000_00000000_10111111,d6	* Zをクリア
 	ori.l	#%000_00000000_00000010,d6	* N=1にセット
@@ -7130,6 +7520,8 @@ OUTI:	bsr	eval_flag_all		* 全フラグを再評価
 @@:	rts
 
 *	------ ＯＵＴＤ ------
+	.dc.w	16			* サイクル数
+	.dc.w	2-1			* 命令語長-1
 OUTD:	bsr	eval_flag_all		* 全フラグを再評価
 	andi.l	#%000_00000000_10111111,d6	* Zをクリア
 	ori.l	#%000_00000000_00000010,d6	* N=1にセット
@@ -7144,9 +7536,13 @@ OUTD:	bsr	eval_flag_all		* 全フラグを再評価
 @@:	rts
 
 *	------ ＯＴＩＲ ------
+	.dc.w	21			* サイクル数
+	.dc.w	2-1			* 命令語長-1
 OTIR:	bsr	OUTI
 	cmpi.b	#0,b(a3)
 	bne	@f
+	; 最終書き込みの場合はサイクル数が16なので5サイクル引く
+	subq.l	#5,cpu_cycle
 	rts
 @@:	subq.w	#2,d7
 	btst.l	#PAGEADDRBIT,d7	* PC がページ境界をまたいだか？
@@ -7156,9 +7552,13 @@ OTIR:	bsr	OUTI
 @@:	rts
 
 *	------ ＯＴＤＲ ------
+	.dc.w	21			* サイクル数
+	.dc.w	2-1			* 命令語長-1
 OTDR:	bsr	OUTD
 	cmpi.b	#0,b(a3)
 	bne	@f
+	; 最終書き込みの場合はサイクル数が16なので5サイクル引く
+	subq.l	#5,cpu_cycle
 	rts
 @@:	subq.w	#2,d7
 	btst.l	#PAGEADDRBIT,d7	* PC がページ境界をまたいだか？
@@ -7205,7 +7605,7 @@ input:
 *****************************************************************	
 output:
 	movem.l	d2-d7/a0-a5,-(sp)
-.if 1
+.if 0
 	bsr	print_debug_out
 .endif
 	clr.w	d2

@@ -79,7 +79,10 @@ void ms_z80_step(ms_z80* const z, int steps) {
 	state.f = (z->sf << 7) | (z->zf << 6) | (z->yf << 5) | (z->hf << 4) | (z->xf << 3) | (z->pf << 2) | (z->nf << 1) | (z->cf << 0);
 	state.iff_delay = z->iff_delay;
 	state.interrupt_mode = z->interrupt_mode;
+	state.cycles = z->cyc;
+
 	ms_cpu_step(&state, steps);
+
 	z->pc = state.pc;
 	z->sp = state.sp;
 	z->ix = state.ix;
@@ -112,6 +115,7 @@ void ms_z80_step(ms_z80* const z, int steps) {
 	z->cf = (state.f & 0x01) >> 0;
 	z->iff_delay = state.iff_delay;
 	z->interrupt_mode = state.interrupt_mode;
+	z->cyc = state.cycles;
 
 	if(page0 != page0_save) {
 		printf("page0 changed: %p -> %p\n", page0_save, page0);

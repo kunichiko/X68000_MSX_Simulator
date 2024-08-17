@@ -63,6 +63,14 @@ int init_sz_z80(z80 *const z)
 	}
 
 	memset(sz_memory, 0, MEMORY_SIZE);
+	for(int i=0;i<MEMORY_SIZE;i++)
+	{
+		sz_memory[i] = ((i & 0xff) >> 8) + (i & 0xff);
+		if (sz_memory[i] == 0x76 )
+		{
+			sz_memory[i] = 0x00;
+		}
+	}
 
 	// inject "out 1,a" at 0x0000 (signal to stop the test)
 	sz_memory[0x0000] = 0xD3;
