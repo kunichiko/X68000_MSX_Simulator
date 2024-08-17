@@ -4229,14 +4229,14 @@ ED:	* 先読みした値から第二オペコードを取り出す
 	subi.w	#$40,d0
 	bcs	other			* ＄３ｆ以下の時は特殊命令へ
 	movea.l	ED_JPT(pc,d0.w*4),a0	* ジャンプ先を取得
-	move.w	-4(a0),d1		* 命令のサイクル数を取得
-	ext.l	d1
-	add.l	d1,cpu_cycle		* サイクル数を加算
-	move.w	-2(a0),d1		* 命令語長-1を取得
-	subq.w	#1,d1
+	move.w	-4(a0),d0		* 命令のサイクル数を取得
+	ext.l	d0
+	add.l	d0,cpu_cycle		* サイクル数を加算
+	move.w	-2(a0),d0		* 命令語長-1を取得
+	subq.w	#1,d0
 	ble	@f			* 2バイトの場合
 	; 3バイト以上の時
-	add.w	d1,d7
+	add.w	d0,d7
 	btst.l	#PAGEADDRBIT,d7		* PC がページ境界をまたいだか？
 	beq	@f
 	PC_page_inc

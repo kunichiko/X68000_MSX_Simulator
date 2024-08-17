@@ -19,7 +19,7 @@ void deinit_sz_z80(z80 *const z);
 int init_ms_z80(ms_z80 *const z);
 void deinit_ms_z80(ms_z80 *const z);
 
-const int org = 0x3ffd;
+const int org = 0x0100;
 
 z80 sz_cpu;
 ms_z80 ms_cpu;
@@ -248,7 +248,7 @@ int through_test_normal_page_edge(value_func_t value_func)
 		// テストコードSZ
 		sz_cpu.pc = org_local;
 		sz_memory[org_local] = i;
-		bool debug = true;
+		bool debug = false;
 		if ( i == 0x27 ) {
 			debug = false;
 		}
@@ -796,9 +796,10 @@ int dotest(int max_steps, char* result, bool debug)
 	{
 		ms_memory[i] = sz_memory[i];
 	}
-	for (int i = org-0x100; i <= org+0x100; i++)
+	for (int i = -0x100; i <= 0x100; i++)
 	{
-		ms_memory[i] = sz_memory[i];
+		unsigned int addr = ((unsigned int)(sz_cpu.pc + i)) & 0xffff;
+		ms_memory[addr] = sz_memory[addr];
 	}
 
 	/*printf("[initial state]\n");
