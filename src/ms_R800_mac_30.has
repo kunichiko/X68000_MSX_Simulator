@@ -112,7 +112,6 @@
 
 	.xdef	f
 
-	.xdef	ms_cpu_init
 	.xdef	ms_cpu_emulate
 	.xdef	ms_cpu_step
 	.xdef	ms_cpu_step_break
@@ -211,27 +210,6 @@ PC_page_set	macro			* JP命令等で PCが変わった時の処理
 		swap	d7
 		endm
 
-*
-*	int ms_cpu_init();
-*
-ms_cpu_init:
-	link	a6,#0
-	movem.l	d3-d7/a0-a5,-(sp)
-
-	lea.l	registers,a3
-	clr.w	d1
-	jsr	w_port_A8		* スロットを０で初期化
-
-	clr.w	d7			* pc = 0
-	PC_page_set
-	clr.w	sp_(a3)			* sp = 0
-	move.b	#$00,interrupt_enable	* DI に
-	clr.b	interrupt_mode		* IM を０に
-
-	movem.l	(sp)+,d3-d7/a0-a5
-	unlk	a6
-	rts
-
 	.data
 
 cpu_cycle:
@@ -279,12 +257,21 @@ ms_cpu_emulate:
 	
 	move.l	8(a6),emu_loop_func	* 引数1のループ関数のポインタを保存しておく
 
+	lea.l	registers,a3
+	clr.w	d1
+	jsr	w_port_A8		* スロットを０で初期化
+
+	clr.w	d7			* pc = 0
+	PC_page_set
+	clr.w	sp_(a3)			* sp = 0
+	move.b	#$00,interrupt_enable	* DI に
+	clr.b	interrupt_mode		* IM を０に
+
 	clr.l	emu_counter
 	clr.l	emu_counter_latch
 	clr.w	emu_yield_div
 	clr.w	interrupt_history_wr
 	clr.w	interrupt_history_rd
-	lea.l	registers,a3
 cpu_main:
 	add.l	#1,emu_counter
 	move.l	cpu_emu_yield,d0

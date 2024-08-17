@@ -30,7 +30,6 @@ uint8_t *page2_save;
 uint8_t *page3_save;
 
 void ms_z80_init(ms_z80* const z) {
-	ms_cpu_init();
 	ms_iomap_init();
 	context = z;
 

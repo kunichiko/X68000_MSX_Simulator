@@ -38,7 +38,6 @@ struct ms_cpu_registers {
 
 extern ms_cpu_registers *ms_cpu_registers_ptr;
 
-void ms_cpu_init(void);
 int ms_cpu_emulate( int(*)(unsigned int, unsigned int));
 
 void ms_cpu_step(ms_cpu_state* z, int steps);
