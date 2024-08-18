@@ -78,6 +78,7 @@ void allocateAndSetROM_Cartridge(const char* romFileName);
 
 void _toggleTextPlane(void);
 void _setTextPlane(int textPlaneMode);
+void _moveTextPlane(int cursorKeyHit);
 
 volatile extern unsigned short ms_vdp_interrupt_tick;
 volatile extern unsigned short ms_vdp_vsync_rate;
@@ -454,8 +455,8 @@ unsigned short KEY_MAP[][8] = {
 	{   0x201,0x203,0x580,0x520,0x301,0x508,0x280,0x408},
 	//6 [ M  ][ ,< ][ .> ][ /  ][ _  ][ SP ][HOME][DEL ]  HOME=CLS
 	{   0x404,0x204,0x208,0x210,0x220,0x801,0x802,0x808}, 
-	//7 [RUP ][RDWN][UNDO][LEFT][UkP  ][RIGT][DOWN][CLR ]
-	{   0xf00,0xf00,0xf00,0x810,0x820,0x880,0x840,0xf00},
+	//7 [RUP ][RDWN][UNDO][LEFT][UP  ][RIGT][DOWN][CLR ]
+	{   0xf00,0xf00,0xf00,0xff1,0xff2,0xff4,0xff3,0xf00},
 	//8 [(/) ][(*) ][(-) ][(7) ][(8) ][(9) ][(+) ][(4) ]  TEN KEYs
 	{   0x902,0x904,0xa20,0xa04,0xa08,0xa10,0x901,0x980},
 	//9 [(5) ][(6) ][(=) ][(1) ][(2) ][(3) ][ENTR][(0) ]  TEN KEYs
@@ -469,7 +470,7 @@ unsigned short KEY_MAP[][8] = {
 	//d [ F6 ][ F7 ][ F8 ][ F9 ][ F10][    ][    ][    ]  F6=DebugLevel
 	{   0xffc,0xf00,0xf00,0xf00,0xf00,0xf00,0xf00,0xf00},
 	//e [SHFT][CTRL][OPT1][OPT2][    ][    ][    ][    ]  OPT1=GRAPH
-	{   0x601,0x602,0x604,0xf00,0xf00,0xf00,0xf00,0xf00},
+	{   0xff0,0x602,0x604,0xf00,0xf00,0xf00,0xf00,0xf00},
 	//f [    ][    ][    ][    ][    ][    ][    ][    ]
 	{   0xf00,0xf00,0xf00,0xf00,0xf00,0xf00,0xf00,0xf00}
 };
@@ -486,9 +487,12 @@ int emuLoop(unsigned int pc, unsigned int counter) {
 	unsigned short map;
 	unsigned char X, Y;
 	int hitkey = 0;
+	int shiftKeyHit = 0;
+	int cursorKeyHit = 0; // 1=LEFT, 2=UP, 3=DOWN, 4=RIGHT
 	static int f6KeyHit = 0, f6KeyHitLast = 0;
 	static int kigoKeyHit = 0, kigoKeyHitLast = 0;
 	static int helpKeyHit = 0, helpKeyHitLast = 0;
+	static int shiftAndCursorKeyHit = 0, shiftAndCursorKeyHitLast = 0;
 	
 
 	emuLoopCounter++;
@@ -520,6 +524,31 @@ int emuLoop(unsigned int pc, unsigned int counter) {
 					// 特殊キー
 					switch (X)
 					{
+					case 0xf0: // SHIFTキー 0x601
+						Y = 0x6;
+						X = 0x01;
+						shiftKeyHit = 1;
+						break;
+					case 0xf1: // LEFTキー 0x810
+						Y = 0x8; 
+						X = 0x10;
+						cursorKeyHit = 1;
+						break;
+					case 0xf2: // UPキー 0x820
+						Y = 0x8; 
+						X = 0x20;
+						cursorKeyHit = 2;
+						break;
+					case 0xf3: // DOWNキー 0x840
+						Y = 0x8; 
+						X = 0x40;
+						cursorKeyHit = 3;
+						break;
+					case 0xf4: // RIGHTキー 0x880
+						Y = 0x8; 
+						X = 0x80;
+						cursorKeyHit = 4;
+						break;
 					case 0xfc: // F6キーを押すと、デバッグレベル変更
 						f6KeyHit = 1;
 						break;
@@ -536,8 +565,7 @@ int emuLoop(unsigned int pc, unsigned int counter) {
 						break;
 					}
 				}
-				else
-				{
+				if (Y != 0xf) { // elseにしてはダメ
 					KEYSNS_tbl_ptr[Y] &= ~X;
 				}
 			}
@@ -573,6 +601,12 @@ int emuLoop(unsigned int pc, unsigned int counter) {
 	}
 	helpKeyHitLast = helpKeyHit;
 
+	shiftAndCursorKeyHit = shiftKeyHit && cursorKeyHit;
+	if (shiftAndCursorKeyHit && !shiftAndCursorKeyHitLast)
+	{
+		_moveTextPlane(cursorKeyHit);
+	}
+	shiftAndCursorKeyHitLast = shiftAndCursorKeyHit;
 	return 0;
 }
 
@@ -629,6 +663,50 @@ void _toggleTextPlane(void) {
 
 	textPlaneMode = (textPlaneMode + 1) % 2;
 	_setTextPlane(textPlaneMode);
+}
+
+void _moveTextPlane(int cursorKeyHit) {
+	static uint16_t x = 0;
+	static uint16_t y = 0;
+	int diff = 64;
+
+	switch (cursorKeyHit)
+	{
+	case 1:
+		// 左
+		if (x >= diff) {
+			x -= diff;
+		} else {
+			x = 0;
+		}
+		break;
+	case 2:
+		// 上
+		if (y >= diff) {
+			y -= diff;
+		} else {
+			y = 0;
+		}
+		break;
+	case 3:
+		// 下
+		if (y <= 512 - 192 - diff) { // 適当
+			y += diff;
+		} else {
+			y = 512 - 192;
+		}
+		break;
+	case 4:
+		// 右
+		if (x <= 512 - 192 - diff) { // 適当
+			x += diff;
+		} else {
+			x = 512 - 192;
+		}
+		break;
+	}
+	CRTR_10 = x;
+	CRTR_11 = y;
 }
 
 void _setTextPlane(int textPlaneMode) {
