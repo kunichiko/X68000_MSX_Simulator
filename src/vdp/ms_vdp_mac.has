@@ -2054,14 +2054,16 @@ w_p_name_GR1:
 
 
 w_GRAPHIC2_mac:
-	move.l	4(sp),d1
+	link	a6,#-2
+
+	move.l	8(a6),d1
 	movea.l	ms_vdp_shared,a5		* ms_vdp_t へのポインタを取得
 	movea.l	offset_ms_vdp_vram(a5),a0
 	move.l	offset_ms_vdp_vram_addr(a5),d0			* D0 ・・書き込むアドレス
 	.if DIFFDRAW=1 ;差分描画の実験
 	move.b	0(a0,d0.l),d2
-	cmp.b	d1,d2
-	beq	9f
+	sub.b	d1,d2
+	move.b	d2,-2(a6)			* 差分フラグをセット
 	.endif
 	move.b	d1,0(a0,d0.l)			* VRAM へ書き込み
 
@@ -2076,6 +2078,10 @@ w_GRAPHIC2_mac:
 @@:	andi.w	#%11111100_00000000,d0		* 下位10ビットをクリア
 	cmp.l	offset_ms_vdp_pnametbl_baddr(a5),d0
 	bne	@f
+	.if DIFFDRAW=1 ;差分描画の実験
+	cmp.b	#0,-2(a6)			* 差分フラグをチェック
+	beq	@f
+	.endif
 	bsr	w_p_name_GR2			* パターンネームテーブルへの書き込み
 	bra	9f
 
@@ -2106,6 +2112,8 @@ w_GRAPHIC2_mac:
 	andi.w	#%11000000_00000000,d0
 	or.w	d2,d0
 	move.l	d0,offset_ms_vdp_vram_addr(a5)
+
+	unlk	a6
 	rts
 
 * スプライトアトリビュートテーブルへの書き込み
