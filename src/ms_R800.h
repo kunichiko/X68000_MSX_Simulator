@@ -43,6 +43,8 @@ int ms_cpu_emulate( int(*)(unsigned int, unsigned int));
 void ms_cpu_step(ms_cpu_state* z, int steps);
 
 extern int ms_cpu_step_break;
+extern uint32_t cpu_cycle_last;
+extern uint32_t cpu_cycle_wait;
 
 typedef unsigned char (*ms_io_input_func_ptr)(unsigned char port);
 typedef void (*ms_io_output_func_ptr)(unsigned char port, unsigned char data);

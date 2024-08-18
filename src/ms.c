@@ -561,7 +561,7 @@ int emuLoop(unsigned int pc, unsigned int counter) {
 	if (kigoKeyHit && !kigoKeyHitLast)
 	{
 		printf("\n");
-		printf("emu loop counter=%08d\n", emuLoopCounter);
+		printf("loop count=%08d\ncycle=%08ld wait=%ld\n", emuLoopCounter, cpu_cycle_last, cpu_cycle_wait);
 		printf("COUNTER=%08x, inttick=%08d\n", counter, ms_vdp_interrupt_tick);
 		dump(pc >> 16, pc & 0x3fff);
 	}
@@ -587,7 +587,7 @@ void dump(unsigned int page, unsigned int pc_16k) {
 	char process_type_char[] = {'E','S','D','?'};
 
 	wr = interrupt_history_wr;
-	for(i=0;i<32;i++) {
+	for(i=0;i<8;i++) {
 		unsigned int tick;
 		unsigned int process_type; // 0: EI状態で割り込みがかかった, 1: EIだったがスキップ, 2: DI状態で割り込みがスキップ
 		unsigned int counter;
