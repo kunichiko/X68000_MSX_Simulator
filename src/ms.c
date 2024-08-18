@@ -505,6 +505,7 @@ int emuLoop(unsigned int pc, unsigned int counter) {
 
 	kigoKeyHit = 0;
 	helpKeyHit = 0;
+	f6KeyHit = 0;
 
 	for ( i = 0x00; i < 0x0f; i++)
 	{
@@ -587,7 +588,7 @@ int emuLoop(unsigned int pc, unsigned int counter) {
 
 	if (f6KeyHit && !f6KeyHitLast)
 	{
-		debug_log_level = (debug_log_level + 1) % 4;
+		debug_log_level = (debug_log_level + 1) & 0x3;
 		printf("デバッグログレベル=%d\n", debug_log_level);
 	}
 	f6KeyHitLast = f6KeyHit;

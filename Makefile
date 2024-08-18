@@ -21,7 +21,7 @@ LDFLAGS = -lm -lbas -liocs -ldos
 #LD_OPTS = -L /Users/ohnaka/work/XEiJ/HFS/XGCC/LIB/
 
 ASFLAGS = -i $(SRC_DIR) -i $(VDP_DIR) -i /Users/ohnaka/work/XEiJ/HFS/XGCC/INCLUDE/ -w0
-ASFLAGS_DEBUG = -d -i $(SRC_DIR) -i $(VDP_DIR) -i /Users/ohnaka/work/XEiJ/HFS/XGCC/INCLUDE/ -w0
+ASFLAGS_DEBUG = -d -s DEBUG -i $(SRC_DIR) -i $(VDP_DIR) -i /Users/ohnaka/work/XEiJ/HFS/XGCC/INCLUDE/ -w0
 
 # オブジェクトファイルのリストを変数にまとめる
 OBJS = $(BUILD_DIR)/ms.o \
