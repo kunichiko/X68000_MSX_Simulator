@@ -20,6 +20,10 @@ struct ms_cpu_state {
 	uint8_t interrupt_mode;  // 0: IM0, 1: IM1, 2: IM2
 
 	uint8_t halted;	// 0: normal, 1: halted
+
+	uint8_t dummy;		// 35
+
+	uint32_t cycles;	// 36-39
 };
 
 typedef struct ms_cpu_registers ms_cpu_registers;
@@ -34,12 +38,13 @@ struct ms_cpu_registers {
 
 extern ms_cpu_registers *ms_cpu_registers_ptr;
 
-void ms_cpu_init(void);
 int ms_cpu_emulate( int(*)(unsigned int, unsigned int));
 
 void ms_cpu_step(ms_cpu_state* z, int steps);
 
 extern int ms_cpu_step_break;
+extern uint32_t cpu_cycle_last;
+extern uint32_t cpu_cycle_wait;
 
 typedef unsigned char (*ms_io_input_func_ptr)(unsigned char port);
 typedef void (*ms_io_output_func_ptr)(unsigned char port, unsigned char data);

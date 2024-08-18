@@ -1,5 +1,5 @@
-ms_db.x: ms_db.o ms_R800_mac_30.o ms_vdp_mac.o ms_sysvalue.o ms_sub_mac.o ms_IO_port.o ms_debug.o ms_PSG_mac.o
-	gcc -ldos -liocs ms_db.o ms_R800_mac_30.o ms_vdp_mac.o ms_sysvalue.o ms_sub_mac.o ms_IO_port.o ms_debug.o ms_PSG_mac.o
+ms_db.x: ms_db.o ms_R800_mac_30.o ms_vdp_mac.o ms_sysvalue.o ms_sub_mac.o ms_peripherals.o ms_debug.o ms_PSG_mac.o
+	gcc -ldos -liocs ms_db.o ms_R800_mac_30.o ms_vdp_mac.o ms_sysvalue.o ms_sub_mac.o ms_peripherals.o ms_debug.o ms_PSG_mac.o
 	command copy ms_db.x 実行ディレクトリ
 ms_db.o: ms_db.c
 	gcc -c -O -g ms_db.c
@@ -11,8 +11,8 @@ ms_sysvalue.o: ms_sysvalue.has
 	has ms_sysvalue.has
 ms_sub_mac.o: ms_sub_mac.has
 	has ms_sub_mac.has
-ms_IO_port.o: ms_IO_port.has
-	has ms_IO_port.has
+ms_peripherals.o: ms_peripherals.has
+	has ms_peripherals.has
 ms_debug.o: ms_debug.has
 	has ms_debug.has
 ms_PSG_mac.o: ms_PSG_mac.has

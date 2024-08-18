@@ -4,6 +4,8 @@
 	.include	doscall.mac
 	.include	ms.mac
 
+	.xref	_new_malloc
+	.xref	_new_free
 	.xref	_new_read
 	.xref	base
 	.xref	p_FC
@@ -65,12 +67,58 @@ my_segment_num	equ	2-headerlength	* マッパＲＡＭなどの時の自分のセグメント番号
 ;	メモリマッピングの初期化
 ;
 ms_memmap_init:
+	link	a6,#0
+	movem.l	d3-d7/a0-a5,-(sp)
+
+	; no slot のためのメモリ確保
+	move.l	#16*1024+8,-(sp)
+	bsr	_new_malloc
+	btst.l	#31,d0
+	beq	@f
+	; メモリ確保失敗
+	moveq.l	#0,d0
+	bra	9f
+@@:	; メモリ確保成功
+	move.l	d0,no_slot_ptr
+	move.l	d0,a1
+	; no_slotのヘッダを転送
+	lea	no_slot_header,a0
+	move.l	(a0)+,(a1)+
+	move.l	(a0)+,(a1)+
+	; no_slotの中身を0xffでクリア
+	move.w	#16*1024-1,d1
+@@:	move.b	#$ff,(a1)+
+	dbra	d1,@b
+
+	; slot_0_0 から slot_3_3 までを no_slotで初期化
+	addq.l	#8,d0
+	lea	slot_0_0,a0
+	move.w	#4*4*4-1,d1
+@@:	move.l	d0,(a0)+
+	dbra	d1,@b
+
 	clr.l	exslot_reg_0		* 拡張スロット選択レジスタの値をクリア
-	moveq.L	#1,d0
+	moveq.l	#1,d0
+
+9:	movem.l	(sp)+,d3-d7/a0-a5
+	unlk	a6
 	rts
 
+; TODO ほんとはここで、セットされたROMやメモリの解放処理を入れたい
 ms_memmap_deinit:
-	; TODO ほんとはここで、セットされたROMやメモリの解放処理を入れたい
+	link	a6,#0
+	movem.l	d3-d7/a0-a5,-(sp)
+
+	move.l	no_slot_ptr,d0
+	beq	@f
+	move.l	d0,-(sp)
+	bsr	_new_free
+	lea	4(sp),sp
+@@:
+
+	movem.l	(sp)+,d3-d7/a0-a5
+	unlk	a6
+
 	rts
 
 *
@@ -675,88 +723,88 @@ wt16_sub_add_p3:
 *	このアドレスはヘッダ等を含まない部分を指す。よって、ヘッダは
 *	(アドレス) - 8 のアドレスから存在する。
 slot_0_0:
-	.dc.l	no_slot		* slot 0-0 page0 が存在するアドレス
-	.dc.l	no_slot		* slot 0-0 page1 が存在するアドレス
-	.dc.l	no_slot		* slot 0-0 page2 が存在するアドレス
-	.dc.l	no_slot		* slot 0-0 page3 が存在するアドレス
+	.dc.l	0		* slot 0-0 page0 が存在するアドレス
+	.dc.l	0		* slot 0-0 page1 が存在するアドレス
+	.dc.l	0		* slot 0-0 page2 が存在するアドレス
+	.dc.l	0		* slot 0-0 page3 が存在するアドレス
 slot_0_1:
-	.dc.l	no_slot
-	.dc.l	no_slot
-	.dc.l	no_slot
-	.dc.l	no_slot
+	.dc.l	0
+	.dc.l	0
+	.dc.l	0
+	.dc.l	0
 slot_0_2:
-	.dc.l	no_slot
-	.dc.l	no_slot
-	.dc.l	no_slot
-	.dc.l	no_slot
+	.dc.l	0
+	.dc.l	0
+	.dc.l	0
+	.dc.l	0
 slot_0_3:
-	.dc.l	no_slot
-	.dc.l	no_slot
-	.dc.l	no_slot
-	.dc.l	no_slot
+	.dc.l	0
+	.dc.l	0
+	.dc.l	0
+	.dc.l	0
 
 slot_1_0:
-	.dc.l	no_slot		* slot 1-0 page0 が存在するアドレス
-	.dc.l	no_slot
-	.dc.l	no_slot
-	.dc.l	no_slot
+	.dc.l	0		* slot 1-0 page0 が存在するアドレス
+	.dc.l	0
+	.dc.l	0
+	.dc.l	0
 slot_1_1:
-	.dc.l	no_slot
-	.dc.l	no_slot
-	.dc.l	no_slot
-	.dc.l	no_slot
+	.dc.l	0
+	.dc.l	0
+	.dc.l	0
+	.dc.l	0
 slot_1_2:
-	.dc.l	no_slot
-	.dc.l	no_slot
-	.dc.l	no_slot
-	.dc.l	no_slot
+	.dc.l	0
+	.dc.l	0
+	.dc.l	0
+	.dc.l	0
 slot_1_3:
-	.dc.l	no_slot
-	.dc.l	no_slot
-	.dc.l	no_slot
-	.dc.l	no_slot
+	.dc.l	0
+	.dc.l	0
+	.dc.l	0
+	.dc.l	0
 
 slot_2_0:
-	.dc.l	no_slot
-	.dc.l	no_slot
-	.dc.l	no_slot
-	.dc.l	no_slot
+	.dc.l	0
+	.dc.l	0
+	.dc.l	0
+	.dc.l	0
 slot_2_1:
-	.dc.l	no_slot
-	.dc.l	no_slot
-	.dc.l	no_slot
-	.dc.l	no_slot
+	.dc.l	0
+	.dc.l	0
+	.dc.l	0
+	.dc.l	0
 slot_2_2:
-	.dc.l	no_slot
-	.dc.l	no_slot
-	.dc.l	no_slot
-	.dc.l	no_slot
+	.dc.l	0
+	.dc.l	0
+	.dc.l	0
+	.dc.l	0
 slot_2_3:
-	.dc.l	no_slot
-	.dc.l	no_slot
-	.dc.l	no_slot
-	.dc.l	no_slot
+	.dc.l	0
+	.dc.l	0
+	.dc.l	0
+	.dc.l	0
 
 slot_3_0:
-	.dc.l	no_slot
-	.dc.l	no_slot
-	.dc.l	no_slot
-	.dc.l	no_slot
+	.dc.l	0
+	.dc.l	0
+	.dc.l	0
+	.dc.l	0
 slot_3_1:
-	.dc.l	no_slot
-	.dc.l	no_slot
-	.dc.l	no_slot
-	.dc.l	no_slot
+	.dc.l	0
+	.dc.l	0
+	.dc.l	0
+	.dc.l	0
 slot_3_2:
-	.dc.l	no_slot
-	.dc.l	no_slot
-	.dc.l	no_slot
-	.dc.l	no_slot
+	.dc.l	0
+	.dc.l	0
+	.dc.l	0
+	.dc.l	0
 slot_3_3:
-	.dc.l	no_slot
-	.dc.l	no_slot
-	.dc.l	no_slot
-	.dc.l	no_slot
+	.dc.l	0
+	.dc.l	0
+	.dc.l	0
+	.dc.l	0
 
 *	ＰＡＣのバンクセレクトレジスタ
 PAC_reg_0:			* PAC のバンク切り替え用レジスタ
@@ -766,10 +814,12 @@ PAC_reg_1:
 
 
 *	何もないスロットのためのダミーヘッダ
+no_slot_header:
 	.dc.b	0		* slot type = nothing
 	.dc.b	0,0,0,0,0,0,0
-no_slot:
-	.dc.w	0		* dummy (なくてもいいけど一応)
+*	実際に確保した no slot 領域のアドレス
+no_slot_ptr:
+	.dc.l	0
 
 	.text
 	.even

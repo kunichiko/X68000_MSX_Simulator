@@ -10,7 +10,6 @@
 
 	.xref	ms_memmap_init
 
-	.xref	VideoRAM
 	.xref	slot_0_0
 	.xref	slot_3_0
 	.xref	slot_3_1
@@ -31,6 +30,7 @@
 	.xdef	NMI_vector
 
 	.xdef	_new_malloc
+	.xdef	_new_free
 	.xdef	_new_read
 
 	.xdef	ms_vdp_int
@@ -89,7 +89,15 @@ _new_malloc:
 	DOS	__MALLOC
 	lea.l	4(sp),sp
 
-	movem.l	(sp)+,d3-d7/a0-a5
+	btst.l	#31,d0
+	bne	@f
+	; 確保できた場合は、確保したメモリをクリアする
+	movea.l	d0,a1
+	move.l	8(a6),d1
+	lsr.l	#2,d1
+1:	move.l	#0,(a1)+
+	dbra	d1,1b
+@@:	movem.l	(sp)+,d3-d7/a0-a5
 	unlk	a6
 	rts
 
@@ -139,6 +147,18 @@ not_himem:
 	DOS	__MALLOC
 	lea.l	4(sp),sp
 
+	unlk	a6
+	rts
+
+_new_free:
+	link	a6,#0
+	movem.l	d3-d7/a0-a5,-(sp)
+
+	move.l	8(a6),-(sp)
+	DOS	__MFREE
+	lea.l	4(sp),sp
+
+	movem.l	(sp)+,d3-d7/a0-a5
 	unlk	a6
 	rts
 
