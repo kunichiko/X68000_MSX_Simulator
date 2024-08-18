@@ -93,6 +93,7 @@ ms_vdp_mode_t *ms_vdp_mode_table[32] = {
 int ms_vdp_init_mac(ms_vdp_t* vdp);
 void ms_vdp_deinit_mac(ms_vdp_t* vdp);
 void init_sprite(ms_vdp_t* vdp);
+void init_palette();
 
 // Singleton instance
 ms_vdp_t* ms_vdp_shared = NULL;
@@ -136,6 +137,8 @@ ms_vdp_t* ms_vdp_init() {
 	_iocs_sp_init();
 
 	ms_vdp_init_mac(ms_vdp_shared);
+	// 初期状態はTEXT1
+	ms_vdp_set_mode(ms_vdp_shared, 0);
 
 	init_sprite(ms_vdp_shared);
 
@@ -151,6 +154,9 @@ ms_vdp_t* ms_vdp_init() {
 		ms_vdp_shared->vram[i] = 0;
 	}
 
+	// パレット初期化
+	init_palette();
+
 	return ms_vdp_shared;
 }
 
@@ -158,6 +164,47 @@ void ms_vdp_deinit(ms_vdp_t* vdp) {
 	ms_vdp_deinit_mac(ms_vdp_shared);
 	new_free(vdp->x68_pcg_buffer);
 	new_free(vdp->vram);
+}
+
+/*
+	TMS9918はパレットがないので、MSX1のROMを使うとパレットが初期化されない
+	そのため、ここで初期化する
+	TMS9918の色味とV9938のパレットは厳密には違うが、ここではTMS9918の色味に合わせてX68000のパレットを初期化する
+	MSX2以降のROMを使うと上書きされてしまうのでOKとする
+	カラーコードはこの辺りを参考にした
+	https://forums.atariage.com/topic/262599-palette-fixes-for-colem-adamem-and-classic99/
+*/
+uint16_t default_palette[16][3] = {
+	{0,0,0},		// 0 TRANSPARENT
+	{0,0,0},		// 1 BLACK
+	{79,176,69},	// 2 MEDIUM GREEN
+	{129,202,119},	// 3 LIGHT GREEN
+	{95,81,237},	// 4 DARK BLUE
+	{129,116,255},	// 5 LIGHT BLUE
+	{173,101,77},	// 6 DARK RED
+	{103,195,228},	// 7 CYAN
+	{204,110,80},	// 8 MEDIUM RED
+	{240,146,116},	// 9 LIGHT RED
+	{193,202,81},	// 10 DARK YELLOW
+	{209,215,129},	// 11 LIDHT YELLOW
+	{72,156,59},	// 12 DARK GREEN
+	{176,104,190},	// 13 MAGENTA
+	{204,204,204},	// 14 GRAY
+	{255,255,255}	// 15 WHITE
+};
+
+void init_palette() {
+	// X68000のパレットフォーマット GGGGGRRR_RRBBBBB1に合わせる
+	int i;
+	for (i = 0; i < 16; i++)
+	{
+		uint16_t color = 1;
+		color |= ((default_palette[i][0] >> 3) & 0x1f) << 6;  // R
+		color |= ((default_palette[i][1] >> 3) & 0x1f) << 11; // G
+		color |= ((default_palette[i][2] >> 3) & 0x1f) << 1;  // B
+		X68_GR_PAL[i] = color;
+		X68_SP_PAL_B1[i] = color;
+	}
 }
 
 /*
@@ -258,7 +305,7 @@ unsigned short* X68_SSR = (unsigned short*)0x00eb0000; // スプライトスクロールレ
 unsigned int* X68_PCG = (unsigned int*)0x00eb8000;
 
 /*
- プライトの初期化
+ スプライトの初期化
  */
 void init_sprite(ms_vdp_t* vdp) {
 	int i;

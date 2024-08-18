@@ -79,7 +79,7 @@ static void out(ms_z80 *const z, uint8_t port, uint8_t val)
 
 // MARK: test runner
 static int run_test(
-	ms_z80 *const z, const char *filename, unsigned long cyc_expected)
+	ms_z80 *const z, const char *filename, uint32_t cyc_expected)
 {
 	ms_z80_init(z);
 	z->read_byte = rb;
@@ -128,9 +128,9 @@ static int run_test(
 		}
 	}
 
-	long long diff = cyc_expected - z->cyc;
+	uint32_t diff = cyc_expected - z->cyc;
 	printf("\n*** %lu instructions executed on %lu cycles"
-		   " (expected=%lu, diff=%lld)\n\n",
+		   " (expected=%lu (mod 0x100000000), diff=%lld)\n\n",
 		   nb_instructions, z->cyc, cyc_expected, diff);
 
 	return cyc_expected != z->cyc;
@@ -151,8 +151,8 @@ int main(void)
 	// (https://github.com/anotherlin/z80emu) for those exact roms
 	int r = 0;
 	r += run_test(&cpu, "roms/prelim.com", 8721LU);
-	r += run_test(&cpu, "roms/zexdoc.cim", UINT32_MAX);
-	// r += run_test(&cpu, "roms/zexall.cim", UINT32_MAX);
+	//r += run_test(&cpu, "roms/zexdoc.cim", 0xE19F2E59);
+	r += run_test(&cpu, "roms/zexall.cim", 0xE19F2E59);
 
 	//  free(memory);
 	return r != 0;

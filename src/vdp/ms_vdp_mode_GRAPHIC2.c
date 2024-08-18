@@ -68,9 +68,13 @@ uint8_t read_vram_GRAPHIC2(ms_vdp_t* vdp) {
 }
 
 void write_vram_GRAPHIC2(ms_vdp_t* vdp, uint8_t data) {
+	// write_vram_GRAPHIC2_c(vdp, data);
 	w_GRAPHIC2_mac(data);
 }
 
+/*
+	アセンブラのルーチンを使っているので使ってないが一応残している
+ */
 void write_vram_GRAPHIC2_c(ms_vdp_t* vdp, uint8_t data) {
 	write_vram_DEFAULT(vdp, data);
 	//
