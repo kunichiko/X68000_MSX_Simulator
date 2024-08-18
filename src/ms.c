@@ -99,7 +99,7 @@ volatile extern unsigned short interrupt_history_wr;
 volatile extern unsigned short interrupt_history_rd;
 
 void printHelpAndExit(char* progname) {
-	fprintf(stderr, "Usage: %s [-m1 MAINROM1_PATH] [-m2 MAINROM2_PATH] [-r ROM_PATH] [-r11 ROM1_PATH] [-r12 ROM2_PATH]\n", progname);
+	fprintf(stderr, "Usage: %s [-m MAINROM_PATH] [-s SUBROM_PATH] [-r ROM_PATH] [-r11 ROM1_PATH] [-r12 ROM2_PATH]\n", progname);
 	fprintf(stderr, " --vsrate vsync rate (1-60)\n");
 	fprintf(stderr, "    1: every frame, 2: every 2 frames, ...\n");
 	fprintf(stderr, "    default is 1.\n");
@@ -148,7 +148,7 @@ int main(int argc, char *argv[]) {
 	char *cartridge_path = NULL; // カートリッジのパス
 	char *slot_path[4][4]; // 個々のスロットにセットするROMのパス
 	int opt;
-    const char* optstring = "hm:r:" ; // optstringを定義します
+    const char* optstring = "hm:s:r:" ; // optstringを定義します
     const struct option longopts[] = {
       //{        *name,           has_arg,       *flag, val },
         {     "vsrate", required_argument,           0, 'A' },
@@ -195,6 +195,12 @@ int main(int argc, char *argv[]) {
 			if (optarg != NULL)
 			{
 				mainrom_user = optarg;
+			}
+			break;
+		case 's': // -s オプション
+			if (optarg != NULL)
+			{
+				subrom_user = optarg;
 			}
 			break;
 		case 'r': // -rNN オプション
@@ -737,7 +743,7 @@ int file_exists(const char *filename) {
 void set_system_roms() {
 	if (file_exists(mainrom_user) && file_exists(subrom_user)) {
 		// Load user-provided ROMs
-		printf("実機のROMが見つかりました。%s, %sを使用します\n", mainrom_user, subrom_user);
+		printf("指定されたBIOS ROMが見つかりました。%s と %sを使用します。\n", mainrom_user, subrom_user);
 		allocateAndSetROM(mainrom_user, ROM_TYPE_NORMAL_ROM, 0x00, 0);
 		allocateAndSetROM(subrom_user, ROM_TYPE_NORMAL_ROM, 0x0d, 0);
     } else {
