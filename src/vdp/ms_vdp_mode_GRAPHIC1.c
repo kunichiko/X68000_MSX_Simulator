@@ -15,6 +15,7 @@ void update_sprpgentbl_baddr_GRAPHIC1(ms_vdp_t* vdp);
 void update_r7_color_GRAPHIC1(ms_vdp_t* vdp, uint8_t data);
 char* get_mode_name_GRAPHIC1(ms_vdp_t* vdp);
 void update_resolution_GRAPHIC1(ms_vdp_t* vdp);
+void vsync_draw_GRAPHIC1(ms_vdp_t* vdp);
 
 ms_vdp_mode_t ms_vdp_GRAPHIC1 = {
 	// int init_GRAPHIC1(ms_vdp_t* vdp);
@@ -43,6 +44,8 @@ ms_vdp_mode_t ms_vdp_GRAPHIC1 = {
 	exec_vdp_command_NONE,
 	// void (*update_resolution)(ms_vdp_t* vdp);
 	update_resolution_GRAPHIC1,
+	// void vsync_draw(ms_vdp_t* vdp);
+	vsync_draw_NONE,
 	// sprite mode
 	1
 };

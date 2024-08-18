@@ -213,9 +213,15 @@ void init_palette() {
 void ms_vdp_set_mode(ms_vdp_t* vdp, int mode) {
 	vdp->ms_vdp_current_mode = ms_vdp_mode_table[mode];
 	if (vdp->ms_vdp_current_mode == NULL) {
+		printf("Unknown VDP mode: %d\n", mode);
 		vdp->ms_vdp_current_mode = &ms_vdp_DEFAULT;
 	}
 	vdp->ms_vdp_current_mode->update_resolution(vdp);
+	// GRAMƒNƒŠƒA
+	int i;
+	for(i=0;i<X68_GRAM_LEN;i++) {
+		X68_GRAM[i] = 0;
+	}
 	vdp->ms_vdp_current_mode->init(vdp);
 	printf("VDP Mode: %s\n", vdp->ms_vdp_current_mode->get_mode_name(vdp));
 }

@@ -43,6 +43,8 @@ ms_vdp_mode_t ms_vdp_MULTICOLOR = {
 	exec_vdp_command_NONE,
 	// void (*update_resolution)(ms_vdp_t* vdp);
 	update_resolution_MULTICOLOR,
+	// void vsync_draw(ms_vdp_t* vdp);
+	vsync_draw_NONE,
 	// sprite mode
 	1
 };

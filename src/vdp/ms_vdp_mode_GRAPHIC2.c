@@ -15,6 +15,8 @@ void update_sprpgentbl_baddr_GRAPHIC2(ms_vdp_t* vdp);
 void update_r7_color_GRAPHIC2(ms_vdp_t* vdp, uint8_t data);
 char* get_mode_name_GRAPHIC2(ms_vdp_t* vdp);
 void update_resolution_GRAPHIC2(ms_vdp_t* vdp);
+void vsync_draw_GRAPHIC2(ms_vdp_t* vdp);
+void write_vram_GRAPHIC2_c(ms_vdp_t* vdp, uint8_t data);
 
 ms_vdp_mode_t ms_vdp_GRAPHIC2 = {
 	// int init_GRAPHIC2(ms_vdp_t* vdp);
@@ -43,24 +45,19 @@ ms_vdp_mode_t ms_vdp_GRAPHIC2 = {
 	exec_vdp_command_NONE,
 	// void (*update_resolution)(ms_vdp_t* vdp);
 	update_resolution_GRAPHIC2,
+	// void vsync_draw(ms_vdp_t* vdp);
+	vsync_draw_GRAPHIC2,
 	// sprite mode
 	1
 };
 
 void write_pname_tbl(ms_vdp_t* vdp, uint32_t addr, uint8_t data);
+void _refresh(ms_vdp_t* vdp);
 
 int init_GRAPHIC2(ms_vdp_t* vdp) {
 	set_GRAPHIC2_mac();
 
-	// åªç›ÇÃVRAMÇÃèÛë‘Çå≥Ç…âÊñ Ççƒï`âÊ	
-	int x,y;
-	for(y=0;y<32;y++) {
-		for(x=0;x<32;x++) {
-			uint32_t addr = vdp->pnametbl_baddr+y*32+x;
-			uint8_t data = vdp->vram[addr];
-			write_pname_tbl(vdp, addr, data);
-		}
-	}
+	_refresh(vdp);
 }
 
 uint8_t read_vram_GRAPHIC2(ms_vdp_t* vdp) {
@@ -68,7 +65,7 @@ uint8_t read_vram_GRAPHIC2(ms_vdp_t* vdp) {
 }
 
 void write_vram_GRAPHIC2(ms_vdp_t* vdp, uint8_t data) {
-	// write_vram_GRAPHIC2_c(vdp, data);
+	//write_vram_GRAPHIC2_c(vdp, data);
 	w_GRAPHIC2_mac(data);
 }
 
@@ -108,26 +105,33 @@ void write_vram_GRAPHIC2_c(ms_vdp_t* vdp, uint8_t data) {
 }
 
 void write_pname_tbl(ms_vdp_t* vdp, uint32_t addr, uint8_t data) {
+	uint32_t block = (addr >> 8) & 0x3;
 	uint32_t posx = addr & 0x1f;
 	uint32_t posy = (addr >> 5) & 0x1f;
-	uint32_t block = (posy >> 3) & 0x3;
-	uint32_t color_addr = (vdp->colortbl_baddr & 0xe000) + block*256*8 + data*8;
-	uint32_t pattern_addr = (vdp->pgentbl_baddr & 0xe000) + block*256*8 + data*8;
+	uint32_t color_addr = (vdp->colortbl_baddr & 0x1e000) + (block*256*8) + data*8;
+	color_addr &= 0b11110000000111111 | (vdp->colortbl_baddr & 0b00001111111000000);
+	uint32_t pattern_addr = (vdp->pgentbl_baddr & 0x1e000) + (block*256*8) + data*8;
+	pattern_addr &= 0b11110011111111111 | (vdp->pgentbl_baddr & 0b0000110000000000);
 
 	uint16_t* gram = X68_GRAM + posy*8*512 + posx*8;
-	int x,y;
-	for(y=0;y<8;y+=2) {
-		uint8_t color = vdp->vram[color_addr + y];
-		uint8_t pattern = vdp->vram[pattern_addr + y];
+	int x,line;
+	for(line=0;line<8;line++) {
+		uint8_t color = vdp->vram[color_addr + line];
+		uint8_t pattern = vdp->vram[pattern_addr + line];
 		for(x=0;x<8;x++) {
 			if(pattern & 0x80) {
 				*gram++ = (color >> 4);
 			} else {
-				*gram++ = (color & 0x0f);
+				uint8_t c = (color & 0x0f);
+				if ( c==0 ) {
+					*gram++ = vdp->back_color;
+				} else {
+					*gram++ = c;
+				}
 			}
 			pattern <<= 1;
 		}
-		gram += 512*2-8;
+		gram += 512-8;
 	}
 }
 
@@ -136,17 +140,21 @@ void update_palette_GRAPHIC2(ms_vdp_t* vdp) {
 }
 
 void update_pnametbl_baddr_GRAPHIC2(ms_vdp_t* vdp) {
+	printf("update_pnametbl_baddr_GRAPHIC2\n");
     update_pnametbl_baddr_DEFAULT(vdp);
+	_refresh(vdp);
 }
 
 void update_colortbl_baddr_GRAPHIC2(ms_vdp_t* vdp) {
+	printf("update_colortbl_baddr_GRAPHIC2\n");
 	update_colortbl_baddr_DEFAULT(vdp);
-	vdp->colortbl_baddr &= 0x1e000;
+	_refresh(vdp);
 }
 
 void update_pgentbl_baddr_GRAPHIC2(ms_vdp_t* vdp) {
+	printf("update_pgentbl_baddr_GRAPHIC2\n");
 	update_pgentbl_baddr_DEFAULT(vdp);
-	vdp->pgentbl_baddr &= 0x1e000;
+	_refresh(vdp);
 }
 
 void update_sprattrtbl_baddr_GRAPHIC2(ms_vdp_t* vdp) {
@@ -158,6 +166,8 @@ void update_sprpgentbl_baddr_GRAPHIC2(ms_vdp_t* vdp) {
 }
 
 void update_r7_color_GRAPHIC2(ms_vdp_t* vdp, uint8_t data) {
+	vdp->text_color = data >> 4;
+	vdp->back_color = data & 0x0f;
 }
 
 char* get_mode_name_GRAPHIC2(ms_vdp_t* vdp) {
@@ -167,3 +177,49 @@ char* get_mode_name_GRAPHIC2(ms_vdp_t* vdp) {
 void update_resolution_GRAPHIC2(ms_vdp_t* vdp) {
 	update_resolution_COMMON(vdp, 0, 0, 0); // 256, 16êF, BGïségóp
 }
+
+static int refresh_zone = 0;
+
+void vsync_draw_GRAPHIC2(ms_vdp_t* vdp) {
+	uint32_t flag;
+	int i;
+	for(i=0;i<8;i++) {
+		int area = refresh_zone << 5;
+	 	flag = ms_vdp_rewrite_flag_tbl[refresh_zone];
+		ms_vdp_rewrite_flag_tbl[refresh_zone] = 0;
+		refresh_zone = (refresh_zone + 1) & 0x7;
+		if(flag != 0) {
+			// printf("refresh_zone=%d\n", refresh_zone);
+			// åªç›ÇÃVRAMÇÃèÛë‘Çå≥Ç…âÊñ Ççƒï`âÊ	
+			int x,y;
+			for(y=0;y<32;y++) {
+				for(x=0;x<32;x++) {
+					uint32_t addr = (vdp->pnametbl_baddr&0x1fc00)+y*32+x;
+					uint8_t data = vdp->vram[addr];
+					if ( (data & 0xe0) == area ) {
+						uint32_t mask = 1;
+						mask <<= (refresh_zone & 0x1f);
+						if (flag & mask) {
+							write_pname_tbl(vdp, addr, data);
+						}
+					}
+				}
+			}
+			// 1âÒÇÃvsyncÇ≈1Ç¬ÇÃrefresh_zoneÇæÇØèàóùÇ∑ÇÈ
+			return;
+		}
+	}
+}
+
+void _refresh(ms_vdp_t* vdp){
+	// åªç›ÇÃVRAMÇÃèÛë‘Çå≥Ç…âÊñ Ççƒï`âÊ	
+	int x,y;
+	for(y=0;y<32;y++) {
+		for(x=0;x<32;x++) {
+			uint32_t addr = (vdp->pnametbl_baddr&0x1fc00)+y*32+x;
+			uint8_t data = vdp->vram[addr];
+			write_pname_tbl(vdp, addr, data);
+		}
+	}
+}
+

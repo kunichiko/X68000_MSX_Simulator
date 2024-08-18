@@ -57,6 +57,8 @@
 
 #define PCG	(*(volatile uint16_t *)0xeb8000)			// スプライトパターン
 
+extern uint8_t* ms_vdp_rewrite_flag_tbl;
+
 typedef struct ms_vdp_mode ms_vdp_mode_t;
 
 /**
@@ -191,6 +193,7 @@ typedef struct ms_vdp_mode {
 	char* (*get_mode_name)(ms_vdp_t* vdp);
 	void (*exec_vdp_command)(ms_vdp_t* vdp, uint8_t cmd);
 	void (*update_resolution)(ms_vdp_t* vdp);
+	void (*vsync_draw)(ms_vdp_t* vdp);
 	int sprite_mode; // 0x00: 未使用, 0x01: MODE1, 0x02: MODE2, bit7: 0=256ドット, 1=512ドット
 } ms_vdp_mode_t;
 
@@ -202,6 +205,7 @@ void write_sprite_pattern(ms_vdp_t* vdp, int offset, uint32_t pattern);
 void write_sprite_attribute(ms_vdp_t* vdp, int offset, uint32_t attribute);
 void update_sprite_visibility(ms_vdp_t* vdp);
 
+void vsync_draw_NONE(ms_vdp_t* vdp);
 void exec_vdp_command_DEFAULT(ms_vdp_t* vdp, uint8_t cmd);
 void exec_vdp_command_NONE(ms_vdp_t* vdp, uint8_t cmd);
 

@@ -68,6 +68,7 @@
 	.xref	ms_vdp_int
 	.xdef	ms_vdp_interrupt_tick
 	.xdef	ms_vdp_vsync_rate
+	.xdef	ms_vdp_rewrite_flag_tbl
 
 	.xdef	PSET_G4
 	.xdef	PSET_G5
@@ -138,6 +139,7 @@ offset_ms_vdp_update_r7_color		equ	9*4
 offset_ms_vdp_get_mode_name		equ	10*4
 offset_ms_vdp_exec_vdp_command		equ	11*4
 offset_ms_vdp_update_resolution		equ	12*4
+offset_ms_vdp_vsync_draw		equ	13*4
 
 ; typedef struct ms_vdp {
 ; 	uint8_t	r00;	// Mode register 0
@@ -331,7 +333,7 @@ offset_ms_vdp_last_visible_sprite_size		equ	148
 *	screen12		65536色	512*512
 *
 *
-	.68000
+	.68030
 
 	.text
 	.even
@@ -2068,41 +2070,57 @@ w_GRAPHIC2_mac:
 	move.b	d1,0(a0,d0.l)			* VRAM へ書き込み
 
 	* sprattrtbl_baddrと一致していたらスプライトアトリビュートテーブルへの書き込み
-	andi.l	#%1_11111111_10000000,d0	* 下位7ビットをクリア
-	cmp.l	offset_ms_vdp_sprattrtbl_baddr(a5),d0
+	andi.w	#%11111111_10000000,d0		* 下位7ビットをクリア
+	move.l	offset_ms_vdp_sprattrtbl_baddr(a5),d2
+	andi.w	#%11111111_10000000,d2
+	cmp.l	d2,d0
 	bne	@f
+	move.l	d0,-(sp)
 	bsr	w_SP_attr			* スプライトアトリビュートテーブルへの書き込み
-	bra	9f
+	move.l	(sp)+,d0
 
 	* offset_ms_vdp_pnametbl_baddr(a5)と一致していたらパターンネームテーブルへの書き込み
 @@:	andi.w	#%11111100_00000000,d0		* 下位10ビットをクリア
-	cmp.l	offset_ms_vdp_pnametbl_baddr(a5),d0
+	move.l	offset_ms_vdp_pnametbl_baddr(a5),d2
+	andi.w	#%11111100_00000000,d2
+	cmp.l	d2,d0
 	bne	@f
 	.if DIFFDRAW=1 ;差分描画の実験
 	cmp.b	#0,-2(a6)			* 差分フラグをチェック
 	beq	@f
 	.endif
+	move.l	d0,-(sp)
 	bsr	w_p_name_GR2			* パターンネームテーブルへの書き込み
-	bra	9f
+	move.l	(sp)+,d0
 
 	* sprpatgentbl_baddrと一致していたらスプライトパターンジェネレータテーブルへの書き込み
 @@:	andi.w	#%11111000_00000000,d0		* 下位11ビットをクリア
-	cmp.l	offset_ms_vdp_sprpgentbl_baddr(a5),d0
+	move.l	offset_ms_vdp_sprpgentbl_baddr(a5),d2
+	andi.w	#%11111000_00000000,d2
+	cmp.l	d2,d0
 	bne	@f
+	move.l	d0,-(sp)
 	bsr	w_SP_p_gene			* スプライトパターンジェネレータテーブルへの書き込み
-	bra	9f
+	move.l	(sp)+,d0
 
 	* pgentbl_baddr と一致していたらパターンジェネレータテーブルへの書き込み
 @@:	andi.w	#%11100000_00000000,d0		* 下位13ビットをクリア
-	cmp.l	offset_ms_vdp_pgentbl_baddr(a5),d0
+	move.l	offset_ms_vdp_pgentbl_baddr(a5),d2
+	andi.w	#%11100000_00000000,d2
+	cmp.l	d2,d0
 	bne	@f
+	move.l	d0,-(sp)
 	bsr	w_p_gene_GR2			* パターンジェネレータテーブルへの書き込み
-	bra	9f
+	move.l	(sp)+,d0
 
 	* colortbl_baddrと一致していたらカラーテーブルへの書き込み
-@@:	cmp.l	offset_ms_vdp_colortbl_baddr(a5),d0
+@@:	move.l	offset_ms_vdp_colortbl_baddr(a5),d2
+	andi.w	#%11100000_00000000,d2
+	cmp.l	d2,d0
 	bne	@f
+	move.l	d0,-(sp)
 	bsr	w_color_GR2			* カラーテーブルへの書き込み
+	move.l	(sp)+,d0
 
 @@:	* VRAM書き込みアドレスをインクリメント
 9:	move.l	offset_ms_vdp_vram_addr(a5),d0
@@ -2146,7 +2164,6 @@ w_SP_p_gene:
 
 
 w_color_GR2:
-	; TODO 更新フラグを立てて垂直帰線期間に一度に更新するようにしたい痕跡
 	move.w	#4,rewrite_screen	* セットした画面モードを入れる
 
 	movea.l	ms_vdp_shared,a5		* ms_vdp_t へのポインタを取得
@@ -2154,18 +2171,15 @@ w_color_GR2:
 	andi.w	#%00000111_11111111,d1	
 	lsr.w	#3,d1			* d1 ・・ 書き替えたキャラクター番号０～２５５
 	move.w	d1,d2
-	andi.w	#%00000000_00011111,d2
+	andi.l	#%00000000_00011111,d2
 	lsr.w	#5,d1
 	lea.l	rewrite_f_0,a0
-	add.w	d1,d1
-	add.w	d1,d1
-	move.l	0(a0,d1.w),d0		* rewrite_f_n を読み込み
+	move.l	(a0,d1.w*4),d0		* rewrite_f_n を読み込み
 	bset.l	d2,d0
-	move.l	d0,0(a0,d1.w)		* rewrite_f_n へ書き込み
+	move.l	d0,(a0,d1.w*4)		* rewrite_f_n へ書き込み
 	rts	
 
 w_p_gene_GR2:
-	; TODO 更新フラグを立てて垂直帰線期間に一度に更新するようにしたい痕跡
 	move.w	#4,rewrite_screen	* セットした画面モードを入れる
 
 	movea.l	ms_vdp_shared,a5		* ms_vdp_t へのポインタを取得
@@ -2173,14 +2187,12 @@ w_p_gene_GR2:
 	andi.w	#%00000111_11111111,d1	
 	lsr.w	#3,d1			* d1 ・・ 書き替えたキャラクター番号０～２５５
 	move.w	d1,d2
-	andi.w	#%00000000_00011111,d2
+	andi.l	#%00000000_00011111,d2
 	lsr.w	#5,d1
 	lea.l	rewrite_f_0,a0
-	add.w	d1,d1
-	add.w	d1,d1
-	move.l	0(a0,d1.w),d0		* rewrite_f_n を読み込み
+	move.l	0(a0,d1.w*4),d0		* rewrite_f_n を読み込み
 	bset.l	d2,d0
-	move.l	d0,0(a0,d1.w)		* rewrite_f_n へ書き込み
+	move.l	d0,0(a0,d1.w*4)		* rewrite_f_n へ書き込み
 	rts	
 
 *
@@ -2229,7 +2241,9 @@ w_p_name_GR2:
 	move.w	d2,d3
 	lsr.w	#4,d2			* 前景色
 	andi.w	#%00001111,d3		* 背景色
-
+	bne	@f
+	move.w	offset_ms_vdp_back_color(a5),d3
+@@:
 	moveq.l	#DRAWWIDTH_GR-1,d4	* X方向ループカウンタ(8ドット)
 2:	lsl.b	#1,d1			* 最上位ビットを送り出す
 	bcc	1f			* 最上位ビットが１でなければ次へ	
@@ -2942,14 +2956,17 @@ rewrite_screen:
 					* とを示す。
 
 *	ＳＣＲＥＥＮ０，２，４で使う
-rewrite_f_0	.dc.l	0
-rewrite_f_1	.dc.l	0
-rewrite_f_2	.dc.l	0
-rewrite_f_3	.dc.l	0
-rewrite_f_4	.dc.l	0
-rewrite_f_5	.dc.l	0
-rewrite_f_6	.dc.l	0
-rewrite_f_7	.dc.l	0
+ms_vdp_rewrite_flag_tbl:
+		.dc.l	rewrite_f_0
+
+rewrite_f_0:	.dc.l	0
+rewrite_f_1:	.dc.l	0
+rewrite_f_2:	.dc.l	0
+rewrite_f_3:	.dc.l	0
+rewrite_f_4:	.dc.l	0
+rewrite_f_5:	.dc.l	0
+rewrite_f_6:	.dc.l	0
+rewrite_f_7:	.dc.l	0
 
 
 ; *	------ ＶＤＰ Ｒｅｇｉｓｔｅｒｓ ------

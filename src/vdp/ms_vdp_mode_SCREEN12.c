@@ -44,6 +44,8 @@ ms_vdp_mode_t ms_vdp_SCREEN12 = {
 	exec_vdp_command_SCREEN12,
 	// void (*update_resolution)(ms_vdp_t* vdp);
 	update_resolution_SCREEN12,
+	// void vsync_draw(ms_vdp_t* vdp);
+	vsync_draw_NONE,
 	// sprite mode
 	2
 };

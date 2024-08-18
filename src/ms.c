@@ -499,9 +499,12 @@ int emuLoop(unsigned int pc, unsigned int counter) {
 	static int kigoKeyHit = 0, kigoKeyHitLast = 0;
 	static int helpKeyHit = 0, helpKeyHitLast = 0;
 	static int shiftAndCursorKeyHit = 0, shiftAndCursorKeyHitLast = 0;
-	
 
 	emuLoopCounter++;
+
+	if( vdp != NULL) {
+		vdp->ms_vdp_current_mode->vsync_draw(vdp);
+	}
 
 	kigoKeyHit = 0;
 	helpKeyHit = 0;

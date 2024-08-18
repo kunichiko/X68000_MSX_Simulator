@@ -15,6 +15,7 @@ void update_sprpgentbl_baddr_DEFAULT(ms_vdp_t* vdp);
 void update_r7_color_DEFAULT(ms_vdp_t* vdp, uint8_t data);
 char* get_mode_name_DEFAULT(ms_vdp_t* vdp);
 void update_resolution_DEFAULT(ms_vdp_t* vdp);
+void vsync_draw_DEFAULT(ms_vdp_t* vdp);
 
 
 ms_vdp_mode_t ms_vdp_DEFAULT = {
@@ -44,6 +45,8 @@ ms_vdp_mode_t ms_vdp_DEFAULT = {
 	exec_vdp_command_NONE,
 	// void (*update_resolution)(ms_vdp_t* vdp);
 	update_resolution_DEFAULT,
+	// void vsync_draw(ms_vdp_t* vdp);
+	vsync_draw_NONE,
 	// sprite mode
 	0
 };
@@ -141,4 +144,7 @@ void exec_vdp_command_NONE(ms_vdp_t* vdp, uint8_t cmd) {
 
 void update_resolution_DEFAULT(ms_vdp_t* vdp) {
 	update_resolution_COMMON(vdp, 1, 0, 0); // 512, 16色, BG不使用
+}
+
+void vsync_draw_NONE(ms_vdp_t* vdp) {
 }
