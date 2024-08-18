@@ -196,6 +196,7 @@ typedef struct ms_vdp_mode {
 
 ms_vdp_t* ms_vdp_init();
 void ms_vdp_deinit(ms_vdp_t* vdp);
+void ms_vdp_set_mode(ms_vdp_t* vdp, int mode);
 
 void write_sprite_pattern(ms_vdp_t* vdp, int offset, uint32_t pattern);
 void write_sprite_attribute(ms_vdp_t* vdp, int offset, uint32_t attribute);

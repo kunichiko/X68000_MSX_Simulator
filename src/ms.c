@@ -737,10 +737,12 @@ int file_exists(const char *filename) {
 void set_system_roms() {
 	if (file_exists(mainrom_user) && file_exists(subrom_user)) {
 		// Load user-provided ROMs
+		printf("実機のROMが見つかりました。%s, %sを使用します\n", mainrom_user, subrom_user);
 		allocateAndSetROM(mainrom_user, ROM_TYPE_NORMAL_ROM, 0x00, 0);
 		allocateAndSetROM(subrom_user, ROM_TYPE_NORMAL_ROM, 0x0d, 0);
     } else {
         // Load default CBIOS ROMs
+		printf("CBIOS ROMを使用します。\n");
 		allocateAndSetROM(mainrom_cbios, ROM_TYPE_NORMAL_ROM, 0x00, 0);
 		allocateAndSetROM(cbioslogo, ROM_TYPE_NORMAL_ROM, 0x00, 2);
 		allocateAndSetROM(subrom_cbios, ROM_TYPE_NORMAL_ROM, 0x0d, 0);
