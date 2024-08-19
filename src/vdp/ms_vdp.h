@@ -57,7 +57,7 @@
 
 #define PCG	(*(volatile uint16_t *)0xeb8000)			// スプライトパターン
 
-extern uint8_t* ms_vdp_rewrite_flag_tbl;
+extern uint32_t* ms_vdp_rewrite_flag_tbl;
 
 typedef struct ms_vdp_mode ms_vdp_mode_t;
 

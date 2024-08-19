@@ -93,7 +93,7 @@ ms_vdp_mode_t *ms_vdp_mode_table[32] = {
 int ms_vdp_init_mac(ms_vdp_t* vdp);
 void ms_vdp_deinit_mac(ms_vdp_t* vdp);
 void init_sprite(ms_vdp_t* vdp);
-void init_palette();
+void init_palette(ms_vdp_t* vdp);
 
 // Singleton instance
 ms_vdp_t* ms_vdp_shared = NULL;
@@ -155,7 +155,7 @@ ms_vdp_t* ms_vdp_init() {
 	}
 
 	// パレット初期化
-	init_palette();
+	init_palette(ms_vdp_shared);
 
 	return ms_vdp_shared;
 }
@@ -193,7 +193,7 @@ uint16_t default_palette[16][3] = {
 	{255,255,255}	// 15 WHITE
 };
 
-void init_palette() {
+void init_palette(ms_vdp_t* vdp) {
 	// X68000のパレットフォーマット GGGGGRRR_RRBBBBB1に合わせる
 	int i;
 	for (i = 0; i < 16; i++)
@@ -202,6 +202,7 @@ void init_palette() {
 		color |= ((default_palette[i][0] >> 3) & 0x1f) << 6;  // R
 		color |= ((default_palette[i][1] >> 3) & 0x1f) << 11; // G
 		color |= ((default_palette[i][2] >> 3) & 0x1f) << 1;  // B
+		vdp->palette[i] = color;
 		X68_GR_PAL[i] = color;
 		X68_SP_PAL_B1[i] = color;
 	}

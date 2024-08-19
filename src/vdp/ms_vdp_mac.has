@@ -1249,13 +1249,6 @@ set_GRAPHIC1_mac:
 	andi.w	#%1111111111111000,d0		* 16色モードに
 	move.w	d0,VCRR_00
 
-	lea.l	$EB8000,a0			* バックドロップ用のＢＧを設定
-	move.l	#$11111111,d1			* パターンの定義
-	move.w	#16-1,d0
-@@:	move.l	d1,(a0)+
-	clr.l	(a0)+
-	dbra	d0,@b
-
 	move.w	#1,offset_ms_vdp_gr_active(a5)
 	bsr	update_VCRR_02
 
@@ -1272,13 +1265,6 @@ set_GRAPHIC2_mac:
 	move.w	VCRR_00,d0			* ビデオコントロールレジスタの設定
 	andi.w	#%1111111111111000,d0		* 16色モードに
 	move.w	d0,VCRR_00
-
-	lea.l	$EB8000,a0			* バックドロップ用のＢＧを設定
-	move.l	#$11111111,d1			* パターンの定義
-	move.w	#16-1,d0
-@@:	move.l	d1,(a0)+
-	clr.l	(a0)+
-	dbra	d0,@b
 
 	move.w	#1,offset_ms_vdp_gr_active(a5)
 	bsr	update_VCRR_02
@@ -1466,15 +1452,19 @@ s_MULTICOLOR:
 
 s_GRAPHIC1:
 	movea.l	ms_vdp_shared,a5		* ms_vdp_t へのポインタを取得
-	andi.l	#%00000011_11111111,d1
-	move.l	d1,d0				* 32で割って1024*16倍
-	lsl.w	#3,d0				* d0.w = d0 * 8 =  y * 256
-	clr.b	d0				* 余計な部分をクリア
-	lsl.l	#6,d0				* d0.w = d0 * 64 = y * 1024*16
+	andi.l	#%00000011_11111111,d1		* VRAMアドレスの下位10ビットを取得
+	; VRAMアドレスを32で割ればライン番号になる
+	; それを1024*8倍すると、GRAMのアドレスになる
+	; なので、VRAMアドレスを256倍して、下位13ビットをクリアするとGRAMの画面左端アドレスになる
+	move.l	d1,d0				* 32で割って1024*8倍 = 256倍
+	lsl.l	#8,d0				* d0.w = y * 256
+	and.l	#$fffe000,d0			* 下位13ビットをクリア
+	; VRAMアドレスを32で割った余りがキャラクタのX座標になる
+	; それを8*2倍すると、GRAMのアドレスになる
 	andi.w	#%00000000_00011111,d1		* d1.l ・・余り	x
-	lsl.w	#5,d1				* d1.l = x * 32
-
-	add.w	d1,d0				* d0.l = アドレス (word 演算でＯＫ）
+	lsl.w	#4,d1				* d1.l = x * 16
+	; 合計するとGRAMアドレスが得られる
+	add.l	d1,d0				* d0.l = アドレス
 	add.l	#$c00000,d0
 	move.l	d0,offset_ms_vdp_gram_addr(a5)
 
@@ -1901,36 +1891,93 @@ w_p_name_tx2_mac:
 	rts
 
 w_GRAPHIC1_mac:
-	move.l	4(sp),d1
+	link	a6,#-2
+	movem.l	d1-d3/a0-a5,-(sp)
+
+	move.l	8(a6),d1
 	movea.l	ms_vdp_shared,a5		* ms_vdp_t へのポインタを取得
 	movea.l	offset_ms_vdp_vram(a5),a0
-	move.l	offset_ms_vdp_vram_addr(a5),d0			* D0 ・・書き込むアドレス
+	move.l	offset_ms_vdp_vram_addr(a5),d0	* D0 ・・書き込むVRAMアドレス
+	.if DIFFDRAW=1 ;差分描画の実験
+	move.b	0(a0,d0.l),d2
+	sub.b	d1,d2
+	move.b	d2,-2(a6)			* 差分フラグをセット
+	.endif
 	move.b	d1,0(a0,d0.l)			* VRAM へ書き込み
-	andi.w	#%11111111_11000000,d0
-	cmp.l	offset_ms_vdp_colortbl_baddr(a5),d0
+
+	* colortbl_baddrと一致していたらカラーテーブルへの書き込み
+@@:	andi.w	#%11111111_11000000,d0		* 下位6ビットをクリア
+	move.l	offset_ms_vdp_colortbl_baddr(a5),d2
+	andi.w	#%11111111_11000000,d2
+	cmp.l	d2,d0
 	bne	@f
-	move.w	d1,-(sp)
+	movem.l	d0-d1,-(sp)
 	bsr	w_color_GR1			* カラーテーブルへの書き込み
-	move.w	(sp)+,d1
-@@:	andi.w	#%11111100_00000000,d0		* 下位１０ビットをクリア
-	cmp.l	offset_ms_vdp_pnametbl_baddr(a5),d0
+	movem.l	(sp)+,d0-d1
+
+	bra	9f	; テーブルが重なっている場合もありうるので本当はスキップしてはいけないのだが……
+
+	* sprattrtbl_baddrと一致していたらスプライトアトリビュートテーブルへの書き込み
+@@:	andi.w	#%11111111_10000000,d0		* 下位7ビットをクリア
+	move.l	offset_ms_vdp_sprattrtbl_baddr(a5),d2
+	andi.w	#%11111111_10000000,d2
+	cmp.l	d2,d0
 	bne	@f
-	move.l	d0,-(sp)
-	move.w	d1,-(sp)
+	movem.l	d0-d1,-(sp)
+	bsr	w_SP_attr			* スプライトアトリビュートテーブルへの書き込み
+	movem.l	(sp)+,d0-d1
+
+	bra	9f	; テーブルが重なっている場合もありうるので本当はスキップしてはいけないのだが……
+
+	* offset_ms_vdp_pnametbl_baddr(a5)と一致していたらパターンネームテーブルへの書き込み
+@@:	andi.w	#%11111100_00000000,d0		* 下位10ビットをクリア
+	move.l	offset_ms_vdp_pnametbl_baddr(a5),d2
+	andi.w	#%11111100_00000000,d2
+	cmp.l	d2,d0
+	bne	@f
+	.if DIFFDRAW=1 ;差分描画の実験
+	cmp.b	#0,-2(a6)			* 差分フラグをチェック
+	beq	@f
+	.endif
+	movem.l	d0-d1,-(sp)
 	bsr	w_p_name_GR1			* パターンネームテーブルへの書き込み
-	move.w	(sp)+,d1
-	move.l	(sp)+,d0
-@@:	andi.w	#%11111000_00000000,d0
-	cmp.l	offset_ms_vdp_pgentbl_baddr(a5),d0
+	movem.l	(sp)+,d0-d1
+
+	bra	9f	; テーブルが重なっている場合もありうるので本当はスキップしてはいけないのだが……
+
+	* sprpatgentbl_baddrと一致していたらスプライトパターンジェネレータテーブルへの書き込み
+@@:	andi.w	#%11111000_00000000,d0		* 下位11ビットをクリア
+	move.l	offset_ms_vdp_sprpgentbl_baddr(a5),d2
+	andi.w	#%11111000_00000000,d2
+	cmp.l	d2,d0
 	bne	@f
+	movem.l	d0-d1,-(sp)
+	bsr	w_SP_p_gene			* スプライトパターンジェネレータテーブルへの書き込み
+	movem.l	(sp)+,d0-d1
+
+	bra	9f	; テーブルが重なっている場合もありうるので本当はスキップしてはいけないのだが……
+
+	* pgentbl_baddr と一致していたらパターンジェネレータテーブルへの書き込み
+@@:	andi.w	#%11111000_00000000,d0		* 下位11ビットをクリア
+	move.l	offset_ms_vdp_pgentbl_baddr(a5),d2
+	andi.w	#%11111000_00000000,d2
+	cmp.l	d2,d0
+	bne	@f
+	movem.l	d0-d1,-(sp)
 	bsr	w_p_gene_GR1			* パターンジェネレータテーブルへの書き込み
-@@:	move.l	offset_ms_vdp_vram_addr(a5),d0
+	movem.l	(sp)+,d0-d1
+
+@@:	* VRAM書き込みアドレスをインクリメント
+9:	move.l	offset_ms_vdp_vram_addr(a5),d0
 	move.w	d0,d2
 	addq.w	#1,d2				* 上位ワードは変化しないからワードでＯＫ
 	andi.w	#%00111111_11111111,d2
 	andi.w	#%11000000_00000000,d0
 	or.w	d2,d0
 	move.l	d0,offset_ms_vdp_vram_addr(a5)
+
+	movem.l	(sp)+,d1-d3/a0-a5
+	unlk	a6
 	rts
 
 w_color_GR1:
@@ -1980,6 +2027,7 @@ w_p_gene_GR1:
 *
 *	文字キャラクタ表示
 *
+*	a0.l ・・・ VRAMのあるアドレス(X68000上)
 *	d1.b ・・・ キャラクタコード 0 ～ 255
 *
 * (返り値)
@@ -1987,69 +2035,58 @@ w_p_gene_GR1:
 *	a1 ・・・・ 次に表示するＧＲＡＭアドレス
 *
 w_p_name_GR1:
+	movea.l	ms_vdp_shared,a5		* ms_vdp_t へのポインタを取得
 	move.l	d4,-(sp)
 
-	movea.l	ms_vdp_shared,a5		* ms_vdp_t へのポインタを取得
+	.if DIFFDRAW=1 ;差分描画の実験
+	move.l	d1,-(sp)
+	move.l	offset_ms_vdp_vram_addr(a5),d1
+	bsr	s_GRAPHIC1
+	move.l	(sp)+,d1
+	.endif
+
 	movea.l	offset_ms_vdp_gram_addr(a5),a1		* a1.l ・・・ 表示するＧＲＡＭアドレス
-	move.l	offset_ms_vdp_colortbl_baddr(a5),d0			* d0 = カラーテーブルベースアドレス
-	lea.l	0(a0,d0.l),a2		* a2 = 実カラーテーブルベースアドレス
+
+	move.l	offset_ms_vdp_colortbl_baddr(a5),d0	* d0 = カラーテーブルベースアドレス
+	andi.w	#%11111111_11000000,d0		* 下位6ビットをクリア
+	lea.l	0(a0,d0.l),a2			* a2 = 実カラーテーブルベースアドレス
 	move.l	offset_ms_vdp_pgentbl_baddr(a5),d0
-	lea.l	0(a0,d0.l),a0		* a0 = 実パターンジェネレータテーブルアドレス
+	andi.w	#%11111000_00000000,d0		* 下位11ビットをクリア
+	lea.l	0(a0,d0.l),a0			* a0 = 実パターンジェネレータテーブルアドレス
 
 	clr.w	d0
 	move.b	d1,d0
 	lsl.w	#3,d0
-	lea.l	0(a0,d0.w),a0		* a0 = 表示するフォントのアドレス
+	lea.l	0(a0,d0.w),a0		* a0 = 表示するパターンのアドレス
 
-	lsr.w	#6,d0
-
-	move.b	0(a2,d0.w),d3		* ２ドット同時書き込みするため
-	move.w	d3,d2
-	swap	d3
-	move.w	d2,d3
+	lsr.w	#6,d0			* GRAPHIC1は8種類ごとに同じ色 (上で3ビットシフトしているので6ビット動かす)
+	clr.w	d3
+	move.b	0(a2,d0.w),d3		* d3: 背景色
+	move.w	d3,d2			* d2: 前景色
 	lsr.w	#4,d2
-	move.w	d2,d0
-	swap	d2
-	move.w	d0,d2
+	andi.w	#%00001111,d3
 
-	moveq.l	#4-1,d0			* ループカウンタ
-3:	move.w	(a0)+,d1		* d1 = フォントデータ
+	moveq.l	#8-1,d0			* Y方向ループカウンタ(8ライン)
+3:	move.b	(a0)+,d1		* d1 = フォントデータ
 
-	moveq.l	#DRAWWIDTH_GR-1,d4	* ループカウンタ
-2:	lsl.w	#1,d1			* 最上位ビットを送り出す
+	moveq.l	#DRAWWIDTH_GR-1,d4	*  X方向ループカウンタ(8ドット)
+2:	lsl.b	#1,d1			* 最上位ビットを送り出す
 	bcc	1f			* 最上位ビットが１でなければ次へ	
-*	move.l	d2,1024(a1)		* 前景色を表示
-	move.l	d2,(a1)+		* 前景色を表示
-	dbra	d4,2b
+	move.w	d2,(a1)+		* 前景色を表示
 	bra	@f
-1:
-*	move.l	d3,1024(a1)		* 背景色を表示
-	move.l	d3,(a1)+		* 背景色を表示
-	dbra	d4,2b
+1:	move.w	d3,(a1)+		* 背景色を表示
+@@:	dbra	d4,2b
 
-@@:	adda.l	#1024+1024-DRAWWIDTH_GR*4,a1	* １ライン下げる
-
-	moveq.l	#DRAWWIDTH_GR-1,d4	* ループカウンタ
-2:	lsl.w	#1,d1			* 最上位ビットを送り出す
-	bcc	1f			* 最上位ビットが１でなければ次へ	
-*	move.l	d2,1024(a1)		* 前景色を表示
-	move.l	d2,(a1)+
-	dbra	d4,2b
-	bra	@f
-1:
-*	move.l	d3,1024(a1)		* 背景色を表示
-	move.l	d3,(a1)+		* 背景色を表示
-	dbra	d4,2b
-
-@@:	adda.l	#1024+1024-DRAWWIDTH_GR*4,a1	* １ライン下げる
-
+	; 次のラインへ
+	adda.l	#1024-(DRAWWIDTH_GR*2),a1	* １ライン下げる
 	dbra	d0,3b
 
-	suba.l	#1024*16-4*8,a1		* gram_add が次の文字の位置を指すように更新
+	; 一つ右の文字へ
+	suba.l	#1024*8-(DRAWWIDTH_GR*2),a1	* gram_add が次の文字の位置を指すように更新
 	move.l	a1,d0
-	andi.w	#$03ff,d0		* 改行したかどうかのチェック
+	andi.w	#$01ff,d0		* 改行したかどうかのチェック
 	bne	@f
-	adda.l	#1024*15,a1
+	adda.l	#1024*8-256*2,a1	* 右端まで達した場合は、実画面512のx=256の位置にいるので、7.5行下げる
 @@:	move.l	a1,offset_ms_vdp_gram_addr(a5)
 	move.l	(sp)+,d4
 	rts
@@ -2057,6 +2094,7 @@ w_p_name_GR1:
 
 w_GRAPHIC2_mac:
 	link	a6,#-2
+	movem.l	d1-d3/a0-a5,-(sp)
 
 	move.l	8(a6),d1
 	movea.l	ms_vdp_shared,a5		* ms_vdp_t へのポインタを取得
@@ -2075,9 +2113,11 @@ w_GRAPHIC2_mac:
 	andi.w	#%11111111_10000000,d2
 	cmp.l	d2,d0
 	bne	@f
-	move.l	d0,-(sp)
+	movem.l	d0-d1,-(sp)
 	bsr	w_SP_attr			* スプライトアトリビュートテーブルへの書き込み
-	move.l	(sp)+,d0
+	movem.l	(sp)+,d0-d1
+
+	bra	9f	; テーブルが重なっている場合もありうるので本当はスキップしてはいけないのだが……
 
 	* offset_ms_vdp_pnametbl_baddr(a5)と一致していたらパターンネームテーブルへの書き込み
 @@:	andi.w	#%11111100_00000000,d0		* 下位10ビットをクリア
@@ -2089,9 +2129,11 @@ w_GRAPHIC2_mac:
 	cmp.b	#0,-2(a6)			* 差分フラグをチェック
 	beq	@f
 	.endif
-	move.l	d0,-(sp)
+	movem.l	d0-d1,-(sp)
 	bsr	w_p_name_GR2			* パターンネームテーブルへの書き込み
-	move.l	(sp)+,d0
+	movem.l	(sp)+,d0-d1
+
+	bra	9f	; テーブルが重なっている場合もありうるので本当はスキップしてはいけないのだが……
 
 	* sprpatgentbl_baddrと一致していたらスプライトパターンジェネレータテーブルへの書き込み
 @@:	andi.w	#%11111000_00000000,d0		* 下位11ビットをクリア
@@ -2099,9 +2141,11 @@ w_GRAPHIC2_mac:
 	andi.w	#%11111000_00000000,d2
 	cmp.l	d2,d0
 	bne	@f
-	move.l	d0,-(sp)
+	movem.l	d0-d1,-(sp)
 	bsr	w_SP_p_gene			* スプライトパターンジェネレータテーブルへの書き込み
-	move.l	(sp)+,d0
+	movem.l	(sp)+,d0-d1
+
+	bra	9f	; テーブルが重なっている場合もありうるので本当はスキップしてはいけないのだが……
 
 	* pgentbl_baddr と一致していたらパターンジェネレータテーブルへの書き込み
 @@:	andi.w	#%11100000_00000000,d0		* 下位13ビットをクリア
@@ -2109,18 +2153,20 @@ w_GRAPHIC2_mac:
 	andi.w	#%11100000_00000000,d2
 	cmp.l	d2,d0
 	bne	@f
-	move.l	d0,-(sp)
+	movem.l	d0-d1,-(sp)
 	bsr	w_p_gene_GR2			* パターンジェネレータテーブルへの書き込み
-	move.l	(sp)+,d0
+	movem.l	(sp)+,d0-d1
+
+	bra	9f	; テーブルが重なっている場合もありうるので本当はスキップしてはいけないのだが……
 
 	* colortbl_baddrと一致していたらカラーテーブルへの書き込み
 @@:	move.l	offset_ms_vdp_colortbl_baddr(a5),d2
 	andi.w	#%11100000_00000000,d2
 	cmp.l	d2,d0
 	bne	@f
-	move.l	d0,-(sp)
+	movem.l	d0-d1,-(sp)
 	bsr	w_color_GR2			* カラーテーブルへの書き込み
-	move.l	(sp)+,d0
+	movem.l	(sp)+,d0-d1
 
 @@:	* VRAM書き込みアドレスをインクリメント
 9:	move.l	offset_ms_vdp_vram_addr(a5),d0
@@ -2131,6 +2177,7 @@ w_GRAPHIC2_mac:
 	or.w	d2,d0
 	move.l	d0,offset_ms_vdp_vram_addr(a5)
 
+	movem.l	(sp)+,d1-d3/a0-a5
 	unlk	a6
 	rts
 
@@ -2184,7 +2231,7 @@ w_p_gene_GR2:
 
 	movea.l	ms_vdp_shared,a5		* ms_vdp_t へのポインタを取得
 	move.l	offset_ms_vdp_vram_addr(a5),d1
-	andi.w	#%00000111_11111111,d1	
+	andi.l	#%00000111_11111111,d1	
 	lsr.w	#3,d1			* d1 ・・ 書き替えたキャラクター番号０～２５５
 	move.w	d1,d2
 	andi.l	#%00000000_00011111,d2
@@ -2198,6 +2245,7 @@ w_p_gene_GR2:
 *
 *	文字キャラクタ表示
 *
+*	a0.l ・・・ VRAMのあるアドレス(X68000上)
 *	d1.b ・・・ キャラクタコード 0 ～ 255
 *
 * (返り値)
@@ -2240,9 +2288,12 @@ w_p_name_GR2:
 	move.b	(a2)+,d2		* カラーテーブルから色を取得 d2: 前景色 d3: 背景色
 	move.w	d2,d3
 	lsr.w	#4,d2			* 前景色
-	andi.w	#%00001111,d3		* 背景色
 	bne	@f
-	move.w	offset_ms_vdp_back_color(a5),d3
+	move.w	#0,d2
+@@:	andi.w	#%00001111,d3		* 背景色
+	bne	@f
+	;move.w	offset_ms_vdp_back_color(a5),d3
+	move.w	#0,d3
 @@:
 	moveq.l	#DRAWWIDTH_GR-1,d4	* X方向ループカウンタ(8ドット)
 2:	lsl.b	#1,d1			* 最上位ビットを送り出す

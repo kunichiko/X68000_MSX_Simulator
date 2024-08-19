@@ -99,7 +99,7 @@ volatile extern unsigned short interrupt_history_wr;
 volatile extern unsigned short interrupt_history_rd;
 
 void printHelpAndExit(char* progname) {
-	fprintf(stderr, "Usage: %s [-m MAINROM_PATH] [-s SUBROM_PATH] [-r ROM_PATH] [-r11 ROM1_PATH] [-r12 ROM2_PATH]\n", progname);
+	fprintf(stderr, "Usage: %s [-m MAINROM_PATH] [-w MAX_WAIT] [-s SUBROM_PATH] [-r ROM_PATH] [-r11 ROM1_PATH] [-r12 ROM2_PATH]\n", progname);
 	fprintf(stderr, " --vsrate vsync rate (1-60)\n");
 	fprintf(stderr, "    1: every frame, 2: every 2 frames, ...\n");
 	fprintf(stderr, "    default is 1.\n");
@@ -125,6 +125,7 @@ static unsigned char *SLOT1_1;
 static unsigned char *SLOT1_2;
 static unsigned char *ROM;
 
+uint32_t max_wait = 0xffffffff;
 int disablekey = 0;
 
 const char *mainrom_cbios = "cbios_main_msx1_jp.rom";
@@ -148,7 +149,7 @@ int main(int argc, char *argv[]) {
 	char *cartridge_path = NULL; // カートリッジのパス
 	char *slot_path[4][4]; // 個々のスロットにセットするROMのパス
 	int opt;
-    const char* optstring = "hm:s:r:" ; // optstringを定義します
+    const char* optstring = "hm:s:w:r:" ; // optstringを定義します
     const struct option longopts[] = {
       //{        *name,           has_arg,       *flag, val },
         {     "vsrate", required_argument,           0, 'A' },
@@ -195,6 +196,12 @@ int main(int argc, char *argv[]) {
 			if (optarg != NULL)
 			{
 				mainrom_user = optarg;
+			}
+			break;
+		case 'w': // -w オプション
+			if (optarg != NULL)
+			{
+				max_wait = atoi(optarg);
 			}
 			break;
 		case 's': // -s オプション
@@ -410,7 +417,7 @@ int main(int argc, char *argv[]) {
 	}
 
 	if (1) {
-		ms_cpu_emulate(emuLoop);
+		ms_cpu_emulate(emuLoop, max_wait);
 	} else {
 		debugger();
 	}

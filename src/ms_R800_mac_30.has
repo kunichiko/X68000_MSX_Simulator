@@ -222,6 +222,8 @@ cpu_cycle_last:			* C側に見せている値(デバッグ表示中に重くなって値が変わるのを回
 	.dc.l	0
 cpu_cycle_wait:
 	.dc.l	0
+cpu_cycle_wait_max:
+	.dc.l	$ffffffff
 emu_counter:
 	.dc.l	0
 emu_counter_latch:
@@ -257,13 +259,14 @@ interrupt_history_rd:
 
 	.text
 *
-*	void ms_cpu_emulate(emu_loop_func);
+*	void ms_cpu_emulate(emu_loop_func, max_wait);
 *
 ms_cpu_emulate:
 	link	a6,#0
 	movem.l	d3-d7/a0-a5,-(sp)	* ※1 emu_endと対応
 	
-	move.l	8(a6),emu_loop_func	* 引数1のループ関数のポインタを保存しておく
+	move.l	8(a6),emu_loop_func		* 引数1のループ関数のポインタを保存しておく
+	move.l	12(a6),cpu_cycle_wait_max	* 引数2の最大ウエイトを保存しておく
 
 	lea.l	registers,a3
 	clr.w	d1
@@ -650,7 +653,7 @@ check_yield:
 	move.l	cpu_cycle,d0
 	move.l	d0,cpu_cycle_latch
 	clr.l	cpu_cycle
-	cmp.l	#3579545/60*4/5,d0	* 1/60秒分のサイクル数 (MSXのM1ウエイトを考慮して4/5倍している) = $BA6F
+	cmp.l	#3579545/60*4/5,d0	* 1/60秒分のサイクル数 (MSXのM1ウエイトを考慮して4/5倍している) = 47727 = $BA6F
 	blt	calc_wait_slow
 calc_wait_fast:
 	; 速い時
@@ -658,7 +661,7 @@ calc_wait_fast:
 	divu.w	#3579545/60*4/5,d0
 	; d0:下位に商、上位に余りが入る
 	; 例: 速度が1.1倍早かった時、$BA6F * 1.1 / $BA6F = $0001 (余り $12A5)
-	; ひとまず、余りのxxxx分の1をウエイトに加算し、商が2以上の場合はその数だけウエイトをシフトし
+	; ひとまず、余りの1/4096 + 1をウエイトに加算(+1?+12)し、商が2以上の場合はさらに+16を加算する
 	clr.l	d1
 	swap	d0
 	move.w	d0,d1
@@ -669,23 +672,29 @@ calc_wait_fast:
 	add.l	#1,d1
 	add.l	cpu_cycle_wait,d1
 	bcc	1f
-	; 最大ウエイトに達した場合
+	; オーバーフローした場合(ないと思うが)
 	move.l	#$ffffffff,d1
 1:	cmp.w	#1,d0
 	beq	1f
-	lsl.l	#1,d1		* 商が2以上なら2倍する(add 1しているので必ず倍になる)
+	add.l	#16,d1
 	bcc	1f
-	; 最大ウエイトに達した場合
+	; オーバーフローした場合(ないと思うが)
 	move.l	#$ffffffff,d1
+1:	cmp.l	cpu_cycle_wait_max,d1
+	bcs	1f
+	move.l	cpu_cycle_wait_max,d1
 1:	; ウエイトをセット
 	move.l	d1,cpu_cycle_wait
 	bra	check_interrupt
 calc_wait_slow:
 	; 遅い時
-	; ウエイトを半分にする(動作速度が倍になるわけではないのでひとまずこれでOK)
-	move.l	cpu_cycle_wait,d1
-	lsr.l	#1,d1
-	move.l	d1,cpu_cycle_wait
+	; ウエイトを3/4倍にする(動作速度が4/3倍になるわけではないのでひとまずこれでOK)
+	move.l	cpu_cycle_wait,d0
+	move.l	d0,d1
+	lsr.l	#1,d0		; 1/2倍
+	lsr.l	#2,d1		; 1/4倍
+	add.l	d1,d0		; 3/4倍
+	move.l	d0,cpu_cycle_wait
 
 	; 割り込み処理
 check_interrupt:

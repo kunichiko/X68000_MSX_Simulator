@@ -90,6 +90,10 @@ void write_vram_DEFAULT(ms_vdp_t* vdp, uint8_t data) {
 void update_palette_DEFAULT(ms_vdp_t* vdp) {
 	int i;
 
+	// “§–¾F‚Í”wŒiF‚ª“§‚¯‚ÄŒ©‚¦‚é‚æ‚¤‚É‚·‚é
+	X68_GR_PAL[0] = vdp->palette[vdp->back_color & 0xf];
+	//X68_GR_PAL[0] = 0x0e01;
+
 	for(i =1; i < 16; i++) {
 		X68_GR_PAL[i] = vdp->palette[i];
 		X68_SP_PAL_B1[i] = vdp->palette[i];
@@ -129,6 +133,10 @@ void update_sprpgentbl_baddr_DEFAULT(ms_vdp_t* vdp) {
  * @param vdp 
  */
 void update_r7_color_DEFAULT(ms_vdp_t* vdp, uint8_t data) {
+	vdp->text_color = data >> 4;
+	vdp->back_color = data & 0x0f;
+
+	X68_GR_PAL[0] = vdp->palette[vdp->back_color & 0xf];
 }
 
 char* get_mode_name_DEFAULT(ms_vdp_t* vdp) {
