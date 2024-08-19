@@ -175,5 +175,6 @@ void _refresh_GRAPHIC1(ms_vdp_t* vdp){
 	for(i=0;i<8;i++) {
 		ms_vdp_rewrite_flag_tbl[i] = 0xffffffff;
 	}
+	refresh_addr = 0;
 	return;
 }

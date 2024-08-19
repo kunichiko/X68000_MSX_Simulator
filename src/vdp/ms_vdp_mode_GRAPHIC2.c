@@ -182,7 +182,6 @@ static uint32_t refresh_addr = 0;
 static int num_refresh = 0;
 
 void vsync_draw_GRAPHIC2(ms_vdp_t* vdp) {
-	return;
 	int i;
 	if (refresh_addr == 0) {
 		// ループの先頭
@@ -194,7 +193,7 @@ void vsync_draw_GRAPHIC2(ms_vdp_t* vdp) {
 		num_refresh = 0;
 	}
 	// 1回のvsyncで書き換える数の上限
-	int refresh_count = 4;
+	int refresh_count = 32;
 	// 1回のvsyncでチェックする数の上限
 	int check_count = 128;
 	while(refresh_count > 0 && check_count > 0) {
@@ -218,13 +217,13 @@ void vsync_draw_GRAPHIC2(ms_vdp_t* vdp) {
 }
 
 void _refresh_GRAPHIC2(ms_vdp_t* vdp){
-	return ;
-	if(0) {
+	if(1) {
 		// この場ですぐには書き換えずに、フラグだけセットして、vsync_drawで書き換える
 		int i;
 		for(i=0;i<8;i++) {
 			ms_vdp_rewrite_flag_tbl[i] = 0xffffffff;
 		}
+		refresh_addr = 0;
 		return;
 	} else {
 		// 現在のVRAMの状態を元に画面を再描画	
