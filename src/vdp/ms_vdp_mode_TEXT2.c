@@ -43,6 +43,8 @@ ms_vdp_mode_t ms_vdp_TEXT2 = {
 	exec_vdp_command_NONE,
 	// void (*update_resolution)(ms_vdp_t* vdp);
 	update_resolution_TEXT2,
+	// void vsync_draw(ms_vdp_t* vdp);
+	vsync_draw_NONE,
 	// sprite mode
 	0
 };

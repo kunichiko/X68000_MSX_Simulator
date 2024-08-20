@@ -32,7 +32,6 @@
 	.xdef	set_MULTICOLOR_mac
 	.xdef	set_GRAPHIC1_mac
 	.xdef	set_GRAPHIC2_mac
-	.xdef	set_GRAPHIC3_mac
 	.xdef	set_GRAPHIC4_mac
 	.xdef	set_GRAPHIC5_mac
 	.xdef	set_GRAPHIC6_mac
@@ -68,6 +67,7 @@
 	.xref	ms_vdp_int
 	.xdef	ms_vdp_interrupt_tick
 	.xdef	ms_vdp_vsync_rate
+	.xdef	ms_vdp_rewrite_flag_tbl
 
 	.xdef	PSET_G4
 	.xdef	PSET_G5
@@ -138,6 +138,7 @@ offset_ms_vdp_update_r7_color		equ	9*4
 offset_ms_vdp_get_mode_name		equ	10*4
 offset_ms_vdp_exec_vdp_command		equ	11*4
 offset_ms_vdp_update_resolution		equ	12*4
+offset_ms_vdp_vsync_draw		equ	13*4
 
 ; typedef struct ms_vdp {
 ; 	uint8_t	r00;	// Mode register 0
@@ -331,7 +332,7 @@ offset_ms_vdp_last_visible_sprite_size		equ	148
 *	screen12		65536色	512*512
 *
 *
-	.68000
+	.68030
 
 	.text
 	.even
@@ -1247,13 +1248,6 @@ set_GRAPHIC1_mac:
 	andi.w	#%1111111111111000,d0		* 16色モードに
 	move.w	d0,VCRR_00
 
-	lea.l	$EB8000,a0			* バックドロップ用のＢＧを設定
-	move.l	#$11111111,d1			* パターンの定義
-	move.w	#16-1,d0
-@@:	move.l	d1,(a0)+
-	clr.l	(a0)+
-	dbra	d0,@b
-
 	move.w	#1,offset_ms_vdp_gr_active(a5)
 	bsr	update_VCRR_02
 
@@ -1271,22 +1265,11 @@ set_GRAPHIC2_mac:
 	andi.w	#%1111111111111000,d0		* 16色モードに
 	move.w	d0,VCRR_00
 
-	lea.l	$EB8000,a0			* バックドロップ用のＢＧを設定
-	move.l	#$11111111,d1			* パターンの定義
-	move.w	#16-1,d0
-@@:	move.l	d1,(a0)+
-	clr.l	(a0)+
-	dbra	d0,@b
-
 	move.w	#1,offset_ms_vdp_gr_active(a5)
 	bsr	update_VCRR_02
 
 	move.l	#s_GRAPHIC2,set_gram_add_rot
 
-	rts
-
-set_GRAPHIC3_mac:
-	movea.l	ms_vdp_shared,a5		* ms_vdp_t へのポインタを取得
 	rts
 
 set_GRAPHIC4_mac:
@@ -1464,15 +1447,19 @@ s_MULTICOLOR:
 
 s_GRAPHIC1:
 	movea.l	ms_vdp_shared,a5		* ms_vdp_t へのポインタを取得
-	andi.l	#%00000011_11111111,d1
-	move.l	d1,d0				* 32で割って1024*16倍
-	lsl.w	#3,d0				* d0.w = d0 * 8 =  y * 256
-	clr.b	d0				* 余計な部分をクリア
-	lsl.l	#6,d0				* d0.w = d0 * 64 = y * 1024*16
+	andi.l	#%00000011_11111111,d1		* VRAMアドレスの下位10ビットを取得
+	; VRAMアドレスを32で割ればライン番号になる
+	; それを1024*8倍すると、GRAMのアドレスになる
+	; なので、VRAMアドレスを256倍して、下位13ビットをクリアするとGRAMの画面左端アドレスになる
+	move.l	d1,d0				* 32で割って1024*8倍 = 256倍
+	lsl.l	#8,d0				* d0.w = y * 256
+	and.l	#$fffe000,d0			* 下位13ビットをクリア
+	; VRAMアドレスを32で割った余りがキャラクタのX座標になる
+	; それを8*2倍すると、GRAMのアドレスになる
 	andi.w	#%00000000_00011111,d1		* d1.l ・・余り	x
-	lsl.w	#5,d1				* d1.l = x * 32
-
-	add.w	d1,d0				* d0.l = アドレス (word 演算でＯＫ）
+	lsl.w	#4,d1				* d1.l = x * 16
+	; 合計するとGRAMアドレスが得られる
+	add.l	d1,d0				* d0.l = アドレス
 	add.l	#$c00000,d0
 	move.l	d0,offset_ms_vdp_gram_addr(a5)
 
@@ -1496,10 +1483,6 @@ s_GRAPHIC2:
 	add.l	#$c00000,d0
 	move.l	d0,offset_ms_vdp_gram_addr(a5)
 
-	rts
-
-s_GRAPHIC3:
-	movea.l	ms_vdp_shared,a5		* ms_vdp_t へのポインタを取得
 	rts
 
 *
@@ -1899,36 +1882,93 @@ w_p_name_tx2_mac:
 	rts
 
 w_GRAPHIC1_mac:
-	move.l	4(sp),d1
+	link	a6,#-2
+	movem.l	d1-d3/a0-a5,-(sp)
+
+	move.l	8(a6),d1
 	movea.l	ms_vdp_shared,a5		* ms_vdp_t へのポインタを取得
 	movea.l	offset_ms_vdp_vram(a5),a0
-	move.l	offset_ms_vdp_vram_addr(a5),d0			* D0 ・・書き込むアドレス
+	move.l	offset_ms_vdp_vram_addr(a5),d0	* D0 ・・書き込むVRAMアドレス
+	.if DIFFDRAW=1 ;差分描画の実験
+	move.b	0(a0,d0.l),d2
+	sub.b	d1,d2
+	move.b	d2,-2(a6)			* 差分フラグをセット
+	.endif
 	move.b	d1,0(a0,d0.l)			* VRAM へ書き込み
-	andi.w	#%11111111_11000000,d0
-	cmp.l	offset_ms_vdp_colortbl_baddr(a5),d0
+
+	* colortbl_baddrと一致していたらカラーテーブルへの書き込み
+@@:	andi.w	#%11111111_11000000,d0		* 下位6ビットをクリア
+	move.l	offset_ms_vdp_colortbl_baddr(a5),d2
+	andi.w	#%11111111_11000000,d2
+	cmp.l	d2,d0
 	bne	@f
-	move.w	d1,-(sp)
+	movem.l	d0-d1,-(sp)
 	bsr	w_color_GR1			* カラーテーブルへの書き込み
-	move.w	(sp)+,d1
-@@:	andi.w	#%11111100_00000000,d0		* 下位１０ビットをクリア
-	cmp.l	offset_ms_vdp_pnametbl_baddr(a5),d0
+	movem.l	(sp)+,d0-d1
+
+	bra	9f	; テーブルが重なっている場合もありうるので本当はスキップしてはいけないのだが……
+
+	* sprattrtbl_baddrと一致していたらスプライトアトリビュートテーブルへの書き込み
+@@:	andi.w	#%11111111_10000000,d0		* 下位7ビットをクリア
+	move.l	offset_ms_vdp_sprattrtbl_baddr(a5),d2
+	andi.w	#%11111111_10000000,d2
+	cmp.l	d2,d0
 	bne	@f
-	move.l	d0,-(sp)
-	move.w	d1,-(sp)
+	movem.l	d0-d1,-(sp)
+	bsr	w_SP_attr			* スプライトアトリビュートテーブルへの書き込み
+	movem.l	(sp)+,d0-d1
+
+	bra	9f	; テーブルが重なっている場合もありうるので本当はスキップしてはいけないのだが……
+
+	* offset_ms_vdp_pnametbl_baddr(a5)と一致していたらパターンネームテーブルへの書き込み
+@@:	andi.w	#%11111100_00000000,d0		* 下位10ビットをクリア
+	move.l	offset_ms_vdp_pnametbl_baddr(a5),d2
+	andi.w	#%11111100_00000000,d2
+	cmp.l	d2,d0
+	bne	@f
+	.if DIFFDRAW=1 ;差分描画の実験
+	cmp.b	#0,-2(a6)			* 差分フラグをチェック
+	beq	@f
+	.endif
+	movem.l	d0-d1,-(sp)
 	bsr	w_p_name_GR1			* パターンネームテーブルへの書き込み
-	move.w	(sp)+,d1
-	move.l	(sp)+,d0
-@@:	andi.w	#%11111000_00000000,d0
-	cmp.l	offset_ms_vdp_pgentbl_baddr(a5),d0
+	movem.l	(sp)+,d0-d1
+
+	bra	9f	; テーブルが重なっている場合もありうるので本当はスキップしてはいけないのだが……
+
+	* sprpatgentbl_baddrと一致していたらスプライトパターンジェネレータテーブルへの書き込み
+@@:	andi.w	#%11111000_00000000,d0		* 下位11ビットをクリア
+	move.l	offset_ms_vdp_sprpgentbl_baddr(a5),d2
+	andi.w	#%11111000_00000000,d2
+	cmp.l	d2,d0
 	bne	@f
+	movem.l	d0-d1,-(sp)
+	bsr	w_SP_p_gene			* スプライトパターンジェネレータテーブルへの書き込み
+	movem.l	(sp)+,d0-d1
+
+	bra	9f	; テーブルが重なっている場合もありうるので本当はスキップしてはいけないのだが……
+
+	* pgentbl_baddr と一致していたらパターンジェネレータテーブルへの書き込み
+@@:	andi.w	#%11111000_00000000,d0		* 下位11ビットをクリア
+	move.l	offset_ms_vdp_pgentbl_baddr(a5),d2
+	andi.w	#%11111000_00000000,d2
+	cmp.l	d2,d0
+	bne	@f
+	movem.l	d0-d1,-(sp)
 	bsr	w_p_gene_GR1			* パターンジェネレータテーブルへの書き込み
-@@:	move.l	offset_ms_vdp_vram_addr(a5),d0
+	movem.l	(sp)+,d0-d1
+
+@@:	* VRAM書き込みアドレスをインクリメント
+9:	move.l	offset_ms_vdp_vram_addr(a5),d0
 	move.w	d0,d2
 	addq.w	#1,d2				* 上位ワードは変化しないからワードでＯＫ
 	andi.w	#%00111111_11111111,d2
 	andi.w	#%11000000_00000000,d0
 	or.w	d2,d0
 	move.l	d0,offset_ms_vdp_vram_addr(a5)
+
+	movem.l	(sp)+,d1-d3/a0-a5
+	unlk	a6
 	rts
 
 w_color_GR1:
@@ -1936,24 +1976,27 @@ w_color_GR1:
 	move.w	#3,rewrite_screen	* セットした画面モードを入れる
 
 	lea.l	rewrite_f_0,a1
-	movea.l	ms_vdp_shared,a5		* ms_vdp_t へのポインタを取得
+	movea.l	ms_vdp_shared,a5	* ms_vdp_t へのポインタを取得
 	move.l	offset_ms_vdp_vram_addr(a5),d1
+	andi.w	#%00000000_00111111,d1
+	cmpi.w	#%00000000_00100000,d1	* カラーテーブルの長さは0x001fまでなので、0x0020以上は無視
+	bcc	@f
 	andi.w	#%00000000_00011111,d1	* d1 ・・ 書き替えたキャラクター番号/8 = 0～31
 	move.w	d1,d2
 	andi.w	#%00000000_00011100,d1
 	andi.w	#%00000000_00000011,d2
-	beq	@f
+	beq	1f
 	cmpi.w	#2,d2
-	beq	2f
-	bmi	1f
+	beq	3f
+	bmi	2f
 	ori.l	#$ff000000,0(a1,d1.w)
 	rts	
-@@:	ori.l	#$000000ff,0(a1,d1.w)
+1:	ori.l	#$000000ff,0(a1,d1.w)
 	rts	
-1:	ori.l	#$0000ff00,0(a1,d1.w)
+2:	ori.l	#$0000ff00,0(a1,d1.w)
 	rts	
-2:	ori.l	#$00ff0000,0(a1,d1.w)
-	rts	
+3:	ori.l	#$00ff0000,0(a1,d1.w)
+@@:	rts	
 
 
 w_p_gene_GR1:
@@ -1968,16 +2011,15 @@ w_p_gene_GR1:
 	andi.w	#%00000000_00011111,d2
 	lsr.w	#5,d1
 	lea.l	rewrite_f_0,a0
-	add.w	d1,d1
-	add.w	d1,d1
-	move.l	0(a0,d1.w),d0		* rewrite_f_n を読み込み
+	move.l	0(a0,d1.w*4),d0		* rewrite_f_n を読み込み
 	bset.l	d2,d0
-	move.l	d0,0(a0,d1.w)		* rewrite_f_n へ書き込み
+	move.l	d0,0(a0,d1.w*4)		* rewrite_f_n へ書き込み
 	rts	
 
 *
 *	文字キャラクタ表示
 *
+*	a0.l ・・・ VRAMのあるアドレス(X68000上)
 *	d1.b ・・・ キャラクタコード 0 ～ 255
 *
 * (返り値)
@@ -1985,69 +2027,58 @@ w_p_gene_GR1:
 *	a1 ・・・・ 次に表示するＧＲＡＭアドレス
 *
 w_p_name_GR1:
+	movea.l	ms_vdp_shared,a5		* ms_vdp_t へのポインタを取得
 	move.l	d4,-(sp)
 
-	movea.l	ms_vdp_shared,a5		* ms_vdp_t へのポインタを取得
+	.if DIFFDRAW=1 ;差分描画の実験
+	move.l	d1,-(sp)
+	move.l	offset_ms_vdp_vram_addr(a5),d1
+	bsr	s_GRAPHIC1
+	move.l	(sp)+,d1
+	.endif
+
 	movea.l	offset_ms_vdp_gram_addr(a5),a1		* a1.l ・・・ 表示するＧＲＡＭアドレス
-	move.l	offset_ms_vdp_colortbl_baddr(a5),d0			* d0 = カラーテーブルベースアドレス
-	lea.l	0(a0,d0.l),a2		* a2 = 実カラーテーブルベースアドレス
+
+	move.l	offset_ms_vdp_colortbl_baddr(a5),d0	* d0 = カラーテーブルベースアドレス
+	andi.w	#%11111111_11000000,d0		* 下位6ビットをクリア
+	lea.l	0(a0,d0.l),a2			* a2 = 実カラーテーブルベースアドレス
 	move.l	offset_ms_vdp_pgentbl_baddr(a5),d0
-	lea.l	0(a0,d0.l),a0		* a0 = 実パターンジェネレータテーブルアドレス
+	andi.w	#%11111000_00000000,d0		* 下位11ビットをクリア
+	lea.l	0(a0,d0.l),a0			* a0 = 実パターンジェネレータテーブルアドレス
 
 	clr.w	d0
 	move.b	d1,d0
 	lsl.w	#3,d0
-	lea.l	0(a0,d0.w),a0		* a0 = 表示するフォントのアドレス
+	lea.l	0(a0,d0.w),a0		* a0 = 表示するパターンのアドレス
 
-	lsr.w	#6,d0
-
-	move.b	0(a2,d0.w),d3		* ２ドット同時書き込みするため
-	move.w	d3,d2
-	swap	d3
-	move.w	d2,d3
+	lsr.w	#6,d0			* GRAPHIC1は8種類ごとに同じ色 (上で3ビットシフトしているので6ビット動かす)
+	clr.w	d3
+	move.b	0(a2,d0.w),d3		* d3: 背景色
+	move.w	d3,d2			* d2: 前景色
 	lsr.w	#4,d2
-	move.w	d2,d0
-	swap	d2
-	move.w	d0,d2
+	andi.w	#%00001111,d3
 
-	moveq.l	#4-1,d0			* ループカウンタ
-3:	move.w	(a0)+,d1		* d1 = フォントデータ
+	moveq.l	#8-1,d0			* Y方向ループカウンタ(8ライン)
+3:	move.b	(a0)+,d1		* d1 = フォントデータ
 
-	moveq.l	#DRAWWIDTH_GR-1,d4	* ループカウンタ
-2:	lsl.w	#1,d1			* 最上位ビットを送り出す
+	moveq.l	#DRAWWIDTH_GR-1,d4	*  X方向ループカウンタ(8ドット)
+2:	lsl.b	#1,d1			* 最上位ビットを送り出す
 	bcc	1f			* 最上位ビットが１でなければ次へ	
-*	move.l	d2,1024(a1)		* 前景色を表示
-	move.l	d2,(a1)+		* 前景色を表示
-	dbra	d4,2b
+	move.w	d2,(a1)+		* 前景色を表示
 	bra	@f
-1:
-*	move.l	d3,1024(a1)		* 背景色を表示
-	move.l	d3,(a1)+		* 背景色を表示
-	dbra	d4,2b
+1:	move.w	d3,(a1)+		* 背景色を表示
+@@:	dbra	d4,2b
 
-@@:	adda.l	#1024+1024-DRAWWIDTH_GR*4,a1	* １ライン下げる
-
-	moveq.l	#DRAWWIDTH_GR-1,d4	* ループカウンタ
-2:	lsl.w	#1,d1			* 最上位ビットを送り出す
-	bcc	1f			* 最上位ビットが１でなければ次へ	
-*	move.l	d2,1024(a1)		* 前景色を表示
-	move.l	d2,(a1)+
-	dbra	d4,2b
-	bra	@f
-1:
-*	move.l	d3,1024(a1)		* 背景色を表示
-	move.l	d3,(a1)+		* 背景色を表示
-	dbra	d4,2b
-
-@@:	adda.l	#1024+1024-DRAWWIDTH_GR*4,a1	* １ライン下げる
-
+	; 次のラインへ
+	adda.l	#1024-(DRAWWIDTH_GR*2),a1	* １ライン下げる
 	dbra	d0,3b
 
-	suba.l	#1024*16-4*8,a1		* gram_add が次の文字の位置を指すように更新
+	; 一つ右の文字へ
+	suba.l	#1024*8-(DRAWWIDTH_GR*2),a1	* gram_add が次の文字の位置を指すように更新
 	move.l	a1,d0
-	andi.w	#$03ff,d0		* 改行したかどうかのチェック
+	andi.w	#$01ff,d0		* 改行したかどうかのチェック
 	bne	@f
-	adda.l	#1024*15,a1
+	adda.l	#1024*8-256*2,a1	* 右端まで達した場合は、実画面512のx=256の位置にいるので、7.5行下げる
 @@:	move.l	a1,offset_ms_vdp_gram_addr(a5)
 	move.l	(sp)+,d4
 	rts
@@ -2055,6 +2086,7 @@ w_p_name_GR1:
 
 w_GRAPHIC2_mac:
 	link	a6,#-2
+	movem.l	d1-d3/a0-a5,-(sp)
 
 	move.l	8(a6),d1
 	movea.l	ms_vdp_shared,a5		* ms_vdp_t へのポインタを取得
@@ -2068,41 +2100,65 @@ w_GRAPHIC2_mac:
 	move.b	d1,0(a0,d0.l)			* VRAM へ書き込み
 
 	* sprattrtbl_baddrと一致していたらスプライトアトリビュートテーブルへの書き込み
-	andi.l	#%1_11111111_10000000,d0	* 下位7ビットをクリア
-	cmp.l	offset_ms_vdp_sprattrtbl_baddr(a5),d0
+	andi.w	#%11111111_10000000,d0		* 下位7ビットをクリア
+	move.l	offset_ms_vdp_sprattrtbl_baddr(a5),d2
+	andi.w	#%11111111_10000000,d2
+	cmp.l	d2,d0
 	bne	@f
+	movem.l	d0-d1,-(sp)
 	bsr	w_SP_attr			* スプライトアトリビュートテーブルへの書き込み
-	bra	9f
+	movem.l	(sp)+,d0-d1
+
+	bra	9f	; テーブルが重なっている場合もありうるので本当はスキップしてはいけないのだが……
 
 	* offset_ms_vdp_pnametbl_baddr(a5)と一致していたらパターンネームテーブルへの書き込み
 @@:	andi.w	#%11111100_00000000,d0		* 下位10ビットをクリア
-	cmp.l	offset_ms_vdp_pnametbl_baddr(a5),d0
+	move.l	offset_ms_vdp_pnametbl_baddr(a5),d2
+	andi.w	#%11111100_00000000,d2
+	cmp.l	d2,d0
 	bne	@f
 	.if DIFFDRAW=1 ;差分描画の実験
 	cmp.b	#0,-2(a6)			* 差分フラグをチェック
 	beq	@f
 	.endif
+	movem.l	d0-d1,-(sp)
 	bsr	w_p_name_GR2			* パターンネームテーブルへの書き込み
-	bra	9f
+	movem.l	(sp)+,d0-d1
+
+	bra	9f	; テーブルが重なっている場合もありうるので本当はスキップしてはいけないのだが……
 
 	* sprpatgentbl_baddrと一致していたらスプライトパターンジェネレータテーブルへの書き込み
 @@:	andi.w	#%11111000_00000000,d0		* 下位11ビットをクリア
-	cmp.l	offset_ms_vdp_sprpgentbl_baddr(a5),d0
+	move.l	offset_ms_vdp_sprpgentbl_baddr(a5),d2
+	andi.w	#%11111000_00000000,d2
+	cmp.l	d2,d0
 	bne	@f
+	movem.l	d0-d1,-(sp)
 	bsr	w_SP_p_gene			* スプライトパターンジェネレータテーブルへの書き込み
-	bra	9f
+	movem.l	(sp)+,d0-d1
+
+	bra	9f	; テーブルが重なっている場合もありうるので本当はスキップしてはいけないのだが……
 
 	* pgentbl_baddr と一致していたらパターンジェネレータテーブルへの書き込み
 @@:	andi.w	#%11100000_00000000,d0		* 下位13ビットをクリア
-	cmp.l	offset_ms_vdp_pgentbl_baddr(a5),d0
+	move.l	offset_ms_vdp_pgentbl_baddr(a5),d2
+	andi.w	#%11100000_00000000,d2
+	cmp.l	d2,d0
 	bne	@f
+	movem.l	d0-d1,-(sp)
 	bsr	w_p_gene_GR2			* パターンジェネレータテーブルへの書き込み
-	bra	9f
+	movem.l	(sp)+,d0-d1
+
+	bra	9f	; テーブルが重なっている場合もありうるので本当はスキップしてはいけないのだが……
 
 	* colortbl_baddrと一致していたらカラーテーブルへの書き込み
-@@:	cmp.l	offset_ms_vdp_colortbl_baddr(a5),d0
+@@:	move.l	offset_ms_vdp_colortbl_baddr(a5),d2
+	andi.w	#%11100000_00000000,d2
+	cmp.l	d2,d0
 	bne	@f
+	movem.l	d0-d1,-(sp)
 	bsr	w_color_GR2			* カラーテーブルへの書き込み
+	movem.l	(sp)+,d0-d1
 
 @@:	* VRAM書き込みアドレスをインクリメント
 9:	move.l	offset_ms_vdp_vram_addr(a5),d0
@@ -2113,6 +2169,7 @@ w_GRAPHIC2_mac:
 	or.w	d2,d0
 	move.l	d0,offset_ms_vdp_vram_addr(a5)
 
+	movem.l	(sp)+,d1-d3/a0-a5
 	unlk	a6
 	rts
 
@@ -2146,46 +2203,47 @@ w_SP_p_gene:
 
 
 w_color_GR2:
-	; TODO 更新フラグを立てて垂直帰線期間に一度に更新するようにしたい痕跡
 	move.w	#4,rewrite_screen	* セットした画面モードを入れる
 
-	movea.l	ms_vdp_shared,a5		* ms_vdp_t へのポインタを取得
+	movea.l	ms_vdp_shared,a5	* ms_vdp_t へのポインタを取得
 	move.l	offset_ms_vdp_vram_addr(a5),d1
-	andi.w	#%00000111_11111111,d1	
-	lsr.w	#3,d1			* d1 ・・ 書き替えたキャラクター番号０～２５５
+	andi.w	#%00011111_11111111,d1
+	cmpi.w	#%00011000_00000000,d1	* カラーテーブルの長さは0x17ffまでなので、0x1800以上は無視 TODO: 192ラインの場合の話なので、212ラインの時は要検討
+	bcc	@f
+	andi.w	#%00000111_11111111,d1
+	lsr.w	#3,d1			* d1 ・・ 書き替えたキャラクター番号０～２５５ TODO: ブロック番号を潰しているのでブロックも考慮するようにしたい
 	move.w	d1,d2
-	andi.w	#%00000000_00011111,d2
+	andi.l	#%00000000_00011111,d2
 	lsr.w	#5,d1
 	lea.l	rewrite_f_0,a0
-	add.w	d1,d1
-	add.w	d1,d1
-	move.l	0(a0,d1.w),d0		* rewrite_f_n を読み込み
+	move.l	(a0,d1.w*4),d0		* rewrite_f_n を読み込み
 	bset.l	d2,d0
-	move.l	d0,0(a0,d1.w)		* rewrite_f_n へ書き込み
-	rts	
+	move.l	d0,(a0,d1.w*4)		* rewrite_f_n へ書き込み
+@@:	rts	
 
 w_p_gene_GR2:
-	; TODO 更新フラグを立てて垂直帰線期間に一度に更新するようにしたい痕跡
 	move.w	#4,rewrite_screen	* セットした画面モードを入れる
 
-	movea.l	ms_vdp_shared,a5		* ms_vdp_t へのポインタを取得
+	movea.l	ms_vdp_shared,a5	* ms_vdp_t へのポインタを取得
 	move.l	offset_ms_vdp_vram_addr(a5),d1
-	andi.w	#%00000111_11111111,d1	
-	lsr.w	#3,d1			* d1 ・・ 書き替えたキャラクター番号０～２５５
+	andi.l	#%00011111_11111111,d1	
+	cmpi.w	#%00011000_00000000,d1	* パターンジェネレータテーブルの長さは0x17ffまでなので、0x1800以上は無視 TODO: 192ラインの場合の話なので、212ラインの時は要検討
+	bcc	@f
+	andi.w	#%00000111_11111111,d1
+	lsr.w	#3,d1			* d1 ・・ 書き替えたキャラクター番号０～２５５ TODO: ブロック番号を潰しているのでブロックも考慮するようにしたい
 	move.w	d1,d2
-	andi.w	#%00000000_00011111,d2
+	andi.l	#%00000000_00011111,d2
 	lsr.w	#5,d1
 	lea.l	rewrite_f_0,a0
-	add.w	d1,d1
-	add.w	d1,d1
-	move.l	0(a0,d1.w),d0		* rewrite_f_n を読み込み
+	move.l	0(a0,d1.w*4),d0		* rewrite_f_n を読み込み
 	bset.l	d2,d0
-	move.l	d0,0(a0,d1.w)		* rewrite_f_n へ書き込み
-	rts	
+	move.l	d0,0(a0,d1.w*4)		* rewrite_f_n へ書き込み
+@@:	rts	
 
 *
 *	文字キャラクタ表示
 *
+*	a0.l ・・・ VRAMのあるアドレス(X68000上)
 *	d1.b ・・・ キャラクタコード 0 ～ 255
 *
 * (返り値)
@@ -2228,8 +2286,13 @@ w_p_name_GR2:
 	move.b	(a2)+,d2		* カラーテーブルから色を取得 d2: 前景色 d3: 背景色
 	move.w	d2,d3
 	lsr.w	#4,d2			* 前景色
-	andi.w	#%00001111,d3		* 背景色
-
+	bne	@f
+	move.w	#0,d2
+@@:	andi.w	#%00001111,d3		* 背景色
+	bne	@f
+	;move.w	offset_ms_vdp_back_color(a5),d3
+	move.w	#0,d3
+@@:
 	moveq.l	#DRAWWIDTH_GR-1,d4	* X方向ループカウンタ(8ドット)
 2:	lsl.b	#1,d1			* 最上位ビットを送り出す
 	bcc	1f			* 最上位ビットが１でなければ次へ	
@@ -2254,160 +2317,8 @@ w_p_name_GR2:
 	rts
 
 w_GRAPHIC3_mac:
-	move.l	4(sp),d1
+	bra	w_GRAPHIC2_mac
 
-	movea.l	ms_vdp_shared,a5		* ms_vdp_t へのポインタを取得
-	movea.l	offset_ms_vdp_vram(a5),a0
-	move.l	offset_ms_vdp_vram_addr(a5),d0			* D0 ・・書き込むアドレス
-	move.b	d1,0(a0,d0.l)			* VRAM へ書き込み
-	andi.w	#%11111100_00000000,d0		* 下位１０ビットをクリア
-	cmp.l	offset_ms_vdp_pnametbl_baddr(a5),d0
-	bne	@f
-	move.l	d0,-(sp)
-	move.w	d1,-(sp)
-	bsr	w_p_name_GR3			* パターンネームテーブルへの書き込み
-	move.w	(sp)+,d1
-	move.l	(sp)+,d0
-@@:	andi.w	#%11100000_00000000,d0
-	cmp.l	offset_ms_vdp_colortbl_baddr(a5),d0
-	bne	@f
-	move.l	d0,-(sp)
-	move.w	d1,-(sp)
-	bsr	w_p_gene_GR3			* パターンジェネレータテーブルへの書き込み
-	move.w	(sp)+,d1
-	move.l	(sp)+,d0
-@@:	cmp.l	offset_ms_vdp_pgentbl_baddr(a5),d0
-	bne	@f
-	bsr	w_color_GR3			* カラーテーブルへの書き込み
-@@:	move.l	offset_ms_vdp_vram_addr(a5),d0
-	move.w	d0,d2
-	addq.w	#1,d2				* 上位ワードは変化しないからワードでＯＫ
-	andi.w	#%00111111_11111111,d2
-	andi.w	#%11000000_00000000,d0
-	or.w	d2,d0
-	move.l	d0,offset_ms_vdp_vram_addr(a5)
-	rts
-
-w_color_GR3:
-*	更新フラグを立てて垂直帰線期間に一度に更新するようにする。
-	move.w	#4,rewrite_screen	* セットした画面モードを入れる
-
-	movea.l	ms_vdp_shared,a5		* ms_vdp_t へのポインタを取得
-	move.l	offset_ms_vdp_vram_addr(a5),d1
-	andi.w	#%00000111_11111111,d1	
-	lsr.w	#3,d1			* d1 ・・ 書き替えたキャラクター番号０～２５５
-	move.w	d1,d2
-	andi.w	#%00000000_00011111,d2
-	lsr.w	#5,d1
-	lea.l	rewrite_f_0,a0
-	add.w	d1,d1
-	add.w	d1,d1
-	move.l	0(a0,d1.w),d0		* rewrite_f_n を読み込み
-	bset.l	d2,d0
-	move.l	d0,0(a0,d1.w)		* rewrite_f_n へ書き込み
-	rts	
-
-w_p_gene_GR3:
-*	更新フラグを立てて垂直帰線期間に一度に更新するようにする。
-	move.w	#4,rewrite_screen	* セットした画面モードを入れる
-
-	movea.l	ms_vdp_shared,a5		* ms_vdp_t へのポインタを取得
-	move.l	offset_ms_vdp_vram_addr(a5),d1
-	andi.w	#%00000111_11111111,d1	
-	lsr.w	#3,d1			* d1 ・・ 書き替えたキャラクター番号０～２５５
-	move.w	d1,d2
-	andi.w	#%00000000_00011111,d2
-	lsr.w	#5,d1
-	lea.l	rewrite_f_0,a0
-	add.w	d1,d1
-	add.w	d1,d1
-	move.l	0(a0,d1.w),d0		* rewrite_f_n を読み込み
-	bset.l	d2,d0
-	move.l	d0,0(a0,d1.w)		* rewrite_f_n へ書き込み
-	rts	
-
-w_p_name_GR3:
-	move.l	d4,-(sp)
-
-	movea.l	ms_vdp_shared,a5		* ms_vdp_t へのポインタを取得
-	movea.l	offset_ms_vdp_gram_addr(a5),a1	* a1.l ・・・ 表示するＧＲＡＭアドレス
-	move.l	offset_ms_vdp_vram_addr(a5),d0	* D0 ・・書き込むアドレス
-	andi.l	#%00000011_00000000,d0		* d0.l ・・書き込むブロック × 0x100
-	lsl.l	#3,d0				* d0.l ・・書き込むブロック × 0x800
-
-	move.l	offset_ms_vdp_colortbl_baddr(a5),d3			* d3 = カラーテーブルベースアドレス
-	andi.w	#%11100000_00000000,d3
-	clr.l	d2
-	move.b	d1,d2
-	lsl.w	#3,d2			* キャラクタ番号＊８
-	add.l	d0,d2
-	add.l	d2,d3
-	lea.l	0(a0,d3.l),a2		* a2 = 表示するキャラのカラーテーブルアドレス
-
-	move.l	offset_ms_vdp_pgentbl_baddr(a5),d3			* d3 = パターンジェネレータテーブルアドレス
-	andi.w	#%11100000_00000000,d3
-	add.l	d2,d3
-	lea.l	0(a0,d3.l),a0		* a0 = 表示するフォントのアドレス
-
-	moveq.l	#4-1,d0			* ループカウンタ
-3:	move.w	(a0)+,d1		* d1 = フォントデータ
-
-	move.b	(a2)+,d3		* ２ドット同時書き込みするため
-	move.w	d3,d2
-	swap	d3
-	move.w	d2,d3
-	lsr.w	#4,d2
-	move.w	d2,d4
-	swap	d2
-	move.w	d4,d2
-
-	moveq.l	#8-1,d4			* ループカウンタ
-2:	lsl.w	#1,d1			* 最上位ビットを送り出す
-	bcc	1f			* 最上位ビットが１でなければ次へ	
-*	move.l	d2,1024(a1)		* 前景色を表示
-	move.l	d2,(a1)+		* 前景色を表示
-	dbra	d4,2b
-	bra	@f
-1:
-*	move.l	d3,1024(a1)		* 背景色を表示
-	move.l	d3,(a1)+		* 背景色を表示
-	dbra	d4,2b
-
-@@:	adda.l	#1024+1024-32,a1	* １ライン下げる
-	move.b	(a2)+,d3		* ２ドット同時書き込みするため
-	move.w	d3,d2
-	swap	d3
-	move.w	d2,d3
-	lsr.w	#4,d2
-	move.w	d2,d4
-	swap	d2
-	move.w	d4,d2
-
-	moveq.l	#8-1,d4			* ループカウンタ
-2:	lsl.w	#1,d1			* 最上位ビットを送り出す
-	bcc	1f			* 最上位ビットが１でなければ次へ	
-*	move.l	d2,1024(a1)		* 前景色を表示
-	move.l	d2,(a1)+
-	dbra	d4,2b
-	bra	@f
-1:
-*	move.l	d3,1024(a1)		* 背景色を表示
-	move.l	d3,(a1)+		* 背景色を表示
-	dbra	d4,2b
-
-@@:	adda.l	#1024+1024-32,a1	* １ライン下げる
-
-	dbra	d0,3b
-
-	suba.l	#1024*16-32,a1		* gram_add の更新
-	move.l	a1,d0
-	andi.w	#$03ff,d0		* 改行したかのチェック
-	bne	@f
-	adda.l	#1024*15,a1
-@@:	move.l	a1,offset_ms_vdp_gram_addr(a5)
-
-	move.l	(sp)+,d4
-	rts
 
 w_GRAPHIC4_mac:
 	move.l	4(sp),d1
@@ -2942,14 +2853,17 @@ rewrite_screen:
 					* とを示す。
 
 *	ＳＣＲＥＥＮ０，２，４で使う
-rewrite_f_0	.dc.l	0
-rewrite_f_1	.dc.l	0
-rewrite_f_2	.dc.l	0
-rewrite_f_3	.dc.l	0
-rewrite_f_4	.dc.l	0
-rewrite_f_5	.dc.l	0
-rewrite_f_6	.dc.l	0
-rewrite_f_7	.dc.l	0
+ms_vdp_rewrite_flag_tbl:
+		.dc.l	rewrite_f_0
+
+rewrite_f_0:	.dc.l	0
+rewrite_f_1:	.dc.l	0
+rewrite_f_2:	.dc.l	0
+rewrite_f_3:	.dc.l	0
+rewrite_f_4:	.dc.l	0
+rewrite_f_5:	.dc.l	0
+rewrite_f_6:	.dc.l	0
+rewrite_f_7:	.dc.l	0
 
 
 ; *	------ ＶＤＰ Ｒｅｇｉｓｔｅｒｓ ------

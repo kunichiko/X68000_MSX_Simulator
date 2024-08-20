@@ -36,7 +36,6 @@
 	.xdef	ms_vdp_int
 	.xdef	ms_cpu_int
 	.xdef	int_block_count
-	.xdef	host_rate
 	.xdef	host_delay
 
 headerlength	equ	8
@@ -226,8 +225,6 @@ _new_read_210:
 
 int_block_count:
 	.dc.l	2048
-host_rate:
-	.dc.w	3
 host_delay:
 	.dc.w	$20
 original:

@@ -22,7 +22,6 @@
 	.xdef	HEX
 	.xdef	native_jpt_add
 	.xdef	ms_cpu_int
-	.xdef	host_rate
 	.xdef	int_block_count
 	.xdef	ms_vdp_interrupt_tick
 
@@ -70,8 +69,6 @@ native_jpt_add:		* ネイティブルーチンジャンプテーブルのあるアドレス
 HEX:	.dc.b	'0123456789ABCDEF'
 int_block_count:
 	.dc.l	2048
-host_rate:
-	.dc.w	3
 ms_vdp_interrupt_tick:
 	.dc.w	0
 

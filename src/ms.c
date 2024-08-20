@@ -80,11 +80,12 @@ void _toggleTextPlane(void);
 void _setTextPlane(int textPlaneMode);
 void _moveTextPlane(int cursorKeyHit);
 
+unsigned short host_rate = 3;
+
 volatile extern unsigned short ms_vdp_interrupt_tick;
 volatile extern unsigned short ms_vdp_vsync_rate;
 volatile extern unsigned int int_block_count;
 volatile extern unsigned short debug_log_level;
-volatile extern unsigned short host_rate;
 volatile extern unsigned short host_delay;
 volatile extern unsigned int int_skip_counter;
 volatile extern unsigned int int_exec_counter;
@@ -99,7 +100,7 @@ volatile extern unsigned short interrupt_history_wr;
 volatile extern unsigned short interrupt_history_rd;
 
 void printHelpAndExit(char* progname) {
-	fprintf(stderr, "Usage: %s [-m1 MAINROM1_PATH] [-m2 MAINROM2_PATH] [-r ROM_PATH] [-r11 ROM1_PATH] [-r12 ROM2_PATH]\n", progname);
+	fprintf(stderr, "Usage: %s [-m MAINROM_PATH] [-w MAX_WAIT] [-s SUBROM_PATH] [-r ROM_PATH] [-r11 ROM1_PATH] [-r12 ROM2_PATH]\n", progname);
 	fprintf(stderr, " --vsrate vsync rate (1-60)\n");
 	fprintf(stderr, "    1: every frame, 2: every 2 frames, ...\n");
 	fprintf(stderr, "    default is 1.\n");
@@ -125,6 +126,7 @@ static unsigned char *SLOT1_1;
 static unsigned char *SLOT1_2;
 static unsigned char *ROM;
 
+uint32_t max_wait = 0xffffffff;
 int disablekey = 0;
 
 const char *mainrom_cbios = "cbios_main_msx1_jp.rom";
@@ -148,7 +150,7 @@ int main(int argc, char *argv[]) {
 	char *cartridge_path = NULL; // カートリッジのパス
 	char *slot_path[4][4]; // 個々のスロットにセットするROMのパス
 	int opt;
-    const char* optstring = "hm:r:" ; // optstringを定義します
+    const char* optstring = "hm:s:w:r:" ; // optstringを定義します
     const struct option longopts[] = {
       //{        *name,           has_arg,       *flag, val },
         {     "vsrate", required_argument,           0, 'A' },
@@ -195,6 +197,18 @@ int main(int argc, char *argv[]) {
 			if (optarg != NULL)
 			{
 				mainrom_user = optarg;
+			}
+			break;
+		case 'w': // -w オプション
+			if (optarg != NULL)
+			{
+				max_wait = atoi(optarg);
+			}
+			break;
+		case 's': // -s オプション
+			if (optarg != NULL)
+			{
+				subrom_user = optarg;
 			}
 			break;
 		case 'r': // -rNN オプション
@@ -404,7 +418,7 @@ int main(int argc, char *argv[]) {
 	}
 
 	if (1) {
-		ms_cpu_emulate(emuLoop);
+		ms_cpu_emulate(emuLoop, max_wait);
 	} else {
 		debugger();
 	}
@@ -493,12 +507,21 @@ int emuLoop(unsigned int pc, unsigned int counter) {
 	static int kigoKeyHit = 0, kigoKeyHitLast = 0;
 	static int helpKeyHit = 0, helpKeyHitLast = 0;
 	static int shiftAndCursorKeyHit = 0, shiftAndCursorKeyHitLast = 0;
-	
 
 	emuLoopCounter++;
 
+	if( vdp != NULL) {
+		vdp->ms_vdp_current_mode->vsync_draw(vdp);
+	}
+
+	if(emuLoopCounter % host_rate != 0) {
+		return 0;
+	}
+
+
 	kigoKeyHit = 0;
 	helpKeyHit = 0;
+	f6KeyHit = 0;
 
 	for ( i = 0x00; i < 0x0f; i++)
 	{
@@ -581,7 +604,7 @@ int emuLoop(unsigned int pc, unsigned int counter) {
 
 	if (f6KeyHit && !f6KeyHitLast)
 	{
-		debug_log_level = (debug_log_level + 1) % 4;
+		debug_log_level = (debug_log_level + 1) & 0x3;
 		printf("デバッグログレベル=%d\n", debug_log_level);
 	}
 	f6KeyHitLast = f6KeyHit;
@@ -737,7 +760,7 @@ int file_exists(const char *filename) {
 void set_system_roms() {
 	if (file_exists(mainrom_user) && file_exists(subrom_user)) {
 		// Load user-provided ROMs
-		printf("実機のROMが見つかりました。%s, %sを使用します\n", mainrom_user, subrom_user);
+		printf("指定されたBIOS ROMが見つかりました。%s と %sを使用します。\n", mainrom_user, subrom_user);
 		allocateAndSetROM(mainrom_user, ROM_TYPE_NORMAL_ROM, 0x00, 0);
 		allocateAndSetROM(subrom_user, ROM_TYPE_NORMAL_ROM, 0x0d, 0);
     } else {

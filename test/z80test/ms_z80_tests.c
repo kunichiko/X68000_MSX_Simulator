@@ -151,7 +151,7 @@ int main(void)
 	// (https://github.com/anotherlin/z80emu) for those exact roms
 	int r = 0;
 	r += run_test(&cpu, "roms/prelim.com", 8721LU);
-	//r += run_test(&cpu, "roms/zexdoc.cim", 0xE19F2E59);
+	r += run_test(&cpu, "roms/zexdoc.cim", 0xE19F2E59);
 	r += run_test(&cpu, "roms/zexall.cim", 0xE19F2E59);
 
 	//  free(memory);

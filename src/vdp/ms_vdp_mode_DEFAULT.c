@@ -15,6 +15,7 @@ void update_sprpgentbl_baddr_DEFAULT(ms_vdp_t* vdp);
 void update_r7_color_DEFAULT(ms_vdp_t* vdp, uint8_t data);
 char* get_mode_name_DEFAULT(ms_vdp_t* vdp);
 void update_resolution_DEFAULT(ms_vdp_t* vdp);
+void vsync_draw_DEFAULT(ms_vdp_t* vdp);
 
 
 ms_vdp_mode_t ms_vdp_DEFAULT = {
@@ -44,6 +45,8 @@ ms_vdp_mode_t ms_vdp_DEFAULT = {
 	exec_vdp_command_NONE,
 	// void (*update_resolution)(ms_vdp_t* vdp);
 	update_resolution_DEFAULT,
+	// void vsync_draw(ms_vdp_t* vdp);
+	vsync_draw_NONE,
 	// sprite mode
 	0
 };
@@ -87,6 +90,10 @@ void write_vram_DEFAULT(ms_vdp_t* vdp, uint8_t data) {
 void update_palette_DEFAULT(ms_vdp_t* vdp) {
 	int i;
 
+	// 透明色は背景色が透けて見えるようにする
+	X68_GR_PAL[0] = vdp->palette[vdp->back_color & 0xf];
+	//X68_GR_PAL[0] = 0x0e01;
+
 	for(i =1; i < 16; i++) {
 		X68_GR_PAL[i] = vdp->palette[i];
 		X68_SP_PAL_B1[i] = vdp->palette[i];
@@ -126,6 +133,10 @@ void update_sprpgentbl_baddr_DEFAULT(ms_vdp_t* vdp) {
  * @param vdp 
  */
 void update_r7_color_DEFAULT(ms_vdp_t* vdp, uint8_t data) {
+	vdp->text_color = data >> 4;
+	vdp->back_color = data & 0x0f;
+
+	X68_GR_PAL[0] = vdp->palette[vdp->back_color & 0xf];
 }
 
 char* get_mode_name_DEFAULT(ms_vdp_t* vdp) {
@@ -141,4 +152,7 @@ void exec_vdp_command_NONE(ms_vdp_t* vdp, uint8_t cmd) {
 
 void update_resolution_DEFAULT(ms_vdp_t* vdp) {
 	update_resolution_COMMON(vdp, 1, 0, 0); // 512, 16色, BG不使用
+}
+
+void vsync_draw_NONE(ms_vdp_t* vdp) {
 }
