@@ -12,6 +12,15 @@
 	.xref	p_FD
 	.xref	p_FE
 	.xref	p_FF
+	.xref	ms_memmap_rd8_MEGAROM_8
+	.xref	ms_memmap_wr8_MEGAROM_8
+	.xref	ms_memmap_rd16_MEGAROM_8
+	.xref	ms_memmap_wr16_MEGAROM_8
+	.xref	ms_memmap_rd8_MEGAROM_KONAMI
+	.xref	ms_memmap_wr8_MEGAROM_KONAMI
+	.xref	ms_memmap_rd16_MEGAROM_KONAMI
+	.xref	ms_memmap_wr16_MEGAROM_KONAMI
+
 
 	.xdef	ms_memmap_init_mac
 	.xdef	ms_memmap_deinit_mac
@@ -45,13 +54,13 @@
 	.xdef	rd8_sub_add_p2
 	.xdef	rd8_sub_add_p3
 
-	.xdef	wt8_sub_add_p0
-	.xdef	wt8_sub_add_p1
-	.xdef	wt8_sub_add_p2
-	.xdef	wt8_sub_add_p3
+	.xdef	wr8_sub_add_p0
+	.xdef	wr8_sub_add_p1
+	.xdef	wr8_sub_add_p2
+	.xdef	wr8_sub_add_p3
 
 	.xdef	rd16_sub_add_p0
-	.xdef	wt16_sub_add_p0
+	.xdef	wr16_sub_add_p0
 
 	.xdef	r_port_A8
 	.xdef	w_port_A8
@@ -278,8 +287,13 @@ ms_memmap_set_cartridge:
 *（動作）
 *	d0.b にメモリから読み込んだ値が入る
 *
+*	d2 破壊
+*
 *******************************************************************
 ms_read_mem_8:
+	move.w	d0,d2
+	andi.w	#%11000000_00000000,d2
+	rol.w	#2,d2				* d2 = page
 	tst.w	d0
 	bmi	page_2or3_r8
 	btst.l	#14,d0
@@ -321,10 +335,13 @@ next_r8:
 *（動作）
 *	d0.w のアドレスに d1の値を書き込む。  
 *
-*	d2 破壊可能性あり
+*	d2 破壊
 *
 *******************************************************************
 ms_write_mem_8:
+	move.w	d0,d2
+	andi.w	#%11000000_00000000,d2
+	rol.w	#2,d2				* d2 = page
 	tst.w	d0
 	bmi	page_2or3_w8
 	btst.l	#14,d0
@@ -332,12 +349,12 @@ ms_write_mem_8:
 page_0_w8:
 	andi.w	#%00111111_11111111,d0
 	movea.l	page0,a0
-	movea.l	wt8_sub_add_p0,a1
+	movea.l	wr8_sub_add_p0,a1
 	jmp	(a1)				* rts を省略するために jmp にしてある
 page_1_w8:
 	andi.w	#%00111111_11111111,d0
 	movea.l	page1,a0
-	movea.l	wt8_sub_add_p1,a1
+	movea.l	wr8_sub_add_p1,a1
 	jmp	(a1)				* rts を省略するために jmp にしてある
 page_2or3_w8:
 	btst.l	#14,d0
@@ -345,12 +362,12 @@ page_2or3_w8:
 page_2_w8:
 	andi.w	#%00111111_11111111,d0
 	movea.l	page2,a0
-	movea.l	wt8_sub_add_p2,a1
+	movea.l	wr8_sub_add_p2,a1
 	jmp	(a1)				* rts を省略するために jmp にしてある
 page_3_w8:
 	andi.w	#%00111111_11111111,d0
 	movea.l	page3,a0
-	movea.l	wt8_sub_add_p3,a1
+	movea.l	wr8_sub_add_p3,a1
 	cmp.w	#$3fff,d0
 	beq	next_w8
 	jmp	(a1)				* rts を省略するために jmp にしてある
@@ -365,8 +382,13 @@ next_w8:
 *（動作）
 *	d0.w にメモリから読み込んだ値が入る
 *
+*	d2 破壊
+*
 *******************************************************************
 ms_read_mem_16:
+	move.w	d0,d2
+	andi.w	#%11000000_00000000,d2
+	rol.w	#2,d2				* d2 = page
 	tst.w	d0
 	bmi	page_2or3_r16
 	btst.l	#14,d0
@@ -465,10 +487,13 @@ page_3_r16:
 *（動作）
 *	d1.w の内容をメモリに書き込む
 *
-*	d2 破壊可能性あり
+*	d2 破壊
 *
 *******************************************************************
 ms_write_mem_16:
+	move.w	d0,d2
+	andi.w	#%11000000_00000000,d2
+	rol.w	#2,d2				* d2 = page
 	tst.w	d0
 	bmi	page_2or3_w16
 	btst.l	#14,d0
@@ -478,15 +503,15 @@ page_0_w16:
 	andi.w	#$3fff,d0
 	cmpi.w	#$3fff,d0
 	beq	@f				* ページ境界をまたがって読み込む時
-	movea.l	wt16_sub_add_p0,a1
+	movea.l	wr16_sub_add_p0,a1
 	jmp	(a1)				* rts を省略するために jmp にしてある
 @@:
 	move.w	d1,-(sp)
-	movea.l	wt8_sub_add_p0,a1
+	movea.l	wr8_sub_add_p0,a1
 	jsr	(a1)
 	clr.w	d0
 	move.b	(sp)+,d1			* d1.b = 上位バイト
-	movea.l	wt8_sub_add_p1,a1
+	movea.l	wr8_sub_add_p1,a1
 	jmp	(a1)				* rts を省略するために jmp にしてある
 
 page_1_w16:
@@ -494,15 +519,15 @@ page_1_w16:
 	andi.w	#$3fff,d0
 	cmpi.w	#$3fff,d0
 	beq	@f				* ページ境界をまたがって読み込む時
-	movea.l	wt16_sub_add_p1,a1
+	movea.l	wr16_sub_add_p1,a1
 	jmp	(a1)				* rts を省略するために jmp にしてある
 @@:
 	move.w	d1,-(sp)
-	movea.l	wt8_sub_add_p1,a1
+	movea.l	wr8_sub_add_p1,a1
 	jsr	(a1)
 	clr.w	d0
 	move.b	(sp)+,d1			* d1.b = 上位バイト
-	movea.l	wt8_sub_add_p2,a1
+	movea.l	wr8_sub_add_p2,a1
 	jmp	(a1)				* rts を省略するために jmp にしてある
 
 page_2or3_w16:
@@ -513,15 +538,15 @@ page_2_w16:
 	andi.w	#$3fff,d0
 	cmpi.w	#$3fff,d0
 	beq	@f				* ページ境界をまたがって読み込む時
-	movea.l	wt16_sub_add_p2,a1
+	movea.l	wr16_sub_add_p2,a1
 	jmp	(a1)				* rts を省略するために jmp にしてある
 @@:
 	move.w	d1,-(sp)
-	movea.l	wt8_sub_add_p2,a1
+	movea.l	wr8_sub_add_p2,a1
 	jsr	(a1)
 	clr.w	d0
 	move.b	(sp)+,d1			* d1.b = 上位バイト
-	movea.l	wt8_sub_add_p3,a1
+	movea.l	wr8_sub_add_p3,a1
 	jmp	(a1)				* rts を省略するために jmp にしてある
 
 page_3_w16:
@@ -531,13 +556,13 @@ page_3_w16:
 	addq.w	#2,d2				* うとしているか？
 	andi.w	#$4000,d2
 	bne	@f
-	movea.l	wt16_sub_add_p3,a1
+	movea.l	wr16_sub_add_p3,a1
 	jmp	(a1)				* rts を省略するために jmp にしてある
 @@:
 	move.w	d1,-(sp)
 	cmpi.w	#$3fff,d0
 	beq	@f
-	movea.l	wt8_sub_add_p3,a1
+	movea.l	wr8_sub_add_p3,a1
 	jsr	(a1)
 	move.b	(sp)+,d1			* d1.b = 上位バイト
 	bra	exslotreg_write			* rts を省略するために bra にしてある
@@ -546,7 +571,7 @@ page_3_w16:
 	bsr	exslotreg_write
 	clr.w	d0
 	move.b	(sp)+,d1			* d1.b = 上位バイト
-	movea.l	wt8_sub_add_p0,a1
+	movea.l	wr8_sub_add_p0,a1
 	jmp	(a1)				* rts を省略するために jmp にしてある
 
 
@@ -603,15 +628,15 @@ rd8_sub_add_1:			* マッパーＲＡＭ
 rd8_sub_add_2:			* ノーマルＲＯＭ
 	.dc.l	rd8_normal
 rd8_sub_add_3:			* メガＲＯＭ ( 8k)
-	.dc.l	rd8_MEGA_ROM_8
+	.dc.l	rd8_MEGAROM_8
 rd8_sub_add_4:			* メガＲＯＭ (16k)
-	.dc.l	rd8_MEGA_ROM_16
-rd8_sub_add_5:			* コナミＳＣＣ付きメガロム
-	.dc.l	rd8_MEGA_ROM_SCC
+	.dc.l	rd8_MEGAROM_16
+rd8_sub_add_5:			* コナミメガロム
+	.dc.l	rd8_MEGAROM_KONAMI
 rd8_sub_add_6:			* コナミサウンドカートリッジ
 	.dc.l	rd8_SOUND
 rd8_sub_add_7:			* パナソニックメガロム ( A1-GT等の slot3-3)
-	.dc.l	rd8_MEGA_ROM_PANA
+	.dc.l	rd8_MEGAROM_PANA
 rd8_sub_add_8:			* ＤＯＳ-ＲＯＭ (turbo R)
 	.dc.l	rd8_normal
 rd8_sub_add_9:			* ＰＡＣ
@@ -627,37 +652,37 @@ rd8_sub_add_p3:
 	.dc.l	rd8_sub_add_0
 
 *		 書き込みルーチン
-wt8_sub_add_0:			* ｎｏｔｈｉｎｇ		
-	.dc.l	wt8_nothing
-wt8_sub_add_1:			* マッパーＲＡＭ		
-	.dc.l	wt8_RAM
-wt8_sub_add_2:			* ノーマルＲＯＭ
-	.dc.l	wt8_ROM
-wt8_sub_add_3:			* メガＲＯＭ ( 8k)
-	.dc.l	wt8_MEGA_ROM_8
-wt8_sub_add_4:			* メガＲＯＭ (16k)
-	.dc.l	wt8_MEGA_ROM_16
-wt8_sub_add_5:			* コナミＳＣＣ付きメガロム
-	.dc.l	wt8_MEGA_ROM_SCC
-wt8_sub_add_6:			* コナミサウンドカートリッジ
-	.dc.l	wt8_SOUND
-wt8_sub_add_7:			* パナソニックメガロム ( A1-GT等の slot3-3)
-	.dc.l	wt8_MEGA_ROM_PANA
-wt8_sub_add_8:			* ＤＯＳ-ＲＯＭ (turbo R)
-	.dc.l	wt8_DOS_ROM
-wt8_sub_add_9:			* ＰＡＣ
-	.dc.l	wt8_PAC
+wr8_sub_add_0:			* ｎｏｔｈｉｎｇ		
+	.dc.l	wr8_nothing
+wr8_sub_add_1:			* マッパーＲＡＭ		
+	.dc.l	wr8_RAM
+wr8_sub_add_2:			* ノーマルＲＯＭ
+	.dc.l	wr8_ROM
+wr8_sub_add_3:			* メガＲＯＭ ( 8k)
+	.dc.l	wr8_MEGAROM_8
+wr8_sub_add_4:			* メガＲＯＭ (16k)
+	.dc.l	wr8_MEGAROM_16
+wr8_sub_add_5:			* コナミメガロム
+	.dc.l	wr8_MEGAROM_KONAMI
+wr8_sub_add_6:			* コナミサウンドカートリッジ
+	.dc.l	wr8_SOUND
+wr8_sub_add_7:			* パナソニックメガロム ( A1-GT等の slot3-3)
+	.dc.l	wr8_MEGAROM_PANA
+wr8_sub_add_8:			* ＤＯＳ-ＲＯＭ (turbo R)
+	.dc.l	wr8_DOS_ROM
+wr8_sub_add_9:			* ＰＡＣ
+	.dc.l	wr8_PAC
 
 base2:
 
-wt8_sub_add_p0:			* 現在 page x に選択されているスロットに８ビットの書き
-	.dc.l	wt8_sub_add_0	* 込みを行う際の書き込みルーチンのアドレス。
-wt8_sub_add_p1:
-	.dc.l	wt8_sub_add_0
-wt8_sub_add_p2:
-	.dc.l	wt8_sub_add_0
-wt8_sub_add_p3:
-	.dc.l	wt8_sub_add_0
+wr8_sub_add_p0:			* 現在 page x に選択されているスロットに８ビットの書き
+	.dc.l	wr8_sub_add_0	* 込みを行う際の書き込みルーチンのアドレス。
+wr8_sub_add_p1:
+	.dc.l	wr8_sub_add_0
+wr8_sub_add_p2:
+	.dc.l	wr8_sub_add_0
+wr8_sub_add_p3:
+	.dc.l	wr8_sub_add_0
 
 *		 読み込みルーチン
 rd16_sub_add_0:			* ｎｏｔｈｉｎｇ		
@@ -667,15 +692,15 @@ rd16_sub_add_1:			* マッパーＲＡＭ
 rd16_sub_add_2:			* ノーマルＲＯＭ
 	.dc.l	rd16_normal
 rd16_sub_add_3:			* メガＲＯＭ ( 8k)
-	.dc.l	rd16_MEGA_ROM_8
+	.dc.l	rd16_MEGAROM_8
 rd16_sub_add_4:			* メガＲＯＭ (16k)
-	.dc.l	rd16_MEGA_ROM_16
-rd16_sub_add_5:			* コナミＳＣＣ付きメガロム
-	.dc.l	rd16_MEGA_ROM_SCC
+	.dc.l	rd16_MEGAROM_16
+rd16_sub_add_5:			* コナミメガロム
+	.dc.l	rd16_MEGAROM_KONAMI
 rd16_sub_add_6:			* コナミサウンドカートリッジ
 	.dc.l	rd16_SOUND
 rd16_sub_add_7:			* パナソニックメガロム ( A1-GT等の slot3-3)
-	.dc.l	rd16_MEGA_ROM_PANA
+	.dc.l	rd16_MEGAROM_PANA
 rd16_sub_add_8:			* ＤＯＳ-ＲＯＭ (turbo R)
 	.dc.l	rd16_normal
 rd16_sub_add_9:			* ＰＡＣ
@@ -692,35 +717,35 @@ rd16_sub_add_p3:
 	.dc.l	rd16_sub_add_0
 
 *		 書き込みルーチン
-wt16_sub_add_0:			* ｎｏｔｈｉｎｇ		
-	.dc.l	wt16_nothing
-wt16_sub_add_1:			* マッパーＲＡＭ		
-	.dc.l	wt16_RAM
-wt16_sub_add_2:			* ノーマルＲＯＭ
-	.dc.l	wt16_ROM
-wt16_sub_add_3:			* メガＲＯＭ ( 8k)
-	.dc.l	wt16_MEGA_ROM_8
-wt16_sub_add_4:			* メガＲＯＭ (16k)
-	.dc.l	wt16_MEGA_ROM_16
-wt16_sub_add_5:			* コナミＳＣＣ付きメガロム
-	.dc.l	wt16_MEGA_ROM_SCC
-wt16_sub_add_6:			* コナミサウンドカートリッジ
-	.dc.l	wt16_SOUND
-wt16_sub_add_7:			* パナソニックメガロム ( A1-GT等の slot3-3)
-	.dc.l	wt16_MEGA_ROM_PANA
-wt16_sub_add_8:			* ＤＯＳ-ＲＯＭ (turbo R)
-	.dc.l	wt16_DOS_ROM
-wt16_sub_add_9:			* ＰＡＣ
-	.dc.l	wt16_PAC
+wr16_sub_add_0:			* ｎｏｔｈｉｎｇ		
+	.dc.l	wr16_nothing
+wr16_sub_add_1:			* マッパーＲＡＭ		
+	.dc.l	wr16_RAM
+wr16_sub_add_2:			* ノーマルＲＯＭ
+	.dc.l	wr16_ROM
+wr16_sub_add_3:			* メガＲＯＭ ( 8k)
+	.dc.l	wr16_MEGAROM_8
+wr16_sub_add_4:			* メガＲＯＭ (16k)
+	.dc.l	wr16_MEGAROM_16
+wr16_sub_add_5:			* コナミメガロム
+	.dc.l	wr16_MEGAROM_KONAMI
+wr16_sub_add_6:			* コナミサウンドカートリッジ
+	.dc.l	wr16_SOUND
+wr16_sub_add_7:			* パナソニックメガロム ( A1-GT等の slot3-3)
+	.dc.l	wr16_MEGAROM_PANA
+wr16_sub_add_8:			* ＤＯＳ-ＲＯＭ (turbo R)
+	.dc.l	wr16_DOS_ROM
+wr16_sub_add_9:			* ＰＡＣ
+	.dc.l	wr16_PAC
 
-wt16_sub_add_p0:		* 現在 page x に選択されているスロットに１６ビットの書き
-	.dc.l	wt16_sub_add_0	* 込みを行う際の書き込みルーチンのアドレス。
-wt16_sub_add_p1:
-	.dc.l	wt16_sub_add_0
-wt16_sub_add_p2:
-	.dc.l	wt16_sub_add_0
-wt16_sub_add_p3:
-	.dc.l	wt16_sub_add_0
+wr16_sub_add_p0:		* 現在 page x に選択されているスロットに１６ビットの書き
+	.dc.l	wr16_sub_add_0	* 込みを行う際の書き込みルーチンのアドレス。
+wr16_sub_add_p1:
+	.dc.l	wr16_sub_add_0
+wr16_sub_add_p2:
+	.dc.l	wr16_sub_add_0
+wr16_sub_add_p3:
+	.dc.l	wr16_sub_add_0
 
 *	このアドレスはヘッダ等を含まない部分を指す。よって、ヘッダは
 *	(アドレス) - 8 のアドレスから存在する。
@@ -834,7 +859,8 @@ no_slot_ptr:
 *	８ビットメモリ読み込みサブルーチン
 *
 *	a0.l		ベースアドレス(68000)
-*	d0.w		アドレス  (R800)	
+*	d2.w		ページ番号
+*	d0.w		アドレス  (R800)
 * 返り値
 *	d0.b	 	メモリから読み込んだ値を入れる
 *
@@ -849,13 +875,35 @@ rd8_normal:
 	move.b	0(a0,d0.w),d0
 	rts
 
-rd8_MEGA_ROM_8:			* まだやってない
+rd8_MEGAROM_8:
+	movem.l	d1-d7/a0-a5,-(sp)
+	andi.l	#$ffff,d0
+	move.l	d0,-(sp)
+	andi.l	#$3,d2
+	move.l	d2,-(sp)
+	move.l	a0,-(sp)
+	bsr	ms_memmap_rd8_MEGAROM_8
+	lea	12(sp),sp
+	movem.l	(sp)+,d1-d7/a0-a5
+	rts
 
-rd8_MEGA_ROM_16:		* まだやってない
+rd8_MEGAROM_16:
+	rts
 
-rd8_MEGA_ROM_SCC:		* まだやってない
+rd8_MEGAROM_KONAMI:
+	movem.l	d1-d7/a0-a5,-(sp)
+	andi.l	#$ffff,d0
+	move.l	d0,-(sp)
+	andi.l	#$3,d2
+	move.l	d2,-(sp)
+	move.l	a0,-(sp)
+	bsr	ms_memmap_rd8_MEGAROM_KONAMI
+	lea	12(sp),sp
+	movem.l	(sp)+,d1-d7/a0-a5
+	rts
 
-rd8_MEGA_ROM_PANA:		* まだやってない
+rd8_MEGAROM_PANA:		* まだやってない
+	rts
 
 rd8_SOUND:
 	rts
@@ -871,39 +919,68 @@ rd8_PAC:				* pac のレジスタは読み込み出来ない
 *
 *	８ビットメモリ書き込みルーチン
 *
-*	a0.l	ベースアドレス(68000)
-*	d0.w	アドレス  (R800)	
-*	d1.b	書き込む値
+*	a0.l		ベースアドレス(68000)
+*	d2.w		ページ番号
+*	d0.w		アドレス  (R800)	
+*	d1.b		書き込む値
 *
 *******************************************************
-wt8_nothing:
+wr8_nothing:
 
-wt8_ROM:
+wr8_ROM:
 	rts
 
-wt8_RAM:
+wr8_RAM:
 	move.b	d1,0(a0,d0.w)
 	rts
 
-wt8_MEGA_ROM_8:		* まだやってない
+wr8_MEGAROM_8:
+	movem.l	d1-d7/a0-a5,-(sp)
+	andi.l	#$ff,d1
+	move.l	d1,-(sp)
+	andi.l	#$ffff,d0
+	move.l	d0,-(sp)
+	andi.l	#$3,d2
+	move.l	d2,-(sp)
+	move.l	a0,-(sp)
+	bsr	ms_memmap_wr8_MEGAROM_8
+	lea	16(sp),sp
+	movem.l	(sp)+,d1-d7/a0-a5
+	rts
 
-wt8_MEGA_ROM_16:		* まだやってない
+wr8_MEGAROM_16:
+	rts
 
-wt8_MEGA_ROM_SCC:		* まだやってない
+wr8_MEGAROM_KONAMI:
+	movem.l	d1-d7/a0-a5,-(sp)
+	andi.l	#$ff,d1
+	move.l	d1,-(sp)
+	andi.l	#$ffff,d0
+	move.l	d0,-(sp)
+	andi.l	#$3,d2
+	move.l	d2,-(sp)
+	move.l	a0,-(sp)
+	bsr	ms_memmap_wr8_MEGAROM_KONAMI
+	lea	16(sp),sp
+	movem.l	(sp)+,d1-d7/a0-a5
+	rts
 
-wt8_MEGA_ROM_PANA:		* まだやってない
+wr8_MEGAROM_PANA:		* まだやってない
+	rts
 
-wt8_SOUND:		* まだやってない
+wr8_SOUND:		* まだやってない
+	rts
 
-wt8_PAC:
+wr8_PAC:
 	cmpi.w	#$1ffe,d0
 	beq	set_reg_0
 	cmpi.w	#$1fff,d0
 	beq	set_reg_1
 	cmpi.w	#$4d69,PAC_reg_0	* $5ffe に 4d, $5fff に 69 が書き込まれている
-	bne	wt8_nothing		* 時は Ｓ-ＲＡＭモード
+	bne	wr8_nothing		* 時は Ｓ-ＲＡＭモード
 	move.b	d1,0(a0,d0.w)
 	rts
+
 set_reg_0:
 	move.b	d1,PAC_reg_0
 	rts
@@ -911,9 +988,9 @@ set_reg_1:
 	move.b	d1,PAC_reg_1
 	rts	
 
-wt8_DOS_ROM:
+wr8_DOS_ROM:
 	cmpi.w	#$3ff0,d0
-	bne	wt8_nothing
+	bne	wr8_nothing
 					* ＤＯＳのページ切り替え（ローカルバンク）
 		* まだやってない
 	rts	
@@ -923,6 +1000,7 @@ wt8_DOS_ROM:
 *	１６ビットメモリ読み込みサブルーチン
 *
 *	a0.l		ベースアドレス(68000)
+*	d2.w		ページ番号
 *	d0.w		アドレス  (R800)	
 * 返り値
 *	d0.w	 	メモリから読み込んだ値を入れる
@@ -940,13 +1018,35 @@ rd16_normal:
 	move.w	(sp)+,d0
 	rts
 
-rd16_MEGA_ROM_8:		* まだやってない
+rd16_MEGAROM_8:
+	movem.l	d1-d7/a0-a5,-(sp)
+	andi.l	#$ffff,d0
+	move.l	d0,-(sp)
+	andi.l	#$3,d2
+	move.l	d2,-(sp)
+	move.l	a0,-(sp)
+	bsr	ms_memmap_rd16_MEGAROM_8
+	lea	12(sp),sp
+	movem.l	(sp)+,d1-d7/a0-a5
+	rts
 
-rd16_MEGA_ROM_16:		* まだやってない
+rd16_MEGAROM_16:		* まだやってない
+	rts
 
-rd16_MEGA_ROM_SCC:		* まだやってない
+rd16_MEGAROM_KONAMI:
+	movem.l	d1-d7/a0-a5,-(sp)
+	andi.l	#$ffff,d0
+	move.l	d0,-(sp)
+	andi.l	#$3,d2
+	move.l	d2,-(sp)
+	move.l	a0,-(sp)
+	bsr	ms_memmap_rd16_MEGAROM_KONAMI
+	lea	12(sp),sp
+	movem.l	(sp)+,d1-d7/a0-a5
+	rts
 
-rd16_MEGA_ROM_PANA:		* まだやってない
+rd16_MEGAROM_PANA:		* まだやってない
+	rts
 
 rd16_SOUND:
 	rts
@@ -964,35 +1064,62 @@ rd16_PAC:				* pac のレジスタは読み込み出来ない
 *
 *	１６ビットメモリ書き込みルーチン
 *
-*	a0.l	ベースアドレス(68000)
-*	d0.w	アドレス  (R800)	
-*	d1.w	書き込む値
+*	a0.l		ベースアドレス(68000)
+*	d2.w		ページ番号
+*	d0.w		アドレス  (R800)	
+*	d1.w		書き込む値
 *
 *******************************************************
-wt16_nothing:
-
-wt16_ROM:
+wr16_nothing:
 	rts
 
-wt16_RAM:
+wr16_ROM:
+	rts
+
+wr16_RAM:
 	move.b	d1,0(a0,d0.w)
 	lsr.w	#8,d1
 	move.b	d1,1(a0,d0.w)
 	rts
 
-wt16_MEGA_ROM_8:		* まだやってない
+wr16_MEGAROM_8:
+	movem.l	d1-d7/a0-a5,-(sp)
+	andi.l	#$ffff,d1
+	move.l	d1,-(sp)
+	andi.l	#$ffff,d0
+	move.l	d0,-(sp)
+	andi.l	#$3,d2
+	move.l	d2,-(sp)
+	move.l	a0,-(sp)
+	bsr	ms_memmap_wr16_MEGAROM_8
+	lea	16(sp),sp
+	movem.l	(sp)+,d1-d7/a0-a5
+	rts
 
-wt16_MEGA_ROM_16:		* まだやってない
+wr16_MEGAROM_16:		* まだやってない
+	rts
 
-wt16_MEGA_ROM_SCC:		* まだやってない
+wr16_MEGAROM_KONAMI:
+	movem.l	d1-d7/a0-a5,-(sp)
+	andi.l	#$ffff,d1
+	move.l	d1,-(sp)
+	andi.l	#$ffff,d0
+	move.l	d0,-(sp)
+	andi.l	#$3,d2
+	move.l	d2,-(sp)
+	move.l	a0,-(sp)
+	bsr	ms_memmap_wr16_MEGAROM_KONAMI
+	lea	16(sp),sp
+	movem.l	(sp)+,d1-d7/a0-a5
+	rts
 
-wt16_MEGA_ROM_PANA:		* まだやってない
+wr16_MEGAROM_PANA:		* まだやってない
 
-wt16_SOUND:		* まだやってない
+wr16_SOUND:		* まだやってない
 
-wt16_DOS_ROM:		* まだやってない
+wr16_DOS_ROM:		* まだやってない
 
-wt16_PAC:
+wr16_PAC:
 	rts
 
 
@@ -1064,8 +1191,8 @@ exslotreg_write:
 
 	move.b	slot_type(a0),d0		* スロットの種類に応じて読み書きルーチ
 	ext.w	d0				* ンを設定
-	move.l	 wt8_sub_add_0-base2(a2,d0.w*4), wt8_sub_add_p3-base2(a2)
-	move.l	wt16_sub_add_0-base2(a2,d0.w*4),wt16_sub_add_p3-base2(a2)
+	move.l	 wr8_sub_add_0-base2(a2,d0.w*4), wr8_sub_add_p3-base2(a2)
+	move.l	wr16_sub_add_0-base2(a2,d0.w*4),wr16_sub_add_p3-base2(a2)
 	move.l	 rd8_sub_add_0-base2(a2,d0.w*4), rd8_sub_add_p3-base2(a2)
 	move.l	rd16_sub_add_0-base2(a2,d0.w*4),rd16_sub_add_p3-base2(a2)
 
@@ -1085,8 +1212,8 @@ exslotreg_write:
 
 	move.b	slot_type(a0),d0		* スロットの種類に応じて読み書きルーチ
 	ext.w	d0				* ンを設定
-	move.l	 wt8_sub_add_0-base2(a2,d0.w*4), wt8_sub_add_p0-base2(a2)
-	move.l	wt16_sub_add_0-base2(a2,d0.w*4),wt16_sub_add_p0-base2(a2)
+	move.l	 wr8_sub_add_0-base2(a2,d0.w*4), wr8_sub_add_p0-base2(a2)
+	move.l	wr16_sub_add_0-base2(a2,d0.w*4),wr16_sub_add_p0-base2(a2)
 	move.l	 rd8_sub_add_0-base2(a2,d0.w*4), rd8_sub_add_p0-base2(a2)
 	move.l	rd16_sub_add_0-base2(a2,d0.w*4),rd16_sub_add_p0-base2(a2)
 
@@ -1108,8 +1235,8 @@ not_exist0:
 
 	move.b	slot_type(a0),d0		* スロットの種類に応じて読み書きルーチ
 	ext.w	d0				* ンを設定
-	move.l	 wt8_sub_add_0-base2(a2,d0.w*4), wt8_sub_add_p1-base2(a2)
-	move.l	wt16_sub_add_0-base2(a2,d0.w*4),wt16_sub_add_p1-base2(a2)
+	move.l	 wr8_sub_add_0-base2(a2,d0.w*4), wr8_sub_add_p1-base2(a2)
+	move.l	wr16_sub_add_0-base2(a2,d0.w*4),wr16_sub_add_p1-base2(a2)
 	move.l	 rd8_sub_add_0-base2(a2,d0.w*4), rd8_sub_add_p1-base2(a2)
 	move.l	rd16_sub_add_0-base2(a2,d0.w*4),rd16_sub_add_p1-base2(a2)
 
@@ -1130,8 +1257,8 @@ not_exist1:
 
 	move.b	slot_type(a0),d0		* スロットの種類に応じて読み書きルーチ
 	ext.w	d0				* ンを設定
-	move.l	 wt8_sub_add_0-base2(a2,d0.w*4), wt8_sub_add_p2-base2(a2)
-	move.l	wt16_sub_add_0-base2(a2,d0.w*4),wt16_sub_add_p2-base2(a2)
+	move.l	 wr8_sub_add_0-base2(a2,d0.w*4), wr8_sub_add_p2-base2(a2)
+	move.l	wr16_sub_add_0-base2(a2,d0.w*4),wr16_sub_add_p2-base2(a2)
 	move.l	 rd8_sub_add_0-base2(a2,d0.w*4), rd8_sub_add_p2-base2(a2)
 	move.l	rd16_sub_add_0-base2(a2,d0.w*4),rd16_sub_add_p2-base2(a2)
 not_exist2:
@@ -1172,8 +1299,8 @@ w_port_A8:
 						* ンを設定
 						* d0の上位バイトは０になってるはずだか
 						* ら、ext.w d0 はいらない
-	move.l	 wt8_sub_add_0-base2(a2,d0.w*4), wt8_sub_add_p0-base2(a2)
-	move.l	wt16_sub_add_0-base2(a2,d0.w*4),wt16_sub_add_p0-base2(a2)
+	move.l	 wr8_sub_add_0-base2(a2,d0.w*4), wr8_sub_add_p0-base2(a2)
+	move.l	wr16_sub_add_0-base2(a2,d0.w*4),wr16_sub_add_p0-base2(a2)
 	move.l	 rd8_sub_add_0-base2(a2,d0.w*4), rd8_sub_add_p0-base2(a2)
 	move.l	rd16_sub_add_0-base2(a2,d0.w*4),rd16_sub_add_p0-base2(a2)
 
@@ -1190,8 +1317,8 @@ w_port_A8:
 	move.l	a1,page1
 	move.b	slot_type(a1),d0		* スロットの種類に応じて読み書きルーチ
 						* ンを設定
-	move.l	 wt8_sub_add_0-base2(a2,d0.w*4), wt8_sub_add_p1-base2(a2)
-	move.l	wt16_sub_add_0-base2(a2,d0.w*4),wt16_sub_add_p1-base2(a2)
+	move.l	 wr8_sub_add_0-base2(a2,d0.w*4), wr8_sub_add_p1-base2(a2)
+	move.l	wr16_sub_add_0-base2(a2,d0.w*4),wr16_sub_add_p1-base2(a2)
 	move.l	 rd8_sub_add_0-base2(a2,d0.w*4), rd8_sub_add_p1-base2(a2)
 	move.l	rd16_sub_add_0-base2(a2,d0.w*4),rd16_sub_add_p1-base2(a2)
 
@@ -1208,8 +1335,8 @@ w_port_A8:
 	move.l	a1,page2
 	move.b	slot_type(a1),d0		* スロットの種類に応じて読み書きルーチ
 						* ンを設定
-	move.l	 wt8_sub_add_0-base2(a2,d0.w*4), wt8_sub_add_p2-base2(a2)
-	move.l	wt16_sub_add_0-base2(a2,d0.w*4),wt16_sub_add_p2-base2(a2)
+	move.l	 wr8_sub_add_0-base2(a2,d0.w*4), wr8_sub_add_p2-base2(a2)
+	move.l	wr16_sub_add_0-base2(a2,d0.w*4),wr16_sub_add_p2-base2(a2)
 	move.l	 rd8_sub_add_0-base2(a2,d0.w*4), rd8_sub_add_p2-base2(a2)
 	move.l	rd16_sub_add_0-base2(a2,d0.w*4),rd16_sub_add_p2-base2(a2)
 
@@ -1226,8 +1353,8 @@ w_port_A8:
 	move.l	a1,page3
 	move.b	slot_type(a1),d0		* スロットの種類に応じて読み書きルーチ
 						* ンを設定
-	move.l	 wt8_sub_add_0-base2(a2,d0.w*4), wt8_sub_add_p3-base2(a2)
-	move.l	wt16_sub_add_0-base2(a2,d0.w*4),wt16_sub_add_p3-base2(a2)
+	move.l	 wr8_sub_add_0-base2(a2,d0.w*4), wr8_sub_add_p3-base2(a2)
+	move.l	wr16_sub_add_0-base2(a2,d0.w*4),wr16_sub_add_p3-base2(a2)
 	move.l	 rd8_sub_add_0-base2(a2,d0.w*4), rd8_sub_add_p3-base2(a2)
 	move.l	rd16_sub_add_0-base2(a2,d0.w*4),rd16_sub_add_p3-base2(a2)
 

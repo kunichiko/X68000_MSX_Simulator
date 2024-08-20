@@ -67,8 +67,6 @@ void ms_memmap_register_rom( void* address, int kind, int slot, int page);
 int emuLoop(unsigned int pc, unsigned int counter);
 
 void set_system_roms(void);
-void allocateAndSetROM(const char* romFileName, int kind, int slot, int page);
-void allocateAndSetROM_Cartridge(const char* romFileName);
 
 void _toggleTextPlane(void);
 void _setTextPlane(int textPlaneMode);
@@ -758,56 +756,6 @@ void set_system_roms() {
 }
 
 extern int filelength(int fh);
-
-void allocateAndSetROM_Cartridge(const char *romFileName) {
-	allocateAndSetROM(romFileName, ROM_TYPE_NORMAL_ROM, 1<<2, 1);
-}
-
-void allocateAndSetROM(const char *romFileName, int kind, int slot, int page) {
-	int crt_fh;
-	int crt_length;
-	uint8_t *crt_buff;
-	int i;
-
-	crt_fh = open( romFileName, O_RDONLY | O_BINARY);
-	if (crt_fh == -1) {
-		printf("ファイルが開けません. %s\n", romFileName);
-		ms_exit();
-		return;
-	}
-	crt_length = filelength(crt_fh);
-	if(crt_length == -1) {
-		printf("ファイルの長さが取得できません。\n");
-		ms_exit();
-		return;
-	}
-
-	// 16Kバイトずつ読み込んでROMにセット
-	if( crt_length <= 32 * 1024 ) {
-		for(i = 0; i < 2; i++) {
-			if(crt_length < 16 * 1024) {
-				break;
-			}
-			if( ( crt_buff = new_malloc( 16 * 1024 + MS_MEMMAP_HEADER_LENGTH ) ) == NULL) {
-				printf("メモリが確保できません。\n");
-				ms_exit();
-				return;
-			}
-			read( crt_fh, crt_buff + MS_MEMMAP_HEADER_LENGTH, 16 * 1024);
-			// int j;
-			// for(j = 0; j < 16; j++) {
-			// 	printf("%02x ", crt_buff[MS_MEMMAP_HEADER_LENGTH + i]);
-			// }
-			// printf("\n");
-			ms_memmap_register_rom(crt_buff, kind, slot, page + i);
-			crt_length -= 16 * 1024;
-		}
-	} else {
-		printf("ファイルが認識できませんでした\n");
-		ms_exit();
-	}
- 	close( crt_fh);
-}
 
 /*
 	for debug

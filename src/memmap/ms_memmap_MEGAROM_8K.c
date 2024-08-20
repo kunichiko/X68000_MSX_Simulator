@@ -5,6 +5,9 @@
 #include <fcntl.h>
 #include "ms_memmap.h"
 
+
+typedef struct ms_memmap_driver_MEGAROM_8K  ms_memmap_driver_MEGAROM_8K_t;
+
 int init_MEGAROM_8K(ms_memmap_driver_t* memmap, char* filename, int argc, char* argv[]);
 void deinint_MEGAROM_8K(ms_memmap_driver_t* memmap);
 uint8_t read8_MEGAROM_8K(ms_memmap_driver_t* memmap, uint16_t addr);
@@ -12,18 +15,12 @@ uint16_t read16_MEGAROM_8K(ms_memmap_driver_t* memmap, uint16_t addr);
 void write8_MEGAROM_8K(ms_memmap_driver_t* memmap, uint16_t addr, uint8_t data);
 void write16_MEGAROM_8K(ms_memmap_driver_t* memmap, uint16_t addr, uint16_t data);
 
-// 構造体を拡張し、プロパティを追加する
-typedef struct ms_memmap_driver_MEGAROM_8K {
-	ms_memmap_driver_t base;
-	// extended properties
-	int bank_size;
-	int selected_bank[4];	// SLOT1前半、SLOT1後半、SLOT2前半、SLOT2後半の4つのバンクの選択状態
-} ms_memmap_driver_MEGAROM_8K_t;
+void _select_bank_8K(ms_memmap_driver_MEGAROM_8K_t* d, int page, int bank);
 
 /*
 	確保 & 初期化ルーチン
  */
-ms_memmap_driver_t* ms_memmap_MEGAROM_8K_init(ms_memmap_t* memmap, char* filename, int argc, char* argv[]) {
+ms_memmap_driver_t* ms_memmap_MEGAROM_8K_init(ms_memmap_t* memmap, const char* filename) {
 	ms_memmap_driver_MEGAROM_8K_t* instance;
 	instance = (ms_memmap_driver_MEGAROM_8K_t*)new_malloc(sizeof(ms_memmap_driver_MEGAROM_8K_t));
 	if (instance == NULL) {
@@ -35,17 +32,21 @@ ms_memmap_driver_t* ms_memmap_MEGAROM_8K_init(ms_memmap_t* memmap, char* filenam
 	instance->base.write8 = write8_MEGAROM_8K;
 	instance->base.write16 = write16_MEGAROM_8K;
 
-	instance->base.mem_slot1 = (uint8_t*)new_malloc( 16*1024 + MS_MEMMAP_HEADER_LENGTH );
-	if(instance->base.mem_slot1 == NULL) {
+	uint8_t* buf;
+	buf = (uint8_t*)new_malloc( 16*1024 + MS_MEMMAP_HEADER_LENGTH );
+	if(buf == NULL) {
 		printf("メモリが確保できません。\n");
 		deinint_MEGAROM_8K((ms_memmap_driver_t*)instance);
 		return NULL;
 	}
-	instance->base.mem_slot2 = (uint8_t*)new_malloc( 16*1024 + MS_MEMMAP_HEADER_LENGTH );
-	if(instance->base.mem_slot2 == NULL) {
+	instance->base.mem_slot1 = buf;
+	
+	buf = (uint8_t*)new_malloc( 16*1024 + MS_MEMMAP_HEADER_LENGTH );
+	if(buf == NULL) {
 		printf("メモリが確保できません。\n");
 		return NULL;
 	}
+	instance->base.mem_slot2 = buf;
 
 	//
 	int fh;
@@ -61,13 +62,27 @@ ms_memmap_driver_t* ms_memmap_MEGAROM_8K_init(ms_memmap_t* memmap, char* filenam
 		printf("ファイルの長さが取得できません%s\n", filename);
 		return NULL;
 	}
-	instance->base.buffer = (uint8_t*)new_malloc( length + MS_MEMMAP_HEADER_LENGTH );
+	instance->base.buffer = (uint8_t*)new_malloc( length);
 	if(instance->base.buffer == NULL) {
 		printf("メモリが確保できません。\n");
 		return NULL;
 	}
-	read( fh, instance->base.buffer + MS_MEMMAP_HEADER_LENGTH, length);
+	read( fh, instance->base.buffer, length);
+	int x,y;
+	for(y=0;y<2;y++) {
+		printf("%04x: ", y*16);
+		for(x=0;x<16;x++) {
+			printf("%02x ", instance->base.buffer[y*16 + x]);
+		}
+		printf("\n");
+	}
+
+	//
 	instance->bank_size = length / 0x2000;
+	int page;
+	for(page=0;page<4;page++) {
+		_select_bank_8K(instance, page, 0);	// ASCII 8Kメガロムの場合、初期値は0
+	}
 	return (ms_memmap_driver_t*)instance;
 }
 
@@ -79,10 +94,35 @@ void deinint_MEGAROM_8K(ms_memmap_driver_t* driver) {
 	new_free(d);
 }
 
+void _select_bank_8K(ms_memmap_driver_MEGAROM_8K_t* d, int page, int bank) {
+	if ( bank >= d->bank_size) {
+		printf("MEGAROM_8K: bank out of range: %d\n", bank);
+		return;
+	}
+	d->selected_bank[page] = bank;
+	// バンク切り替え処理(メモリコピー)
+	int i;
+	int slot = (page / 2) + 1;
+	for(i=0;i<0x2000;i++) {
+		if(slot == 1) {
+			d->base.mem_slot1[MS_MEMMAP_HEADER_LENGTH + (page%2)*0x2000 + i] = d->base.buffer[bank*0x2000 + i];
+		} else {
+			d->base.mem_slot2[MS_MEMMAP_HEADER_LENGTH + (page%2)*0x2000 + i] = d->base.buffer[bank*0x2000 + i];
+		}
+	}
+	printf("MEGAROM_8K: bank %d selected for page %d\n", bank, page);
+	for (i = 0; i < 4; i++)
+	{
+		printf(" page%d: %02x\n", i, d->selected_bank[i]);	
+	}
+	return;
+}
+
+
 uint8_t read8_MEGAROM_8K(ms_memmap_driver_t* driver, uint16_t addr) {
 	ms_memmap_driver_MEGAROM_8K_t* d = (ms_memmap_driver_MEGAROM_8K_t*)driver;
 	int slot_page = addr >> 13;
-	if( addr < 2 || addr > 5) {
+	if( slot_page < 2 || slot_page > 5) {
 		printf("MEGAROM_8K: read out of range: %04x\n", addr);
 		return 0xff;
 	}
@@ -93,7 +133,9 @@ uint8_t read8_MEGAROM_8K(ms_memmap_driver_t* driver, uint16_t addr) {
 		return 0xff;
 	}
 	int long_addr = (addr & 0x1fff) + (0x2000 * bank);
-	return driver->buffer[long_addr];
+	uint8_t ret = driver->buffer[long_addr];
+	//printf("MEGAROM_8K: read %04x[%06x] -> %02x\n", addr, long_addr, ret);
+	return ret;
 }
 
 uint16_t read16_MEGAROM_8K(ms_memmap_driver_t* driver, uint16_t addr) {
@@ -123,17 +165,7 @@ void write8_MEGAROM_8K(ms_memmap_driver_t* driver, uint16_t addr, uint8_t data) 
 		slot = 2;
 	}
 	if (page != -1) {
-		d->selected_bank[page] = data % d->bank_size;
-		// バンク切り替え処理(メモリコピー)
-		int i;
-		for(i=0;i<0x2000;i++) {
-			if(slot == 1) {
-				driver->mem_slot1[(page%2)*0x2000 + i] = driver->buffer[data*0x2000 + i];
-			} else {
-				driver->mem_slot2[(page%2)*0x2000 + i] = driver->buffer[data*0x2000 + i];
-			}
-		}
-		return;
+		_select_bank_8K(d, page, data);
 	}
 	return;
 }

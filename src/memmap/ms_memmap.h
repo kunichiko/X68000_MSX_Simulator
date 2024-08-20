@@ -6,11 +6,11 @@
 #define ROM_TYPE_NOTHING		0
 #define ROM_TYPE_MAPPER_RAM		1
 #define ROM_TYPE_NORMAL_ROM		2
-#define ROM_TYPE_MEGA_ROM_8		3
-#define ROM_TYPE_MEGA_ROM_16	4
-#define ROM_TYPE_MEGA_ROM_SCC	5
+#define ROM_TYPE_MEGAROM_8		3
+#define ROM_TYPE_MEGAROM_16		4
+#define ROM_TYPE_MEGAROM_KONAMI	5
 #define ROM_TYPE_SOUND_CARTRIG	6
-#define ROM_TYPE_MEGA_ROM_PANA	7
+#define ROM_TYPE_MEGAROM_PANA	7
 #define ROM_TYPE_DOS_ROM		8
 #define ROM_TYPE_PAC			9
 
@@ -71,6 +71,7 @@ typedef struct ms_memmap_driver {
 	ms_memmap_t* memmap;
 
 	// memory (CPUからSLOT1、SLOT2として見える領域)
+	// ヘッダ領域を含むため、実際のメモリ領域はMS_MEMMAP_HEADER_LENGTHバイトずれている
 	// 設定後は動かしてはいけないので、ポインタの指す先を変更しないこと
 	// バンク切り替え処理が行われたら、愚直に中身を書き換えるしかない
 	// TODO: 将来的には8Kバンク切り替えの処理を追加する
@@ -87,11 +88,34 @@ typedef struct ms_memmap_driver {
 	void (*write16)(ms_memmap_driver_t* memmap, uint16_t addr, uint16_t data);
 } ms_memmap_driver_t;
 
+// 構造体を拡張し、プロパティを追加する
+typedef struct ms_memmap_driver_MEGAROM_8K {
+	ms_memmap_driver_t base;
+	// extended properties
+	int bank_size;
+	int selected_bank[4];	// SLOT1前半、SLOT1後半、SLOT2前半、SLOT2後半の4つのバンクの選択状態
+} ms_memmap_driver_MEGAROM_8K_t;
+
+// 構造体を拡張し、プロパティを追加する
+typedef struct ms_memmap_driver_MEGAROM_KONAMI {
+	ms_memmap_driver_t base;
+	// extended properties
+	int bank_size;
+	int selected_bank[4];	// SLOT1前半、SLOT1後半、SLOT2前半、SLOT2後半の4つのバンクの選択状態
+} ms_memmap_driver_MEGAROM_KONAMI_t;
+
+
 
 ms_memmap_t* ms_memmap_init();
 void ms_memmap_init_mac();
 void ms_memmap_deinit(ms_memmap_t* memmap);
 void ms_memmap_deinit_mac();
 void ms_memmap_set_main_mem( void *, int);
+
+ms_memmap_driver_t* ms_memmap_MEGAROM_8K_init(ms_memmap_t* memmap, const char* filename);
+ms_memmap_driver_t* ms_memmap_MEGAROM_KONAMI_init(ms_memmap_t* memmap, const char* filename);
+
+void allocateAndSetROM(const char* romFileName, int kind, int slot, int page);
+void allocateAndSetROM_Cartridge(const char* romFileName);
 
 #endif // _MS_MEMMAP_H_

@@ -38,6 +38,7 @@ OBJS = $(BUILD_DIR)/ms.o \
 		$(BUILD_DIR)/ms_memmap.o \
 		$(BUILD_DIR)/ms_memmap_mac.o \
 		$(BUILD_DIR)/ms_memmap_MEGAROM_8K.o \
+		$(BUILD_DIR)/ms_memmap_MEGAROM_KONAMI.o \
 		$(BUILD_DIR)/ms_vdp.o \
 		$(BUILD_DIR)/ms_vdp_mac.o \
 		$(BUILD_DIR)/ms_vdp_mode_DEFAULT.o \
@@ -67,6 +68,7 @@ OBJS_DEBUG = $(BUILD_DIR)/ms_d.o \
 		$(BUILD_DIR)/ms_memmap_d.o \
 		$(BUILD_DIR)/ms_memmap_mac_d.o \
 		$(BUILD_DIR)/ms_memmap_MEGAROM_8K_d.o \
+		$(BUILD_DIR)/ms_memmap_MEGAROM_KONAMI_d.o \
 		$(BUILD_DIR)/ms_vdp_d.o \
 		$(BUILD_DIR)/ms_vdp_mac_d.o \
 		$(BUILD_DIR)/ms_vdp_mode_DEFAULT_d.o \
