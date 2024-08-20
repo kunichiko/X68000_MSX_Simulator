@@ -16,6 +16,7 @@ void update_r7_color_GRAPHIC2(ms_vdp_t* vdp, uint8_t data);
 char* get_mode_name_GRAPHIC2(ms_vdp_t* vdp);
 void update_resolution_GRAPHIC2(ms_vdp_t* vdp);
 void vsync_draw_GRAPHIC2(ms_vdp_t* vdp);
+
 void write_vram_GRAPHIC2_c(ms_vdp_t* vdp, uint8_t data);
 
 ms_vdp_mode_t ms_vdp_GRAPHIC2 = {
@@ -163,8 +164,6 @@ char* get_mode_name_GRAPHIC2(ms_vdp_t* vdp) {
 void update_resolution_GRAPHIC2(ms_vdp_t* vdp) {
 	update_resolution_COMMON(vdp, 0, 0, 0); // 256, 16色, BG不使用
 }
-
-static uint8_t refresh_group = 0;
 
 void write_pname_tbl_GRAPHIC2(ms_vdp_t* vdp, uint32_t addr, uint8_t data) {
 	uint32_t block = (addr >> 8) & 0x3;
