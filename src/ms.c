@@ -23,18 +23,12 @@
 #include "ms_iomap.h"
 #include "vdp/ms_vdp.h"
 
-#define NUM_SEGMENTS 4
-
 extern int readMemFromC(int address);
 
 void ms_exit( void);
 
 // メモリ関連
-int mem_initialized = 0;
-int ms_memmap_init();
-void ms_memmap_deinit(void);
-
-void ms_memmap_set_main_mem( void *, int);
+ms_memmap_t* memmap = NULL;
 
 // I/O関連
 ms_iomap_t* iomap = NULL;
@@ -118,7 +112,6 @@ void printHelpAndExit(char* progname) {
 	exit(EXIT_FAILURE);
 }
 
-static unsigned char *MMem;
 static unsigned char *MainROM1;
 static unsigned char *MainROM2;
 static unsigned char *SUBROM;
@@ -316,20 +309,12 @@ int main(int argc, char *argv[]) {
 	/*
 	 メモリシステムの初期化
 	 */
-	mem_initialized = ms_memmap_init();
-	if (mem_initialized == 0)
+	memmap = ms_memmap_init();
+	if (memmap == NULL)
 	{
 		printf("メモリシステムの初期化に失敗しました\n");
 		ms_exit();
 	}
-
-	MMem = new_malloc(64 * 1024 + 8 * NUM_SEGMENTS); /* ６４Ｋ + ８バイト＊総セグメント数	*/
-	if (MMem > (unsigned char *)0x81000000)
-	{
-		printf("メモリが確保できません\n");
-		ms_exit();
-	}
-	ms_memmap_set_main_mem(MMem, (int)NUM_SEGMENTS); /* アセンブラのルーチンへ引き渡し		*/
 
 	/*
 	 VDPシステムの初期化
@@ -440,8 +425,8 @@ void ms_exit() {
 	if ( iomap != NULL ) {
 		ms_iomap_deinit(iomap);
 	}
-	if ( mem_initialized ) {
-		ms_memmap_deinit();
+	if ( memmap != NULL ) {
+		ms_memmap_deinit(memmap);
 	}
 	exit(0);
 }
@@ -773,7 +758,6 @@ void set_system_roms() {
 }
 
 extern int filelength(int fh);
-#define h_length 8
 
 void allocateAndSetROM_Cartridge(const char *romFileName) {
 	allocateAndSetROM(romFileName, ROM_TYPE_NORMAL_ROM, 1<<2, 1);
@@ -804,15 +788,15 @@ void allocateAndSetROM(const char *romFileName, int kind, int slot, int page) {
 			if(crt_length < 16 * 1024) {
 				break;
 			}
-			if( ( crt_buff = new_malloc( 16 * 1024 + h_length ) ) >= (uint8_t *)0x81000000) {
+			if( ( crt_buff = new_malloc( 16 * 1024 + MS_MEMMAP_HEADER_LENGTH ) ) == NULL) {
 				printf("メモリが確保できません。\n");
 				ms_exit();
 				return;
 			}
-			read( crt_fh, crt_buff + h_length, 16 * 1024);
+			read( crt_fh, crt_buff + MS_MEMMAP_HEADER_LENGTH, 16 * 1024);
 			// int j;
 			// for(j = 0; j < 16; j++) {
-			// 	printf("%02x ", crt_buff[h_length + i]);
+			// 	printf("%02x ", crt_buff[MS_MEMMAP_HEADER_LENGTH + i]);
 			// }
 			// printf("\n");
 			ms_memmap_register_rom(crt_buff, kind, slot, page + i);

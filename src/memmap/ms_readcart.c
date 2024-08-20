@@ -13,8 +13,7 @@
 #include <unistd.h>
 #include <iocslib.h>
 #include <doslib.h>
-
-#define h_length 8
+#include "ms_memmap.h"
 
 void read_cartridge( char *, void *, int, int, int);
 void ms_memmap_set_cartridge( void *, int, int, int);
@@ -75,11 +74,11 @@ void read_cartridge(char *path_crt, void *ccf_buff, int location, int page, int 
 			printf("ファイルの長さが取得できません。\n");
 			return;
 		}
-		if( ( crt_buff = (void*)_dos_malloc( crt_length + h_length ) ) >= (void *)0x81000000) {
+		if( ( crt_buff = (void*)_dos_malloc( crt_length + MS_MEMMAP_HEADER_LENGTH ) ) == NULL) {
 			printf("メモリが確保できません。\n");
 			return;
 		}
-		read( crt_fh, crt_buff + h_length, crt_length);
+		read( crt_fh, crt_buff + MS_MEMMAP_HEADER_LENGTH, crt_length);
 		ms_memmap_set_cartridge( crt_buff, location, page, kind);	/* アセンブラのルーチンへ	*/
 
 		close( crt_fh);

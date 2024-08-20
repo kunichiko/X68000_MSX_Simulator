@@ -13,12 +13,14 @@
 	.xref	p_FE
 	.xref	p_FF
 
-	.xdef	ms_memmap_init
-	.xdef	ms_memmap_deinit
+	.xdef	ms_memmap_init_mac
+	.xdef	ms_memmap_deinit_mac
 	.xdef	ms_memmap_set_rom
 	.xdef	ms_memmap_set_main_mem
 	.xdef	ms_memmap_set_cartridge
 	.xdef	ms_memmap_register_rom
+
+	.xdef	ms_memmap_slot_map_ptr
 
 	.xdef	ms_read_mem_8
 	.xdef	ms_read_mem_16
@@ -66,7 +68,7 @@ my_segment_num	equ	2-headerlength	* マッパＲＡＭなどの時の自分のセグメント番号
 ;
 ;	メモリマッピングの初期化
 ;
-ms_memmap_init:
+ms_memmap_init_mac:
 	link	a6,#0
 	movem.l	d3-d7/a0-a5,-(sp)
 
@@ -105,7 +107,7 @@ ms_memmap_init:
 	rts
 
 ; TODO ほんとはここで、セットされたROMやメモリの解放処理を入れたい
-ms_memmap_deinit:
+ms_memmap_deinit_mac:
 	link	a6,#0
 	movem.l	d3-d7/a0-a5,-(sp)
 
@@ -722,6 +724,9 @@ wt16_sub_add_p3:
 
 *	このアドレスはヘッダ等を含まない部分を指す。よって、ヘッダは
 *	(アドレス) - 8 のアドレスから存在する。
+ms_memmap_slot_map_ptr:
+	.dc.l	slot_0_0	* スロットマップ構造体の先頭アドレス(Cから参照)
+
 slot_0_0:
 	.dc.l	0		* slot 0-0 page0 が存在するアドレス
 	.dc.l	0		* slot 0-0 page1 が存在するアドレス
