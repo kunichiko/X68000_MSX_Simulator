@@ -80,11 +80,12 @@ void _toggleTextPlane(void);
 void _setTextPlane(int textPlaneMode);
 void _moveTextPlane(int cursorKeyHit);
 
+unsigned short host_rate = 3;
+
 volatile extern unsigned short ms_vdp_interrupt_tick;
 volatile extern unsigned short ms_vdp_vsync_rate;
 volatile extern unsigned int int_block_count;
 volatile extern unsigned short debug_log_level;
-volatile extern unsigned short host_rate;
 volatile extern unsigned short host_delay;
 volatile extern unsigned int int_skip_counter;
 volatile extern unsigned int int_exec_counter;
@@ -512,6 +513,11 @@ int emuLoop(unsigned int pc, unsigned int counter) {
 	if( vdp != NULL) {
 		vdp->ms_vdp_current_mode->vsync_draw(vdp);
 	}
+
+	if(emuLoopCounter % host_rate != 0) {
+		return 0;
+	}
+
 
 	kigoKeyHit = 0;
 	helpKeyHit = 0;

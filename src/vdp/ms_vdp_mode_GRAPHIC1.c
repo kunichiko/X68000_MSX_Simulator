@@ -70,19 +70,41 @@ void update_palette_GRAPHIC1(ms_vdp_t* vdp) {
 	update_palette_DEFAULT(vdp);
 }
 
+static uint32_t last_pnametbl_baddr = 0xffffffff;
+
 void update_pnametbl_baddr_GRAPHIC1(ms_vdp_t* vdp) {
-	update_pnametbl_baddr_DEFAULT(vdp);
-	_refresh_GRAPHIC1(vdp);
+	printf("update_pnametbl_baddr_GRAPHIC1\n");
+    update_pnametbl_baddr_DEFAULT(vdp);
+	printf("  %06x -> %06x\n", last_pnametbl_baddr, vdp->pnametbl_baddr);
+	if (last_pnametbl_baddr != vdp->pnametbl_baddr) {
+		last_pnametbl_baddr = vdp->pnametbl_baddr;
+		_refresh_GRAPHIC1(vdp);
+	}
 }
+
+
+static uint32_t last_colortbl_baddr = 0xffffffff;
 
 void update_colortbl_baddr_GRAPHIC1(ms_vdp_t* vdp) {
+	printf("update_colortbl_baddr_GRAPHIC1\n");
 	update_colortbl_baddr_DEFAULT(vdp);
-	_refresh_GRAPHIC1(vdp);
+	printf("  %06x -> %06x\n", last_colortbl_baddr, vdp->colortbl_baddr);
+	if (last_colortbl_baddr != vdp->colortbl_baddr) {
+		last_colortbl_baddr = vdp->colortbl_baddr;
+		_refresh_GRAPHIC1(vdp);
+	}
 }
 
+static uint32_t last_pgentbl_baddr = 0xffffffff;
+
 void update_pgentbl_baddr_GRAPHIC1(ms_vdp_t* vdp) {
+	printf("update_pgentbl_baddr_GRAPHIC1\n");
 	update_pgentbl_baddr_DEFAULT(vdp);
-	_refresh_GRAPHIC1(vdp);
+	printf("  %06x -> %06x\n", last_pgentbl_baddr, vdp->pgentbl_baddr);
+	if (last_pgentbl_baddr != vdp->pgentbl_baddr) {
+		last_pgentbl_baddr = vdp->pgentbl_baddr;
+		_refresh_GRAPHIC1(vdp);
+	}
 }
 
 void update_sprattrtbl_baddr_GRAPHIC1(ms_vdp_t* vdp) {
@@ -147,7 +169,7 @@ void vsync_draw_GRAPHIC1(ms_vdp_t* vdp) {
 		num_refresh = 0;
 	}
 	// 1回のvsyncで書き換える数の上限
-	int refresh_count = 32;
+	int refresh_count = 16;				// だいたい60フレーム = 1秒で 32文字x24行=768文字が書き換えられる計算
 	// 1回のvsyncでチェックする数の上限
 	int check_count = 128;
 	while(refresh_count > 0 && check_count > 0) {

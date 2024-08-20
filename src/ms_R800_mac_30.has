@@ -97,7 +97,6 @@
 	.xref	ms_cpu_int
 
 	.xref	HEX
-	.xref	host_rate
 	.xref	int_block_count
 
 	.xref	ms_vdp_interrupt_tick	; TODO VDP依存を除去
@@ -779,15 +778,7 @@ get_emu_yield_func:
 	rts
 
 	; emu_yieldが0になったので、C側の処理を呼び出す
-@@:	cmpi.w	#0,emu_yield_div		* さらに間引きを実施
-	beq	@f				* 0なら実行
-	subq.w	#1,emu_yield_div
-	clr.l	d0
-	rts
-
-@@:	move.w	host_rate,emu_yield_div		* 1 = 2回に一回実行, 2 = 3回に1回
-	subq.w	#1,emu_yield_div
-	move.l	emu_loop_func,d0
+@@:	move.l	emu_loop_func,d0
 	rts
 
 emu_end:
