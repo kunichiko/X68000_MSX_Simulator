@@ -82,6 +82,8 @@ void _select_bank_8K(ms_memmap_driver_MEGAROM_8K_t* d, int page, int bank) {
 			d->base.mem_slot2[MS_MEMMAP_HEADER_LENGTH + (page%2)*0x2000 + i] = d->base.buffer[bank*0x2000 + i];
 		}
 	}
+	printf(".");
+	fflush(stdout);
 	if(0) {
 		printf("MEGAROM_8K: bank %d selected for page %d\n", bank, page);
 		for (i = 0; i < 4; i++)
@@ -117,29 +119,44 @@ uint16_t read16_MEGAROM_8K(ms_memmap_driver_t* driver, uint16_t addr) {
 	return read8_MEGAROM_8K(driver, addr) | (read8_MEGAROM_8K(driver, addr + 1) << 8);
 }
 
+/*
+	ASCII 8Kメガロムの切り替え処理
+	https://www.msx.org/wiki/MegaROM_Mappers#ASCII_8K
+
+	* 4000h~5FFFh (mirror: C000h~DFFFh)
+		* 切り替えアドレス:	6000h (mirrors: 6001h~67FFh)
+		* 初期セグメント	0
+	* 6000h~7FFFh (mirror: E000h~FFFFh)
+		* 切り替えアドレス	6800h (mirrors: 6801h~6FFFh)
+		* 初期セグメント	0
+	* 8000h~9FFFh (mirror: 0000h~1FFFh)
+		* 切り替えアドレス	7000h (mirrors: 7001h~77FFh)
+		* 初期セグメント	0
+	* A000h~BFFFh (mirror: 2000h~3FFFh)
+		* 切り替えアドレス	7800h (mirrors: 7801h~7FFFh)
+		* 初期セグメント	0
+ */
 void write8_MEGAROM_8K(ms_memmap_driver_t* driver, uint16_t addr, uint8_t data) {
 	ms_memmap_driver_MEGAROM_8K_t* d = (ms_memmap_driver_MEGAROM_8K_t*)driver;
 	// バンク切り替え処理
-	int page = -1;
-	int slot;
-	if(addr == 0x6800) {
-		page = 0;
-		slot = 1;
+	int rom_page = -1;
+	int area = addr >> 11;
+	switch(area) {
+		case 0x6*2+0:
+			rom_page = 0;
+			break;
+		case 0x6*2+1:
+			rom_page = 1;
+			break;
+		case 0x7*2+0:
+			rom_page = 2;
+			break;
+		case 0x7*2+1:
+			rom_page = 3;
+			break;
 	}
-	if(addr == 0x7000) {
-		page = 1;
-		slot = 1;
-	}
-	if(addr == 0x7000) {
-		page = 2;
-		slot = 2;
-	}
-	if(addr == 0x7800) {
-		page = 3;
-		slot = 2;
-	}
-	if (page != -1) {
-		_select_bank_8K(d, page, data);
+	if (rom_page != -1) {
+		_select_bank_8K(d, rom_page, data);
 	}
 	return;
 }
