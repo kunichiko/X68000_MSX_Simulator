@@ -78,7 +78,7 @@ void write_vram_GRAPHIC2(ms_vdp_t* vdp, uint8_t data) {
 	アセンブラのルーチンを使っているので使ってないが一応残している
  */
 void write_vram_GRAPHIC2_c(ms_vdp_t* vdp, uint8_t data) {
-	write_vram_DEFAULT(vdp, data);
+	vdp->vram[vdp->vram_addr] = data;
 	//
 	uint32_t area = vdp->vram_addr;
 	area &= 0x1ff80;	// 下位7ビットをクリア

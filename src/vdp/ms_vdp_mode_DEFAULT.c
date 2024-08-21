@@ -67,6 +67,7 @@ uint8_t read_vram_DEFAULT(ms_vdp_t* vdp) {
 
 void write_vram_DEFAULT(ms_vdp_t* vdp, uint8_t data) {
 	vdp->vram[vdp->vram_addr] = data;
+	vdp->vram_addr = (vdp->vram_addr + 1) & 0x1ffff;
 }
 
 /*

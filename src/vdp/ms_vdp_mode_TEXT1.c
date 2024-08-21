@@ -95,7 +95,7 @@ uint8_t read_vram_TEXT1(ms_vdp_t* vdp) {
 }
 
 void write_vram_TEXT1(ms_vdp_t* vdp, uint8_t data) {
-	write_vram_DEFAULT(vdp, data);
+	vdp->vram[vdp->vram_addr] = data;
 	//
 	uint32_t area = vdp->vram_addr & 0x1fc00; // 下位10ビットをクリア
 	if (area == vdp->pnametbl_baddr) {

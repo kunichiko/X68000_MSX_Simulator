@@ -81,7 +81,7 @@ uint8_t read_vram_TEXT2(ms_vdp_t* vdp) {
 }
 
 void write_vram_TEXT2(ms_vdp_t* vdp, uint8_t data) {
-	write_vram_DEFAULT(vdp, data);
+	vdp->vram[vdp->vram_addr] = data;
 	//
 	uint32_t area = vdp->vram_addr & 0x1f800; // 下位11ビットをクリア
 	if (area == vdp->pgentbl_baddr) {

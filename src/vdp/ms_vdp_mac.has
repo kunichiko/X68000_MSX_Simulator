@@ -1470,10 +1470,25 @@ s_GRAPHIC2:
 
 	rts
 
-*
-*	ＳＣＲＥＥＮ５，６はちょうど同じになる
-*
-s_GRAPHIC4:					* SCREEN 5 は,16色512*512モードを使う
+s_GRAPHIC4:					* SCREEN 5 は,16色256*256モードを使う
+	movea.l	ms_vdp_shared,a5		* ms_vdp_t へのポインタを取得
+	; d1 = VRAMアドレス
+	lsl.l	#2,d1				* VRAMの1アドレスは2ピクセル → GRAMの4バイト	
+	move.l	d1,d0
+	andi.w	#%00000000_00000001_11111100,d1	* d1: X方向のアドレスオフセット
+	lsl.l	#1,d0				* X68000の実画面は横512ピクセルなので、Y方向は1024バイト単位
+	move.l	d0,d2
+	andi.l	#%00000011_11111100_00000000,d0	* d0: Y方向のアドレスオフセット
+	lsl.l	#1,d2				* X68000の実画面は縦512ピクセルなので、ページを跨ぐと、1024 * 512 バイト単位
+	andi.l	#%00011000_00000000_00000000,d2	* d2: ページのアドレスオフセット
+	or.w	d1,d0
+	or.l	d2,d0
+	add.l	#$c00000,d0
+	move.l	d0,offset_ms_vdp_gram_addr(a5)
+
+	rts
+
+
 s_GRAPHIC5:					* SCREEN 6 は,16色512*512モードを使う
 	movea.l	ms_vdp_shared,a5		* ms_vdp_t へのポインタを取得
 	lsl.l	#3,d1
@@ -2237,14 +2252,49 @@ w_GRAPHIC4_mac:
 
 	movea.l	ms_vdp_shared,a5		* ms_vdp_t へのポインタを取得
 	movea.l	offset_ms_vdp_vram(a5),a0
-	move.l	offset_ms_vdp_vram_addr(a5),d0			* D0 ・・書き込むアドレス
+	move.l	offset_ms_vdp_vram_addr(a5),d0	* D0 ・・書き込むアドレス
 	move.b	d1,0(a0,d0.l)			* VRAM へ書き込み
 
+	; GRAMアドレス再計算 （デバッグ用）
+	move.l	d1,-(sp)
+	move.l	offset_ms_vdp_vram_addr(a5),d1
+	bsr	s_GRAPHIC4
+	move.l	(sp)+,d1
+
 	movea.l	offset_ms_vdp_gram_addr(a5),a0
-	move.b	d1,d0
-	lsr.w	#4,d0
-	move.w	d0,(a0)+
-	move.w	d1,(a0)+
+	move.b	d1,d2
+	lsr.w	#4,d2
+	move.w	d2,(a0)+			* 上位4ビット
+	move.w	d1,(a0)+			* 下位4ビット
+
+	move.l	a0,-(sp)
+
+	* sprattrtbl_baddrと一致していたらスプライトアトリビュートテーブルへの書き込み
+	andi.w	#%11111111_10000000,d0		* 下位7ビットをクリア
+	move.l	offset_ms_vdp_sprattrtbl_baddr(a5),d2
+	andi.w	#%11111111_10000000,d2
+	cmp.l	d2,d0
+	bne	@f
+	movem.l	d0-d1,-(sp)
+	bsr	w_SP_attr			* スプライトアトリビュートテーブルへの書き込み
+	movem.l	(sp)+,d0-d1
+
+	bra	9f	; テーブルが重なっている場合もありうるので本当はスキップしてはいけないのだが……
+
+	* sprpatgentbl_baddrと一致していたらスプライトパターンジェネレータテーブルへの書き込み
+@@:	andi.w	#%11111000_00000000,d0		* 下位11ビットをクリア
+	move.l	offset_ms_vdp_sprpgentbl_baddr(a5),d2
+	andi.w	#%11111000_00000000,d2
+	cmp.l	d2,d0
+	bne	@f
+	movem.l	d0-d1,-(sp)
+	bsr	w_SP_p_gene			* スプライトパターンジェネレータテーブルへの書き込み
+	movem.l	(sp)+,d0-d1
+
+	bra	9f	; テーブルが重なっている場合もありうるので本当はスキップしてはいけないのだが……
+
+@@:	* VRAM書き込みアドレスをインクリメント
+9:	move.l	(sp)+,a0
 
 	move.l	offset_ms_vdp_vram_addr(a5),d1
 	addq.l	#1,d1				* インクリメント	
@@ -2252,8 +2302,9 @@ w_GRAPHIC4_mac:
 	move.l	d1,offset_ms_vdp_vram_addr(a5)
 	andi.w	#%00000000_00000000_01111111,d1	* ライン境界をまたいだか
 	bne	@f
-	lea.l	1024-256*2(a0),a0		* 次のラインへ
+	lea.l	512*2-256*2(a0),a0		* 次のラインへ
 @@:	move.l	a0,offset_ms_vdp_gram_addr(a5)
+
 	rts
 
 w_GRAPHIC5_mac:

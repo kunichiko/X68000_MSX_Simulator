@@ -1,6 +1,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <stdint.h>
+#include <stddef.h>
 #include "ms_vdp.h"
 
 int init_GRAPHIC4(ms_vdp_t* vdp);
@@ -67,6 +68,7 @@ uint8_t read_vram_GRAPHIC4(ms_vdp_t* vdp) {
 }
 
 void write_vram_GRAPHIC4(ms_vdp_t* vdp, uint8_t data) {
+	vdp->vram[vdp->vram_addr] = data;
 	w_GRAPHIC4_mac(data);
 }
 
@@ -110,8 +112,10 @@ char* get_mode_name_GRAPHIC4(ms_vdp_t* vdp) {
 
 	addr = DY×128 + dx/2
 */
-uint32_t get_vram_add_G4(ms_vdp_t* vdp, uint16_t x, uint16_t y, int* mod) {
-	*mod = x & 1;
+uint32_t get_vram_add_G4(ms_vdp_t* vdp, uint32_t x, uint32_t y, int* mod) {
+	if (mod != NULL) {
+		*mod = x & 1;
+	}
 	return (y&0x3ff)*128 + x/2;
 }
 
@@ -125,6 +129,8 @@ uint16_t* to_gram(ms_vdp_t* vdp, uint32_t vaddr, int mod) {
 void _PSET_G4(ms_vdp_t* vdp, uint8_t cmd) {
 	int mod;
 	uint32_t vaddr = get_vram_add_G4(vdp, vdp->dx, vdp->dy, &mod);
+
+	// VRAMに書き込む
 	if (mod) {
 		vdp->vram[vaddr] = (vdp->vram[vaddr] & 0xf0) | (vdp->clr & 0x0f);
 	} else {
@@ -203,26 +209,40 @@ void _LMMC_exe_G4(ms_vdp_t* vdp, uint8_t value) {
 		dst = value == 0 ? dst : !value;
 		break;
 	}
+
+	// VRAMに書き込む
 	if (vamod == 0) {
 		vdp->vram[vaddr] = (vdp->vram[vaddr] & 0x0f) + (dst << 4);
 	} else {
 		vdp->vram[vaddr] = (vdp->vram[vaddr] & 0xf0) + (dst & 0xf);
 	}
 
-	gram[0] = dst;
+	*gram = dst;
 
 	vdp->s02 |= 0x80;				// TRビットをセット
 	vdp->cmd_nx_count-=1;
 	// DIXに従ってVRAMアドレスを更新
-	vaddr_mod += (vdp->cmd_arg & 0x4) == 0 ? 1 : -1;
+	if ((vdp->cmd_arg & 0x4)==0) {
+		vaddr_mod += 1;
+	} else {
+		vaddr_mod -= 1;
+	}
 	if(vdp->cmd_nx_count == 0) {
 		// 1行終わったら次の行へ
 		vdp->cmd_ny_count--;
 		vdp->ny--;			// NYは更新される？
 		if(vdp->cmd_ny_count > 0) {
 			vdp->cmd_nx_count = vdp->nx;
-			vaddr_mod += (vdp->cmd_arg & 0x4) == 0 ? vdp->nx * -1 : vdp->nx;
-			vaddr_mod += (vdp->cmd_arg & 0x8) == 0 ? 256 : -256;
+			if ( (vdp->cmd_arg & 0x4) == 0 ) {
+				vaddr_mod -= vdp->nx;
+			} else {
+				vaddr_mod += vdp->nx;
+			}
+			if ( (vdp->cmd_arg & 0x8) == 0 ) {
+				vaddr_mod += 256;
+			} else {
+				vaddr_mod -= 256;
+			}
 		} else {
 			// 全部終わったらCEビットをクリア
 			vdp->s02 &= 0xfe;
@@ -237,61 +257,136 @@ void _LMMC_exe_G4(ms_vdp_t* vdp, uint8_t value) {
 void _HMMV_G4(ms_vdp_t* vdp, uint8_t cmd) {
 	printf("HMMV START G4********\n");
 
-	int mod;
 	vdp->cmd_current = cmd;
 	vdp->cmd_arg = vdp->arg;
-	uint16_t dst_vram_addr = get_vram_add_G4(vdp, vdp->dx, vdp->dy, &mod);
+	uint16_t dst_vram_addr = get_vram_add_G4(vdp, vdp->dx, vdp->dy, NULL);
 
 	int x,y;
 	for(y=0;y<vdp->ny;y++) {
 		for(x=0;x<vdp->nx;x+=2) {
 			uint8_t data = vdp->clr;
+			// VRAMに書き込む
 			vdp->vram[dst_vram_addr] = data;
-			uint16_t* gram = to_gram(vdp, dst_vram_addr, mod);
+			uint16_t* gram = to_gram(vdp, dst_vram_addr, 0);
 			gram[0] = data >> 4;
 			gram[1] = data & 0x0f;
 			// DIXに従ってVRAMアドレスを更新
-			if (vdp->cmd_arg & 0x04) {
-				dst_vram_addr -= 1;
-			} else {
+			if ((vdp->cmd_arg & 0x04) == 0) {
 				dst_vram_addr += 1;
+			} else {
+				dst_vram_addr -= 1;
 			}
 		}
-		dst_vram_addr += (vdp->cmd_arg & 0x4) == 0 ? (vdp->nx/2) * -1 : (vdp->nx/2);
-		dst_vram_addr += (vdp->cmd_arg & 0x8) == 0 ? 128 : -128;
+		if ( (vdp->cmd_arg & 0x4) == 0 ) {
+			dst_vram_addr -= vdp->nx / 2;
+		} else {
+			dst_vram_addr += vdp->nx / 2;
+		}
+		if ( (vdp->cmd_arg & 0x8) == 0 ) {
+			dst_vram_addr += 128;
+		} else {
+			dst_vram_addr -= 128;
+		}
+	}
+}
+
+void _YMMM_G4(ms_vdp_t* vdp, uint8_t cmd) {
+	printf("YMMM START G4********\n");
+
+	vdp->cmd_current = cmd;
+	vdp->cmd_arg = vdp->arg;
+	uint16_t src_vram_addr = get_vram_add_G4(vdp, vdp->dx, vdp->sy, NULL);
+	uint16_t dst_vram_addr = get_vram_add_G4(vdp, vdp->dx, vdp->dy, NULL);
+
+	// DIXによってX方向のどちらの画面端まで転送するかが変わるのでnxが変化する
+	int nx = (vdp->cmd_arg & 0x04) == 0 ? (256-vdp->dx) : vdp->dx;
+
+	int x,y;
+	for(y=0; y < vdp->ny; y++) {
+		uint16_t* gram = to_gram(vdp, dst_vram_addr, 0);
+		for(x=0; x < nx; x+=2) {	// 2ドットずつ処理
+			uint8_t data = vdp->vram[src_vram_addr];
+			// VRAMに書き込む
+			vdp->vram[dst_vram_addr] = data;
+			*gram++ = data >> 4;
+			*gram++ = data & 0x0f;
+			// DIXに従ってVRAMアドレスを更新
+			if ((vdp->cmd_arg & 0x04) == 0) {
+				// DIX=0の時
+				src_vram_addr += 1;
+				dst_vram_addr += 1;
+			} else {
+				// DIX=1の時
+				src_vram_addr -= 1;
+				dst_vram_addr -= 1;
+			}
+		}
+		if ( (vdp->cmd_arg & 0x4) == 0 ) {
+			src_vram_addr -= vdp->nx / 2;
+			dst_vram_addr -= vdp->nx / 2;
+		} else {
+			src_vram_addr += vdp->nx / 2;
+			dst_vram_addr += vdp->nx / 2;
+		}
+		if ( (vdp->cmd_arg & 0x8) == 0 ) {
+			src_vram_addr += 128;
+			dst_vram_addr += 128;
+		} else {
+			src_vram_addr -= 128;
+			dst_vram_addr -= 128;
+		}
 	}
 }
 
 void _HMMM_G4(ms_vdp_t* vdp, uint8_t cmd) {
-	printf("HMMM START G4********\n");
+	printf("HMMM START G4**\n");
+	printf("  sx=0x%03x, sy=0x%03x\n", vdp->sx, vdp->sy);
+	printf("  dx=0x%03x, dy=0x%03x\n", vdp->dx, vdp->dy);
+	printf("  nx=0x%03x, ny=0x%03x\n", vdp->nx, vdp->ny);
 
-	int mod;
 	vdp->cmd_current = cmd;
 	vdp->cmd_arg = vdp->arg;
-	uint16_t src_vram_addr = get_vram_add_G4(vdp, vdp->sx, vdp->sy, &mod);
-	uint16_t dst_vram_addr = get_vram_add_G4(vdp, vdp->dx, vdp->dy, &mod);
+	uint16_t src_vram_addr = get_vram_add_G4(vdp, vdp->sx, vdp->sy, NULL);
+	uint16_t dst_vram_addr = get_vram_add_G4(vdp, vdp->dx, vdp->dy, NULL);
 
 	int x,y;
-	for(y=0;y<vdp->ny;y++) {
-		for(x=0;x<vdp->nx;x+=2) {
+	for(y=0; y < vdp->ny; y++) {
+		uint16_t* gram = to_gram(vdp, dst_vram_addr, 0);
+		for(x=0; x < vdp->nx; x+=2) {	// 2ドットずつ処理
 			uint8_t data = vdp->vram[src_vram_addr];
+			//data = 055;	// テスト用
+			// VRAMに書き込む
 			vdp->vram[dst_vram_addr] = data;
-			uint16_t* gram = to_gram(vdp, dst_vram_addr, mod);
 			gram[0] = data >> 4;
 			gram[1] = data & 0x0f;
+			gram[512*256] = data >> 4;				// 円筒スクロール仮対応
+			gram[512*256+1] = data & 0x0f;			// 
+			gram += 2;
 			// DIXに従ってVRAMアドレスを更新
-			if (vdp->cmd_arg & 0x04) {
-				src_vram_addr -= 1;
-				dst_vram_addr -= 1;
-			} else {
+			if ((vdp->cmd_arg & 0x04) == 0) {
+				// DIX=0の時
 				src_vram_addr += 1;
 				dst_vram_addr += 1;
+			} else {
+				// DIX=1の時
+				src_vram_addr -= 1;
+				dst_vram_addr -= 1;
 			}
 		}
-		src_vram_addr += (vdp->cmd_arg & 0x4) == 0 ? (vdp->nx/2) * -1 : (vdp->nx/2);
-		src_vram_addr += (vdp->cmd_arg & 0x8) == 0 ? 128 : -128;
-		dst_vram_addr += (vdp->cmd_arg & 0x4) == 0 ? (vdp->nx/2) * -1 : (vdp->nx/2);
-		dst_vram_addr += (vdp->cmd_arg & 0x8) == 0 ? 128 : -128;
+		if ( (vdp->cmd_arg & 0x4) == 0 ) {
+			src_vram_addr -= vdp->nx / 2;
+			dst_vram_addr -= vdp->nx / 2;
+		} else {
+			src_vram_addr += vdp->nx / 2;
+			dst_vram_addr += vdp->nx / 2;
+		}
+		if ( (vdp->cmd_arg & 0x8) == 0 ) {
+			src_vram_addr += 128;
+			dst_vram_addr += 128;
+		} else {
+			src_vram_addr -= 128;
+			dst_vram_addr -= 128;
+		}
 	}
 }
 
@@ -301,10 +396,9 @@ static uint8_t debug_count = 0;
 void _HMMC_G4(ms_vdp_t* vdp, uint8_t cmd) {
 	printf("HMMC START G4********\n");
 
-	int mod;
 	vdp->cmd_current = cmd;
 	vdp->cmd_arg = vdp->arg;
-	vdp->cmd_vram_addr = get_vram_add_G4(vdp, vdp->dx, vdp->dy, &mod);
+	vdp->cmd_vram_addr = get_vram_add_G4(vdp, vdp->dx, vdp->dy, NULL);
 
 	vdp->cmd_nx_count = vdp->nx/2;
 	vdp->cmd_ny_count = vdp->ny;
@@ -325,6 +419,7 @@ void _HMMC_exe_G4(ms_vdp_t* vdp, uint8_t value) {
 	//value = debug_count;
 	//debug_count = (debug_count + 1) % 16;
 
+	// VRAMに書き込む
 	vdp->vram[vaddr] = value; 	// vdp->clr と同じ値のはず
 	gram[0] = value >> 4;
 	gram[1] = value & 0x0f;
@@ -332,15 +427,27 @@ void _HMMC_exe_G4(ms_vdp_t* vdp, uint8_t value) {
 	vdp->s02 |= 0x80;				// TRビットをセット
 	vdp->cmd_nx_count-=1;
 	// DIXに従ってVRAMアドレスを更新
-	vaddr += (vdp->cmd_arg & 0x4) == 0 ? 1 : -1;
+	// DIXに従ってVRAMアドレスを更新
+	if ((vdp->cmd_arg & 0x4)==0) {
+		vaddr += 1;
+	} else {
+		vaddr -= 1;
+	}
 	if(vdp->cmd_nx_count == 0) {
 		// 1行終わったら次の行へ
 		vdp->cmd_ny_count--;
-		vdp->ny--;			// NYは更新される？
 		if(vdp->cmd_ny_count > 0) {
 			vdp->cmd_nx_count = vdp->nx/2;
-			vaddr += (vdp->cmd_arg & 0x4) == 0 ? (vdp->nx/2) * -1 : (vdp->nx/2);
-			vaddr += (vdp->cmd_arg & 0x8) == 0 ? 128 : -128;
+			if ( (vdp->cmd_arg & 0x4) == 0 ) {
+				vaddr -= vdp->nx / 2;
+			} else {
+				vaddr += vdp->nx / 2;
+			}
+			if ( (vdp->cmd_arg & 0x8) == 0 ) {
+				vaddr += 128;
+			} else {
+				vaddr -= 128;
+			}
 		} else {
 			// 全部終わったらCEビットをクリア
 			vdp->s02 &= 0xfe;
@@ -377,16 +484,18 @@ void vdp_command_exec_GRAPHIC4(ms_vdp_t* vdp, uint8_t cmd) {
 	case 0b1100: // HMMV
 	 	_HMMV_G4(vdp, command);
 	 	break;
-	 case 0b1101: // HMMM
+	case 0b1101: // HMMM
 	 	_HMMM_G4(vdp, command);
 	 	break;
-	// case 0b1110: // YMMC
-	// 	break;
+	case 0b1110: // YMMM
+		_YMMM_G4(vdp, command);
+	 	break;
 	case 0b1111: // HMMC
 		_HMMC_G4(vdp, command);
 		break;
 	default:
 		vdp_command_exec_DEFAULT(vdp, cmd);
+		break;
 	}
 	return;
 }
@@ -418,7 +527,7 @@ void vdp_command_write_GRAPHIC4(ms_vdp_t* vdp, uint8_t value) {
 		break;
 	case 0b1101: // HMMM
 		break;
-	case 0b1110: // YMMC
+	case 0b1110: // YMMM
 		break;
 	case 0b1111: // HMMC
 		_HMMC_exe_G4(vdp, value);
