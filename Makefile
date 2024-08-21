@@ -1,5 +1,6 @@
 SRC_DIR = src
 VDP_DIR = $(SRC_DIR)/vdp
+MEMMAP_DIR = $(SRC_DIR)/memmap
 BUILD_DIR = build
 EXE_DIR = exe
 
@@ -20,8 +21,8 @@ LDFLAGS = -lm -lbas -liocs -ldos
 #LD = m68k-xelf-ld.x
 #LD_OPTS = -L /Users/ohnaka/work/XEiJ/HFS/XGCC/LIB/
 
-ASFLAGS = -i $(SRC_DIR) -i $(VDP_DIR) -i /Users/ohnaka/work/XEiJ/HFS/XGCC/INCLUDE/ -w0
-ASFLAGS_DEBUG = -d -s DEBUG -i $(SRC_DIR) -i $(VDP_DIR) -i /Users/ohnaka/work/XEiJ/HFS/XGCC/INCLUDE/ -w0
+ASFLAGS = -i $(SRC_DIR) -i $(VDP_DIR) -i $(MEMMAP_DIR) -i /Users/ohnaka/work/XEiJ/HFS/XGCC/INCLUDE/ -w0
+ASFLAGS_DEBUG = -d -s DEBUG -i $(SRC_DIR) -i $(VDP_DIR) -i $(MEMMAP_DIR) -i /Users/ohnaka/work/XEiJ/HFS/XGCC/INCLUDE/ -w0
 
 # オブジェクトファイルのリストを変数にまとめる
 OBJS = $(BUILD_DIR)/ms.o \
@@ -29,12 +30,16 @@ OBJS = $(BUILD_DIR)/ms.o \
 		$(BUILD_DIR)/ms_R800_flag.o \
 		$(BUILD_DIR)/ms_iomap.o \
 		$(BUILD_DIR)/ms_iomap_mac.o \
-		$(BUILD_DIR)/ms_memmap.o \
 		$(BUILD_DIR)/ms_sysvalue.o \
 		$(BUILD_DIR)/ms_sub_mac.o \
 		$(BUILD_DIR)/ms_peripherals.o \
 		$(BUILD_DIR)/ms_PSG_mac.o \
 		$(BUILD_DIR)/ms_readcart.o \
+		$(BUILD_DIR)/ms_memmap.o \
+		$(BUILD_DIR)/ms_memmap_mac.o \
+		$(BUILD_DIR)/ms_memmap_MEGAROM_8K.o \
+		$(BUILD_DIR)/ms_memmap_MEGAROM_KONAMI.o \
+		$(BUILD_DIR)/ms_memmap_MEGAROM_KONAMI_SCC.o \
 		$(BUILD_DIR)/ms_vdp.o \
 		$(BUILD_DIR)/ms_vdp_mac.o \
 		$(BUILD_DIR)/ms_vdp_mode_DEFAULT.o \
@@ -56,12 +61,16 @@ OBJS_DEBUG = $(BUILD_DIR)/ms_d.o \
 		$(BUILD_DIR)/ms_R800_flag_d.o \
 		$(BUILD_DIR)/ms_iomap_d.o \
 		$(BUILD_DIR)/ms_iomap_mac_d.o \
-		$(BUILD_DIR)/ms_memmap_d.o \
 		$(BUILD_DIR)/ms_sysvalue_d.o \
 		$(BUILD_DIR)/ms_sub_mac_d.o \
 		$(BUILD_DIR)/ms_peripherals_d.o \
 		$(BUILD_DIR)/ms_PSG_mac_d.o \
 		$(BUILD_DIR)/ms_readcart_d.o \
+		$(BUILD_DIR)/ms_memmap_d.o \
+		$(BUILD_DIR)/ms_memmap_mac_d.o \
+		$(BUILD_DIR)/ms_memmap_MEGAROM_8K_d.o \
+		$(BUILD_DIR)/ms_memmap_MEGAROM_KONAMI_d.o \
+		$(BUILD_DIR)/ms_memmap_MEGAROM_KONAMI_SCC_d.o \
 		$(BUILD_DIR)/ms_vdp_d.o \
 		$(BUILD_DIR)/ms_vdp_mac_d.o \
 		$(BUILD_DIR)/ms_vdp_mode_DEFAULT_d.o \
@@ -135,6 +144,23 @@ ${BUILD_DIR}/%.o: $(VDP_DIR)/%.has
 	rm $@.tmp
 
 ${BUILD_DIR}/%_d.o: $(VDP_DIR)/%.has $(SRC_DIR)/ms.mac
+	$(AS) $(ASFLAGS_DEBUG) $< -o $@.tmp
+	x68k2elf.py $@.tmp $@
+	rm $@.tmp
+
+# Memmap files
+${BUILD_DIR}/%.o: $(MEMMAP_DIR)/%.c $(MEMMAP_DIR)/ms_memmap.h
+	$(CC) $(CFLAGS) $< -o $@
+
+${BUILD_DIR}/%_d.o: $(MEMMAP_DIR)/%.c $(MEMMAP_DIR)/ms_memmap.h
+	$(CC) $(CFLAGS_DEBUG) $< -o $@
+
+${BUILD_DIR}/%.o: $(MEMMAP_DIR)/%.has
+	$(AS) $(ASFLAGS) $< -o $@.tmp
+	x68k2elf.py $@.tmp $@
+	rm $@.tmp
+
+${BUILD_DIR}/%_d.o: $(MEMMAP_DIR)/%.has $(SRC_DIR)/ms.mac
 	$(AS) $(ASFLAGS_DEBUG) $< -o $@.tmp
 	x68k2elf.py $@.tmp $@
 	rm $@.tmp

@@ -15,7 +15,9 @@ void update_sprpgentbl_baddr_SCREEN10(ms_vdp_t* vdp);
 void update_r7_color_SCREEN10(ms_vdp_t* vdp, uint8_t data);
 char* get_mode_name_SCREEN10(ms_vdp_t* vdp);
 void update_resolution_SCREEN10(ms_vdp_t* vdp);
-void exec_vdp_command_SCREEN10(ms_vdp_t* vdp, uint8_t cmd);
+void vdp_command_exec_SCREEN10(ms_vdp_t* vdp, uint8_t cmd);
+uint8_t vdp_command_read_SCREEN10(ms_vdp_t* vdp);
+void vdp_command_write_SCREEN10(ms_vdp_t* vdp, uint8_t cmd);
 
 ms_vdp_mode_t ms_vdp_SCREEN10 = {
 	// int init_SCREEN10(ms_vdp_t* vdp);
@@ -40,8 +42,12 @@ ms_vdp_mode_t ms_vdp_SCREEN10 = {
 	update_r7_color_SCREEN10,
 	// char* get_mode_name_SCREEN10(ms_vdp_t* vdp);
 	get_mode_name_SCREEN10,
-	// void exec_vdp_command_SCREEN10(ms_vdp_t* vdp, uint8_t cmd);
-	exec_vdp_command_SCREEN10,
+	// void vdp_command_exec_SCREEN10(ms_vdp_t* vdp, uint8_t cmd);
+	vdp_command_exec_SCREEN10,
+	// uint8_t vdp_command_read(ms_vdp_t* vdp);
+	vdp_command_read_SCREEN10,
+	// void vdp_command_write(ms_vdp_t* vdp, uint8_t cmd);
+	vdp_command_write_SCREEN10,
 	// void (*update_resolution)(ms_vdp_t* vdp);
 	update_resolution_SCREEN10,
 	// void vsync_draw(ms_vdp_t* vdp);
@@ -94,8 +100,15 @@ char* get_mode_name_SCREEN10(ms_vdp_t* vdp) {
 	return "SCREEN10";
 }
 
-void exec_vdp_command_SCREEN10(ms_vdp_t* vdp, uint8_t cmd) {
-	exec_vdp_command_DEFAULT(vdp, cmd);
+void vdp_command_exec_SCREEN10(ms_vdp_t* vdp, uint8_t cmd) {
+	vdp_command_exec_DEFAULT(vdp, cmd);
+}
+
+uint8_t vdp_command_read_SCREEN10(ms_vdp_t* vdp) {
+	return 0;
+}
+
+void vdp_command_write_SCREEN10(ms_vdp_t* vdp, uint8_t cmd) {
 }
 
 void update_resolution_SCREEN10(ms_vdp_t* vdp) {

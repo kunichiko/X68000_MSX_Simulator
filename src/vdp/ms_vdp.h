@@ -162,6 +162,15 @@ typedef struct ms_vdp {
 	unsigned int* x68_pcg_buffer;
 	int last_visible_sprite_planes;
 	int last_visible_sprite_size;
+
+	// VDPコマンドのワークエリア
+	uint8_t cmd_current;
+	uint8_t cmd_logiop;
+	uint8_t cmd_arg;
+	uint16_t cmd_vram_addr;
+	uint16_t cmd_vram_addr_mod;		// 論理転送時、vram_addrの1バイト内の位置 GRAPHIC4,6の場合は 0,1、GRAPHIC5の場合は 0,1,2,3
+	uint16_t cmd_nx_count;
+	uint16_t cmd_ny_count;
 } ms_vdp_t;
 
 
@@ -191,7 +200,9 @@ typedef struct ms_vdp_mode {
 	void (*update_sprpgentbl_baddr)(ms_vdp_t* vdp);
 	void (*update_r7_color)(ms_vdp_t* vdp, uint8_t data);
 	char* (*get_mode_name)(ms_vdp_t* vdp);
-	void (*exec_vdp_command)(ms_vdp_t* vdp, uint8_t cmd);
+	void (*vdp_command_exec)(ms_vdp_t* vdp, uint8_t cmd);
+	uint8_t (*vdp_command_read)(ms_vdp_t* vdp);
+	void (*vdp_command_write)(ms_vdp_t* vdp, uint8_t data);
 	void (*update_resolution)(ms_vdp_t* vdp);
 	void (*vsync_draw)(ms_vdp_t* vdp);
 	int sprite_mode; // 0x00: 未使用, 0x01: MODE1, 0x02: MODE2, bit7: 0=256ドット, 1=512ドット
@@ -206,8 +217,10 @@ void write_sprite_attribute(ms_vdp_t* vdp, int offset, uint32_t attribute);
 void update_sprite_visibility(ms_vdp_t* vdp);
 
 void vsync_draw_NONE(ms_vdp_t* vdp);
-void exec_vdp_command_DEFAULT(ms_vdp_t* vdp, uint8_t cmd);
-void exec_vdp_command_NONE(ms_vdp_t* vdp, uint8_t cmd);
+void vdp_command_exec_DEFAULT(ms_vdp_t* vdp, uint8_t cmd);
+void vdp_command_exec_NONE(ms_vdp_t* vdp, uint8_t cmd);
+uint8_t vdp_command_read_NONE(ms_vdp_t* vdp);
+void vdp_command_write_NONE(ms_vdp_t* vdp, uint8_t data);
 
 /**
  * 

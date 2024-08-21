@@ -45,11 +45,6 @@
 	.xdef	w_GRAPHIC6_mac
 	.xdef	w_GRAPHIC7_mac
 
-	.xdef	r_GRAPHIC4_mac
-	.xdef	r_GRAPHIC5_mac
-	.xdef	r_GRAPHIC6_mac
-	.xdef	r_GRAPHIC7_mac
-
 	.xdef	w_p_name_tx1_mac
 	.xdef	w_p_gene_tx1_mac
 	.xdef	w_p_name_tx2_mac
@@ -136,9 +131,11 @@ offset_ms_vdp_update_sprattrtbl_baddr	equ	7*4
 offset_ms_vdp_update_sprpgentbl_baddr 	equ	8*4
 offset_ms_vdp_update_r7_color		equ	9*4
 offset_ms_vdp_get_mode_name		equ	10*4
-offset_ms_vdp_exec_vdp_command		equ	11*4
-offset_ms_vdp_update_resolution		equ	12*4
-offset_ms_vdp_vsync_draw		equ	13*4
+offset_ms_vdp_vdp_command_exec		equ	11*4
+offset_ms_vdp_vdp_command_read		equ	12*4
+offset_ms_vdp_vdp_command_write		equ	13*4
+offset_ms_vdp_update_resolution		equ	14*4
+offset_ms_vdp_vsync_draw		equ	15*4
 
 ; typedef struct ms_vdp {
 ; 	uint8_t	r00;	// Mode register 0
@@ -583,7 +580,14 @@ r_SReg_6:
 	move.b	offset_ms_vdp_s06(a5),d0
 	rts
 r_SReg_7:
-	move.b	offset_ms_vdp_s07(a5),d0
+	; 画面モードに応じてVDPコマンドのREADを実行
+	move.l	ms_vdp_shared,-(sp)		* 構造体のアドレスを引数に
+	movea.l	offset_ms_vdp_current_mode(a5),a0
+	movea.l	offset_ms_vdp_vdp_command_read(a0),a0
+	jsr	(a0)
+	lea.l	4(sp),sp
+	; R#7を読み出すと、S#2のbit7 (TRビット)　がクリアされる
+	bclr.b	#7,offset_ms_vdp_s02(a5)
 	rts
 r_SReg_8:
 	move.b	offset_ms_vdp_s08(a5),d0
@@ -1146,6 +1150,15 @@ NY_h:	move.b	d1,offset_ms_vdp_ny+0(a5)
 	rts
 
 w_CLR:	move.b	d1,offset_ms_vdp_clr(a5)
+	; 画面モードに応じてVDPコマンドのWRITEを実行
+	clr.l	d0
+	move.b	d1,d0
+	move.l	d0,-(sp)			* 引数に値をセット
+	move.l	ms_vdp_shared,-(sp)		* 構造体のアドレスを引数に
+	movea.l	offset_ms_vdp_current_mode(a5),a0
+	movea.l	offset_ms_vdp_vdp_command_write(a0),a0
+	jsr	(a0)
+	lea.l	8(sp),sp
 	rts
 
 w_ARG:	move.b	d1,offset_ms_vdp_arg(a5)
@@ -1156,7 +1169,7 @@ w_R46:
 	move.l	d1,-(sp)		* 引数にコマンド番号をセット
 	move.l	ms_vdp_shared,-(sp)		* 構造体のアドレスを引数に
 	movea.l	offset_ms_vdp_current_mode(a5),a0
-	movea.l	offset_ms_vdp_exec_vdp_command(a0),a0
+	movea.l	offset_ms_vdp_vdp_command_exec(a0),a0
 	jsr	(a0)
 	lea.l	8(sp),sp
 	rts
@@ -1282,13 +1295,6 @@ set_GRAPHIC4_mac:
 	andi.w	#%1111111111111000,d0		* 16色モードに
 	move.w	d0,VCRR_00
 
-	lea.l	$EB8000,a0			* バックドロップ用のＢＧを設定
-	move.l	#$11111111,d1			* パターンの定義
-	move.w	#16-1,d0
-@@:	move.l	d1,(a0)+
-	clr.l	(a0)+
-	dbra	d0,@b
-
 	move.l	offset_ms_vdp_pnametbl_baddr(a5),d1
 	add.l	d1,d1
 	swap	d1
@@ -1313,13 +1319,6 @@ set_GRAPHIC5_mac:
 	andi.w	#%1111111111111000,d0		* 16色モードに
 	move.w	d0,VCRR_00
 
-	lea.l	$EB8000,a0			* バックドロップ用のＢＧを設定
-	move.l	#$21212121,d1			* パターンの定義
-	move.w	#16-1,d0
-@@:	move.l	d1,(a0)+
-	clr.l	(a0)+
-	dbra	d0,@b
-
 	move.l	offset_ms_vdp_pnametbl_baddr(a5),d1
 	add.l	d1,d1
 	swap	d1
@@ -1342,13 +1341,6 @@ set_GRAPHIC6_mac:
 	move.w	VCRR_00,d0			* ビデオコントロールレジスタの設定
 	andi.w	#%1111111111111000,d0		* 16色モードに
 	move.w	d0,VCRR_00
-
-	lea.l	$EB8000,a0			* バックドロップ用のＢＧを設定
-	move.l	#$11111111,d1			* パターンの定義
-	move.w	#16-1,d0
-@@:	move.l	d1,(a0)+
-	clr.l	(a0)+
-	dbra	d0,@b
 
 	move.l	offset_ms_vdp_pnametbl_baddr(a5),d1
 	swap	d1
@@ -1373,13 +1365,6 @@ set_GRAPHIC7_mac:
 	andi.w	#%1111111111111000,d0		* 256色モードに
 	ori.w	#%0000000000000001,d0
 	move.w	d0,VCRR_00
-
-	lea.l	$EB8000,a0			* バックドロップ用のＢＧを設定
-	move.l	#$11111111,d1			* パターンの定義
-	move.w	#16-1,d0
-@@:	move.l	d1,(a0)+
-	clr.l	(a0)+
-	dbra	d0,@b
 
 	move.l	offset_ms_vdp_pnametbl_baddr(a5),d1
 	swap	d1
@@ -1531,82 +1516,9 @@ s_SCREEN12:
 *	d0.b に読みこんだ値を入れて rts
 *
 ***************************************************************
-r_GRAPHIC4_mac:					* SCREEN 5
-	movea.l	ms_vdp_shared,a5		* ms_vdp_t へのポインタを取得
-	movea.l	offset_ms_vdp_gram_addr(a5),a0
-	move.w	(a0),d0				* d0 = 00000000_0000****
-	lsl.w	#4,d0				* d0 = 00000000_****0000
-	or.w	4(a0),d0			* d0 = 00000000_****&&&&
 
-	lea.l	8(a0),a0
-	move.l	offset_ms_vdp_vram_addr(a5),d1
-	addq.l	#1,d1
-	andi.l	#%00000001_11111111_11111111,d1
-	move.l	d1,offset_ms_vdp_vram_addr(a5)
-	andi.w	#%00000000_00000000_01111111,d1	* ライン境界をまたいだか
-	bne	@f
-	lea.l	1024(a0),a0			* 一ライン飛ばす
-@@:	move.l	a0,offset_ms_vdp_gram_addr(a5)
-	rts
-
-r_GRAPHIC5_mac:					* SCREEN 6
-	movea.l	ms_vdp_shared,a5		* ms_vdp_t へのポインタを取得
-	movea.l	offset_ms_vdp_gram_addr(a5),a0
-	move.w	(a0)+,d0
-	lsl.w	#6,d0
-	move.w	(a0)+,d1
-	andi.w	#%00000011,d1
-	lsl.w	#4,d1
-	or.w	d1,d0
-	move.w	(a0)+,d1
-	andi.w	#%00000011,d1
-	lsl.w	#2,d1
-	or.w	d1,d0
-	move.w	(a0)+,d1
-	andi.w	#%00000011,d1
-	or.w	d1,d0
-
-	move.l	offset_ms_vdp_vram_addr(a5),d1
-	addq.l	#1,d1				* インクリメント	
-	andi.l	#%00000001_11111111_11111111,d1
-	move.l	d1,offset_ms_vdp_vram_addr(a5)
-	andi.w	#%00000000_00000000_01111111,d1	* ライン境界をまたいだか
-	bne	@f
-	lea.l	1024(a0),a0			* 一ライン飛ばす
-@@:	move.l	a0,offset_ms_vdp_gram_addr(a5)
-	rts
-
-r_GRAPHIC6_mac:					* SCREEN 7
-	movea.l	ms_vdp_shared,a5		* ms_vdp_t へのポインタを取得
-	movea.l	offset_ms_vdp_gram_addr(a5),a0
-	move.w	(a0)+,d0
-	lsl.w	#4,d0
-	or.w	(a0)+,d0
-
-	move.l	offset_ms_vdp_vram_addr(a5),d1
-	addq.l	#1,d1				* インクリメント	
-	andi.l	#%00000001_11111111_11111111,d1
-	move.l	d1,offset_ms_vdp_vram_addr(a5)
-	andi.w	#%00000000_00000000_11111111,d1	* ライン境界をまたいだか
-	bne	@f
-	lea.l	1024(a0),a0			* 一ライン飛ばす
-@@:	move.l	a0,offset_ms_vdp_gram_addr(a5)
-	rts
-
-r_GRAPHIC7_mac:					* SCREEN 8
-	movea.l	ms_vdp_shared,a5		* ms_vdp_t へのポインタを取得
-	movea.l	offset_ms_vdp_gram_addr(a5),a0
-	move.l	(a0)+,d0			* d0 = 00000000_********
-						* 姑息な高速化
-	move.l	offset_ms_vdp_vram_addr(a5),d1
-	addq.l	#1,d1
-	andi.l	#%00000001_11111111_11111111,d1
-	move.l	d1,offset_ms_vdp_vram_addr(a5)
-	andi.w	#%00000000_00000000_11111111,d1	* ライン境界をまたいだか
-	bne	@f
-	lea.l	1024*2(a0),a0			* 一ライン飛ばす
-@@:	move.l	a0,offset_ms_vdp_gram_addr(a5)
-	rts
+; 以前は、GRAPHIC4以降はX68000のGRAMそのものをVRAMと見なすようにしていたが、
+; 今は VRAM用のメモリを別途確保しているので、それを直接読めば良くなった
 
 ***************************************************************
 *
@@ -2324,12 +2236,14 @@ w_GRAPHIC4_mac:
 	move.l	4(sp),d1
 
 	movea.l	ms_vdp_shared,a5		* ms_vdp_t へのポインタを取得
+	movea.l	offset_ms_vdp_vram(a5),a0
+	move.l	offset_ms_vdp_vram_addr(a5),d0			* D0 ・・書き込むアドレス
+	move.b	d1,0(a0,d0.l)			* VRAM へ書き込み
+
 	movea.l	offset_ms_vdp_gram_addr(a5),a0
 	move.b	d1,d0
 	lsr.w	#4,d0
 	move.w	d0,(a0)+
-	move.w	d0,(a0)+
-	move.w	d1,(a0)+
 	move.w	d1,(a0)+
 
 	move.l	offset_ms_vdp_vram_addr(a5),d1
@@ -2338,7 +2252,7 @@ w_GRAPHIC4_mac:
 	move.l	d1,offset_ms_vdp_vram_addr(a5)
 	andi.w	#%00000000_00000000_01111111,d1	* ライン境界をまたいだか
 	bne	@f
-	lea.l	1024(a0),a0			* 一ライン飛ばす
+	lea.l	1024-256*2(a0),a0		* 次のラインへ
 @@:	move.l	a0,offset_ms_vdp_gram_addr(a5)
 	rts
 

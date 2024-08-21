@@ -103,12 +103,12 @@ ms_vdp_t* ms_vdp_init() {
 		return ms_vdp_shared;
 	}
 
-	if ( (ms_vdp_shared = (ms_vdp_t*)new_malloc(sizeof(ms_vdp_t))) >= (ms_vdp_t *)0x81000000)
+	if ( (ms_vdp_shared = (ms_vdp_t*)new_malloc(sizeof(ms_vdp_t))) == NULL)
 	{
 		printf("メモリが確保できません\n");
 		return NULL;
 	}
-	if ( (ms_vdp_shared->vram = (uint8_t*)new_malloc(0x20000)) >= (uint8_t *)0x81000000)
+	if ( (ms_vdp_shared->vram = (uint8_t*)new_malloc(0x20000)) == NULL)
 	{
 		printf("メモリが確保できません\n");
 		return NULL;
@@ -116,7 +116,7 @@ ms_vdp_t* ms_vdp_init() {
 	// X68000は 1スプライト(16x16)パターンあたり128バイトが必要
 	// MSXは 256個定義できるが、X68000は128個しか定義できないため、メモリ上に定義領域を作っておき
 	// 表示時に転送するようにしている
-	if ( (ms_vdp_shared->x68_pcg_buffer = (unsigned int*)new_malloc( 256 * 32 * sizeof(unsigned int))) >= (unsigned int *)0x81000000)
+	if ( (ms_vdp_shared->x68_pcg_buffer = (unsigned int*)new_malloc( 256 * 32 * sizeof(unsigned int))) == NULL)
 	{
 		printf("メモリが確保できません\n");
 		return NULL;

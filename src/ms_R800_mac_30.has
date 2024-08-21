@@ -564,14 +564,14 @@ cpu_exec_core_edge:
 	; +1バイト目を読み直す
 	addq.w	#1,d0
 	move.w	d0,-(sp)
-	bsr	ms_read_mem_8
+	jsr	ms_read_mem_8
 	move.b	d0,d1
 	move.w	(sp)+,d0
 	move.l	d1,-(sp)
 	; +2バイト目を読み直す
 	addq.w	#1,d0
 	move.w	d0,-(sp)
-	bsr	ms_read_mem_8
+	jsr	ms_read_mem_8
 	move.b	d0,d2
 	move.w	(sp)+,d0
 	move.l	(sp)+,d1
@@ -581,7 +581,7 @@ cpu_exec_core_edge:
 	; +3バイト目を読み直す
 	addq.w	#1,d0
 	move.w	d0,-(sp)
-	bsr	ms_read_mem_8
+	jsr	ms_read_mem_8
 	move.b	d0,d2
 	move.w	(sp)+,d0
 	move.l	(sp)+,d1
@@ -591,7 +591,7 @@ cpu_exec_core_edge:
 	; +4バイト目を読み直す
 	addq.w	#1,d0
 	move.w	d0,-(sp)
-	bsr	ms_read_mem_8
+	jsr	ms_read_mem_8
 	move.b	d0,d2
 	move.w	(sp)+,d0
 	move.l	(sp)+,d1
