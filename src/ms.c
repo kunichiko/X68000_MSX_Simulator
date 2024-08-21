@@ -120,8 +120,8 @@ static unsigned char *ROM;
 uint32_t max_wait = 0xffffffff;
 int disablekey = 0;
 
-const char *mainrom_cbios = "cbios_main_msx1_jp.rom";
-const char *cbioslogo = "cbios_logo_msx1.rom";
+const char *mainrom_cbios = "cbios_main_msx2_jp.rom";
+const char *cbioslogo = "cbios_logo_msx2.rom";
 const char *subrom_cbios = "cbios_sub.rom";
 
 char *mainrom_user = "MAINROM.ROM";

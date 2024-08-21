@@ -20,6 +20,10 @@
 	.xref	ms_memmap_wr8_MEGAROM_KONAMI
 	.xref	ms_memmap_rd16_MEGAROM_KONAMI
 	.xref	ms_memmap_wr16_MEGAROM_KONAMI
+	.xref	ms_memmap_rd8_MEGAROM_KONAMI_SCC
+	.xref	ms_memmap_wr8_MEGAROM_KONAMI_SCC
+	.xref	ms_memmap_rd16_MEGAROM_KONAMI_SCC
+	.xref	ms_memmap_wr16_MEGAROM_KONAMI_SCC
 
 
 	.xdef	ms_memmap_init_mac
@@ -633,13 +637,15 @@ rd8_sub_add_4:			* メガＲＯＭ (16k)
 	.dc.l	rd8_MEGAROM_16
 rd8_sub_add_5:			* コナミメガロム
 	.dc.l	rd8_MEGAROM_KONAMI
-rd8_sub_add_6:			* コナミサウンドカートリッジ
+rd8_sub_add_6:			* コナミメガロム SCC付き
+	.dc.l	rd8_MEGAROM_KONAMI_SCC
+rd8_sub_add_7:			* コナミサウンドカートリッジ
 	.dc.l	rd8_SOUND
-rd8_sub_add_7:			* パナソニックメガロム ( A1-GT等の slot3-3)
+rd8_sub_add_8:			* パナソニックメガロム ( A1-GT等の slot3-3)
 	.dc.l	rd8_MEGAROM_PANA
-rd8_sub_add_8:			* ＤＯＳ-ＲＯＭ (turbo R)
+rd8_sub_add_9:			* ＤＯＳ-ＲＯＭ (turbo R)
 	.dc.l	rd8_normal
-rd8_sub_add_9:			* ＰＡＣ
+rd8_sub_add_10:			* ＰＡＣ
 	.dc.l	rd8_PAC
 
 rd8_sub_add_p0:			* 現在 page x に選択されているスロットから８ビットの読み
@@ -664,13 +670,15 @@ wr8_sub_add_4:			* メガＲＯＭ (16k)
 	.dc.l	wr8_MEGAROM_16
 wr8_sub_add_5:			* コナミメガロム
 	.dc.l	wr8_MEGAROM_KONAMI
-wr8_sub_add_6:			* コナミサウンドカートリッジ
+wr8_sub_add_6:			* コナミメガロム SCC付き
+	.dc.l	wr8_MEGAROM_KONAMI_SCC
+wr8_sub_add_7:			* コナミサウンドカートリッジ
 	.dc.l	wr8_SOUND
-wr8_sub_add_7:			* パナソニックメガロム ( A1-GT等の slot3-3)
+wr8_sub_add_8:			* パナソニックメガロム ( A1-GT等の slot3-3)
 	.dc.l	wr8_MEGAROM_PANA
-wr8_sub_add_8:			* ＤＯＳ-ＲＯＭ (turbo R)
+wr8_sub_add_9:			* ＤＯＳ-ＲＯＭ (turbo R)
 	.dc.l	wr8_DOS_ROM
-wr8_sub_add_9:			* ＰＡＣ
+wr8_sub_add_10:			* ＰＡＣ
 	.dc.l	wr8_PAC
 
 base2:
@@ -697,13 +705,15 @@ rd16_sub_add_4:			* メガＲＯＭ (16k)
 	.dc.l	rd16_MEGAROM_16
 rd16_sub_add_5:			* コナミメガロム
 	.dc.l	rd16_MEGAROM_KONAMI
-rd16_sub_add_6:			* コナミサウンドカートリッジ
+rd16_sub_add_6:			* コナミメガロム SCC付き
+	.dc.l	rd16_MEGAROM_KONAMI_SCC
+rd16_sub_add_7:			* コナミサウンドカートリッジ
 	.dc.l	rd16_SOUND
-rd16_sub_add_7:			* パナソニックメガロム ( A1-GT等の slot3-3)
+rd16_sub_add_8:			* パナソニックメガロム ( A1-GT等の slot3-3)
 	.dc.l	rd16_MEGAROM_PANA
-rd16_sub_add_8:			* ＤＯＳ-ＲＯＭ (turbo R)
+rd16_sub_add_9:			* ＤＯＳ-ＲＯＭ (turbo R)
 	.dc.l	rd16_normal
-rd16_sub_add_9:			* ＰＡＣ
+rd16_sub_add_10:			* ＰＡＣ
 	.dc.l	rd16_PAC
 
 
@@ -729,13 +739,15 @@ wr16_sub_add_4:			* メガＲＯＭ (16k)
 	.dc.l	wr16_MEGAROM_16
 wr16_sub_add_5:			* コナミメガロム
 	.dc.l	wr16_MEGAROM_KONAMI
-wr16_sub_add_6:			* コナミサウンドカートリッジ
+wr16_sub_add_6:			* コナミメガロム SCC付き
+	.dc.l	wr16_MEGAROM_KONAMI_SCC
+wr16_sub_add_7:			* コナミサウンドカートリッジ
 	.dc.l	wr16_SOUND
-wr16_sub_add_7:			* パナソニックメガロム ( A1-GT等の slot3-3)
+wr16_sub_add_8:			* パナソニックメガロム ( A1-GT等の slot3-3)
 	.dc.l	wr16_MEGAROM_PANA
-wr16_sub_add_8:			* ＤＯＳ-ＲＯＭ (turbo R)
+wr16_sub_add_9:			* ＤＯＳ-ＲＯＭ (turbo R)
 	.dc.l	wr16_DOS_ROM
-wr16_sub_add_9:			* ＰＡＣ
+wr16_sub_add_10:		* ＰＡＣ
 	.dc.l	wr16_PAC
 
 wr16_sub_add_p0:		* 現在 page x に選択されているスロットに１６ビットの書き
@@ -902,6 +914,18 @@ rd8_MEGAROM_KONAMI:
 	movem.l	(sp)+,d1-d7/a0-a5
 	rts
 
+rd8_MEGAROM_KONAMI_SCC:		* まだやってない
+	movem.l	d1-d7/a0-a5,-(sp)
+	andi.l	#$ffff,d0
+	move.l	d0,-(sp)
+	andi.l	#$3,d2
+	move.l	d2,-(sp)
+	move.l	a0,-(sp)
+	bsr	ms_memmap_rd8_MEGAROM_KONAMI_SCC
+	lea	12(sp),sp
+	movem.l	(sp)+,d1-d7/a0-a5
+	rts
+
 rd8_MEGAROM_PANA:		* まだやってない
 	rts
 
@@ -961,6 +985,20 @@ wr8_MEGAROM_KONAMI:
 	move.l	d2,-(sp)
 	move.l	a0,-(sp)
 	bsr	ms_memmap_wr8_MEGAROM_KONAMI
+	lea	16(sp),sp
+	movem.l	(sp)+,d1-d7/a0-a5
+	rts
+
+wr8_MEGAROM_KONAMI_SCC:
+	movem.l	d1-d7/a0-a5,-(sp)
+	andi.l	#$ff,d1
+	move.l	d1,-(sp)
+	andi.l	#$ffff,d0
+	move.l	d0,-(sp)
+	andi.l	#$3,d2
+	move.l	d2,-(sp)
+	move.l	a0,-(sp)
+	bsr	ms_memmap_wr8_MEGAROM_KONAMI_SCC
 	lea	16(sp),sp
 	movem.l	(sp)+,d1-d7/a0-a5
 	rts
@@ -1045,6 +1083,18 @@ rd16_MEGAROM_KONAMI:
 	movem.l	(sp)+,d1-d7/a0-a5
 	rts
 
+rd16_MEGAROM_KONAMI_SCC:
+	movem.l	d1-d7/a0-a5,-(sp)
+	andi.l	#$ffff,d0
+	move.l	d0,-(sp)
+	andi.l	#$3,d2
+	move.l	d2,-(sp)
+	move.l	a0,-(sp)
+	bsr	ms_memmap_rd16_MEGAROM_KONAMI_SCC
+	lea	12(sp),sp
+	movem.l	(sp)+,d1-d7/a0-a5
+	rts
+
 rd16_MEGAROM_PANA:		* まだやってない
 	rts
 
@@ -1109,6 +1159,20 @@ wr16_MEGAROM_KONAMI:
 	move.l	d2,-(sp)
 	move.l	a0,-(sp)
 	bsr	ms_memmap_wr16_MEGAROM_KONAMI
+	lea	16(sp),sp
+	movem.l	(sp)+,d1-d7/a0-a5
+	rts
+
+wr16_MEGAROM_KONAMI_SCC:
+	movem.l	d1-d7/a0-a5,-(sp)
+	andi.l	#$ffff,d1
+	move.l	d1,-(sp)
+	andi.l	#$ffff,d0
+	move.l	d0,-(sp)
+	andi.l	#$3,d2
+	move.l	d2,-(sp)
+	move.l	a0,-(sp)
+	bsr	ms_memmap_wr16_MEGAROM_KONAMI_SCC
 	lea	16(sp),sp
 	movem.l	(sp)+,d1-d7/a0-a5
 	rts

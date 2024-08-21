@@ -15,12 +15,12 @@ uint16_t read16_MEGAROM_KONAMI(ms_memmap_driver_t* memmap, uint16_t addr);
 void write8_MEGAROM_KONAMI(ms_memmap_driver_t* memmap, uint16_t addr, uint8_t data);
 void write16_MEGAROM_KONAMI(ms_memmap_driver_t* memmap, uint16_t addr, uint16_t data);
 
-void _select_bank_KONAMI(ms_memmap_driver_MEGAROM_KONAMI_t* d, int page, int bank);
+void _select_bank_KONAMI(ms_memmap_driver_MEGAROM_KONAMI_t* d, int rom_page, int bank);
 
 /*
 	確保 & 初期化ルーチン
  */
-ms_memmap_driver_t* ms_memmap_MEGAROM_KONAMI_init(ms_memmap_t* memmap, const char* filename) {
+ms_memmap_driver_t* ms_memmap_MEGAROM_KONAMI_init(ms_memmap_t* memmap, const uint8_t* buffer, uint32_t length) {
 	ms_memmap_driver_MEGAROM_KONAMI_t* instance;
 	instance = (ms_memmap_driver_MEGAROM_KONAMI_t*)new_malloc(sizeof(ms_memmap_driver_MEGAROM_KONAMI_t));
 	if (instance == NULL) {
@@ -49,39 +49,11 @@ ms_memmap_driver_t* ms_memmap_MEGAROM_KONAMI_init(ms_memmap_t* memmap, const cha
 	instance->base.mem_slot2 = buf;
 
 	//
-	int fh;
-	int length;
-	fh = open( filename, O_RDONLY | O_BINARY);
-	if( fh == -1) {
-		printf("ファイルが見つかりません。%s\n", filename);
-		return NULL;
-	}
-
-	length = filelength(fh);
-	if(length == -1) {
-		printf("ファイルの長さが取得できません%s\n", filename);
-		return NULL;
-	}
-	instance->base.buffer = (uint8_t*)new_malloc( length);
-	if(instance->base.buffer == NULL) {
-		printf("メモリが確保できません。\n");
-		return NULL;
-	}
-	read( fh, instance->base.buffer, length);
-	int x,y;
-	for(y=0;y<2;y++) {
-		printf("%04x: ", y*16);
-		for(x=0;x<16;x++) {
-			printf("%02x ", instance->base.buffer[y*16 + x]);
-		}
-		printf("\n");
-	}
-
-	//
+	instance->base.buffer = (uint8_t*)buffer;
 	instance->bank_size = length / 0x2000;
-	int page;
-	for(page=0;page<4;page++) {
-		_select_bank_KONAMI(instance, page, page);	// KONAMIメガロムの場合、初期値は0,1,2,3
+	int rom_page;
+	for(rom_page=0;rom_page<4;rom_page++) {
+		_select_bank_KONAMI(instance, rom_page, rom_page);	// KONAMIメガロムの場合、初期値は0,1,2,3
 	}
 	return (ms_memmap_driver_t*)instance;
 }
@@ -94,27 +66,28 @@ void deinint_MEGAROM_KONAMI(ms_memmap_driver_t* driver) {
 	new_free(d);
 }
 
-void _select_bank_KONAMI(ms_memmap_driver_MEGAROM_KONAMI_t* d, int page, int bank) {
+void _select_bank_KONAMI(ms_memmap_driver_MEGAROM_KONAMI_t* d, int rom_page, int bank) {
 	if ( bank >= d->bank_size) {
 		printf("MEGAROM_KONAMI: bank out of range: %d\n", bank);
 		return;
 	}
-	d->selected_bank[page] = bank;
+	d->selected_bank[rom_page] = bank;
 	// バンク切り替え処理(メモリコピー)
 	int i;
-	int slot = (page / 2) + 1;
 	for(i=0;i<0x2000;i++) {
-		if(slot == 1) {
-			d->base.mem_slot1[MS_MEMMAP_HEADER_LENGTH + (page%2)*0x2000 + i] = d->base.buffer[bank*0x2000 + i];
+		if(rom_page < 2) {
+			d->base.mem_slot1[MS_MEMMAP_HEADER_LENGTH + ((rom_page%2)*0x2000) + i] = d->base.buffer[bank*0x2000 + i];
 		} else {
-			d->base.mem_slot2[MS_MEMMAP_HEADER_LENGTH + (page%2)*0x2000 + i] = d->base.buffer[bank*0x2000 + i];
+			d->base.mem_slot2[MS_MEMMAP_HEADER_LENGTH + ((rom_page%2)*0x2000) + i] = d->base.buffer[bank*0x2000 + i];
 		}
 	}
 	if(0) {
-		printf("MEGAROM_KONAMI: bank %d selected for page %d\n", bank, page);
-		for (i = 0; i < 4; i++)
-		{
-			printf(" page%d: %02x\n", i, d->selected_bank[i]);	
+		printf("MEGAROM_KONAMI: bank %d selected for rom page %d\n", bank, rom_page);
+		if(0) {
+			for (i = 0; i < 4; i++)
+			{
+				printf(" rom page%d: %02x\n", i, d->selected_bank[i]);	
+			}
 		}
 	}
 	return;
@@ -165,8 +138,7 @@ uint16_t read16_MEGAROM_KONAMI(ms_memmap_driver_t* driver, uint16_t addr) {
 void write8_MEGAROM_KONAMI(ms_memmap_driver_t* driver, uint16_t addr, uint8_t data) {
 	ms_memmap_driver_MEGAROM_KONAMI_t* d = (ms_memmap_driver_MEGAROM_KONAMI_t*)driver;
 	// バンク切り替え処理
-	int page = -1;
-	int slot;
+	int rom_page = -1;
 	int area = addr >> 12;
 	switch(area) {
 		case 0x4:
@@ -174,22 +146,19 @@ void write8_MEGAROM_KONAMI(ms_memmap_driver_t* driver, uint16_t addr, uint8_t da
 			break;
 		case 0x6:
 		case 0x7:
-			page = 1;
-			slot = 1;
+			rom_page = 1;
 			break;
 		case 0x8:
 		case 0x9:
-			page = 2;
-			slot = 2;
+			rom_page = 2;
 			break;
 		case 0xa:
 		case 0xb:
-			page = 3;
-			slot = 2;
+			rom_page = 3;
 			break;
 	}
-	if (page != -1) {
-		_select_bank_KONAMI(d, page, data);
+	if (rom_page != -1) {
+		_select_bank_KONAMI(d, rom_page, data);
 	}
 	return;
 }

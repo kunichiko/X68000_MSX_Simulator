@@ -20,7 +20,7 @@ void _select_bank_8K(ms_memmap_driver_MEGAROM_8K_t* d, int page, int bank);
 /*
 	確保 & 初期化ルーチン
  */
-ms_memmap_driver_t* ms_memmap_MEGAROM_8K_init(ms_memmap_t* memmap, const char* filename) {
+ms_memmap_driver_t* ms_memmap_MEGAROM_8K_init(ms_memmap_t* memmap, const uint8_t* buffer, uint32_t length) {
 	ms_memmap_driver_MEGAROM_8K_t* instance;
 	instance = (ms_memmap_driver_MEGAROM_8K_t*)new_malloc(sizeof(ms_memmap_driver_MEGAROM_8K_t));
 	if (instance == NULL) {
@@ -49,35 +49,7 @@ ms_memmap_driver_t* ms_memmap_MEGAROM_8K_init(ms_memmap_t* memmap, const char* f
 	instance->base.mem_slot2 = buf;
 
 	//
-	int fh;
-	int length;
-	fh = open( filename, O_RDONLY | O_BINARY);
-	if( fh == -1) {
-		printf("ファイルが見つかりません。%s\n", filename);
-		return NULL;
-	}
-
-	length = filelength(fh);
-	if(length == -1) {
-		printf("ファイルの長さが取得できません%s\n", filename);
-		return NULL;
-	}
-	instance->base.buffer = (uint8_t*)new_malloc( length);
-	if(instance->base.buffer == NULL) {
-		printf("メモリが確保できません。\n");
-		return NULL;
-	}
-	read( fh, instance->base.buffer, length);
-	int x,y;
-	for(y=0;y<2;y++) {
-		printf("%04x: ", y*16);
-		for(x=0;x<16;x++) {
-			printf("%02x ", instance->base.buffer[y*16 + x]);
-		}
-		printf("\n");
-	}
-
-	//
+	instance->base.buffer = (uint8_t*)buffer;
 	instance->bank_size = length / 0x2000;
 	int page;
 	for(page=0;page<4;page++) {
@@ -110,10 +82,12 @@ void _select_bank_8K(ms_memmap_driver_MEGAROM_8K_t* d, int page, int bank) {
 			d->base.mem_slot2[MS_MEMMAP_HEADER_LENGTH + (page%2)*0x2000 + i] = d->base.buffer[bank*0x2000 + i];
 		}
 	}
-	printf("MEGAROM_8K: bank %d selected for page %d\n", bank, page);
-	for (i = 0; i < 4; i++)
-	{
-		printf(" page%d: %02x\n", i, d->selected_bank[i]);	
+	if(0) {
+		printf("MEGAROM_8K: bank %d selected for page %d\n", bank, page);
+		for (i = 0; i < 4; i++)
+		{
+			printf(" page%d: %02x\n", i, d->selected_bank[i]);	
+		}
 	}
 	return;
 }

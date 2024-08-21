@@ -24,7 +24,9 @@ void update_sprpgentbl_baddr_GRAPHIC5(ms_vdp_t* vdp);
 void update_r7_color_GRAPHIC5(ms_vdp_t* vdp, uint8_t data);
 char* get_mode_name_GRAPHIC5(ms_vdp_t* vdp);
 void update_resolution_GRAPHIC5(ms_vdp_t* vdp);
-void exec_vdp_command_GRAPHIC5(ms_vdp_t* vdp, uint8_t cmd);
+void vdp_command_exec_GRAPHIC5(ms_vdp_t* vdp, uint8_t cmd);
+uint8_t vdp_command_read_GRAPHIC5(ms_vdp_t* vdp);
+void vdp_command_write_GRAPHIC5(ms_vdp_t* vdp, uint8_t cmd);
 
 ms_vdp_mode_t ms_vdp_GRAPHIC5 = {
 	// int init_GRAPHIC5(ms_vdp_t* vdp);
@@ -49,8 +51,12 @@ ms_vdp_mode_t ms_vdp_GRAPHIC5 = {
 	update_r7_color_GRAPHIC5,
 	// char* get_mode_name_GRAPHIC5(ms_vdp_t* vdp);
 	get_mode_name_GRAPHIC5,
-	// void exec_vdp_command_GRAPHIC5(ms_vdp_t* vdp, uint8_t cmd);
-	exec_vdp_command_GRAPHIC5,
+	// void vdp_command_exec_GRAPHIC5(ms_vdp_t* vdp, uint8_t cmd);
+	vdp_command_exec_GRAPHIC5,
+	// uint8_t vdp_command_read(ms_vdp_t* vdp);
+	vdp_command_read_GRAPHIC5,
+	// void vdp_command_write(ms_vdp_t* vdp, uint8_t cmd);
+	vdp_command_write_GRAPHIC5,
 	// void (*update_resolution)(ms_vdp_t* vdp);
 	update_resolution_GRAPHIC5,
 	// void vsync_draw(ms_vdp_t* vdp);
@@ -65,7 +71,7 @@ int init_GRAPHIC5(ms_vdp_t* vdp) {
 }
 
 uint8_t read_vram_GRAPHIC5(ms_vdp_t* vdp) {
-	return r_GRAPHIC5_mac();
+	return read_vram_DEFAULT(vdp);
 }
 
 void write_vram_GRAPHIC5(ms_vdp_t* vdp, uint8_t data) {
@@ -103,7 +109,7 @@ char* get_mode_name_GRAPHIC5(ms_vdp_t* vdp) {
 	return "GRAPHIC5";
 }
 
-void exec_vdp_command_GRAPHIC5(ms_vdp_t* vdp, uint8_t cmd) {
+void vdp_command_exec_GRAPHIC5(ms_vdp_t* vdp, uint8_t cmd) {
 	int command = (cmd & 0b11110000) >> 4;
 	int arg = cmd & 0b00001111;
 	switch(command){
@@ -117,8 +123,15 @@ void exec_vdp_command_GRAPHIC5(ms_vdp_t* vdp, uint8_t cmd) {
 		LMMC_G5();
 		break;
 	default:
-		exec_vdp_command_DEFAULT(vdp, cmd);
+		vdp_command_exec_DEFAULT(vdp, cmd);
 	}
+}
+
+uint8_t vdp_command_read_GRAPHIC5(ms_vdp_t* vdp) {
+	return 0;
+}
+
+void vdp_command_write_GRAPHIC5(ms_vdp_t* vdp, uint8_t cmd) {
 }
 
 void update_resolution_GRAPHIC5(ms_vdp_t* vdp) {

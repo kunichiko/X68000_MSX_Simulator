@@ -3,16 +3,17 @@
 
 #include <stdint.h>
 
-#define ROM_TYPE_NOTHING		0
-#define ROM_TYPE_MAPPER_RAM		1
-#define ROM_TYPE_NORMAL_ROM		2
-#define ROM_TYPE_MEGAROM_8		3
-#define ROM_TYPE_MEGAROM_16		4
-#define ROM_TYPE_MEGAROM_KONAMI	5
-#define ROM_TYPE_SOUND_CARTRIG	6
-#define ROM_TYPE_MEGAROM_PANA	7
-#define ROM_TYPE_DOS_ROM		8
-#define ROM_TYPE_PAC			9
+#define ROM_TYPE_NOTHING			0
+#define ROM_TYPE_MAPPER_RAM			1
+#define ROM_TYPE_NORMAL_ROM			2
+#define ROM_TYPE_MEGAROM_8			3
+#define ROM_TYPE_MEGAROM_16			4
+#define ROM_TYPE_MEGAROM_KONAMI		5
+#define ROM_TYPE_MEGAROM_KONAMI_SCC	6
+#define ROM_TYPE_SOUND_CARTRIG		7
+#define ROM_TYPE_MEGAROM_PANA		8
+#define ROM_TYPE_DOS_ROM			9
+#define ROM_TYPE_PAC				10
 
 #define MS_MEMMAP_HEADER_LENGTH 8
 #define MS_MEMMAP_NUM_SEGMENTS 4
@@ -104,6 +105,15 @@ typedef struct ms_memmap_driver_MEGAROM_KONAMI {
 	int selected_bank[4];	// SLOT1前半、SLOT1後半、SLOT2前半、SLOT2後半の4つのバンクの選択状態
 } ms_memmap_driver_MEGAROM_KONAMI_t;
 
+// 構造体を拡張し、プロパティを追加する
+typedef struct ms_memmap_driver_MEGAROM_KONAMI_SCC {
+	ms_memmap_driver_t base;
+	// extended properties
+	int bank_size;
+	int selected_bank[4];	// SLOT1前半、SLOT1後半、SLOT2前半、SLOT2後半の4つのバンクの選択状態
+} ms_memmap_driver_MEGAROM_KONAMI_SCC_t;
+
+
 
 
 ms_memmap_t* ms_memmap_init();
@@ -112,8 +122,9 @@ void ms_memmap_deinit(ms_memmap_t* memmap);
 void ms_memmap_deinit_mac();
 void ms_memmap_set_main_mem( void *, int);
 
-ms_memmap_driver_t* ms_memmap_MEGAROM_8K_init(ms_memmap_t* memmap, const char* filename);
-ms_memmap_driver_t* ms_memmap_MEGAROM_KONAMI_init(ms_memmap_t* memmap, const char* filename);
+ms_memmap_driver_t* ms_memmap_MEGAROM_8K_init(ms_memmap_t* memmap, const uint8_t* buffer, uint32_t length);
+ms_memmap_driver_t* ms_memmap_MEGAROM_KONAMI_init(ms_memmap_t* memmap, const uint8_t* buffer, uint32_t length);
+ms_memmap_driver_t* ms_memmap_MEGAROM_KONAMI_SCC_init(ms_memmap_t* memmap, const uint8_t* buffer, uint32_t length);
 
 void allocateAndSetROM(const char* romFileName, int kind, int slot, int page);
 void allocateAndSetROM_Cartridge(const char* romFileName);

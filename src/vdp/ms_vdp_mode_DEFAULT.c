@@ -41,8 +41,12 @@ ms_vdp_mode_t ms_vdp_DEFAULT = {
 	update_r7_color_DEFAULT,
 	// char* get_mode_name_DEFAULT(ms_vdp_t* vdp);
 	get_mode_name_DEFAULT,
-	// void exec_vdp_command_DEFAULT(ms_vdp_t* vdp, uint8_t cmd);
-	exec_vdp_command_NONE,
+	// void vdp_command_exec_DEFAULT(ms_vdp_t* vdp, uint8_t cmd);
+	vdp_command_exec_NONE,
+	// uint8_t vdp_command_read_DEFAULT(ms_vdp_t* vdp);
+	vdp_command_read_NONE,
+	// void vdp_command_write_DEFAULT(ms_vdp_t* vdp, uint8_t cmd);
+	vdp_command_write_NONE,
 	// void (*update_resolution)(ms_vdp_t* vdp);
 	update_resolution_DEFAULT,
 	// void vsync_draw(ms_vdp_t* vdp);
@@ -143,11 +147,20 @@ char* get_mode_name_DEFAULT(ms_vdp_t* vdp) {
 	return "DEFAULT";
 }
 
-void exec_vdp_command_DEFAULT(ms_vdp_t* vdp, uint8_t cmd) {
+void vdp_command_exec_DEFAULT(ms_vdp_t* vdp, uint8_t cmd) {
 	printf("%sのVDPコマンド0x%02xはまだ未実装です。\n", vdp->ms_vdp_current_mode->get_mode_name(vdp), cmd);
+	// 念の為CEビットをクリア
+	vdp->s02 &= 0xfe;
 }
 
-void exec_vdp_command_NONE(ms_vdp_t* vdp, uint8_t cmd) {
+void vdp_command_exec_NONE(ms_vdp_t* vdp, uint8_t cmd) {
+}
+
+uint8_t vdp_command_read_NONE(ms_vdp_t* vdp) {
+	return 0;
+}
+
+void vdp_command_write_NONE(ms_vdp_t* vdp, uint8_t cmd) {
 }
 
 void update_resolution_DEFAULT(ms_vdp_t* vdp) {
