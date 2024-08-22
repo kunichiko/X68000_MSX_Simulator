@@ -139,6 +139,7 @@ typedef struct ms_vdp {
 	uint32_t colortbl_baddr;		// R03: Color table base address
 	uint32_t pgentbl_baddr;		// R04: Pattern generator table base address
 	uint32_t sprattrtbl_baddr;		// R05: Sprite attribute table bse address
+	uint32_t sprcolrtbl_baddr;		// Sprite attibute table base address - 512
 	uint32_t sprpgentbl_baddr;	// R06: Sprite pattern generator table base address
 	uint16_t text_color;			// R07: Text color
 	uint16_t back_color;			// R07: Back color

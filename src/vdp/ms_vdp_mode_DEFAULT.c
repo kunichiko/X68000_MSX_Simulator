@@ -125,6 +125,7 @@ void update_sprattrtbl_baddr_DEFAULT(ms_vdp_t* vdp) {
 	// R05 ‚É b14-b7
 	// R11 ‚É b16-b15
 	vdp->sprattrtbl_baddr = ((vdp->_r11 << 15) | (vdp->_r05 << 7)) & 0x1ffff;
+	vdp->sprcolrtbl_baddr = (vdp->sprattrtbl_baddr - 512) & 0x1ffff;
 }
 
 void update_sprpgentbl_baddr_DEFAULT(ms_vdp_t* vdp) {
