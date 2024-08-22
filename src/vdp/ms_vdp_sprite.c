@@ -125,7 +125,13 @@ void write_sprite_attribute_256(ms_vdp_t* vdp, int offset, uint32_t attribute) {
 			if(plNum >= vdp->last_visible_sprite_planes || attribute == 208) {
 				update_sprite_visibility(vdp);
 			}
-			X68_SSR[plNum*4+1] = ((attribute + 1 ) & 0xff) + 16; // MSXのY座標の1倍, MSXは1ライン下に表示されるので+1, X68000のスプライトの原点は(16,16)なのでずらす
+			uint8_t scroll_offset = vdp->r23; // 縦スクロール量
+			// MSXは1ライン下に表示されるので+1
+			// MSXはR23の縦スクロールでスプライトも一緒にスクロールするので、その分を引く
+			// 256モードはMSXのY座標の1倍
+			// X68000のスプライトの原点は(16,16)なのでずらす
+			int y = ((attribute + 1 - scroll_offset) & 0xff) + 16;
+			X68_SSR[plNum*4+1] = y;
 			break;
 		case 1: // X座標
 			X68_SSR[plNum*4+0] = (attribute & 0xff) + 16; // MSXのX座標の1倍, X68000のスプライトの原点は(16,16)なのでずらす
@@ -277,8 +283,14 @@ void write_sprite_attribute_512(ms_vdp_t* vdp, int offset, uint32_t attribute) {
 			if(plNum >= vdp->last_visible_sprite_planes || attribute == 208) {
 				update_sprite_visibility(vdp);
 			}
+			uint8_t scroll_offset = vdp->r23; // 縦スクロール量
+			// MSXは1ライン下に表示されるので+1
+			// MSXはR23の縦スクロールでスプライトも一緒にスクロールするので、その分を引く
+			// 512モードはMSXのY座標の2倍
+			// X68000のスプライトの原点は(16,16)なのでずらす
+			int y = ((attribute + 1 - scroll_offset) & 0xff)*2 + 16;
 			for( i=0; i<4; i++) {
-				X68_SSR[plNum*16+i*4+1] = (((attribute + 1 ) & 0xff) * 2) + (i%2)*16 + 16; // MSXのY座標の2倍, MSXは1ライン下に表示されるので+1, X68000のスプライトの原点は(16,16)なのでずらす
+				X68_SSR[plNum*16+i*4+1] = y + (i%2)*16;
 			}
 			break;
 		case 1: // X座標

@@ -115,6 +115,8 @@ VCRR_02		equ	$e82600		* ビデオコントロールレジスタ２
 GPIP		equ	$e88001
 IERA		equ	$e88007
 
+X68_SSR		equ	$eb0000		* スプライトスクロールレジスタ
+
 SPCON_HTOTAL	equ	$eb080a		* スプライトコントローラ 画面モードレジスタ H-TOTAL
 SPCON_HDISP	equ	$eb080c		* スプライトコントローラ 画面モードレジスタ H-DISP
 SPCON_VDISP	equ	$eb080e		* スプライトコントローラ 画面モードレジスタ V-DISP
@@ -1113,8 +1115,11 @@ w_R17:	move.b	d1,offset_ms_vdp_r17(a5)
 w_R19:	move.b	d1,offset_ms_vdp_r19(a5)
 	rts
 
-w_R23:					* 縦スクロール
+w_R23:						* 縦スクロール
+	clr.l	d2
+	move.b	offset_ms_vdp_r23(a5),d2	* 元のスクロール値を読み出す
 	move.b	d1,offset_ms_vdp_r23(a5)
+	; グラフィック面のスクロール値を更新
 	clr.w	d0
 	move.b	d1,d0
 	add.w	d0,d0
@@ -1123,6 +1128,13 @@ w_R23:					* 縦スクロール
 	move.w	d0,4(a0)
 	move.w	d0,8(a0)
 	move.w	d0,12(a0)
+	; スプライトのスクロール値を更新
+	sub.w	d1,d2				* スクロール値の差分を計算
+	lea	X68_SSR+2,a0			* y座標
+	andi.w	#128-1,d0
+@@:	add.w	d2,(a0)
+	lea	8(a0),a0
+	dbra	d0,@b
 	rts
 
 SX_l:	move.b	d1,offset_ms_vdp_sx+1(a5)
