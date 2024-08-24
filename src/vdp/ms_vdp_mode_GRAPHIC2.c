@@ -53,7 +53,13 @@ ms_vdp_mode_t ms_vdp_GRAPHIC2 = {
 	// void vsync_draw(ms_vdp_t* vdp);
 	vsync_draw_GRAPHIC2,
 	// sprite mode
-	1
+	1,
+	// crt_width
+	256,
+	// dots_per_byte
+	0,	// VDPコマンド用なので未使用
+	// bits_per_dot
+	0	// VDPコマンド用なので未使用
 };
 
 void write_pname_tbl_GRAPHIC2(ms_vdp_t* vdp, uint32_t addr, uint8_t data);

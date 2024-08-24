@@ -17,10 +17,6 @@
 	 
  */
 
-unsigned short* X68_SP_PALETTE = (unsigned short*)0x00e82200; // スプライト/テキストパレット
-unsigned short* X68_SSR = (unsigned short*)0x00eb0000; // スプライトスクロールレジスタ
-unsigned int* X68_PCG = (unsigned int*)0x00eb8000;
-
 /*
  スプライトの初期化
  */

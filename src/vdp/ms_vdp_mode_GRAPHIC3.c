@@ -52,7 +52,13 @@ ms_vdp_mode_t ms_vdp_GRAPHIC3 = {
 	// void vsync_draw(ms_vdp_t* vdp);
 	vsync_draw_GRAPHIC2,
 	// sprite mode
-	1
+	1,
+	// crt_width
+	256,
+	// dots_per_byte
+	0,	// VDPコマンド用なので未使用
+	// bits_per_dot
+	0	// VDPコマンド用なので未使用
 };
 
 /* スプライトモード以外、GRAPHIC2と同じ */

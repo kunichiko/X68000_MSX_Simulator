@@ -55,7 +55,19 @@
 #define SPCON_VSISP	(*(volatile uint16_t *)0xeb080e)	// 垂直解像度設定レジスタ
 #define SPCON_RES	(*(volatile uint16_t *)0xeb0810)	// スプライト解像度設定レジスタ
 
-#define PCG	(*(volatile uint16_t *)0xeb8000)			// スプライトパターン
+#define X68_SSR		((volatile uint16_t *)0xeb0000)	// スプライトスクロールレジスタ
+#define X68_PCG		((volatile uint16_t *)0xeb8000)	// スプライトパターン
+
+#define CRT_MODE_GRAPHIC1	0x00
+#define CRT_MODE_TEXT1		0x01
+#define CRT_MODE_MULTICOLOR	0x02
+#define CRT_MODE_GRAPHIC2	0x04
+#define CRT_MODE_GRAPHIC3	0x08
+#define CRT_MODE_TEXT2		0x09
+#define CRT_MODE_GRAPHIC4	0x0c
+#define CRT_MODE_GRAPHIC5	0x10
+#define CRT_MODE_GRAPHIC6	0x14
+#define CRT_MODE_GRAPHIC7	0x1c
 
 extern uint32_t* ms_vdp_rewrite_flag_tbl;
 
@@ -207,6 +219,9 @@ typedef struct ms_vdp_mode {
 	void (*update_resolution)(ms_vdp_t* vdp);
 	void (*vsync_draw)(ms_vdp_t* vdp);
 	int sprite_mode; // 0x00: 未使用, 0x01: MODE1, 0x02: MODE2, bit7: 0=256ドット, 1=512ドット
+	int crt_width; // MSXの画面幅
+	int dots_per_byte; // 1バイトあたりのドット数 (VDPコマンド用)
+	int bits_per_dot; // 1ドットあたりのビット数 (VDPコマンド用)
 } ms_vdp_mode_t;
 
 ms_vdp_t* ms_vdp_init();
@@ -220,8 +235,11 @@ void update_sprite_visibility(ms_vdp_t* vdp);
 void vsync_draw_NONE(ms_vdp_t* vdp);
 void vdp_command_exec_DEFAULT(ms_vdp_t* vdp, uint8_t cmd);
 void vdp_command_exec_NONE(ms_vdp_t* vdp, uint8_t cmd);
+void vdp_command_exec(ms_vdp_t* vdp, uint8_t cmd);
 uint8_t vdp_command_read_NONE(ms_vdp_t* vdp);
+uint8_t vdp_command_read(ms_vdp_t* vdp);
 void vdp_command_write_NONE(ms_vdp_t* vdp, uint8_t data);
+void vdp_command_write(ms_vdp_t* vdp, uint8_t data);
 
 /**
  * 

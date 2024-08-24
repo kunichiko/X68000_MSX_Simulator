@@ -53,7 +53,13 @@ ms_vdp_mode_t ms_vdp_SCREEN12 = {
 	// void vsync_draw(ms_vdp_t* vdp);
 	vsync_draw_NONE,
 	// sprite mode
-	2
+	2,
+	// crt_width
+	256,
+	// dots_per_byte
+	1,
+	// bits_per_dot
+	8
 };
 
 
