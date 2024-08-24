@@ -89,7 +89,7 @@ void update_pgentbl_baddr_MULTICOLOR(ms_vdp_t* vdp) {
 }
 
 void update_sprattrtbl_baddr_MULTICOLOR(ms_vdp_t* vdp) {
-    update_sprattrtbl_baddr_DEFAULT(vdp);
+    update_sprattrtbl_baddr_MODE1(vdp);
 }
 
 void update_sprpgentbl_baddr_MULTICOLOR(ms_vdp_t* vdp) {

@@ -95,10 +95,14 @@ CRTR_09		equ	$e80012		* ＣＲＴＣレジスタ９
 
 CRTR_10		equ	$e80014		* ＣＲＴＣレジスタ10 (テキストスクロールX)
 CRTR_11		equ	$e80016		* ＣＲＴＣレジスタ11 (テキストスクロールY)
-CRTR_12		equ	$e80018		* ＣＲＴＣレジスタ12
-CRTR_13		equ	$e8001A		* ＣＲＴＣレジスタ13
-CRTR_14		equ	$e8001C		* ＣＲＴＣレジスタ14
-CRTR_15		equ	$e8001E		* ＣＲＴＣレジスタ15
+CRTR_12		equ	$e80018		* ＣＲＴＣレジスタ12 GR0 のスクロールX
+CRTR_13		equ	$e8001A		* ＣＲＴＣレジスタ13 GR0 のスクロールY
+CRTR_14		equ	$e8001C		* ＣＲＴＣレジスタ14 GR1 のスクロールX
+CRTR_15		equ	$e8001E		* ＣＲＴＣレジスタ15 GR1 のスクロールY
+CRTR_16		equ	$e80020		* ＣＲＴＣレジスタ16 GR2 のスクロールX
+CRTR_17		equ	$e80022		* ＣＲＴＣレジスタ17 GR2 のスクロールY
+CRTR_18		equ	$e80024		* ＣＲＴＣレジスタ18 GR3 のスクロールX
+CRTR_19		equ	$e80026		* ＣＲＴＣレジスタ19 GR3 のスクロールY
 
 CRTR_20		equ	$e80028
 CRTR_21		equ	$e8002a
@@ -139,6 +143,10 @@ offset_ms_vdp_vdp_command_read		equ	12*4
 offset_ms_vdp_vdp_command_write		equ	13*4
 offset_ms_vdp_update_resolution		equ	14*4
 offset_ms_vdp_vsync_draw		equ	15*4
+offset_ms_vdp_sprite_mode		equ	16*4
+offset_ms_vdp_crt_width			equ	17*4
+offset_ms_vdp_dots_per_byte		equ	18*4
+offset_ms_vdp_bits_per_dot		equ	19*4
 
 ; typedef struct ms_vdp {
 ; 	uint8_t	r00;	// Mode register 0
@@ -397,6 +405,25 @@ ms_vdp_init_mac:
 	IOCS	__VDISPST
 	bra	@b
 @@:
+	; ラスター割り込みを設定
+	; X68000のラスタ割り込みには、MFPのGPIP6と7の2つの方法がある
+	;  * GPIP6 : CRTC R#9 に設定したラスタ番号で割り込みをかける
+	;  * GPIP7 : すべてのラスタ(H-SYNC)で割り込みをかける
+	; IOCSの CRTCRASは前者のGPIP6を使った方法。
+	; GPIP7の方が自由度は高いが負荷も高いので、今回はGPIP6を使う
+	; これを使い、VDPのHSYNC割り込みへの対応を行う予定。
+@@:	move.w	#128,d1		* 仮
+	lea	raster_interrupt,a1
+	IOCS	__CRTCRAS
+	move.l	d0,d0
+	beq	@f
+	pea	errms_raster_in_use
+	DOS	__PRINT
+	movea.l	#0,a1	
+	IOCS	__CRTCRAS
+	bra	@b
+@@:
+	;
 	move.w	(sp)+,sr			* 割り込み復帰
 
 	movem.l	(sp)+,d3-d7/a0-a5
@@ -407,20 +434,60 @@ ms_vdp_init_mac:
 	rts
 
 vdp_interrupt:
-	movem.l	a5,-(sp)
+	movem.l	d0/a0/a5,-(sp)
 	addq.w	#1,ms_vdp_interrupt_tick
 
 	movea.l	ms_vdp_shared,a5
-	btst.b	#5,offset_ms_vdp_r01(a5)	* VDP IE0 (R#1のbit5) をみて、割り込みが許可されているかを調べる
+	;
+	move.b	offset_ms_vdp_r23(a5),d0
+	andi.w	#$00ff,d0
+	movea.l	offset_ms_vdp_current_mode(a5),a0
+	cmp.l	#512,offset_ms_vdp_crt_width(a0)
+	beq	1f
+; 256ドットモードの場合
+	lea.l	CRTR_13,a0
+	move.w	d0,(a0)
+	move.w	d0,4(a0)
+	move.w	d0,8(a0)
+	move.w	d0,12(a0)
+	bra	@f
+
+; 512ドットモードの場合
+1:	add.w	d0,d0
+	lea.l	CRTR_13,a0
+	move.w	d0,(a0)
+	move.w	d0,4(a0)
+	move.w	d0,8(a0)
+	move.w	d0,12(a0)
+
+;	VDPの割り込み処理
+@@:	btst.b	#5,offset_ms_vdp_r01(a5)	* VDP IE0 (R#1のbit5) をみて、割り込みが許可されているかを調べる
 	beq	@f
 	bset.b	#7,offset_ms_vdp_s00(a5)	* VDP ステータスレジスタ 0の bit7に、割り込み発生フラグを立てる。これがZ80のINT端子の状態を表している。
 	move.b	#1,ms_vdp_int		* 割り込み要求フラグを立てる
 @@:
 	move.w	#$0001,cpu_yield	* 上位: cpu_yield 
 	move.w	host_delay,emu_yield	* 下位: emu_yield
-	movem.l	(sp)+,a5
+	movem.l	(sp)+,d0/a0/a5
 	rte
 
+raster_interrupt:
+	rte
+
+	movem.l	d0/a0,-(sp)
+	move.w	raster_scroll_offset,d0
+	add.w	#1,d0
+	move.w	d0,raster_scroll_offset
+	lea.l	CRTR_12,a0
+	move.w	d0,(a0)
+	move.w	d0,4(a0)
+	move.w	d0,8(a0)
+	move.w	d0,12(a0)
+	movem.l	(sp)+,d0/a0
+	rte
+
+raster_scroll_offset:
+	.dc.w	0
 ;
 ; ＶＤＰの終了処理
 ;
@@ -429,6 +496,9 @@ ms_vdp_deinit_mac:
 	move.w	d0,-(sp)		* sr を保存
 	or.w	#%00000111_00000000,d0	* 一時的に割り込み禁止
 	move.w	d0,sr
+
+	clr.l	a1			* ラスタ割り込みの禁止
+	IOCS	__CRTCRAS
 
 	clr.l	a1			* 垂直同期割り込みを禁止
 	IOCS	__VDISPST
@@ -445,6 +515,8 @@ ms_vdp_interrupt_tick:
 	.dc.w	0
 errms_timer_A_in_use:
 	.dc.b	'タイマＡは使用中です',0,0
+errms_raster_in_use:
+	.dc.b	'ラスタ割り込みは使用中です',0,0
 
 	.text
 
@@ -1116,24 +1188,63 @@ w_R19:	move.b	d1,offset_ms_vdp_r19(a5)
 	rts
 
 w_R23:						* 縦スクロール
-	clr.l	d2
-	move.b	offset_ms_vdp_r23(a5),d2	* 元のスクロール値を読み出す
+	andi.w	#$00ff,d1
 	move.b	d1,offset_ms_vdp_r23(a5)
+	movea.l	offset_ms_vdp_current_mode(a5),a0
+	cmp.l	#512,offset_ms_vdp_crt_width(a0)
+	beq	1f
+; 256ドットモードの場合
 	; グラフィック面のスクロール値を更新
-	clr.w	d0
-	move.b	d1,d0
+	lea.l	CRTR_13,a0
+	move.w	d1,(a0)
+	move.w	d1,4(a0)
+	move.w	d1,8(a0)
+	move.w	d1,12(a0)
+
+	; スプライトのスクロール値を更新
+	lea	X68_SSR+2,a0	* y座標
+	movea.l	offset_ms_vdp_vram(a5),a1
+	add.l offset_ms_vdp_sprattrtbl_baddr(a5),a1
+	
+	move.w	#32-1,d0
+@@:	clr.w	d2
+	move.b	(a1),d2		* スプライトのY座標を取得
+	addq.w	#1,d2		* MSXのスプライトは1ラインずれる
+	sub.w	d1,d2		* スクロール値を引く
+	andi.w	#$ff,d2
+	addi.w	#16,d2		* X68000のスプライトの原点は(16,16)
+	move.w	d2,(a0)
+	lea	8(a0),a0
+	lea	4(a1),a1
+	dbra	d0,@b
+	rts
+
+; 512ドットモードの場合
+1:	; グラフィック面のスクロール値を更新
+	move.w	d1,d0
 	add.w	d0,d0
 	lea.l	CRTR_13,a0
 	move.w	d0,(a0)
 	move.w	d0,4(a0)
 	move.w	d0,8(a0)
 	move.w	d0,12(a0)
-	; スプライトのスクロール値を更新
-	sub.w	d1,d2				* スクロール値の差分を計算
+
 	lea	X68_SSR+2,a0			* y座標
-	andi.w	#128-1,d0
-@@:	add.w	d2,(a0)
+	movea.l	offset_ms_vdp_vram(a5),a1
+	add.l offset_ms_vdp_sprattrtbl_baddr(a5),a1
+	
+	; TODO 512ドットの時はスプライトを4倍使っているのでその対応が必要
+	move.w	#32-1,d0
+@@:	clr.w	d2
+	move.b	(a1),d2		* スプライトのY座標を取得
+	addq.w	#1,d2		* MSXのスプライトは1ラインずれる
+	sub.w	d1,d2		* スクロール値を引く
+	add.w	d2,d2		* 512ドットモードの場合は2倍
+	andi.w	#511,d2
+	addi.w	#16,d2		* X68000のスプライトの原点は(16,16)
+	move.w	d2,(a0)
 	lea	8(a0),a0
+	lea	4(a1),a1
 	dbra	d0,@b
 	rts
 
@@ -2276,12 +2387,8 @@ w_GRAPHIC3_mac:
 
 
 w_GRAPHIC4_mac:
-	move.l	4(sp),d1
-
 	movea.l	ms_vdp_shared,a5		* ms_vdp_t へのポインタを取得
-	movea.l	offset_ms_vdp_vram(a5),a0
-	move.l	offset_ms_vdp_vram_addr(a5),d0	* D0 ・・書き込むアドレス
-	move.b	d1,0(a0,d0.l)			* VRAM へ書き込み
+	move.l	4(sp),d1
 
 	; GRAMアドレス再計算 （デバッグ用）
 	move.l	d1,-(sp)
@@ -2289,11 +2396,18 @@ w_GRAPHIC4_mac:
 	bsr	s_GRAPHIC4
 	move.l	(sp)+,d1
 
+	movea.l	offset_ms_vdp_vram(a5),a0
+	move.l	offset_ms_vdp_vram_addr(a5),d0	* D0 ・・書き込むアドレス
+	move.b	d1,0(a0,d0.l)			* VRAM へ書き込み
+
 	movea.l	offset_ms_vdp_gram_addr(a5),a0
 	move.b	d1,d2
 	lsr.w	#4,d2
-	move.w	d2,(a0)+			* 上位4ビット
-	move.w	d1,(a0)+			* 下位4ビット
+	move.w	d2,(a0)			* 上位4ビット
+	move.w	d2,1024*256(a0)		* 円筒スクロール対応
+	move.w	d1,2(a0)		* 下位4ビット
+	move.w	d1,1024*256+2(a0)	* 円筒スクロール対応
+	lea	4(a0),a0
 
 	move.l	a0,-(sp)
 
@@ -2309,13 +2423,14 @@ w_GRAPHIC4_mac:
 
 	bra	9f	; テーブルが重なっている場合もありうるので本当はスキップしてはいけないのだが……
 
-	* sprcolrtbl_baddrと一致していたらスプライトアトリビュートテーブルへの書き込み
-@@:	move.l	offset_ms_vdp_sprcolrtbl_baddr(a5),d2
-	andi.w	#%11111111_10000000,d2
+	* sprcolrtbl_baddrと一致していたらスプライトカラーテーブルへの書き込み
+@@:	andi.w	#%11111110_00000000,d0		* 下位9ビットをクリア
+	move.l	offset_ms_vdp_sprcolrtbl_baddr(a5),d2
+	andi.w	#%11111110_00000000,d2
 	cmp.l	d2,d0
 	bne	@f
 	movem.l	d0-d1,-(sp)
-	bsr	w_SP_color			* スプライトアトリビュートテーブルへの書き込み
+	bsr	w_SP_color			* スプライトカラーテーブルへの書き込み
 	movem.l	(sp)+,d0-d1
 
 	bra	9f	; テーブルが重なっている場合もありうるので本当はスキップしてはいけないのだが……

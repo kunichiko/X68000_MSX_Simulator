@@ -52,7 +52,7 @@ ms_vdp_mode_t ms_vdp_TEXT1 = {
 	// sprite mode
 	0,
 	// crt_width
-	256,
+	512,
 	// dots_per_byte
 	0,	// VDPコマンド用なので未使用
 	// bits_per_dot
@@ -131,11 +131,9 @@ void update_pgentbl_baddr_TEXT1(ms_vdp_t* vdp) {
 }
 
 void update_sprattrtbl_baddr_TEXT1(ms_vdp_t* vdp) {
-    update_sprattrtbl_baddr_DEFAULT(vdp);
 }
 
 void update_sprpgentbl_baddr_TEXT1(ms_vdp_t* vdp) {
-    update_sprpgentbl_baddr_DEFAULT(vdp);
 }
 
 void update_r7_color_TEXT1(ms_vdp_t* vdp, uint8_t data) {

@@ -212,23 +212,29 @@ uint16_t sprite_cc_flags[32]; // スプライトカラーテーブルのCCビットのフラグ
 
 void refresh_sprite_256_mode2(ms_vdp_t* vdp) {
 	int plNum,n,y,i,j;
-	uint8_t* pcol = vdp->vram + ((vdp->sprattrtbl_baddr-512) & 0x1ffff);
+	uint8_t* pcol = vdp->vram + vdp->sprcolrtbl_baddr;
 	uint8_t* patr = vdp->vram + vdp->sprattrtbl_baddr;
 	// スプライトモード2の色合成を行う
 	for (plNum=0;plNum<32;plNum++) {
 		int m = plNum;
 		for(n=plNum+1;n<32;n++) {
 			// XY座標が同一のものかつ、CC=1のラインが一つでもあるものを抽出(連続している物のみ)
-			if(patr[plNum*4+0] == patr[n*4+0] && patr[plNum*4+1] == patr[n*4+1] && //
-				sprite_cc_flags[n] != 0) {
+			if((patr[plNum*4+0] == patr[n*4+0]) && (patr[plNum*4+1] == patr[n*4+1]) && //
+				(sprite_cc_flags[n] != 0)) {
 				m = n;
 			} else {
 				break;
 			}
 		}
+
+		// ************
+		m = plNum; // テスト用
+		// ************
+
 		// ラインごとの合成処理
 		int ymax = vdp->sprite_size == 0 ? 8 : 16;
 		int lrmax = vdp->sprite_size == 0 ? 1 : 2;
+		int ptNumMask = vdp->sprite_size == 0 ? 0xff : 0xfc;
 		int lr;
 		for (lr=0;lr < lrmax; lr++) {
 			uint16_t mask = 1;
@@ -236,10 +242,10 @@ void refresh_sprite_256_mode2(ms_vdp_t* vdp) {
 				int yy = y+lr*16;
 				i=plNum;
 				while(i<=m) {
-					uint32_t color = pcol[i*16+yy] & 0xf;
+					uint32_t color = pcol[i*16+y] & 0xf;
 					uint32_t colorex = color << 28 | color << 24 | color << 20 | color << 16 | color << 12 | color << 8 | color << 4 | color;
 					uint32_t ptNum = patr[i*4+2];
-					uint32_t pattern = vdp->x68_pcg_buffer[(ptNum & 0xff)*8+yy] & colorex;
+					uint32_t pattern = vdp->x68_pcg_buffer[(ptNum & ptNumMask)*8+yy] & colorex;
 					j=i;
 					while(j<=m) {
 						if( j == m ) {

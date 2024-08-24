@@ -56,7 +56,7 @@
 #define SPCON_RES	(*(volatile uint16_t *)0xeb0810)	// スプライト解像度設定レジスタ
 
 #define X68_SSR		((volatile uint16_t *)0xeb0000)	// スプライトスクロールレジスタ
-#define X68_PCG		((volatile uint16_t *)0xeb8000)	// スプライトパターン
+#define X68_PCG		((volatile uint32_t *)0xeb8000)	// スプライトパターン
 
 #define CRT_MODE_GRAPHIC1	0x00
 #define CRT_MODE_TEXT1		0x01
@@ -232,7 +232,11 @@ void write_sprite_pattern(ms_vdp_t* vdp, int offset, uint32_t pattern);
 void write_sprite_attribute(ms_vdp_t* vdp, int offset, uint32_t attribute);
 void update_sprite_visibility(ms_vdp_t* vdp);
 
+void update_sprattrtbl_baddr_MODE1(ms_vdp_t* vdp);
+void update_sprattrtbl_baddr_MODE2(ms_vdp_t* vdp);
+
 void vsync_draw_NONE(ms_vdp_t* vdp);
+
 void vdp_command_exec_DEFAULT(ms_vdp_t* vdp, uint8_t cmd);
 void vdp_command_exec_NONE(ms_vdp_t* vdp, uint8_t cmd);
 void vdp_command_exec(ms_vdp_t* vdp, uint8_t cmd);

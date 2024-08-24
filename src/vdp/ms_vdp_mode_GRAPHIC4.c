@@ -98,11 +98,17 @@ void update_pgentbl_baddr_GRAPHIC4(ms_vdp_t* vdp) {
 }
 
 void update_sprattrtbl_baddr_GRAPHIC4(ms_vdp_t* vdp) {
-    update_sprattrtbl_baddr_DEFAULT(vdp);
+    update_sprattrtbl_baddr_MODE2(vdp);
 }
 
 void update_sprpgentbl_baddr_GRAPHIC4(ms_vdp_t* vdp) {
     update_sprpgentbl_baddr_DEFAULT(vdp);
+	int i;
+	for(i=0;i<32;i++) {
+		write_sprite_attribute(vdp, i*4+0, vdp->vram[vdp->sprattrtbl_baddr + i*4 + 0]);
+		write_sprite_attribute(vdp, i*4+1, vdp->vram[vdp->sprattrtbl_baddr + i*4 + 1]);
+	}
+	refresh_sprite_256_mode2(vdp);
 }
 
 void update_r7_color_GRAPHIC4(ms_vdp_t* vdp, uint8_t data) {
@@ -114,6 +120,7 @@ char* get_mode_name_GRAPHIC4(ms_vdp_t* vdp) {
 }
 
 void vdp_command_exec_GRAPHIC4(ms_vdp_t* vdp, uint8_t cmd) {
+	//printf("GRAPHIC4: vdp_command_exec: %02x\n", cmd);
 	vdp_command_exec(vdp, cmd);
 }
 

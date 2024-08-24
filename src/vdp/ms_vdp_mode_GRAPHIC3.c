@@ -119,7 +119,7 @@ void update_pgentbl_baddr_GRAPHIC3(ms_vdp_t* vdp) {
 // TODO: スプライトモード1と 2の棲み分け
 
 void update_sprattrtbl_baddr_GRAPHIC3(ms_vdp_t* vdp) {
-    update_sprattrtbl_baddr_DEFAULT(vdp);
+    update_sprattrtbl_baddr_MODE1(vdp);
 }
 
 void update_sprpgentbl_baddr_GRAPHIC3(ms_vdp_t* vdp) {

@@ -96,7 +96,7 @@ void update_pgentbl_baddr_GRAPHIC7(ms_vdp_t* vdp) {
 }
 
 void update_sprattrtbl_baddr_GRAPHIC7(ms_vdp_t* vdp) {
-    update_sprattrtbl_baddr_DEFAULT(vdp);
+    update_sprattrtbl_baddr_MODE2(vdp);
 }
 
 void update_sprpgentbl_baddr_GRAPHIC7(ms_vdp_t* vdp) {
