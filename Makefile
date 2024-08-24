@@ -42,6 +42,8 @@ OBJS = $(BUILD_DIR)/ms.o \
 		$(BUILD_DIR)/ms_memmap_MEGAROM_KONAMI_SCC.o \
 		$(BUILD_DIR)/ms_vdp.o \
 		$(BUILD_DIR)/ms_vdp_mac.o \
+		$(BUILD_DIR)/ms_vdp_sprite.o \
+		$(BUILD_DIR)/ms_vdp_command.o \
 		$(BUILD_DIR)/ms_vdp_mode_DEFAULT.o \
 		$(BUILD_DIR)/ms_vdp_mode_TEXT1.o \
 		$(BUILD_DIR)/ms_vdp_mode_TEXT2.o \
@@ -73,6 +75,8 @@ OBJS_DEBUG = $(BUILD_DIR)/ms_d.o \
 		$(BUILD_DIR)/ms_memmap_MEGAROM_KONAMI_SCC_d.o \
 		$(BUILD_DIR)/ms_vdp_d.o \
 		$(BUILD_DIR)/ms_vdp_mac_d.o \
+		$(BUILD_DIR)/ms_vdp_sprite_d.o \
+		$(BUILD_DIR)/ms_vdp_command_d.o \
 		$(BUILD_DIR)/ms_vdp_mode_DEFAULT_d.o \
 		$(BUILD_DIR)/ms_vdp_mode_TEXT1_d.o \
 		$(BUILD_DIR)/ms_vdp_mode_TEXT2_d.o \

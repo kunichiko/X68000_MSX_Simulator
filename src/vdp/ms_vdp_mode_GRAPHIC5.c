@@ -62,6 +62,12 @@ ms_vdp_mode_t ms_vdp_GRAPHIC5 = {
 	// void vsync_draw(ms_vdp_t* vdp);
 	vsync_draw_NONE,
 	// sprite mode
+	2,
+	// crt_width
+	512,
+	// dots_per_byte
+	4,
+	// bits_per_dot
 	2
 };
 
@@ -95,7 +101,7 @@ void update_pgentbl_baddr_GRAPHIC5(ms_vdp_t* vdp) {
 }
 
 void update_sprattrtbl_baddr_GRAPHIC5(ms_vdp_t* vdp) {
-    update_sprattrtbl_baddr_DEFAULT(vdp);
+    update_sprattrtbl_baddr_MODE2(vdp);
 }
 
 void update_sprpgentbl_baddr_GRAPHIC5(ms_vdp_t* vdp) {
@@ -110,28 +116,15 @@ char* get_mode_name_GRAPHIC5(ms_vdp_t* vdp) {
 }
 
 void vdp_command_exec_GRAPHIC5(ms_vdp_t* vdp, uint8_t cmd) {
-	int command = (cmd & 0b11110000) >> 4;
-	int arg = cmd & 0b00001111;
-	switch(command){
-	case 0b0101: // PSET
-		PSET_G5();
-		break;
-	case 0b0111: // LINE
-		LINE_G5();
-		break;
-	case 0b1011: // LMMC
-		LMMC_G5();
-		break;
-	default:
-		vdp_command_exec_DEFAULT(vdp, cmd);
-	}
+	vdp_command_exec(vdp, cmd);
 }
 
 uint8_t vdp_command_read_GRAPHIC5(ms_vdp_t* vdp) {
-	return 0;
+	vdp_command_read(vdp);
 }
 
-void vdp_command_write_GRAPHIC5(ms_vdp_t* vdp, uint8_t cmd) {
+void vdp_command_write_GRAPHIC5(ms_vdp_t* vdp, uint8_t value) {
+	vdp_command_write(vdp, value);
 }
 
 void update_resolution_GRAPHIC5(ms_vdp_t* vdp) {

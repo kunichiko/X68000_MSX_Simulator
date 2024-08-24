@@ -53,7 +53,13 @@ ms_vdp_mode_t ms_vdp_GRAPHIC2 = {
 	// void vsync_draw(ms_vdp_t* vdp);
 	vsync_draw_GRAPHIC2,
 	// sprite mode
-	1
+	1,
+	// crt_width
+	256,
+	// dots_per_byte
+	0,	// VDPコマンド用なので未使用
+	// bits_per_dot
+	0	// VDPコマンド用なので未使用
 };
 
 void write_pname_tbl_GRAPHIC2(ms_vdp_t* vdp, uint32_t addr, uint8_t data);
@@ -78,7 +84,7 @@ void write_vram_GRAPHIC2(ms_vdp_t* vdp, uint8_t data) {
 	アセンブラのルーチンを使っているので使ってないが一応残している
  */
 void write_vram_GRAPHIC2_c(ms_vdp_t* vdp, uint8_t data) {
-	write_vram_DEFAULT(vdp, data);
+	vdp->vram[vdp->vram_addr] = data;
 	//
 	uint32_t area = vdp->vram_addr;
 	area &= 0x1ff80;	// 下位7ビットをクリア
@@ -150,7 +156,7 @@ void update_pgentbl_baddr_GRAPHIC2(ms_vdp_t* vdp) {
 }
 
 void update_sprattrtbl_baddr_GRAPHIC2(ms_vdp_t* vdp) {
-    update_sprattrtbl_baddr_DEFAULT(vdp);
+    update_sprattrtbl_baddr_MODE1(vdp);
 }
 
 void update_sprpgentbl_baddr_GRAPHIC2(ms_vdp_t* vdp) {

@@ -50,7 +50,13 @@ ms_vdp_mode_t ms_vdp_TEXT1 = {
 	// void vsync_draw(ms_vdp_t* vdp);
 	vsync_draw_NONE,
 	// sprite mode
-	0
+	0,
+	// crt_width
+	512,
+	// dots_per_byte
+	0,	// VDPコマンド用なので未使用
+	// bits_per_dot
+	0	// VDPコマンド用なので未使用
 };
 
 
@@ -95,7 +101,7 @@ uint8_t read_vram_TEXT1(ms_vdp_t* vdp) {
 }
 
 void write_vram_TEXT1(ms_vdp_t* vdp, uint8_t data) {
-	write_vram_DEFAULT(vdp, data);
+	vdp->vram[vdp->vram_addr] = data;
 	//
 	uint32_t area = vdp->vram_addr & 0x1fc00; // 下位10ビットをクリア
 	if (area == vdp->pnametbl_baddr) {
@@ -125,11 +131,9 @@ void update_pgentbl_baddr_TEXT1(ms_vdp_t* vdp) {
 }
 
 void update_sprattrtbl_baddr_TEXT1(ms_vdp_t* vdp) {
-    update_sprattrtbl_baddr_DEFAULT(vdp);
 }
 
 void update_sprpgentbl_baddr_TEXT1(ms_vdp_t* vdp) {
-    update_sprpgentbl_baddr_DEFAULT(vdp);
 }
 
 void update_r7_color_TEXT1(ms_vdp_t* vdp, uint8_t data) {

@@ -51,7 +51,13 @@ ms_vdp_mode_t ms_vdp_GRAPHIC1 = {
 	// void vsync_draw(ms_vdp_t* vdp);
 	vsync_draw_GRAPHIC1,
 	// sprite mode
-	1
+	1,
+	// crt_width
+	256,
+	// dots_per_byte
+	0,	// VDPコマンド用なので未使用
+	// bits_per_dot
+	0	// VDPコマンド用なので未使用
 };
 
 void write_pname_tbl_GRAPHIC1(ms_vdp_t* vdp, uint32_t addr, uint8_t data);
@@ -115,7 +121,7 @@ void update_pgentbl_baddr_GRAPHIC1(ms_vdp_t* vdp) {
 }
 
 void update_sprattrtbl_baddr_GRAPHIC1(ms_vdp_t* vdp) {
-	update_sprattrtbl_baddr_DEFAULT(vdp);
+	update_sprattrtbl_baddr_MODE1(vdp);
 }
 
 void update_sprpgentbl_baddr_GRAPHIC1(ms_vdp_t* vdp) {

@@ -53,7 +53,13 @@ ms_vdp_mode_t ms_vdp_SCREEN10 = {
 	// void vsync_draw(ms_vdp_t* vdp);
 	vsync_draw_NONE,
 	// sprite mode
-	2
+	2,
+	// crt_width
+	256,
+	// dots_per_byte
+	1,
+	// bits_per_dot
+	8
 };
 
 
@@ -86,7 +92,7 @@ void update_pgentbl_baddr_SCREEN10(ms_vdp_t* vdp) {
 }
 
 void update_sprattrtbl_baddr_SCREEN10(ms_vdp_t* vdp) {
-    update_sprattrtbl_baddr_DEFAULT(vdp);
+    update_sprattrtbl_baddr_MODE2(vdp);
 }
 
 void update_sprpgentbl_baddr_SCREEN10(ms_vdp_t* vdp) {

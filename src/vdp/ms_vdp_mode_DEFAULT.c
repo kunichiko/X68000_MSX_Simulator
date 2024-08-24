@@ -10,7 +10,6 @@ void update_palette_DEFAULT(ms_vdp_t* vdp);
 void update_pnametbl_baddr_DEFAULT(ms_vdp_t* vdp);
 void update_colortbl_baddr_DEFAULT(ms_vdp_t* vdp);
 void update_pgentbl_baddr_DEFAULT(ms_vdp_t* vdp);
-void update_sprattrtbl_baddr_DEFAULT(ms_vdp_t* vdp);
 void update_sprpgentbl_baddr_DEFAULT(ms_vdp_t* vdp);
 void update_r7_color_DEFAULT(ms_vdp_t* vdp, uint8_t data);
 char* get_mode_name_DEFAULT(ms_vdp_t* vdp);
@@ -33,8 +32,8 @@ ms_vdp_mode_t ms_vdp_DEFAULT = {
 	update_colortbl_baddr_DEFAULT,
 	// void update_pgentbl_baddr_DEFAULT(ms_vdp_t* vdp);
 	update_pgentbl_baddr_DEFAULT,
-	// void update_sprattrtbl_baddr_DEFAULT(ms_vdp_t* vdp);
-	update_sprattrtbl_baddr_DEFAULT,
+	// void update_sprattrtbl_baddr_MODE1(ms_vdp_t* vdp);
+	update_sprattrtbl_baddr_MODE1,
 	// void update_sprpgentbl_baddr_DEFAULT(ms_vdp_t* vdp);
 	update_sprpgentbl_baddr_DEFAULT,
 	// void update_r7_color_DEFAULT(ms_vdp_t* vdp, uint8_t data);
@@ -67,6 +66,7 @@ uint8_t read_vram_DEFAULT(ms_vdp_t* vdp) {
 
 void write_vram_DEFAULT(ms_vdp_t* vdp, uint8_t data) {
 	vdp->vram[vdp->vram_addr] = data;
+	vdp->vram_addr = (vdp->vram_addr + 1) & 0x1ffff;
 }
 
 /*
@@ -120,15 +120,35 @@ void update_pgentbl_baddr_DEFAULT(ms_vdp_t* vdp) {
 	vdp->pgentbl_baddr = (vdp->_r04 << 11) & 0x1ffff;
 }
 
-void update_sprattrtbl_baddr_DEFAULT(ms_vdp_t* vdp) {
+void update_sprattrtbl_baddr_MODE1(ms_vdp_t* vdp) {
 	// R05 に b14-b7
 	// R11 に b16-b15
 	vdp->sprattrtbl_baddr = ((vdp->_r11 << 15) | (vdp->_r05 << 7)) & 0x1ffff;
 }
 
+void update_sprattrtbl_baddr_MODE2(ms_vdp_t* vdp) {
+	// R05 に b14-b7
+	// R11 に b16-b15
+
+	// TODO: MODE2のb9-b7の扱いを改めて調べる必要がある
+	// ese-vdpでは以下のようにしていた
+	// アトリビュートテーブル: b9は書き込まれた値をそのまま使う、b8-b7は0として扱う
+	// カラーテーブル		: b9はアトリビュートテーブルの反転、b8-b7は0として扱う	
+	vdp->sprattrtbl_baddr = ((vdp->_r11 << 15) | (vdp->_r05 << 7)) & 0x1fe00;
+	vdp->sprcolrtbl_baddr = vdp->sprattrtbl_baddr ^ 0x200;
+}
+
 void update_sprpgentbl_baddr_DEFAULT(ms_vdp_t* vdp) {
 	// R06 に b16-b11
-	vdp->sprpgentbl_baddr = (vdp->_r06 << 11) & 0x1ffff;
+	uint32_t addr = (vdp->_r06 << 11) & 0x1ffff;
+	if( vdp->sprpgentbl_baddr != addr ) {
+		vdp->sprpgentbl_baddr = addr;
+		// 更新されたら、全てのスプライトのパターンを再生成する
+		int i;
+		for(i=0;i<256*8;i++) {
+			write_sprite_pattern(vdp, i, vdp->vram[addr + i]);
+		}
+	}
 }
 
 /**

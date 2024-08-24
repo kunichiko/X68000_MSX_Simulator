@@ -49,7 +49,13 @@ ms_vdp_mode_t ms_vdp_MULTICOLOR = {
 	// void vsync_draw(ms_vdp_t* vdp);
 	vsync_draw_NONE,
 	// sprite mode
-	1
+	1,
+	// crt_width
+	256,
+	// dots_per_byte
+	0,	// VDPコマンド用なので未使用
+	// bits_per_dot
+	0	// VDPコマンド用なので未使用
 };
 
 
@@ -83,7 +89,7 @@ void update_pgentbl_baddr_MULTICOLOR(ms_vdp_t* vdp) {
 }
 
 void update_sprattrtbl_baddr_MULTICOLOR(ms_vdp_t* vdp) {
-    update_sprattrtbl_baddr_DEFAULT(vdp);
+    update_sprattrtbl_baddr_MODE1(vdp);
 }
 
 void update_sprpgentbl_baddr_MULTICOLOR(ms_vdp_t* vdp) {
