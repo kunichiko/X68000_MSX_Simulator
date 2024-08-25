@@ -39,8 +39,8 @@ ms_memmap_driver_t* ms_memmap_MEGAROM_KONAMI_SCC_init(ms_memmap_t* memmap, const
 		instance->base.page8k_pointers[page8k] = NULL;
 	}
 
-	for(page8k=0;page8k<4;page8k++) {
-		_select_bank_8K(instance, page8k, page8k);	// KONAMI SCCメガロムの場合、初期値は0,1,2,3
+	for(page8k = 2; page8k < 6; page8k++) {
+		_select_bank_8K(instance, page8k, page8k-2);	// KONAMI SCCメガロムの場合、初期値は0,1,2,3
 	}
 
 	return (ms_memmap_driver_t*)instance;
@@ -78,18 +78,17 @@ void _select_bank_KONAMI_SCC(ms_memmap_driver_MEGAROM_KONAMI_SCC_t* d, int page8
 
 uint8_t ms_memmap_read8_MEGAROM_KONAMI_SCC(ms_memmap_driver_t* driver, uint16_t addr) {
 	ms_memmap_driver_MEGAROM_KONAMI_SCC_t* d = (ms_memmap_driver_MEGAROM_KONAMI_SCC_t*)driver;
-	int slot_page = addr >> 13;
-	if( slot_page < 2 || slot_page > 5) {
+	int page8k = addr >> 13;
+	if( page8k < 2 || page8k > 5) {
 		printf("MEGAROM_KONAMI_SCC: read out of range: %04x\n", addr);
 		return 0xff;
 	}
-	slot_page -= 2;
-	int bank = d->selected_segment[slot_page];
-	if (bank > d->num_segments) {
-		printf("MEGAROM_KONAMI_SCC: bank out of range: %d\n", bank);
+	int segment = d->selected_segment[page8k];
+	if (segment >= d->num_segments) {
+		printf("MEGAROM_KONAMI_SCC: segment out of range: %d\n", segment);
 		return 0xff;
 	}
-	int long_addr = (addr & 0x1fff) + (0x2000 * bank);
+	int long_addr = (addr & 0x1fff) + (0x2000 * segment);
 	uint8_t ret = driver->buffer[long_addr];
 	//printf("MEGAROM_KONAMI_SCC: read %04x[%06x] -> %02x\n", addr, long_addr, ret);
 	return ret;
@@ -120,23 +119,23 @@ uint16_t ms_memmap_read16_MEGAROM_KONAMI_SCC(ms_memmap_driver_t* driver, uint16_
 void ms_memmap_write8_MEGAROM_KONAMI_SCC(ms_memmap_driver_t* driver, uint16_t addr, uint8_t data) {
 	ms_memmap_driver_MEGAROM_KONAMI_SCC_t* d = (ms_memmap_driver_MEGAROM_KONAMI_SCC_t*)driver;
 	// バンク切り替え処理
-	int rom_page = -1;
+	int page8k = -1;
 	int area = addr >> 11;
 	switch(area) {
 		case 0x5*2:
 			break;
 		case 0x7*2:
-			rom_page = 1;
+			page8k = 3;
 			break;
 		case 0x9*2:
-			rom_page = 2;
+			page8k = 4;
 			break;
 		case 0xb*2:
-			rom_page = 3;
+			page8k = 5;
 			break;
 	}
-	if (rom_page != -1) {
-		_select_bank_KONAMI_SCC(d, rom_page, data);
+	if (page8k != -1) {
+		_select_bank_KONAMI_SCC(d, page8k, data);
 	}
 	return;
 }
