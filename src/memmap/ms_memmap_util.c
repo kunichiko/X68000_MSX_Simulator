@@ -59,7 +59,7 @@ void allocateAndSetROM_Cartridge(const char *romFileName) {
 	int kind = detect_rom_type(crt_buff, crt_length);
 	switch(kind) {
 		case ROM_TYPE_NORMAL_ROM:
-			allocateAndSetROM(romFileName, ROM_TYPE_NORMAL_ROM, 1, 0, 1);
+			allocateAndSetROM(romFileName, ROM_TYPE_NORMAL_ROM, 1, -1, 1);
 			break;
 		case ROM_TYPE_MEGAROM_8:
 			// ASCII 8K ÉÅÉKÉçÉÄ

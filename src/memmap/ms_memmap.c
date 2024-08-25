@@ -10,6 +10,9 @@ ms_memmap_t* ms_memmap_shared = NULL;
 
 void ms_memmap_update_page_pointer(ms_memmap_t* memmap, ms_memmap_driver_t* driver, int page8k);
 
+void select_slot_base_impl(ms_memmap_t* memmap, int page, int slot_base);
+void select_slot_ex_impl(ms_memmap_t* memmap, int slot_base, int page, int slot_ex);
+
 /*
 	memmapモジュールの確保 & 初期化ルーチン
  */
@@ -60,6 +63,11 @@ ms_memmap_t* ms_memmap_init() {
 		return NULL;
 	}
 
+	// 現状で初期化
+	for(page = 0; page < 4; page++) {
+		select_slot_base_impl(ms_memmap_shared, page, ms_memmap_shared->slot_sel[page]);
+	}
+
 	return ms_memmap_shared;
 }
 
@@ -105,13 +113,15 @@ int ms_memmap_attach_driver(ms_memmap_t* memmap, ms_memmap_driver_t* driver, con
 	int slot_ex_fallback;
 	if (slot_ex < 0 ) {
 		slot_ex_fallback = 0;
+	} else {
+		slot_ex_fallback = slot_ex;
 	}
 
 	// 衝突検出
 	int conflict = 0;
 	int page;
 	for(page = 0; page < 4; page++) {
-		if ( driver->page8k_pointers[page] !=  NULL && //
+		if ( driver->page8k_pointers[page*2] !=  NULL && //
 			 memmap->attached_driver[slot_base][slot_ex_fallback][page]->type != ROM_TYPE_NOTHING) {
 			conflict = 1;
 			break;
@@ -124,8 +134,10 @@ int ms_memmap_attach_driver(ms_memmap_t* memmap, ms_memmap_driver_t* driver, con
 
 	// ドライバをアタッチ
 	for(page = 0; page < 4; page++) {
-		if ( driver->page8k_pointers[page] !=  NULL) {
+		if ( driver->page8k_pointers[page*2] !=  NULL) {
 			memmap->attached_driver[slot_base][slot_ex_fallback][page] = driver;
+			// このアタッチによって、今見えているページが更新された可能性があるので呼び出す
+			select_slot_base_impl(memmap, page, memmap->slot_sel[page]);
 		}
 	}
 
@@ -152,7 +164,7 @@ void ms_memmap_update_page_pointer(ms_memmap_t* memmap, ms_memmap_driver_t* driv
 
 	// CPUが見ているページを更新
 	// TODO CPU側がまだ16Kにしか対応していないので暫定
-	memmap->current_ptr[page8k/2] = memmap->current_driver[page8k/2]->page8k_pointers[page8k];
+	memmap->current_ptr[page8k/2] = memmap->current_driver[page8k/2]->page8k_pointers[page8k & 0xfe];
 
 	// CPU側に通知
 	ms_cpu_needs_refresh_PC = 1;
@@ -171,7 +183,10 @@ void select_slot_base(ms_memmap_t* memmap, int page, int slot_base) {
 		// 変更がない場合は何もしない
 		return;
 	}
+	select_slot_base_impl(memmap, page, slot_base);
+}
 
+void select_slot_base_impl(ms_memmap_t* memmap, int page, int slot_base) {
 	// 選択したスロットが拡張されているか調べる
 	if ( memmap->slot_expanded.flag[slot_base] ) {
 		// 拡張されている場合は拡張スロット選択レジスタを見る
@@ -183,7 +198,9 @@ void select_slot_base(ms_memmap_t* memmap, int page, int slot_base) {
 
 	// CPUが見てるポインタを更新
 	// TODO CPU側がまだ16Kにしか対応していないので暫定
-	memmap->current_ptr[page] = memmap->current_driver[page]->page8k_pointers[page*2+0];
+	uint8_t* p = memmap->current_driver[page]->page8k_pointers[page*2+0];
+	memmap->current_ptr[page] = p;
+	
 
 	memmap->slot_sel[page] = slot_base;
 }
@@ -200,7 +217,7 @@ void select_slot_ex(ms_memmap_t* memmap, int page, int slot_ex) {
 	slot_ex &= 0x03;
 
 	// ページ3に見えている基本スロットを取得
-	int slot_base = memmap->slot_sel[page];
+	int slot_base = memmap->slot_sel[3];
 	// 選択したスロットが拡張されているか調べる
 	if ( memmap->slot_expanded.flag[slot_base] == 0 ) {
 		// 拡張されていない場合は何もしない
@@ -211,12 +228,17 @@ void select_slot_ex(ms_memmap_t* memmap, int page, int slot_ex) {
 		// 変更がない場合は何もしない
 		return;
 	}
+	select_slot_ex_impl(memmap, slot_base, page, slot_ex);
+}
+
+void select_slot_ex_impl(ms_memmap_t* memmap, int slot_base, int page, int slot_ex) {
 	if ( memmap->slot_sel[page] == slot_base) {
 		// 今回変更した拡張スロットが見えている場合だけ更新
 		memmap->current_driver[page] = memmap->attached_driver[slot_base][slot_ex][page];
 		// CPUが見てるポインタを更新
 		// TODO CPU側がまだ16Kにしか対応していないので暫定
-		memmap->current_ptr[page] = memmap->current_driver[page]->page8k_pointers[page*2+0];
+		uint8_t* p = memmap->current_driver[page]->page8k_pointers[page*2+0];
+		memmap->current_ptr[page] = p;
 	}
 	memmap->slot_sel_ex[slot_base][page] = slot_ex;
 }
@@ -255,7 +277,8 @@ void write_exslot_reg(uint8_t data) {
 }
 
 uint8_t read_exslot_reg() {
-	uint8_t ret = ms_memmap_shared->slot_sel_ex[0][0] | (ms_memmap_shared->slot_sel_ex[1][0] << 2) | (ms_memmap_shared->slot_sel_ex[2][0] << 4) | (ms_memmap_shared->slot_sel_ex[3][0] << 6);
+	uint8_t slot_base = ms_memmap_shared->slot_sel[3];
+	uint8_t ret = ms_memmap_shared->slot_sel_ex[slot_base][0] | (ms_memmap_shared->slot_sel_ex[slot_base][1] << 2) | (ms_memmap_shared->slot_sel_ex[slot_base][2] << 4) | (ms_memmap_shared->slot_sel_ex[slot_base][3] << 6);
 	// 読み出すと反転した値が読める
 	return ~ret;
 }

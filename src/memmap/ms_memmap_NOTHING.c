@@ -6,6 +6,8 @@
 #include "ms_memmap.h"
 #include "ms_memmap_NOTHING.h"
 
+char* driver_name_NOTHING = "NOTHING";
+
 /*
 	Šm•Û & ‰Šú‰»ƒ‹[ƒ`ƒ“
  */
@@ -17,7 +19,7 @@ ms_memmap_driver_t* ms_memmap_NOTHING_init(ms_memmap_t* memmap) {
 	}
 	instance->base.memmap = memmap;
 	instance->base.type = ROM_TYPE_NOTHING;
-	instance->base.name = "NOTHING";
+	instance->base.name = driver_name_NOTHING;
 	instance->base.deinit = ms_memmap_deinit_NOTHING;
 	instance->base.did_attach = ms_memmap_did_attach_NOTHING;
 	instance->base.will_detach = ms_memmap_will_detach_NOTHING;

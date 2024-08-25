@@ -5,6 +5,7 @@
 #include <fcntl.h>
 #include "ms_memmap.h"
 
+char* driver_name_MEGAROM_KONAMI_SCC = "MEGAROM_KONAMI_SCC";
 
 void _select_bank_KONAMI_SCC(ms_memmap_driver_MEGAROM_KONAMI_SCC_t* d, int rom_page, int bank);
 
@@ -19,7 +20,7 @@ ms_memmap_driver_t* ms_memmap_MEGAROM_KONAMI_SCC_init(ms_memmap_t* memmap, const
 	}
 	instance->base.memmap = memmap;
 	instance->base.type = ROM_TYPE_MEGAROM_KONAMI_SCC;
-	instance->base.name = "KONAMI_SCC";
+	instance->base.name = driver_name_MEGAROM_KONAMI_SCC;
 	instance->base.deinit = ms_memmap_deinit_MEGAROM_KONAMI_SCC;
 	instance->base.did_attach = ms_memmap_did_attach_MEGAROM_KONAMI_SCC;
 	instance->base.will_detach = ms_memmap_will_detach_MEGAROM_KONAMI_SCC;

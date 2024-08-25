@@ -6,6 +6,8 @@
 #include "ms_memmap.h"
 #include "ms_memmap_NORMALROM.h"
 
+char* driver_name_NORMALROM = "NORMALROM";
+
 /*
 	Šm•Û & ‰Šú‰»ƒ‹[ƒ`ƒ“
  */
@@ -17,7 +19,7 @@ ms_memmap_driver_t* ms_memmap_NORMALROM_init(ms_memmap_t* memmap, uint8_t* buffe
 	}
 	instance->base.memmap = memmap;
 	instance->base.type = ROM_TYPE_NORMAL_ROM;
-	instance->base.name = "NORMALROM";
+	instance->base.name = driver_name_NORMALROM;
 	instance->base.deinit = ms_memmap_deinit_NORMALROM;
 	instance->base.did_attach = ms_memmap_did_attach_NORMALROM;
 	instance->base.will_detach = ms_memmap_will_detach_NORMALROM;

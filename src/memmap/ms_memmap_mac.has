@@ -54,10 +54,12 @@ my_segment_num	equ	2-headerlength	* マッパＲＡＭなどの時の自分のセグメント番号
 *
 *******************************************************************
 ms_read_mem_8:
+	movem.l	d3-d7/a0-a5,-(sp)
 	andi.l	#$ffff,d0
 	move.l	d0,-(sp)
 	bsr	ms_memmap_read8
 	lea	4(sp),sp
+	movem.l	(sp)+,d3-d7/a0-a5
 	rts
 
 *******************************************************************
@@ -73,12 +75,14 @@ ms_read_mem_8:
 *
 *******************************************************************
 ms_write_mem_8:
+	movem.l	d3-d7/a0-a5,-(sp)
 	andi.l	#$ff,d1
 	move.l	d1,-(sp)
 	andi.l	#$ffff,d0
 	move.l	d0,-(sp)
 	bsr	ms_memmap_write8
 	lea	8(sp),sp
+	movem.l	(sp)+,d3-d7/a0-a5
 	rts
 
 
@@ -94,10 +98,12 @@ ms_write_mem_8:
 *
 *******************************************************************
 ms_read_mem_16:
+	movem.l	d3-d7/a0-a5,-(sp)
 	andi.l	#$ffff,d0
 	move.l	d0,-(sp)
 	bsr	ms_memmap_read16
 	lea	4(sp),sp
+	movem.l	(sp)+,d3-d7/a0-a5
 	rts
 
 *******************************************************************
@@ -112,12 +118,14 @@ ms_read_mem_16:
 *
 *******************************************************************
 ms_write_mem_16:
+	movem.l	d3-d7/a0-a5,-(sp)
 	andi.l	#$ffff,d1
 	move.l	d1,-(sp)
 	andi.l	#$ffff,d0
 	move.l	d0,-(sp)
 	bsr	ms_memmap_write16
 	lea	8(sp),sp
+	movem.l	(sp)+,d3-d7/a0-a5
 	rts
 
 ;
@@ -151,14 +159,18 @@ page3:
 *
 ******************************************************************
 w_port_A8:
+	movem.l	d3-d7/a0-a5,-(sp)
 	andi.l	#$ff,d1
 	move.l	d1,-(sp)
 	bsr	write_port_A8
-	lea	8(sp),sp
-	rts	
+	lea	4(sp),sp
+	movem.l	(sp)+,d3-d7/a0-a5
+	rts
 
 r_port_A8:
+	movem.l	d3-d7/a0-a5,-(sp)
 	bsr	read_port_A8
+	movem.l	(sp)+,d3-d7/a0-a5
 	rts
 
 ******************************************************************
@@ -171,32 +183,40 @@ r_port_A8:
 *
 ******************************************************************
 w_port_FC:
+	movem.l	d3-d7/a0-a5,-(sp)
 	andi.l	#$ff,d1
 	move.l	d1,-(sp)
 	bsr	write_port_FC
-	lea	8(sp),sp
-	rts	
+	lea	4(sp),sp
+	movem.l	(sp)+,d3-d7/a0-a5
+	rts
 
 w_port_FD:
+	movem.l	d3-d7/a0-a5,-(sp)
 	andi.l	#$ff,d1
 	move.l	d1,-(sp)
 	bsr	write_port_FD
-	lea	8(sp),sp
-	rts	
+	lea	4(sp),sp
+	movem.l	(sp)+,d3-d7/a0-a5
+	rts
 
 w_port_FE:
+	movem.l	d3-d7/a0-a5,-(sp)
 	andi.l	#$ff,d1
 	move.l	d1,-(sp)
 	bsr	write_port_FE
-	lea	8(sp),sp
-	rts	
+	lea	4(sp),sp
+	movem.l	(sp)+,d3-d7/a0-a5
+	rts
 
 w_port_FF:
+	movem.l	d3-d7/a0-a5,-(sp)
 	andi.l	#$ff,d1
 	move.l	d1,-(sp)
 	bsr	write_port_FF
-	lea	8(sp),sp
-	rts	
+	lea	4(sp),sp
+	movem.l	(sp)+,d3-d7/a0-a5
+	rts
 
 
 	.end

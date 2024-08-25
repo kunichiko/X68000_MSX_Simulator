@@ -400,6 +400,9 @@ int main(int argc, char *argv[]) {
 		printf("VSYNC回数は %d です\n", end - start);
 	}
 
+	// 	全ページの スロットを０で初期化
+	write_port_A8(0);
+
 	if (1) {
 		ms_cpu_emulate(emuLoop, max_wait);
 	} else {
@@ -745,13 +748,13 @@ void set_system_roms() {
 		// Load user-provided ROMs
 		printf("指定されたBIOS ROMが見つかりました。%s と %sを使用します。\n", mainrom_user, subrom_user);
 		allocateAndSetROM(mainrom_user, ROM_TYPE_NORMAL_ROM, 0x00, -1, 0);
-		allocateAndSetROM(subrom_user, ROM_TYPE_NORMAL_ROM, 0x03, 0, 0);
+		allocateAndSetROM(subrom_user, ROM_TYPE_NORMAL_ROM, 0x03, 1, 0);
     } else {
         // Load default CBIOS ROMs
 		printf("CBIOS ROMを使用します。\n");
 		allocateAndSetROM(mainrom_cbios, ROM_TYPE_NORMAL_ROM, 0x00, -1, 0);
 		allocateAndSetROM(cbioslogo, ROM_TYPE_NORMAL_ROM, 0x00, -1, 2);
-		allocateAndSetROM(subrom_cbios, ROM_TYPE_NORMAL_ROM, 0x03, 0, 0);
+		allocateAndSetROM(subrom_cbios, ROM_TYPE_NORMAL_ROM, 0x03, 1, 0);
     }
 }
 

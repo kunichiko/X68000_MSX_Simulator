@@ -6,6 +6,8 @@
 #include "ms_memmap.h"
 #include "ms_memmap_MAINRAM.h"
 
+char* driver_name_MAINRAM = "MAINRAM";
+
 /*
 	確保 & 初期化ルーチン
  */
@@ -17,7 +19,7 @@ ms_memmap_driver_t* ms_memmap_MAINRAM_init(ms_memmap_t* memmap) {
 	}
 	instance->base.memmap = memmap;
 	instance->base.type = ROM_TYPE_MAPPER_RAM;
-	instance->base.name = "MAINRAM";
+	instance->base.name = driver_name_MAINRAM;
 	instance->base.deinit = ms_memmap_deinit_MAINRAM;
 	instance->base.did_attach = ms_memmap_did_attach_MAINRAM;
 	instance->base.will_detach = ms_memmap_will_detach_MAINRAM;
@@ -61,17 +63,23 @@ int ms_memmap_will_detach_MAINRAM(ms_memmap_driver_t* driver) {
 	return 0;
 }
 
-void ms_memmap_did_update_memory_mapper_MAINRAM(ms_memmap_driver_t* driver, int slot, uint8_t segment_num) {
+void ms_memmap_did_update_memory_mapper_MAINRAM(ms_memmap_driver_t* driver, int page, uint8_t segment_num) {
 	ms_memmap_driver_MAINRAM_t* d = (ms_memmap_driver_MAINRAM_t*)driver;
-	if (slot < 0 || slot > 3) {
-		printf("MAINRAM: slot out of range: %d\n", slot);
+	if (page < 0 || page > 3) {
+		printf("MAINRAM: page out of range: %d\n", page);
 		return;
 	}
 	if (segment_num >= d->num_segments) {
 		printf("MAINRAM: segment out of range: %d\n", segment_num);
 		return;
 	}
-	d->selected_segment[slot] = segment_num;
+	d->base.page8k_pointers[page*2+0] = d->base.buffer + (segment_num * 0x4000);
+	d->base.page8k_pointers[page*2+1] = d->base.buffer + (segment_num * 0x4000) + 0x2000;
+	d->selected_segment[page] = segment_num;
+
+	// 切り替えが起こったことを memmap に通知
+	d->base.memmap->update_page_pointer( d->base.memmap, (ms_memmap_driver_t*)d, page*2+0);
+	d->base.memmap->update_page_pointer( d->base.memmap, (ms_memmap_driver_t*)d, page*2+1);
 }
 
 uint8_t ms_memmap_read8_MAINRAM(ms_memmap_driver_t* driver, uint16_t addr) {

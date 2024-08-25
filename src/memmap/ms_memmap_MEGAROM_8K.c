@@ -5,6 +5,7 @@
 #include <fcntl.h>
 #include "ms_memmap.h"
 
+char* driver_name_MEGAROM_8K = "MEGAROM_8K";
 
 void _select_bank_8K(ms_memmap_driver_MEGAROM_8K_t* d, int page, int bank);
 
@@ -19,7 +20,7 @@ ms_memmap_driver_t* ms_memmap_MEGAROM_8K_init(ms_memmap_t* memmap, const uint8_t
 	}
 	instance->base.memmap = memmap;
 	instance->base.type = ROM_TYPE_MEGAROM_8;
-	instance->base.name = "MEGAROM_8K";
+	instance->base.name = driver_name_MEGAROM_8K;
 	instance->base.deinit = ms_memmap_deinit_MEGAROM_8K;
 	instance->base.did_attach = ms_memmap_did_attach_MEGAROM_8K;
 	instance->base.will_detach = ms_memmap_will_detach_MEGAROM_8K;

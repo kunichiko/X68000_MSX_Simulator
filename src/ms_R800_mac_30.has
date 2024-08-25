@@ -299,8 +299,6 @@ ms_cpu_emulate:
 	move.l	12(a6),cpu_cycle_wait_max	* 引数2の最大ウエイトを保存しておく
 
 	lea.l	registers,a3
-	clr.w	d1
-	jsr	w_port_A8		* スロットを０で初期化
 	clr.w	d7			* pc = 0
 	PC_page_set
 	clr.w	sp_(a3)			* sp = 0
@@ -7774,7 +7772,8 @@ output:
 	move.b	d1,-(sp)			* Cの関数でも呼べるように引数をセット
 	move.b	d0,-(sp)			* Cの関数でも呼べるように引数をセット
 	jsr	(a0)
-@@:	lea	4(sp),sp
+@@:	jsr	refresh_PC_if_needed
+	lea	4(sp),sp
 	movem.l	(sp)+,d2-d7/a0-a5
 	rts
 
