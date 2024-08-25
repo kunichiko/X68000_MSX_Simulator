@@ -116,6 +116,7 @@
 	.xdef	ms_cpu_step_break
 	.xdef	ms_instructions_ptr
 	.xdef	ms_cpu_registers_ptr
+	.xdef	ms_cpu_needs_refresh_PC
 
 	;.xdef	cpu_main
 	.xdef	cpu_emu_yield
@@ -211,7 +212,37 @@ PC_page_set	macro			* JP命令等で PCが変わった時の処理
 		swap	d7
 		endm
 
+write_mem_8	macro
+		jsr	ms_write_mem_8
+		jsr	refresh_PC_if_needed
+		endm
+
+write_mem_16	macro
+		jsr	ms_write_mem_16
+		jsr	refresh_PC_if_needed
+		endm
+
+	.text
+
+;
+;
+refresh_PC_if_needed:
+	tst.w	ms_cpu_needs_refresh_PC
+	beq	1f
+	move.w	#0,ms_cpu_needs_refresh_PC
+	swap	d7
+	lea	page0,a4
+	movea.l	(a4,d7.w*4),a4
+	swap	d7
+1:	rts
+
+
 	.data
+
+; メモリ書き込みやI/Oポートへの書き込みをした後にこのフラグがセットされていたら、
+; エミュレータはPCを再読み込みする必要がある
+ms_cpu_needs_refresh_PC:
+	.dc.w	0
 
 cpu_cycle:
 	.dc.l	0
@@ -1287,7 +1318,7 @@ mode1:	move.l	d7,d1
 	or.w	d7,d1		* d1 = ppaaaaaa_aaaaaaaa = PC (64k)
 	subq.w	#2,sp_(a3)	* PUSH	
 	move.w	sp_(a3),d0
-	jsr	ms_write_mem_16
+	write_mem_16
 
 	move.w	#$0038,d7
 	PC_page_set
@@ -1299,7 +1330,7 @@ mode2:	move.l	d7,d1
 	or.w	d7,d1		* d1 = ppaaaaaa_aaaaaaaa = PC (64k)
 	subq.w	#2,sp_(a3)	* PUSH	
 	move.w	sp_(a3),d0
-	jsr	ms_write_mem_16
+	write_mem_16
 
 	move.b	i(a3),d0
 	lsl.w	#8,d0
@@ -1701,7 +1732,7 @@ LD_L_n:	* 先読みした値からnを取り出す
 LD_lHLl_A:
 	move.w	hl(a3),d0
 	move.b	d4,d1
-	jsr	ms_write_mem_8
+	write_mem_8
 	rts
 
 	.dc.w	7			* サイクル数
@@ -1709,7 +1740,7 @@ LD_lHLl_A:
 LD_lHLl_B:
 	move.w	hl(a3),d0
 	move.b	b(a3),d1
-	jsr	ms_write_mem_8
+	write_mem_8
 	rts
 
 	.dc.w	7			* サイクル数
@@ -1717,7 +1748,7 @@ LD_lHLl_B:
 LD_lHLl_C:
 	move.w	hl(a3),d0
 	move.b	c(a3),d1
-	jsr	ms_write_mem_8
+	write_mem_8
 	rts
 
 	.dc.w	7			* サイクル数
@@ -1725,7 +1756,7 @@ LD_lHLl_C:
 LD_lHLl_D:
 	move.w	hl(a3),d0
 	move.b	d(a3),d1
-	jsr	ms_write_mem_8
+	write_mem_8
 	rts
 
 	.dc.w	7			* サイクル数
@@ -1733,7 +1764,7 @@ LD_lHLl_D:
 LD_lHLl_E:
 	move.w	hl(a3),d0
 	move.b	e(a3),d1
-	jsr	ms_write_mem_8
+	write_mem_8
 	rts
 
 	.dc.w	7			* サイクル数
@@ -1741,7 +1772,7 @@ LD_lHLl_E:
 LD_lHLl_H:
 	move.w	hl(a3),d0
 	move.b	h(a3),d1
-	jsr	ms_write_mem_8
+	write_mem_8
 	rts
 
 	.dc.w	7			* サイクル数
@@ -1749,7 +1780,7 @@ LD_lHLl_H:
 LD_lHLl_L:
 	move.w	hl(a3),d0
 	move.b	l(a3),d1
-	jsr	ms_write_mem_8
+	write_mem_8
 	rts
 
 	.dc.w	10			* サイクル数
@@ -1758,7 +1789,7 @@ LD_lHLl_n:
 	move.w	hl(a3),d0
 	* 先読みした値からnを取り出す
 	rol.l	#8,d1			* 最下位バイトに移動
-	jsr	ms_write_mem_8
+	write_mem_8
 	rts
 
 	.dc.w	7			* サイクル数
@@ -1766,7 +1797,7 @@ LD_lHLl_n:
 LD_lBCl_A:
 	move.w	bc(a3),d0
 	move.b	d4,d1
-	jsr	ms_write_mem_8
+	write_mem_8
 	rts
 
 	.dc.w	7			* サイクル数
@@ -1774,7 +1805,7 @@ LD_lBCl_A:
 LD_lDEl_A:
 	move.w	de(a3),d0
 	move.b	d4,d1
-	jsr	ms_write_mem_8
+	write_mem_8
 	rts
 
 	.dc.w	13			* サイクル数
@@ -1785,7 +1816,7 @@ LD_lnnl_A:
 	rol.w	#8,d1			* エンディアンを逆に
 	move.w	d1,d0
 	move.b	d4,d1
-	jsr	ms_write_mem_8
+	write_mem_8
 	rts
 
 
@@ -1854,7 +1885,7 @@ LD_lnnl_HL:
 	rol.w	#8,d1			* エンディアンを逆に
 	move.w	d1,d0
 	move.w	hl(a3),d1
-	jsr	ms_write_mem_16
+	write_mem_16
 	rts
 
 *------ ＡＤＤ ------
@@ -2670,7 +2701,7 @@ INC_lHLl:
 	INC_X
 	move.b	d0,d1			* インクリメントした結果が d0に入っているので d1 に退避
 	move.w	hl(a3),d0		* d0 には HL の値が入っている
-	jsr	ms_write_mem_8		* (HL) に結果を書き込む
+	write_mem_8		* (HL) に結果を書き込む
 	rts
 
 ;---------------------------------------------------------------------------------------
@@ -2775,7 +2806,7 @@ DEC_lHLl:
 	DEC_X
 	move.b	d0,d1			* デクリメントした結果が d0に入っているので d1 に退避
 	move.w	hl(a3),d0		* d0 には HL の値が入っている
-	jsr	ms_write_mem_8		* (HL) に結果を書き込む
+	write_mem_8		* (HL) に結果を書き込む
 	rts
 
 ;---------------------------------------------------------------------------------------
@@ -3043,7 +3074,7 @@ CALL:	* 先読みした値からnnを取り出す
 	or.w	d0,d1			* d1 = PC (R800)
 	subq.w	#2,sp_(a3)		* PUSH	
 	move.w	sp_(a3),d0
-	jsr	ms_write_mem_16
+	write_mem_16
 	move.w 	(sp)+,d7
 	PC_page_set
 	rts
@@ -3222,7 +3253,7 @@ PUSH_XX	macro
 	subq.w	#2,sp_(a3)		; スタックを2バイト減らす
 	move.w	sp_(a3),d0
 	move.w	target_16(a3),d1
-	jsr	ms_write_mem_16		; スタックに書き込む
+	write_mem_16		; スタックに書き込む
 	endm
 ;---------------------------------------------------------------------------------------
 
@@ -3306,7 +3337,7 @@ EX_lSPl_HL:
 	move.w	hl(a3),d1
 	move.w	d0,hl(a3)
 	move.w	sp_(a3),d0
-	jsr	ms_write_mem_16
+	write_mem_16
 	rts
 
 	.dc.w	4			* サイクル数
@@ -3431,7 +3462,7 @@ RST_XXH	macro	value
 	or.w	d7,d1			* d1 = PC (R800) = next instruction
 	subq.w	#2,sp_(a3)		* PUSH	
 	move.w	sp_(a3),d0
-	jsr	ms_write_mem_16
+	write_mem_16
 	move.w	value,d7
 	PC_page_set
 	endm
@@ -3710,7 +3741,7 @@ set_lhll
 	bset.l	d1,d0				* (HL)の nビット目をセット
 	move.b	d0,d1
 	move.w	hl(a3),d0
-	jsr	ms_write_mem_8		
+	write_mem_8		
 	rts
 
 ;	------ ＲＥＳ ------
@@ -3739,7 +3770,7 @@ RES_lhll
 	bclr.l	d1,d0				* (HL)の nビット目をセット
 	move.b	d0,d1
 	move.w	hl(a3),d0
-	jsr	ms_write_mem_8		
+	write_mem_8		
 	rts
 
 ;	------ CASE2 ------
@@ -3966,7 +3997,7 @@ RLC_lHLl:
 	RXX_	1, 1
 	move.b	d0,d1
 	move.w	hl(a3),d0
-	jsr	ms_write_mem_8
+	write_mem_8
 	rts
 
 *	------ ＲＲＣ ------
@@ -4007,7 +4038,7 @@ RRC_lHLl:
 	RXX_	0, 1
 	move.b	d0,d1
 	move.w	hl(a3),d0
-	jsr	ms_write_mem_8
+	write_mem_8
 	rts
 
 *	------ ＲＬ ------
@@ -4048,7 +4079,7 @@ RL_lHLl:
 	RXX_	1, 0
 	move.b	d0,d1
 	move.w	hl(a3),d0
-	jsr	ms_write_mem_8
+	write_mem_8
 	rts
 
 *	------ ＲＲ ------
@@ -4089,7 +4120,7 @@ RR_lHLl:
 	RXX_	0, 0
 	move.b	d0,d1
 	move.w	hl(a3),d0
-	jsr	ms_write_mem_8
+	write_mem_8
 	rts
 
 ;
@@ -4194,7 +4225,7 @@ SLA_lHLl:
 	SXX	1, 0
 	move.b	d0,d1
 	move.w	hl(a3),d0
-	jsr	ms_write_mem_8
+	write_mem_8
 	rts
 
 *	------ ＳＲＡ ------
@@ -4242,7 +4273,7 @@ SRA_lHLl:
 	SXX	0, 2
 	move.b	d0,d1
 	move.w	hl(a3),d0
-	jsr	ms_write_mem_8
+	write_mem_8
 	rts
 
 *	------ ＳＲＬ ------
@@ -4290,7 +4321,7 @@ SRL_lHLl:
 	SXX	0, 0
 	move.b	d0,d1
 	move.w	hl(a3),d0
-	jsr	ms_write_mem_8
+	write_mem_8
 	rts
 
 *	------ ＳＬＩ ------
@@ -4338,7 +4369,7 @@ SLI_lHLl:
 	SXX	1, 1
 	move.b	d0,d1
 	move.w	hl(a3),d0
-	jsr	ms_write_mem_8
+	write_mem_8
 	rts
 
 ********************************************************************
@@ -4698,7 +4729,7 @@ RLD_lHLl:
 	or.b	d0,d4			* d4.b = |Ah|(H|
 
 	move.w	hl(a3),d0
-	jsr	ms_write_mem_8
+	write_mem_8
 
 	andi.l	#%000_11101101_11101101,d6	* HC,Nをクリア
 	ori.l	#%010_11101100_00000000,d6	* S,Z,F5,F5,PVのダーティビットを立てる
@@ -4722,7 +4753,7 @@ RRD_lHLl:
 	or.b	d0,d4			* d4.b =       |Ah|L)|
 
 	move.w	hl(a3),d0
-	jsr	ms_write_mem_8
+	write_mem_8
 
 	andi.l	#%000_11101101_11101101,d6	* HC,Nをクリア
 	ori.l	#%010_11101100_00000000,d6	* S,Z,F5,F5,PVのダーティビットを立てる
@@ -4800,7 +4831,7 @@ LD_lnnl_BC:
 	rol.w	#8,d1			* エンディアンを逆に
 	move.w	d1,d0			* d0.w = nn
 	move.w	bc(a3),d1
-	jsr	ms_write_mem_16
+	write_mem_16
 	rts
 
 	.dc.w	20			* サイクル数
@@ -4811,7 +4842,7 @@ LD_lnnl_DE:
 	rol.w	#8,d1			* エンディアンを逆に
 	move.w	d1,d0			* d0.w = nn
 	move.w	de(a3),d1
-	jsr	ms_write_mem_16
+	write_mem_16
 	rts
 
 	.dc.w	20			* サイクル数
@@ -4822,7 +4853,7 @@ LD_lnnl_HL_2:
 	rol.w	#8,d1			* エンディアンを逆に
 	move.w	d1,d0			* d0.w = nn
 	move.w	hl(a3),d1
-	jsr	ms_write_mem_16
+	write_mem_16
 	rts
 
 	.dc.w	20			* サイクル数
@@ -4833,7 +4864,7 @@ LD_lnnl_SP:
 	rol.w	#8,d1			* エンディアンを逆に
 	move.w	d1,d0			* d0.w = nn
 	move.w	sp_(a3),d1
-	jsr	ms_write_mem_16
+	write_mem_16
 	rts
 
 *	------ ＡＤＣ ------
@@ -5028,7 +5059,7 @@ LDI:	andi.l	#%111_11000001_11000001,d6	* S,Z,C以外をクリア
 	lsl.b	#4,d2
 	or.b	d2,d6			* F5をセット
 	move.w	de(a3),d0
-	jsr	ms_write_mem_8
+	write_mem_8
 	addq.w	#1,hl(a3)
 	addq.w	#1,de(a3)
 	subq.w	#1,bc(a3)
@@ -5088,7 +5119,7 @@ LDD:	andi.l	#%111_11000001_11000001,d6	* S,Z,C以外をクリア
 	lsl.b	#4,d2
 	or.b	d2,d6			* F5をセット
 	move.w	de(a3),d0
-	jsr	ms_write_mem_8
+	write_mem_8
 	subq.w	#1,hl(a3)
 	subq.w	#1,de(a3)
 	subq.w	#1,bc(a3)
@@ -6485,7 +6516,7 @@ INC_lIdx_dl:
 	INC_X
 	move.b	d0,d1
 	move.w	(sp)+,d0
-	jsr	ms_write_mem_8
+	write_mem_8
 	rts
 
 	.dc.w	23			* サイクル数
@@ -6502,7 +6533,7 @@ DEC_lIdx_dl:
 	DEC_X
 	move.b	d0,d1
 	move.w	(sp)+,d0
-	jsr	ms_write_mem_8
+	write_mem_8
 	rts
 
 
@@ -6624,7 +6655,7 @@ LD_lnnl_Idx:
 	rol.w	#8,d1			* エンディアンを逆に
 	move.w	d1,d0
 	move.w	ix(a3,d2.w),d1
-	jsr	ms_write_mem_16
+	write_mem_16
 	rts
 
 	.dc.w	10			* サイクル数
@@ -6743,7 +6774,7 @@ LD_lIdx_dl_A:
 	ext.w	d1
 	add.w	d1,d0
 	move.b	d4,d1
-	jsr	ms_write_mem_8
+	write_mem_8
 	rts
 
 	.dc.w	19			* サイクル数
@@ -6755,7 +6786,7 @@ LD_lIdx_dl_B:
 	ext.w	d1
 	add.w	d1,d0
 	move.b	b(a3),d1
-	jsr	ms_write_mem_8
+	write_mem_8
 	rts
 
 	.dc.w	19			* サイクル数
@@ -6767,7 +6798,7 @@ LD_lIdx_dl_C:
 	ext.w	d1
 	add.w	d1,d0
 	move.b	c(a3),d1
-	jsr	ms_write_mem_8
+	write_mem_8
 	rts
 
 	.dc.w	19			* サイクル数
@@ -6779,7 +6810,7 @@ LD_lIdx_dl_D:
 	ext.w	d1
 	add.w	d1,d0
 	move.b	d(a3),d1
-	jsr	ms_write_mem_8
+	write_mem_8
 	rts
 
 	.dc.w	19			* サイクル数
@@ -6791,7 +6822,7 @@ LD_lIdx_dl_E:
 	ext.w	d1
 	add.w	d1,d0
 	move.b	e(a3),d1
-	jsr	ms_write_mem_8
+	write_mem_8
 	rts
 
 	.dc.w	19			* サイクル数
@@ -6803,7 +6834,7 @@ LD_lIdx_dl_H:
 	ext.w	d1
 	add.w	d1,d0
 	move.b	h(a3),d1
-	jsr	ms_write_mem_8
+	write_mem_8
 	rts
 
 	.dc.w	19			* サイクル数
@@ -6815,7 +6846,7 @@ LD_lIdx_dl_L:
 	ext.w	d1
 	add.w	d1,d0
 	move.b	l(a3),d1
-	jsr	ms_write_mem_8
+	write_mem_8
 	rts
 
 	.dc.w	19			* サイクル数
@@ -6828,7 +6859,7 @@ LD_lIdx_dl_n:
 	add.w	d1,d0
 	* 先読みした値から nを取り出す
 	rol.l	#8,d1			* 最下位バイトに移動
-	jsr	ms_write_mem_8
+	write_mem_8
 	rts
 
 
@@ -6839,7 +6870,7 @@ PUSH_Idx:
 	subq.w	#2,sp_(a3)
 	move.w	sp_(a3),d0
 	move.w	ix(a3,d2.w),d1
-	jsr	ms_write_mem_16
+	write_mem_16
 	rts
 
 	.dc.w	14			* サイクル数
@@ -6874,7 +6905,7 @@ EX_lSPl_Idx:
 	move.w	ix(a3,d2.w),d1
 	move.w	d0,ix(a3,d2.w)
 	move.w	sp_(a3),d0
-	jsr	ms_write_mem_16
+	write_mem_16
 	rts
 
 *	------ Ｓｙｓｔｅｍ Ｅｎｄ ------
@@ -7226,7 +7257,7 @@ RLC_lIdx_dl:
 	RXX_	1, 1
 	move.b	d0,d1
 	move.w	(sp)+,d0
-	jsr	ms_write_mem_8
+	write_mem_8
 	rts
 
 	.dc.w	23			* サイクル数
@@ -7238,7 +7269,7 @@ RRC_lIdx_dl:
 	RXX_	0, 1
 	move.b	d0,d1
 	move.w	(sp)+,d0
-	jsr	ms_write_mem_8
+	write_mem_8
 	rts
 
 	.dc.w	23			* サイクル数
@@ -7250,7 +7281,7 @@ RL_lIdx_dl:
 	RXX_	1, 0
 	move.b	d0,d1
 	move.w	(sp)+,d0
-	jsr	ms_write_mem_8
+	write_mem_8
 	rts
 
 	.dc.w	23			* サイクル数
@@ -7262,7 +7293,7 @@ RR_lIdx_dl:
 	RXX_	0, 0
 	move.b	d0,d1
 	move.w	(sp)+,d0
-	jsr	ms_write_mem_8
+	write_mem_8
 	rts
 
 	.dc.w	23			* サイクル数
@@ -7274,7 +7305,7 @@ SLA_lIdx_dl:
 	SXX	1, 0
 	move.b	d0,d1
 	move.w	(sp)+,d0
-	jsr	ms_write_mem_8
+	write_mem_8
 	rts
 
 	.dc.w	23			* サイクル数
@@ -7286,7 +7317,7 @@ SRA_lIdx_dl:
 	SXX	0, 2
 	move.b	d0,d1
 	move.w	(sp)+,d0
-	jsr	ms_write_mem_8
+	write_mem_8
 	rts
 
 	.dc.w	23			* サイクル数
@@ -7298,7 +7329,7 @@ SRL_lIdx_dl:
 	SXX	0, 0
 	move.b	d0,d1
 	move.w	(sp)+,d0
-	jsr	ms_write_mem_8
+	write_mem_8
 	rts
 
 	.dc.w	23			* サイクル数
@@ -7310,7 +7341,7 @@ SLI_lIdx_dl:
 	SXX	1, 1
 	move.b	d0,d1
 	move.w	(sp)+,d0
-	jsr	ms_write_mem_8
+	write_mem_8
 	rts
 
 *	------ ＳＥＴ n,(Idx+d) ------
@@ -7328,7 +7359,7 @@ SET_lIdx_dl:
 	bset.l	d1,d0				* (Idx + d)の nビット目をセット
 	move.b	d0,d1
 	move.w	(sp)+,d0
-	jsr	ms_write_mem_8		
+	write_mem_8		
 	rts
 
 *	------ ＲＥＳ n,(Idx+d) ------
@@ -7344,7 +7375,7 @@ RES_lIdx_dl:
 	bclr.l	d1,d0				* (Idx + d)の nビット目をクリア
 	move.b	d0,d1
 	move.w	(sp)+,d0
-	jsr	ms_write_mem_8		
+	write_mem_8		
 	rts
 
 *	------ ＢＩＴ n,(Idx+d) ------
@@ -7494,7 +7525,7 @@ INI:	bsr	eval_flag_all		* 全フラグを再評価
 	bsr	input
 	move.b	d0,d1
 	move.w	hl(a3),d0
-	jsr	ms_write_mem_8
+	write_mem_8
 	addq.w	#1,hl(a3)
 	subq.b	#1,b(a3)
 	bne	@f
@@ -7511,7 +7542,7 @@ IND:	bsr	eval_flag_all		* 全フラグを再評価
 	bsr	input
 	move.b	d0,d1
 	move.w	hl(a3),d0
-	jsr	ms_write_mem_8
+	write_mem_8
 	subq.w	#1,hl(a3)
 	subq.b	#1,b(a3)
 	bne	@f

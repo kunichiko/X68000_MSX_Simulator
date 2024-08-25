@@ -34,9 +34,12 @@ OBJS = $(BUILD_DIR)/ms.o \
 		$(BUILD_DIR)/ms_sub_mac.o \
 		$(BUILD_DIR)/ms_peripherals.o \
 		$(BUILD_DIR)/ms_PSG_mac.o \
-		$(BUILD_DIR)/ms_readcart.o \
 		$(BUILD_DIR)/ms_memmap.o \
 		$(BUILD_DIR)/ms_memmap_mac.o \
+		$(BUILD_DIR)/ms_memmap_util.o \
+		$(BUILD_DIR)/ms_memmap_NOTHING.o \
+		$(BUILD_DIR)/ms_memmap_MAINRAM.o \
+		$(BUILD_DIR)/ms_memmap_NORMALROM.o \
 		$(BUILD_DIR)/ms_memmap_MEGAROM_8K.o \
 		$(BUILD_DIR)/ms_memmap_MEGAROM_KONAMI.o \
 		$(BUILD_DIR)/ms_memmap_MEGAROM_KONAMI_SCC.o \
@@ -67,9 +70,12 @@ OBJS_DEBUG = $(BUILD_DIR)/ms_d.o \
 		$(BUILD_DIR)/ms_sub_mac_d.o \
 		$(BUILD_DIR)/ms_peripherals_d.o \
 		$(BUILD_DIR)/ms_PSG_mac_d.o \
-		$(BUILD_DIR)/ms_readcart_d.o \
 		$(BUILD_DIR)/ms_memmap_d.o \
 		$(BUILD_DIR)/ms_memmap_mac_d.o \
+		$(BUILD_DIR)/ms_memmap_util_d.o \
+		$(BUILD_DIR)/ms_memmap_NOTHING_d.o \
+		$(BUILD_DIR)/ms_memmap_MAINRAM_d.o \
+		$(BUILD_DIR)/ms_memmap_NORMALROM_d.o \
 		$(BUILD_DIR)/ms_memmap_MEGAROM_8K_d.o \
 		$(BUILD_DIR)/ms_memmap_MEGAROM_KONAMI_d.o \
 		$(BUILD_DIR)/ms_memmap_MEGAROM_KONAMI_SCC_d.o \

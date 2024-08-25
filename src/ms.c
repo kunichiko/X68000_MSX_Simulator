@@ -364,7 +364,7 @@ int main(int argc, char *argv[]) {
 		for ( j = 0; j < 4; j++) {
 			if ( slot_path[i][j] != NULL) {
 				printf("スロット%d-ページ%dにROMをセットします: %s\n", i, j, slot_path[i][j]);
-				allocateAndSetROM(slot_path[i][j], ROM_TYPE_NORMAL_ROM, i<<2, j);
+				allocateAndSetROM(slot_path[i][j], ROM_TYPE_NORMAL_ROM, i, -1, j);
 			}
 		}
 	}
@@ -744,14 +744,14 @@ void set_system_roms() {
 	if (file_exists(mainrom_user) && file_exists(subrom_user)) {
 		// Load user-provided ROMs
 		printf("指定されたBIOS ROMが見つかりました。%s と %sを使用します。\n", mainrom_user, subrom_user);
-		allocateAndSetROM(mainrom_user, ROM_TYPE_NORMAL_ROM, 0x00, 0);
-		allocateAndSetROM(subrom_user, ROM_TYPE_NORMAL_ROM, 0x0d, 0);
+		allocateAndSetROM(mainrom_user, ROM_TYPE_NORMAL_ROM, 0x00, -1, 0);
+		allocateAndSetROM(subrom_user, ROM_TYPE_NORMAL_ROM, 0x03, 0, 0);
     } else {
         // Load default CBIOS ROMs
 		printf("CBIOS ROMを使用します。\n");
-		allocateAndSetROM(mainrom_cbios, ROM_TYPE_NORMAL_ROM, 0x00, 0);
-		allocateAndSetROM(cbioslogo, ROM_TYPE_NORMAL_ROM, 0x00, 2);
-		allocateAndSetROM(subrom_cbios, ROM_TYPE_NORMAL_ROM, 0x0d, 0);
+		allocateAndSetROM(mainrom_cbios, ROM_TYPE_NORMAL_ROM, 0x00, -1, 0);
+		allocateAndSetROM(cbioslogo, ROM_TYPE_NORMAL_ROM, 0x00, -1, 2);
+		allocateAndSetROM(subrom_cbios, ROM_TYPE_NORMAL_ROM, 0x03, 0, 0);
     }
 }
 

@@ -18,103 +18,113 @@
 #define MS_MEMMAP_HEADER_LENGTH 8
 #define MS_MEMMAP_NUM_SEGMENTS 4
 
+extern uint8_t** ms_memmap_current_ptr;
+
+typedef struct ms_memmap_driver ms_memmap_driver_t;
+typedef struct ms_memmap ms_memmap_t;
+typedef struct ms_memmap_driver_MAINRAM ms_memmap_driver_MAINRAM_t;
+typedef struct ms_memmap_driver_NOTHING ms_memmap_driver_NOTHING_t;
+
 /*	スロットが拡張されているかどうか	*/
-struct slot_ex_info_st {
-	char slot_0;
-	char slot_1;
-	char slot_2;
-	char slot_3;
-};
+typedef struct slot_ex_info {
+	char flag[4];
+} slot_ex_info_t;
 
-struct one_slot_st {
-	uint8_t *page_0;
-	uint8_t *page_1;
-	uint8_t *page_2;
-	uint8_t *page_3;
-};
-
-/*
-	あるページの実体を指すポインタ。バンク切り替えのできるページの場合、
-	現在選択されているものが入っている。
-*/
-typedef struct slot_map	{
-	struct one_slot_st s00;
-	struct one_slot_st s01;
-	struct one_slot_st s02;
-	struct one_slot_st s03;
-
-	struct one_slot_st s10;
-	struct one_slot_st s11;
-	struct one_slot_st s12;
-	struct one_slot_st s13;
-
-	struct one_slot_st s20;
-	struct one_slot_st s21;
-	struct one_slot_st s22;
-	struct one_slot_st s23;
-
-	struct one_slot_st s30;
-	struct one_slot_st s31;
-	struct one_slot_st s32;
-	struct one_slot_st s33;
-} slot_map_t;
-
-extern slot_map_t *ms_memmap_slot_map_ptr;
 
 typedef struct ms_memmap {
-	uint8_t *main_mem;
+	// ページが切り替わった際に各ドライバから呼び出されるコールバック
+	void (*update_page_pointer)(ms_memmap_t* memmap, ms_memmap_driver_t* driver, int page8k);
+
+	// メインメモリのインスタンスは特別に参照を持つ
+	// (attached_driverの中にも含まれる)
+	ms_memmap_driver_MAINRAM_t* mainram_driver;
+
+	// 何も存在しないページ用のドライバインスタンスも特別に参照を持つ
+	ms_memmap_driver_NOTHING_t* nothing_driver;
+
+	// 現在の基本スロット選択状態 (= 0xa8レジスタの値)
+	uint8_t	slot_sel[4];
+
+	// 現在の拡張スロット選択状態 (= 0xffffレジスタの値 x 4セット)
+	uint8_t slot_sel_ex[4][4];
+
+	// スロットが拡張されているかどうか
+	slot_ex_info_t slot_expanded;
+
+	// 現在CPUから見えているスロット配置
+	// この値は、上記 slot_sel, slot_sel_expanded, slot_sel_ex から導出されますが、
+	// 毎回計算すると遅いため、この値をキャッシュしています
+	// また、この値が更新される際は、CPU側にその変更を通知するようになっていますので、
+	// 外部で書き換えないでください。
+	ms_memmap_driver_t* current_driver[4];
+
+	// 全てのスロット配置
+	// 基本スロット4 x 拡張スロット4 x ページ4
+	ms_memmap_driver_t* attached_driver[4][4][4];
+
+
+	// CPU側と共有しているポインタの配列へのポインタ
+	uint8_t** current_ptr;
 } ms_memmap_t;
+
+
+/*
+	このアドレスはヘッダ等を含まない部分を指す。よって、ヘッダは
+	(アドレス) - 8 のアドレスから存在する。
+*/
+typedef struct ms_memmap_page {
+	uint8_t *first_half;    // 前半8Kバイト
+	uint8_t *second_half;   // 後半8Kバイト
+} ms_memmap_page_t;
+
+typedef struct ms_memmap_slot {
+	ms_memmap_page_t page_0;
+	ms_memmap_page_t page_1;
+	ms_memmap_page_t page_2;
+	ms_memmap_page_t page_3;
+} ms_memmap_page_slot_t;
 
 typedef struct ms_memmap_driver ms_memmap_driver_t;
 
 typedef struct ms_memmap_driver {
-	// manager
-	ms_memmap_t* memmap;
+	// 本ドライバインスタンスを解放する場合に呼び出します
+	void (*deinit)(ms_memmap_driver_t* driver);
+	// memmapモジュールが本ドライバをアタッチした際に呼び出します
+	void (*did_attach)(ms_memmap_driver_t* driver);
+	// memmapモジュールが本ドライバをデタッチする際に呼び出します
+	int (*will_detach)(ms_memmap_driver_t* driver);
+	// メモリマッパーセグメント選択レジスタ(port FCh,FDh,FEh,FFh) の値が変更された際に呼び出します
+	void (*did_update_memory_mapper)(ms_memmap_driver_t* driver, int slot, uint8_t segment_num);
+	// 8ビットの読み出し処理
+	uint8_t (*read8)(ms_memmap_driver_t* memmap, uint16_t addr);
+	// 16ビットの読み出し処理
+	uint16_t (*read16)(ms_memmap_driver_t* memmap, uint16_t addr);
+	// 8ビットの書き込み処理
+	void (*write8)(ms_memmap_driver_t* memmap, uint16_t addr, uint8_t data);
+	// 16ビットの書き込み処理
+	void (*write16)(ms_memmap_driver_t* memmap, uint16_t addr, uint16_t data);
 
-	// memory (CPUからSLOT1、SLOT2として見える領域)
-	// ヘッダ領域を含むため、実際のメモリ領域はMS_MEMMAP_HEADER_LENGTHバイトずれている
-	// 設定後は動かしてはいけないので、ポインタの指す先を変更しないこと
-	// バンク切り替え処理が行われたら、愚直に中身を書き換えるしかない
-	// TODO: 将来的には8Kバンク切り替えの処理を追加する
-	uint8_t* mem_slot1;
-	uint8_t* mem_slot2;
+	// タイプ
+	int type;
+	// 名称
+	const char* name;
+
+	// これを管理している memmap への参照
+	ms_memmap_t* memmap;
+	//
+	int attached_slot_base;
+	//
+	int attached_slot_ex;
+
+	// 64Kバイト空間を8Kバイト単位で区切ったポインタの配列
+	// このドライバが対応しているページのポインタのみセットされており、それ以外はNULLが入ります
+	// 動作中にポインタの値を書き換えた場合は、memmap->update_page_pointer(attached_slot, page_num)を呼び出してください
+	uint8_t* page8k_pointers[8];
 
 	// buffer (各ドライバが使用するバッファ領域)
 	uint8_t* buffer;
 
-	void (*deinit)(ms_memmap_driver_t* driver);
-	uint8_t (*read8)(ms_memmap_driver_t* memmap, uint16_t addr);
-	uint16_t (*read16)(ms_memmap_driver_t* memmap, uint16_t addr);
-	void (*write8)(ms_memmap_driver_t* memmap, uint16_t addr, uint8_t data);
-	void (*write16)(ms_memmap_driver_t* memmap, uint16_t addr, uint16_t data);
 } ms_memmap_driver_t;
-
-// 構造体を拡張し、プロパティを追加する
-typedef struct ms_memmap_driver_MEGAROM_8K {
-	ms_memmap_driver_t base;
-	// extended properties
-	int bank_size;
-	int selected_bank[4];	// SLOT1前半、SLOT1後半、SLOT2前半、SLOT2後半の4つのバンクの選択状態
-} ms_memmap_driver_MEGAROM_8K_t;
-
-// 構造体を拡張し、プロパティを追加する
-typedef struct ms_memmap_driver_MEGAROM_KONAMI {
-	ms_memmap_driver_t base;
-	// extended properties
-	int bank_size;
-	int selected_bank[4];	// SLOT1前半、SLOT1後半、SLOT2前半、SLOT2後半の4つのバンクの選択状態
-} ms_memmap_driver_MEGAROM_KONAMI_t;
-
-// 構造体を拡張し、プロパティを追加する
-typedef struct ms_memmap_driver_MEGAROM_KONAMI_SCC {
-	ms_memmap_driver_t base;
-	// extended properties
-	int bank_size;
-	int selected_bank[4];	// SLOT1前半、SLOT1後半、SLOT2前半、SLOT2後半の4つのバンクの選択状態
-} ms_memmap_driver_MEGAROM_KONAMI_SCC_t;
-
-
-
 
 ms_memmap_t* ms_memmap_init();
 void ms_memmap_init_mac();
@@ -122,11 +132,19 @@ void ms_memmap_deinit(ms_memmap_t* memmap);
 void ms_memmap_deinit_mac();
 void ms_memmap_set_main_mem( void *, int);
 
-ms_memmap_driver_t* ms_memmap_MEGAROM_8K_init(ms_memmap_t* memmap, const uint8_t* buffer, uint32_t length);
-ms_memmap_driver_t* ms_memmap_MEGAROM_KONAMI_init(ms_memmap_t* memmap, const uint8_t* buffer, uint32_t length);
-ms_memmap_driver_t* ms_memmap_MEGAROM_KONAMI_SCC_init(ms_memmap_t* memmap, const uint8_t* buffer, uint32_t length);
+int ms_memmap_attach_driver(ms_memmap_t* memmap, ms_memmap_driver_t* driver, int slot_base, int slot_ex);
 
-void allocateAndSetROM(const char* romFileName, int kind, int slot, int page);
+void allocateAndSetROM(const char *romFileName, int kind, int slot_base, int slot_ex, int page);
 void allocateAndSetROM_Cartridge(const char* romFileName);
+
+int filelength(int fh);
+
+// 最後に置く
+#include "ms_memmap_NOTHING.h"
+#include "ms_memmap_NORMALROM.h"
+#include "ms_memmap_MAINRAM.h"
+#include "ms_memmap_MEGAROM_8K.h"
+#include "ms_memmap_MEGAROM_KONAMI.h"
+#include "ms_memmap_MEGAROM_KONAMI_SCC.h"
 
 #endif // _MS_MEMMAP_H_

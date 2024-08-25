@@ -10,12 +10,6 @@
 
 	.xref	ms_memmap_init
 
-	.xref	slot_0_0
-	.xref	slot_3_0
-	.xref	slot_3_1
-	.xref	slot_3_2
-	.xref	slot_3_3
-
 	.xref	slot_3_ex
 
 	.xref	VDP_R_01		* VDP コントロールレジスタ 1
