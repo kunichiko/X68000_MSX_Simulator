@@ -29,14 +29,14 @@ ms_memmap_driver_t* ms_memmap_NOTHING_init(ms_memmap_t* memmap) {
 	instance->base.write8 = ms_memmap_write8_NOTHING;
 	instance->base.write16 = ms_memmap_write16_NOTHING;
 
-	instance->base.buffer = (uint8_t*)new_malloc( 16*1024 );
+	instance->base.buffer = (uint8_t*)new_malloc( 8*1024 );
 	if(instance->base.buffer == NULL) {
 		printf("ƒƒ‚ƒŠ‚ªŠm•Û‚Å‚«‚Ü‚¹‚ñB\n");
 		ms_memmap_deinit_NOTHING((ms_memmap_driver_t*)instance);
 		return NULL;
 	}
 	int i;
-	for(i = 0; i<16*1024; i++) {
+	for(i = 0; i<8*1024; i++) {
 		instance->base.buffer[i] = 0xff;
 	}
 

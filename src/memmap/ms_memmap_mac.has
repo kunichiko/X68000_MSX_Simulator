@@ -23,7 +23,7 @@
 	.xref	write_port_FE
 	.xref	write_port_FF
 
-	.xdef	page0
+	.xdef	ms_cpu_mem_ptr_array
 	.xdef	ms_memmap_current_ptr
 
 	.xdef	ms_read_mem_8
@@ -136,15 +136,18 @@ ms_write_mem_16:
 	.even
 
 ms_memmap_current_ptr:
-	.dc.l	page0		* Cから参照するためのポインタ
+	.dc.l	ms_cpu_mem_ptr_array		* Cから参照するためのポインタ
 
-page0:				* 現在 page 0 に選択されているページのアドレス
-	.dc.l	0		* 下の slot_x_x_pagex の値がそのままコピーされる
-page1:
+
+; CPUから見える8Kバイト単位のメモリのポインタ配列
+ms_cpu_mem_ptr_array:
 	.dc.l	0
-page2:
 	.dc.l	0
-page3:
+	.dc.l	0
+	.dc.l	0
+	.dc.l	0
+	.dc.l	0
+	.dc.l	0
 	.dc.l	0
 
 	.text

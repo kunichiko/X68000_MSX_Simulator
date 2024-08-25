@@ -35,18 +35,18 @@
 *	|         |    | A  |  d4	Ａレジスタ
 *	| 1st| 2nd| result  |  d5	フラグ再計算情報
 *	|      xxx|dirt|flag|  d6	フラグおよび関連情報
-*	| PC page | PC(16k) |  d7
+*	| PC page | PC (8k) |  d7
 *	|     registers     |  a3	a3 = レジスターの格納されているアドレス
 *	|    PC Base ADD    |  a4	a4 = PC
 *
 *	PC Base ADD + PC(16k) = 実アドレス
 *
-*	PC page は PC(R800) の上位２ビットの値が入っている
-*	PC(16k) は PC(R800) の下位14ビットの値
+*	PC page は PC(R800) の上位3ビットの値が入っている
+*	PC(8k)  は PC(R800) の下位13ビットの値
 *
-*		PC(R800)  $8100  =   %10___000001_00000000 
+*		PC(R800)  $8100  =  %100____00001_00000000 
 *
-*		=> d7 %00000000_00000010_00000001_00000000
+*		=> d7 %00000000_00000100_00000001_00000000
 *
 *	registers:
 *	a:	.dc.b	0	* Aレジスタは d4 を使うから使わない
@@ -76,7 +76,8 @@
 	.text
 	.even
 
-	.xref	page0		;暫定処理
+	; CPUから見える8Kバイト単位のメモリのポインタ配列
+	.xref	ms_cpu_mem_ptr_array
 
 	.xref	dumpsp_c
 
@@ -184,7 +185,7 @@ PC_page_inc	macro
 		swap	d7
 		addq.w	#1,d7
 		andi.w	#PAGENUMMASK,d7
-		lea	page0,a4
+		lea	ms_cpu_mem_ptr_array,a4
 		movea.l	(a4,d7.w*4),a4
 		swap	d7
 		endm
@@ -193,21 +194,21 @@ PC_page_dec	macro
 		swap	d7
 		subq.w	#1,d7
 		andi.w	#PAGENUMMASK,d7
-		lea	page0,a4
+		lea	ms_cpu_mem_ptr_array,a4
 		movea.l	(a4,d7.w*4),a4
 		swap	d7
 		endm
 
 PC_page_set	macro			* JP命令等で PCが変わった時の処理
 		swap	d7		* 上位 16bitに移動
-		lsr.l	#8,d7		* PCの上位 2bit(Page番号)が上位ワードに残るようにする
+		lsr.l	#8,d7		* PCの上位 3bit(Page番号)が上位ワードに残るようにする
 		lsr.l	#8-PAGENUMBIT,d7
 		lsr.w	#PAGENUMBIT,d7	* 下位16bitのみをシフト
 		; この時点で以下のようになっている
 		;  31     16 15 8 7  0
-		; | PC page | PC(16k) |  d7
+		; | PC page |  PC(8k) |  d7
 		swap	d7
-		lea	page0,a4
+		lea	ms_cpu_mem_ptr_array,a4
 		movea.l	(a4,d7.w*4),a4
 		swap	d7
 		endm
@@ -231,7 +232,7 @@ refresh_PC_if_needed:
 	beq	1f
 	move.w	#0,ms_cpu_needs_refresh_PC
 	swap	d7
-	lea	page0,a4
+	lea	ms_cpu_mem_ptr_array,a4
 	movea.l	(a4,d7.w*4),a4
 	swap	d7
 1:	rts
@@ -349,10 +350,10 @@ debug_log_pc:
 @@:	link	a6,#-2
 	movem.l	d0-d7/a0-a6,-(sp)
 	move.l	d7,d0
-	move.l	d7,d1
-	lsr.l	#2,d0			* d0 = pp00????_????????
-	andi.w	#%11000000_00000000,d0	* d1 = pp000000_00000000
-	or.w	d1,d0			* d0 = PC (R800)
+	move.l	d7,d1			* d1.w = 000?????_????????
+	lsr.l	#3,d0			* d0.w = ppp000??_????????
+	andi.w	#%11100000_00000000,d0	* d1.w = ppp00000_00000000
+	or.w	d1,d0			* d0.w = ppp?????_???????? = PC (R800)
 
 	move.w	d0,-2(a6)		* PCを保存
 
@@ -587,8 +588,8 @@ cpu_exec_core_edge:
 @@:	; 次に、元のPCの場所の絶対アドレスを取得し、1バイトずつ読み出す
 	; TODO: 効率が悪いがここに入る確率はいくいのでとりあえず無視している。将来的には直したい
 	move.l	d0,d2
-	lsr.l	#2,d2			* d2 = pp00????_????????
-	andi.w	#%11000000_00000000,d2	* d0 = pp000000_00000000
+	lsr.l	#3,d2			* d2 = ppp000??_????????
+	andi.w	#%11100000_00000000,d2	* d0 = ppp00000_00000000
 	or.w	d2,d0			* d0 = PC (R800)
 	; +1バイト目を読み直す
 	addq.w	#1,d0
@@ -849,7 +850,7 @@ ms_cpu_step:
 ;	|         |    | A  |  d4	Ａレジスタ
 ;	|         |    |HC1 |  d5	フラグ
 ;	|         |flag| SZ |  d6	フラグ
-;	| PC page | PC(16k) |  d7
+;	| PC page | PC (8k) |  d7
 ;	|     registers     |  a3	a3 = レジスターの格納されているアドレス
 ;	|    PC Base ADD    |  a4	a4 = PC
 ;
@@ -933,9 +934,9 @@ ms_cpu_step:
 	;	実行後の結果を書き戻す
 	;move.l	a4,(a5)			* PC Base ADD
 	move.l	d7,d0
-	swap	d7			* d7 = 00000000_000000pp
-	ror.w	#PAGENUMBIT,d7		* d7 = pp000000_00000000
-	or.w	d7,d0			* d0 = ppaaaaaa_aaaaaaaa = PC (64k)
+	swap	d7			* d7 = 00000000_00000ppp
+	ror.w	#PAGENUMBIT,d7		* d7 = ppp00000_00000000
+	or.w	d7,d0			* d0 = pppaaaaa_aaaaaaaa = PC (64k)
 	move.w	d0,4(a5)		* PC(64k)
 	move.w	sp_(a3),6(a5)		* SP
 	move.w	ix_h(a3),8(a5)		* IX
@@ -1311,9 +1312,9 @@ INT:	move.b	#0,interrupt_enable	* DI に
 	bhi	mode2
 					* モード０割り込みは実現できない
 mode1:	move.l	d7,d1
-	swap	d7		* d7 = 00000000_000000pp
-	ror.w	#PAGENUMBIT,d7	* d7 = pp000000_00000000
-	or.w	d7,d1		* d1 = ppaaaaaa_aaaaaaaa = PC (64k)
+	swap	d7		* d7 = 00000000_00000ppp
+	ror.w	#PAGENUMBIT,d7	* d7 = ppp00000_00000000
+	or.w	d7,d1		* d1 = pppaaaaa_aaaaaaaa = PC (64k)
 	subq.w	#2,sp_(a3)	* PUSH	
 	move.w	sp_(a3),d0
 	write_mem_16
@@ -1323,9 +1324,9 @@ mode1:	move.l	d7,d1
 	rts
 
 mode2:	move.l	d7,d1
-	swap	d7		* d7 = 00000000_000000pp
-	ror.w	#PAGENUMBIT,d7	* d7 = pp000000_00000000
-	or.w	d7,d1		* d1 = ppaaaaaa_aaaaaaaa = PC (64k)
+	swap	d7		* d7 = 00000000_00000ppp
+	ror.w	#PAGENUMBIT,d7	* d7 = ppp00000_00000000
+	or.w	d7,d1		* d1 = pppaaaaa_aaaaaaaa = PC (64k)
 	subq.w	#2,sp_(a3)	* PUSH	
 	move.w	sp_(a3),d0
 	write_mem_16
@@ -3012,8 +3013,8 @@ JR:	; この時点でPC(d7)は次の命令の位置を指しているので、そこの絶対アドレスを計算
 	rol.l	#8,d1			* 先読みしていた相対移動量 nを取得
 	ext.w	d1			* ワードに符号拡張
 	move.l	d7,d0
-	lsr.l	#2,d0			* d0 = pp00????_????????
-	andi.w	#%11000000_00000000,d0	* d0 = pp000000_00000000
+	lsr.l	#3,d0			* d0 = ppp000??_????????
+	andi.w	#%11100000_00000000,d0	* d0 = ppp00000_00000000
 	or.w	d0,d7			* d7 = PC (R800)
 	add.w	d1,d7			* 相対量を足す
 	PC_page_set
@@ -3067,8 +3068,8 @@ CALL:	* 先読みした値からnnを取り出す
 	; スタックに積む
 	move.l	d7,d0
 	move.w	d7,d1
-	lsr.l	#2,d0			* d0 = pp00????_????????
-	andi.w	#%11000000_00000000,d0	* d0 = pp000000_00000000
+	lsr.l	#3,d0			* d0 = ppp000??_????????
+	andi.w	#%11100000_00000000,d0	* d0 = ppp00000_00000000
 	or.w	d0,d1			* d1 = PC (R800)
 	subq.w	#2,sp_(a3)		* PUSH	
 	move.w	sp_(a3),d0
@@ -3455,8 +3456,8 @@ RST_XXH	macro	value
 	;move.w	value,d0
 	;bsr	print_debug_rst
 	move.l	d7,d1
-	lsr.l	#2,d7			* d7 = pp00????_????????
-	andi.w	#%11000000_00000000,d7	* d7 = pp000000_00000000
+	lsr.l	#3,d7			* d7 = ppp000??_????????
+	andi.w	#%11100000_00000000,d7	* d7 = ppp00000_00000000
 	or.w	d7,d1			* d1 = PC (R800) = next instruction
 	subq.w	#2,sp_(a3)		* PUSH	
 	move.w	sp_(a3),d0
@@ -5870,7 +5871,7 @@ DDFD_JPT:
 	.dc.w	2-1			* 命令語長-1
 none_DDFD:				* その他の DD/FD系の命令は、DD/FDを除いた命令を実行する(例: 0xdd 0x00 なら 0x00 のNOPになる)
 	subq.w	#1,d7			* DD/FDなしの命令を呼び出すが、すでにPCを+2しているので、-1し、再解釈する
-	btst.l	#PAGEADDRBIT,d7	* PC がページ境界をまたいだか？
+	btst.l	#PAGEADDRBIT,d7		* PC がページ境界をまたいだか？
 	beq	@f			* PC -1 でページ境界をまたいだか？
 	PC_page_dec			* またいだ時
 	andi.w	#PAGEADDRMASK,d7	* 命令がページ境界をまたぐ時
@@ -7557,7 +7558,7 @@ INIR:	bsr	INI
 	subq.l	#5,cpu_cycle
 	rts
 @@:	subq.w	#2,d7
-	btst.l	#PAGEADDRBIT,d7	* PC がページ境界をまたいだか？
+	btst.l	#PAGEADDRBIT,d7		* PC がページ境界をまたいだか？
 	beq	@f			* PC -2 でページ境界をまたいだか？
 	PC_page_dec			* またいだ時
 	andi.w	#PAGEADDRMASK,d7	* 命令がページ境界をまたぐ時
@@ -7573,7 +7574,7 @@ INDR:	bsr	IND
 	subq.l	#5,cpu_cycle
 	rts
 @@:	subq.w	#2,d7
-	btst.l	#PAGEADDRBIT,d7	* PC がページ境界をまたいだか？
+	btst.l	#PAGEADDRBIT,d7		* PC がページ境界をまたいだか？
 	beq	@f			* PC -2 でページ境界をまたいだか？
 	PC_page_dec			* またいだ時
 	andi.w	#PAGEADDRMASK,d7	* 命令がページ境界をまたぐ時
@@ -7702,7 +7703,7 @@ OTIR:	bsr	OUTI
 	subq.l	#5,cpu_cycle
 	rts
 @@:	subq.w	#2,d7
-	btst.l	#PAGEADDRBIT,d7	* PC がページ境界をまたいだか？
+	btst.l	#PAGEADDRBIT,d7		* PC がページ境界をまたいだか？
 	beq	@f			* PC -2 でページ境界をまたいだか？
 	PC_page_dec			* またいだ時
 	andi.w	#PAGEADDRMASK,d7	* 命令がページ境界をまたぐ時
@@ -7718,7 +7719,7 @@ OTDR:	bsr	OUTD
 	subq.l	#5,cpu_cycle
 	rts
 @@:	subq.w	#2,d7
-	btst.l	#PAGEADDRBIT,d7	* PC がページ境界をまたいだか？
+	btst.l	#PAGEADDRBIT,d7		* PC がページ境界をまたいだか？
 	beq	@f			* PC -2 でページ境界をまたいだか？
 	PC_page_dec			* またいだ時
 	andi.w	#PAGEADDRMASK,d7	* 命令がページ境界をまたぐ時

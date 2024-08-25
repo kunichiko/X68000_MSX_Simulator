@@ -121,7 +121,7 @@ int ms_memmap_attach_driver(ms_memmap_t* memmap, ms_memmap_driver_t* driver, con
 	int conflict = 0;
 	int page;
 	for(page = 0; page < 4; page++) {
-		if ( driver->page8k_pointers[page*2] !=  NULL && //
+		if ( ((driver->page8k_pointers[page*2+0] !=  NULL) || (driver->page8k_pointers[page*2+1] !=  NULL)) && //
 			 memmap->attached_driver[slot_base][slot_ex_fallback][page]->type != ROM_TYPE_NOTHING) {
 			conflict = 1;
 			break;
@@ -134,7 +134,7 @@ int ms_memmap_attach_driver(ms_memmap_t* memmap, ms_memmap_driver_t* driver, con
 
 	// ドライバをアタッチ
 	for(page = 0; page < 4; page++) {
-		if ( driver->page8k_pointers[page*2] !=  NULL) {
+		if ( (driver->page8k_pointers[page*2+0] !=  NULL) || (driver->page8k_pointers[page*2+1] !=  NULL)) {
 			memmap->attached_driver[slot_base][slot_ex_fallback][page] = driver;
 			// このアタッチによって、今見えているページが更新された可能性があるので呼び出す
 			select_slot_base_impl(memmap, page, memmap->slot_sel[page]);
@@ -163,8 +163,7 @@ void ms_memmap_update_page_pointer(ms_memmap_t* memmap, ms_memmap_driver_t* driv
 	}
 
 	// CPUが見ているページを更新
-	// TODO CPU側がまだ16Kにしか対応していないので暫定
-	memmap->current_ptr[page8k/2] = memmap->current_driver[page8k/2]->page8k_pointers[page8k & 0xfe];
+	memmap->current_ptr[page8k] = memmap->current_driver[page8k/2]->page8k_pointers[page8k];
 
 	// CPU側に通知
 	ms_cpu_needs_refresh_PC = 1;
@@ -197,10 +196,11 @@ void select_slot_base_impl(ms_memmap_t* memmap, int page, int slot_base) {
 	}
 
 	// CPUが見てるポインタを更新
-	// TODO CPU側がまだ16Kにしか対応していないので暫定
-	uint8_t* p = memmap->current_driver[page]->page8k_pointers[page*2+0];
-	memmap->current_ptr[page] = p;
-	
+	memmap->current_ptr[page*2+0] = memmap->current_driver[page]->page8k_pointers[page*2+0];
+	memmap->current_ptr[page*2+1] = memmap->current_driver[page]->page8k_pointers[page*2+1];
+
+	// CPU側に通知
+	ms_cpu_needs_refresh_PC = 1;
 
 	memmap->slot_sel[page] = slot_base;
 }
@@ -236,9 +236,11 @@ void select_slot_ex_impl(ms_memmap_t* memmap, int slot_base, int page, int slot_
 		// 今回変更した拡張スロットが見えている場合だけ更新
 		memmap->current_driver[page] = memmap->attached_driver[slot_base][slot_ex][page];
 		// CPUが見てるポインタを更新
-		// TODO CPU側がまだ16Kにしか対応していないので暫定
-		uint8_t* p = memmap->current_driver[page]->page8k_pointers[page*2+0];
-		memmap->current_ptr[page] = p;
+		memmap->current_ptr[page*2+0] = memmap->current_driver[page]->page8k_pointers[page*2+0];
+		memmap->current_ptr[page*2+1] = memmap->current_driver[page]->page8k_pointers[page*2+1];
+
+		// CPU側に通知
+		ms_cpu_needs_refresh_PC = 1;
 	}
 	memmap->slot_sel_ex[slot_base][page] = slot_ex;
 }
@@ -348,7 +350,7 @@ void ms_memmap_write8(uint16_t addr, uint8_t data) {
 
 uint16_t ms_memmap_read16(uint16_t addr) {
 	if (addr == 0xfffe || (addr & 0x3fff) == 0x3fff) {
-		// 拡張スロット選択レジスタのアドレスのにかかる場合や、
+		// 拡張スロット選択レジスタのアドレスにかかる場合や、
 		// ページを跨ぐ場合は、8ビットずつ読む
 		uint16_t ret = ms_memmap_read8(addr) | (ms_memmap_read8(addr + 1) << 8);
 		return ret;

@@ -196,7 +196,7 @@ int through_test_normal(value_func_t value_func)
 	for(int i=0;i<0x100;i++)
 	{
 		if (i == 0x76 || i == 0xcb || i == 0xdd || i== 0xed || i == 0xfd || //
-			i == 0xd3 || i == 0xdb)
+			i == 0xd3 || i == 0xdb || i == 0xfb)
 		{
 			continue;
 		}
@@ -224,7 +224,7 @@ int through_test_normal_page_edge(value_func_t value_func)
 {
 	char result[256];
 
-	int org_local = 0x3ffc;
+	int org_local = 0x1ffc;
 	sz_memory[org_local+0] = 0x00; // nop
 	sz_memory[org_local+1] = 0x5d;
 	sz_memory[org_local+2] = 0x5e;
@@ -239,7 +239,7 @@ int through_test_normal_page_edge(value_func_t value_func)
 	for(int i=0;i<0x100;i++)
 	{
 		if (i == 0x76 || i == 0xcb || i == 0xdd || i== 0xed || i == 0xfd || //
-			i == 0xd3 || i == 0xdb)
+			i == 0xd3 || i == 0xdb || i == 0xfb)
 		{
 			continue;
 		}
@@ -405,7 +405,7 @@ int through_test_ddfd(value_func_t value_func)
 	{
 		for(int i=0;i<0x100;i++)
 		{
-			if (i == 0x76 || i == 0xcb || i == 0xdb || i == 0xdd || i== 0xed || i == 0xfd) {
+			if (i == 0x76 || i == 0xcb || i == 0xdb || i == 0xdd || i== 0xed || i== 0xfb || i == 0xfd) {
 				continue;
 			}
 			printf("Test: 0x%02x 0x%02x ... ", j, i);
@@ -416,8 +416,9 @@ int through_test_ddfd(value_func_t value_func)
 			sz_cpu.iy = 0x5678;
 			sz_memory[org+0] = j;
 			sz_memory[org+1] = i;
+			sz_memory[org+2] = 0x01;
 			bool debug = false;
-			if ( j == 0xfd && i == 0xe1 ) {
+			if ( j == 0xfd && i == 0xc3 ) {
 				debug = true;
 			}
 			if (dotest(20,result,debug) ) {
