@@ -44,7 +44,7 @@
 ; .or.(|)		論理 OR. 両オペランドの論理和を返す.
 ; .xor.(.eor.,^)	排他的 OR. 両オペランドの排他的論理和を返す.
 
-PAGEADDRBIT	equ	14			; ページ内アドレス(ページ内のオフセット)のビット数
+PAGEADDRBIT	equ	13			; ページ内アドレス(ページ内のオフセット)のビット数
 PAGEADDRSIZE	equ	(1.<<.PAGEADDRBIT)	; ページ切り替えの最小単位 (2^PAGEBIT)
 PAGEADDRMASK	equ	(PAGEADDRSIZE-1)	; アドレスをバンク内のオフセットに変換するためのマスク
 PAGENUMBIT	equ	(16-PAGEADDRBIT)	; ページ番号のビット数

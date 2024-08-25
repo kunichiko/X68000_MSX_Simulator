@@ -34,7 +34,6 @@
             "cStandard": "c23",
             "cppStandard": "c++17",
             "intelliSenseMode": "macos-clang-arm64",
-            "compilerPathInCppPropertiesJson": "/usr/bin/clang",
             "mergeConfigurations": false,
             "configurationProvider": "elf2x68k",
             "browse": {

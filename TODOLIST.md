@@ -34,6 +34,101 @@ nop:    addq.w  #1,d7
 
 上記サイクル長と命令語長のリファクタリングを実施する際に、その分割単位も変更できるようにします。
 
+## スロット切り替え機構の作り直し
+
+メガロムサポートのタイミングで、スロット切り替え機構を見直したい。
+
+現在は、基本4スロットx拡張4スロットx4ページの合わせて64ページに対し、それぞれに配置されている16Kバイトのメモリ領域へのポインタを持っていて、スロット切り替えやPCの教会またぎの際にそれらのポインタを直接コピーしています。
+
+まず、責任境界として、
+
+    * 基本4スロットx拡張4スロットx4ページの切り替えは、memmap モジュールが担当
+	* メガロムなど、スロット内部でのバンク切り替えは、各スロットのドライバが担当
+
+とします。read/writeを完全に関数化してしまえばこれは割と容易に達成できるのですが、MS.Xでは、CPUコアがPCから命令フェッチする際はメモリ配列を直接アクセスしており、現状では16KB単位野メモリが連続した領域に存在することが前提になっています。（命令フェッチ以外のたとえば LD A,(HL) などの命令は、memmapモジュールを通じてアクセスしているので、そこは問題ないです）
+
+たとえば、極端な話として読むたびに値が変わるようなスロットがあったとしても、命令フェッチ部分は対応できないということになります。そこを変えようと思うと、CPUコアの命令フェッチ部分をすべて書き換える必要があり、パフォーマンス上もよくないので、このままでいいかなと思っています。実際、プログラムコードが配置されたメモリ領域でそこまでドラスティックに内容が変化することはないとおもいます。
+
+一方で、スロット内で16KBより小さい単位(8Kバイト単位)でのバンク切り替えができるメガロムには対応しないといけないので、CPUコアを最低限そこには対応させる必要があります。
+
+まず、PCが16KBの境界をまたぐ際にポインタの操作を行なっている部分を、8Kバイト単位で行うようにします。PCが8Kページ境界を跨いだら、memmapモジュールから、次の8Kページのポインタを取得し、ポインタを切り替えます。ただだ、これだけだと、メガロムでPCが指しているページそのものを切り替えるケース(たぶんある)にうまく対応できないので、外部からの呼び出して、ポインタを再読み込みできるような仕組みを作ります。
+
+次に、今のmemmapモジュールは 16Kバイト単位でメモリを確保することを前提としてしまっていて、「8バイトのヘッダ+16Kバイトのメモリ領域」という構造にしてしまっているのを変更します。今の作りだと、たとえば32KBのROMイメージを連続して読み込んで、それを2ページにまたがって配置することができず、いちいち16Kバイト単位で分割しないといけない不便さがあります。特にメガロムなどで数百KBのROMイメージを扱う際には、この制約があると扱いにくいため、修正します。
+
+### メモリマップドライバ
+
+MSXには通常のROM、メインメモリ、メガロムなど、様々な種類のデバイスがメモリ上に配置されますが、それらを純難に管理するためにドライバ機構を導入します。
+ドライバは以下のような構造をしています。これはオブジェクト指向言語でいうところのクラスに相当します。
+
+```C
+typedef struct ms_memmap_driver {
+	// 本ドライバインスタンスを解放する場合に呼び出します
+	void (*deinit)(ms_memmap_driver_t* driver);
+	// memmapモジュールが本ドライバをアタッチした際に呼び出します
+	int (*did_attach)(ms_memmap_driver_t* driver);
+	// memmapモジュールが本ドライバをデタッチする際に呼び出します
+	int (*will_detach)(ms_memmap_driver_t* driver);
+	// メモリマッパーセグメント選択レジスタ(port FCh,FDh,FEh,FFh) の値が変更された際に呼び出します
+	void (*did_update_memory_mapper)(ms_memmap_driver_t* driver, int slot, uint8_t segment_num);
+	// 8ビットの読み出し処理
+	uint8_t (*read8)(ms_memmap_driver_t* memmap, uint16_t addr);
+	// 16ビットの読み出し処理
+	uint16_t (*read16)(ms_memmap_driver_t* memmap, uint16_t addr);
+	// 8ビットの書き込み処理
+	void (*write8)(ms_memmap_driver_t* memmap, uint16_t addr, uint8_t data);
+	// 16ビットの書き込み処理
+	void (*write16)(ms_memmap_driver_t* memmap, uint16_t addr, uint16_t data);
+
+	// これを管理している memmap への参照
+	ms_memmap_t* memmap;
+	// 64Kバイト空間を8Kバイト単位で区切ったポインタの配列
+	// このドライバが対応しているページのポインタのみセットされており、それ以外はNULLが入ります
+	// 動作中にポインタの値を書き換えた場合は、memmap->update_page_pointer(attached_slot, page_num)を呼び出してください
+	uint8_t* page8k_pointers[8];
+	// 配置されたスロット情報へのポインタ。1つのドライバインスタンスが、複数のスロットにまたがって配置されることはありません
+	ms_memmap_slot_t* attached_slot;
+	// buffer (各ドライバが使用するバッファ領域)
+	uint8_t* buffer;
+
+} ms_memmap_driver_t;
+```
+
+これは以下のようにして拡張(継承)することができます。
+
+```C
+// 構造体を拡張し、プロパティを追加する
+typedef struct ms_memmap_driver_MEGAROM_8K {
+	ms_memmap_driver_t base;
+	// extended properties
+	int bank_size;
+	int selected_bank[4];	// SLOT1前半、SLOT1後半、SLOT2前半、SLOT2後半の4つのバンクの選択状態
+} ms_memmap_driver_MEGAROM_8K_t;
+```
+
+インスタンスの確保(alloc)と初期化(init)は、各ドライバごとに用意されているグローバル関数によって行います。これは、memmapモジュールがROMイメージを読み込む際に行われます。
+
+```C
+	ms_memmap_driver_MEGAROM_8K_t megarom_8k = ms_memmap_MEGAROM_8K_init(ms_memmap_shared, crt_buff, crt_length);
+	if( megarom_8k == NULL) {
+		printf("MEGAROMの初期化に失敗しました\n");
+		return;
+	}
+```
+
+確保されたインスタンス（構造体）は memmap に登録/解除されます。その際、登録後に did_attachメソッドが呼ばれ、解除直前に will_detachメソッドが呼び出されますので、必要に応じで初期設定や終了処理を差し込むことが可能です。
+
+
+今はまだ仕組みがないですが、動的に解除する際は memmap から、will_detachメソッドが呼び出され、その後、deinitで解放されます。
+
+```C
+	if( megarom_8k->base.will_deattach(megarom_8k, slot) != 0) {
+		printf("MEGAROMのデタッチに失敗しました\n");
+		return;
+	}
+	megarom_8k->base.deinit(megarom_8k);
+```
+
+
 ## FDDのサポート
 
 MSX2のゲームの多くはFD媒体のものが多いので、FDDエミュレーションも実施したいです。エミュレーション方法はいくつかアイディアがあります。

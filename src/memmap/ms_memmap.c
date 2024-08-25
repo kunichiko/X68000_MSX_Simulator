@@ -4,12 +4,18 @@
 #include <stddef.h>
 #include <fcntl.h>
 #include "ms_memmap.h"
+#include "../ms_R800.h"
 
 ms_memmap_t* ms_memmap_shared = NULL;
-ms_memmap_driver_MEGAROM_8K_t* megarom_8k = NULL;
-ms_memmap_driver_MEGAROM_KONAMI_t* megarom_konami = NULL;
-ms_memmap_driver_MEGAROM_KONAMI_SCC_t* megarom_konami_scc = NULL;
 
+void ms_memmap_update_page_pointer(ms_memmap_t* memmap, ms_memmap_driver_t* driver, int page8k);
+
+void select_slot_base_impl(ms_memmap_t* memmap, int page, int slot_base);
+void select_slot_ex_impl(ms_memmap_t* memmap, int slot_base, int page, int slot_ex);
+
+/*
+	memmapモジュールの確保 & 初期化ルーチン
+ */
 ms_memmap_t* ms_memmap_init() {
 	if (ms_memmap_shared != NULL) {
 		return ms_memmap_shared;
@@ -20,360 +26,353 @@ ms_memmap_t* ms_memmap_init() {
 		return NULL;
 	}
 
-	ms_memmap_init_mac();
+	// メンバの初期化
 
-	ms_memmap_shared->main_mem = (uint8_t*)new_malloc(64 * 1024 + 8 * MS_MEMMAP_NUM_SEGMENTS); /* ６４Ｋ + ８バイト＊総セグメント数	*/
-	if (ms_memmap_shared->main_mem == NULL) { 
-		printf("メモリが確保できません\n");
+	ms_memmap_shared->update_page_pointer = ms_memmap_update_page_pointer;
+	ms_memmap_shared->current_ptr = ms_memmap_current_ptr;
+
+	ms_memmap_shared->mainram_driver = (ms_memmap_driver_MAINRAM_t*)ms_memmap_MAINRAM_init(ms_memmap_shared);
+	if( ms_memmap_shared->mainram_driver == NULL) {
+		printf("メインメモリが確保できません\n");
 		new_free(ms_memmap_shared);
 		return NULL;
 	}
-	ms_memmap_set_main_mem(ms_memmap_shared->main_mem, (int)MS_MEMMAP_NUM_SEGMENTS); /* アセンブラのルーチンへ引き渡し		*/
+
+	ms_memmap_shared->nothing_driver = (ms_memmap_driver_NOTHING_t*)ms_memmap_NOTHING_init(ms_memmap_shared);
+	if( ms_memmap_shared->nothing_driver == NULL) {
+		printf("NOTHINGドライバが確保できません\n");
+		new_free(ms_memmap_shared);
+		return NULL;
+	}
+	int base, ex, page;
+	for(base = 0; base < 4; base++) {
+		for(ex = 0; ex < 4; ex++) {
+			for(page = 0; page < 4; page++) {
+				ms_memmap_shared->attached_driver[base][ex][page] = (ms_memmap_driver_t*)ms_memmap_shared->nothing_driver;
+			}
+		}
+	}
+
+	// スロット3を拡張スロットとして使用する
+	ms_memmap_shared->slot_expanded.flag[3] = 1;
+
+	// メインメモリをスロット3-0にアタッチ
+	if ( ms_memmap_attach_driver(ms_memmap_shared, (ms_memmap_driver_t*)ms_memmap_shared->mainram_driver, 3, 0) != 0) {
+		printf("メインメモリのアタッチに失敗しました\n");
+		ms_memmap_deinit(ms_memmap_shared);
+		return NULL;
+	}
+
+	// 現状で初期化
+	for(page = 0; page < 4; page++) {
+		select_slot_base_impl(ms_memmap_shared, page, ms_memmap_shared->slot_sel[page]);
+	}
 
 	return ms_memmap_shared;
 }
 
 void ms_memmap_deinit(ms_memmap_t* memmap) {
-	if (memmap->main_mem == NULL) {
-		return;
+	if( memmap->mainram_driver != NULL ) {
+		ms_memmap_deinit_MAINRAM((ms_memmap_driver_t*)memmap->mainram_driver);
 	}
-	new_free(memmap->main_mem);
+	int base, ex, page;
+	for(base = 0; base < 4; base++) {
+		for(ex = 0; ex < 4; ex++) {
+			for(page = 0; page < 4; page++) {
+				ms_memmap_driver_t* driver = memmap->attached_driver[base][ex][page];
+				// TODO 一つのドライバが複数のページにまたがっているケースがあるので、
+				// TODO ちゃんとデタッチして外してから deinit しないと二重解放になる
+				//if( driver != NULL && driver->type != ROM_TYPE_NOTHING && driver->type != ) {
+				//	driver->deinit(driver);
+				//}
+			}
+		}
+	}
+	new_free(memmap->mainram_driver);
 	new_free(memmap);
-
-	ms_memmap_deinit_mac();
 }
 
 
-void allocateAndSetROM_Cartridge(const char *romFileName) {
-	int crt_fh;
-	int crt_length;
-	uint8_t *crt_buff;
-	int i;
-
-	crt_fh = open( romFileName, O_RDONLY | O_BINARY);
-	if (crt_fh == -1) {
-		printf("ファイルが開けません. %s\n", romFileName);
-		ms_exit();
-		return;
+/**
+ * @brief スロットにドライバをアタッチします
+ * 
+ * すでにぶつかるドライバがアタッチされていた場合は -1を返します。
+ * 拡張されていないスロットに対し、拡張スロット番号が指定されていた場合も -1を返します。
+ * 
+ * @param memmap memmapインスタンスへのポインタ
+ * @param driver 登録したいドライバのインスタンス
+ * @param slot_base 基本スロット番号
+ * @param slot_ex 拡張スロット番号(基本スロットに配置したい場合は-1)
+ * @return ms_memmap_page_slot_t*
+ */
+int ms_memmap_attach_driver(ms_memmap_t* memmap, ms_memmap_driver_t* driver, const int slot_base, const int slot_ex) {
+	if (slot_ex >= 0 && memmap->slot_expanded.flag[slot_base] == 0) {
+		printf("拡張されていないスロットの拡張スロットには配置できません。\n");
+		return -1;
 	}
-	crt_length = filelength(crt_fh);
-	if(crt_length == -1) {
-		printf("ファイルの長さが取得できません。\n");
-		close(crt_fh);
-		ms_exit();
-		return;
-	}
-
-	// ROMデータをロードして、ROMの種類を判定
-	crt_buff =  (uint8_t*)new_malloc(crt_length);
-	if(crt_buff == NULL) {
-		printf("メモリが確保できません。\n");
-		return;
-	}
-	read( crt_fh, crt_buff, crt_length);
-	close(crt_fh);
-
-	if(0) {
-		int x,y;
-		for(y=0;y<2;y++) {
-			printf("%04x: ", y*16);
-			for(x=0;x<16;x++) {
-				printf("%02x ", crt_buff[y*16 + x]);
-			}
-			printf("\n");
-		}
-	}
-
-	ms_memmap_driver_t* driver = NULL;
-	int kind = detect_rom_type(crt_buff, crt_length);
-	switch(kind) {
-		case ROM_TYPE_NORMAL_ROM:
-			allocateAndSetROM(romFileName, ROM_TYPE_NORMAL_ROM, 1<<2, 1);
-			break;
-		case ROM_TYPE_MEGAROM_8:
-			// MEGAROM 8Kとしてロードする
-			if (megarom_8k != NULL) {
-				// TODO 複数インスタンス作れるように
-				printf("MEGAROM 8Kは既にロードされています\n");
-				return;
-			}
-			megarom_8k = (ms_memmap_driver_MEGAROM_8K_t*)ms_memmap_MEGAROM_8K_init(ms_memmap_shared, crt_buff, crt_length);
-			if( megarom_8k == NULL) {
-				printf("MEGAROM KONAMIの初期化に失敗しました\n");
-				return;
-			}
-			driver = (ms_memmap_driver_t*)megarom_8k;
-			break;
-		case ROM_TYPE_MEGAROM_KONAMI:
-			// MEGAROM KONAMIとしてロードする
-			if (megarom_konami != NULL) {
-				// TODO 複数インスタンス作れるように
-				printf("MEGAROM KONAMIは既にロードされています\n");
-				return;
-			}
-			megarom_konami = (ms_memmap_driver_MEGAROM_KONAMI_t*)ms_memmap_MEGAROM_KONAMI_init(ms_memmap_shared, crt_buff, crt_length);
-			if( megarom_konami == NULL) {
-				printf("MEGAROM KONAMIの初期化に失敗しました\n");
-				return;
-			}
-			driver = (ms_memmap_driver_t*)megarom_konami;
-			break;
-		case ROM_TYPE_MEGAROM_KONAMI_SCC:
-			// MEGAROM KONAMI SCCとしてロードする
-			if (megarom_konami_scc != NULL) {
-				// TODO 複数インスタンス作れるように
-				printf("MEGAROM KONAMI SCCは既にロードされています\n");
-				return;
-			}
-			megarom_konami_scc = (ms_memmap_driver_MEGAROM_KONAMI_SCC_t*)ms_memmap_MEGAROM_KONAMI_SCC_init(ms_memmap_shared, crt_buff, crt_length);
-			if( megarom_konami_scc == NULL) {
-				printf("MEGAROM KONAMI SCCの初期化に失敗しました\n");
-				return;
-			}
-			driver = (ms_memmap_driver_t*)megarom_konami_scc;
-			break;
-		default:
-			break;
-	}
-	if(driver != NULL) {
-		ms_memmap_register_rom(driver->mem_slot1, kind, 1<<2, 1);
-		ms_memmap_register_rom(driver->mem_slot2, kind, 1<<2, 2);
-	}
-}
-
-/*
-	OpenMSXの実装を参考に、以下の方法で読み込んだROMの種類を判定します。
-	メガロムはZ80の LD (nn),a 命令を使ってメモリへの書き込みを行なってバンク切り替えを行っています。
-	それを利用し、ROMの全領域から上記命令 (0x32, 0xLL, 0xHH) の出現回数をカウントし、
-	そのランキングを元にROMの種類を判定します。
-
-	nnの値に応じて、以下のようにROMの種類に分類します。
-
-	0x5000, 0x9000, 0xb000	: コナミSCC付き
-	0x4000, 0x8000, 0xa000	: コナミSCCなし
-	0x6800, 0x7800			: ASCII8K
-	0x6000					: コナミSCCなし or ASCII8K or ASCII16K
-	0x7000					: コナミSCC付き or ASCII8K or ASCII16K
-	0x77ff					: ASCII16K
-
-	合計を取り、最も多いものを採用します。
-*/
-int detect_rom_type(uint8_t* buffer, int length) {
-	int konami_scc_with = 0;
-	int konami_scc_without = 0;
-	int ascii8k = 0;
-	int ascii16k = 0;
-	int i;
-
-	if (length <= 32 * 1024) {
-		printf("通常ロムと推定しました。\n");
-		return ROM_TYPE_NORMAL_ROM;
-	}
-
-	for (i = 0; i < length - 3; i++) {
-		if (buffer[i] == 0x32) {
-			uint16_t value = ((uint16_t)buffer[i + 1]) + (((uint16_t)buffer[i + 2]) << 8);
-			switch (value) {
-				case 0x5000:
-				case 0x9000:
-				case 0xb000:
-					konami_scc_with++;
-					break;
-				case 0x4000:
-				case 0x8000:
-				case 0xa000:
-					konami_scc_without++;
-					break;
-				case 0x6800:
-				case 0x7800:
-					ascii8k++;
-					break;
-				case 0x6000:
-					konami_scc_without++;
-					ascii8k++;
-					ascii16k++;
-					break;
-				case 0x7000:
-					konami_scc_with++;
-					ascii8k++;
-					ascii16k++;
-					break;
-				case 0x77ff:
-					ascii16k++;
-					break;
-			}
-		}
-	}
-
-	printf("コナミ SCC 付き: %d\n", konami_scc_with);
-	printf("コナミ SCC 無し: %d\n", konami_scc_without);
-	printf("ASCII 8K: %d\n", ascii8k);
-	printf("ASCII 16K: %d\n", ascii16k);
-
-	if (konami_scc_with >= konami_scc_without && konami_scc_with >= ascii8k && konami_scc_with >= ascii16k) {
-		printf("コナミ SCC 付きメガロムと推定しました。\n");
-		return ROM_TYPE_MEGAROM_KONAMI_SCC;
-	} else if (konami_scc_without >= konami_scc_with && konami_scc_without >= ascii8k && konami_scc_without >= ascii16k) {
-		printf("コナミ SCC 無しメガロムと推定しました。\n");
-		return ROM_TYPE_MEGAROM_KONAMI;
-	} else if (ascii8k >= konami_scc_with && ascii8k >= konami_scc_without && ascii8k >= ascii16k) {
-		printf("ASCII 8K メガロムと推定しました。\n");
-		return ROM_TYPE_MEGAROM_8;
-	} else if (ascii16k >= konami_scc_with && ascii16k >= konami_scc_without && ascii16k >= ascii8k) {
-		printf("ASCII 16K メガロムと推定しました。\n");
-		return ROM_TYPE_MEGAROM_16;
-	}
-	printf("通常のロムと推定しました。\n");
-	return ROM_TYPE_NORMAL_ROM;
-}
-
-void allocateAndSetROM(const char *romFileName, int kind, int slot, int page) {
-	int crt_fh;
-	int crt_length;
-	uint8_t *crt_buff;
-	int i;
-
-	crt_fh = open( romFileName, O_RDONLY | O_BINARY);
-	if (crt_fh == -1) {
-		printf("ファイルが開けません. %s\n", romFileName);
-		ms_exit();
-		return;
-	}
-	crt_length = filelength(crt_fh);
-	if(crt_length == -1) {
-		printf("ファイルの長さが取得できません。\n");
-		ms_exit();
-		return;
-	}
-
-	// 16Kバイトずつ読み込んでROMにセット
-	if( crt_length <= 32 * 1024 ) {
-		for(i = 0; i < 2; i++) {
-			if(crt_length < 16 * 1024) {
-				break;
-			}
-			if( ( crt_buff = (uint8_t*)new_malloc( 16 * 1024 + MS_MEMMAP_HEADER_LENGTH ) ) == NULL) {
-				printf("メモリが確保できません。\n");
-				ms_exit();
-				return;
-			}
-			read( crt_fh, crt_buff + MS_MEMMAP_HEADER_LENGTH, 16 * 1024);
-			// int j;
-			// for(j = 0; j < 16; j++) {
-			// 	printf("%02x ", crt_buff[MS_MEMMAP_HEADER_LENGTH + i]);
-			// }
-			// printf("\n");
-			ms_memmap_register_rom(crt_buff, kind, slot, page + i);
-			crt_length -= 16 * 1024;
-		}
+	int slot_ex_fallback;
+	if (slot_ex < 0 ) {
+		slot_ex_fallback = 0;
 	} else {
-		printf("ファイルが認識できませんでした\n");
-		ms_exit();
+		slot_ex_fallback = slot_ex;
 	}
- 	close( crt_fh);
+
+	// 衝突検出
+	int conflict = 0;
+	int page;
+	for(page = 0; page < 4; page++) {
+		if ( ((driver->page8k_pointers[page*2+0] !=  NULL) || (driver->page8k_pointers[page*2+1] !=  NULL)) && //
+			 memmap->attached_driver[slot_base][slot_ex_fallback][page]->type != ROM_TYPE_NOTHING) {
+			conflict = 1;
+			break;
+		}
+	}
+	if(conflict) {
+		printf("スロットにドライバがすでにアタッチされています。\n");
+		return -1;
+	}
+
+	// ドライバをアタッチ
+	for(page = 0; page < 4; page++) {
+		if ( (driver->page8k_pointers[page*2+0] !=  NULL) || (driver->page8k_pointers[page*2+1] !=  NULL)) {
+			memmap->attached_driver[slot_base][slot_ex_fallback][page] = driver;
+			// このアタッチによって、今見えているページが更新された可能性があるので呼び出す
+			select_slot_base_impl(memmap, page, memmap->slot_sel[page]);
+		}
+	}
+
+	driver->attached_slot_base = slot_base;
+	driver->attached_slot_ex = slot_ex;
+	driver->did_attach(driver);
+
+	return 0;
 }
 
-/*
-	ASCII MEGAROM 8K
-*/
-uint8_t ms_memmap_rd8_MEGAROM_8(uint8_t* mem, int page, uint16_t addr) {
-	if(megarom_8k == NULL) {
-		printf("MEGAROM 8Kがロードされていません\n");
-		return 0xff;
+/**
+ * @brief メモリマッパーやメガロムのように、ドライバ内部でページが更新された場合のコールバック
+ * 
+ * @param memmap 
+ * @param driver 
+ * @param page8k 
+ */
+void ms_memmap_update_page_pointer(ms_memmap_t* memmap, ms_memmap_driver_t* driver, int page8k) {
+	int slot_base = driver->attached_slot_base;
+	int slot_ex = driver->attached_slot_ex;
+	if (slot_ex < 0) {
+		slot_ex = 0;
 	}
-	return megarom_8k->base.read8((ms_memmap_driver_t*)megarom_8k, 0x4000*page + addr);
+
+	// CPUが見ているページを更新
+	memmap->current_ptr[page8k] = memmap->current_driver[page8k/2]->page8k_pointers[page8k];
+
+	// CPU側に通知
+	ms_cpu_needs_refresh_PC = 1;
 }
 
-void ms_memmap_wr8_MEGAROM_8(uint8_t* mem, int page, uint16_t addr, uint8_t data) {
-	if(megarom_8k == NULL) {
-		printf("MEGAROM 8Kがロードされていません\n");
+/**
+ * @brief 指定されたページのスロットを切り替えます
+ * 
+ * @param memmap 
+ * @param page 切り替えたいページ
+ * @param slot_base スロット番号
+ */
+void select_slot_base(ms_memmap_t* memmap, int page, int slot_base) {
+	slot_base &= 0x03;
+	if( memmap->slot_sel[page] == slot_base) {
+		// 変更がない場合は何もしない
 		return;
 	}
-	megarom_8k->base.write8((ms_memmap_driver_t*)megarom_8k, 0x4000*page + addr, data);
+	select_slot_base_impl(memmap, page, slot_base);
 }
 
-uint16_t ms_memmap_rd16_MEGAROM_8(uint8_t* mem, int page, uint16_t addr) {
-	if(megarom_8k == NULL) {
-		printf("MEGAROM 8Kがロードされていません\n");
-		return 0xffff;
+void select_slot_base_impl(ms_memmap_t* memmap, int page, int slot_base) {
+	// 選択したスロットが拡張されているか調べる
+	if ( memmap->slot_expanded.flag[slot_base] ) {
+		// 拡張されている場合は拡張スロット選択レジスタを見る
+		int slot_ex = memmap->slot_sel_ex[slot_base][page];
+		memmap->current_driver[page] = memmap->attached_driver[slot_base][slot_ex][page];
+	} else {
+		memmap->current_driver[page] = memmap->attached_driver[slot_base][0][page];
 	}
-	return megarom_8k->base.read16((ms_memmap_driver_t*)megarom_8k, 0x4000*page + addr);
+
+	// CPUが見てるポインタを更新
+	memmap->current_ptr[page*2+0] = memmap->current_driver[page]->page8k_pointers[page*2+0];
+	memmap->current_ptr[page*2+1] = memmap->current_driver[page]->page8k_pointers[page*2+1];
+
+	// CPU側に通知
+	ms_cpu_needs_refresh_PC = 1;
+
+	memmap->slot_sel[page] = slot_base;
 }
 
-void ms_memmap_wr16_MEGAROM_8(uint8_t* mem, int page, uint16_t addr, uint16_t data) {
-	if(megarom_8k == NULL) {
-		printf("MEGAROM 8Kがロードされていません\n");
+/**
+ * @brief 指定されたページの拡張スロットを切り替えます。
+ * 対象は、現在ページ3に見えている基本スロットの拡張スロットです。
+ * 
+ * @param memmap 
+ * @param page 
+ * @param slot_ex 
+ */
+void select_slot_ex(ms_memmap_t* memmap, int page, int slot_ex) {
+	slot_ex &= 0x03;
+
+	// ページ3に見えている基本スロットを取得
+	int slot_base = memmap->slot_sel[3];
+	// 選択したスロットが拡張されているか調べる
+	if ( memmap->slot_expanded.flag[slot_base] == 0 ) {
+		// 拡張されていない場合は何もしない
 		return;
 	}
-	megarom_8k->base.write16((ms_memmap_driver_t*)megarom_8k, 0x4000*page + addr, data);
-}
 
-/*
-	KONAAMI MEGAROM
-*/
-uint8_t ms_memmap_rd8_MEGAROM_KONAMI(uint8_t* mem, int page, uint16_t addr) {
-	if(megarom_konami == NULL) {
-		printf("MEGAROM KONAMIがロードされていません\n");
-		return 0xff;
-	}
-	return megarom_konami->base.read8((ms_memmap_driver_t*)megarom_konami, 0x4000*page + addr);
-}
-
-void ms_memmap_wr8_MEGAROM_KONAMI(uint8_t* mem, int page, uint16_t addr, uint8_t data) {
-	if(megarom_konami == NULL) {
-		printf("MEGAROM KONAMIがロードされていません\n");
+	if( memmap->slot_sel_ex[slot_base][page] == slot_ex) {
+		// 変更がない場合は何もしない
 		return;
 	}
-	megarom_konami->base.write8((ms_memmap_driver_t*)megarom_konami, 0x4000*page + addr, data);
+	select_slot_ex_impl(memmap, slot_base, page, slot_ex);
 }
 
-uint16_t ms_memmap_rd16_MEGAROM_KONAMI(uint8_t* mem, int page, uint16_t addr) {
-	if(megarom_konami == NULL) {
-		printf("MEGAROM KONAMIがロードされていません\n");
-		return 0xffff;
+void select_slot_ex_impl(ms_memmap_t* memmap, int slot_base, int page, int slot_ex) {
+	if ( memmap->slot_sel[page] == slot_base) {
+		// 今回変更した拡張スロットが見えている場合だけ更新
+		memmap->current_driver[page] = memmap->attached_driver[slot_base][slot_ex][page];
+		// CPUが見てるポインタを更新
+		memmap->current_ptr[page*2+0] = memmap->current_driver[page]->page8k_pointers[page*2+0];
+		memmap->current_ptr[page*2+1] = memmap->current_driver[page]->page8k_pointers[page*2+1];
+
+		// CPU側に通知
+		ms_cpu_needs_refresh_PC = 1;
 	}
-	return megarom_konami->base.read16((ms_memmap_driver_t*)megarom_konami, 0x4000*page + addr);
+	memmap->slot_sel_ex[slot_base][page] = slot_ex;
 }
 
-void ms_memmap_wr16_MEGAROM_KONAMI(uint8_t* mem, int page, uint16_t addr, uint16_t data) {
-	if(megarom_konami == NULL) {
-		printf("MEGAROM KONAMIがロードされていません\n");
+
+
+/**
+ * @brief スロット選択レジスタ(ポートA8h)への書き込み
+ * 
+ * bit [1:0]	: ページ0の基本スロット番号
+ * bit [3:2]	: ページ1の基本スロット番号
+ * bit [5:4]	: ページ2の基本スロット番号
+ * bit [7:6]	: ページ3の基本スロット番号
+ * 
+ */
+void write_port_A8(uint8_t data) {
+	int page = 0;
+	for(page = 0; page < 4; page++) {
+		int slot_base = data & 0x03;
+		select_slot_base(ms_memmap_shared, page, slot_base);
+		data >>= 2;
+	}
+}
+
+uint8_t read_port_A8() {
+	return ms_memmap_shared->slot_sel[0] | (ms_memmap_shared->slot_sel[1] << 2) | (ms_memmap_shared->slot_sel[2] << 4) | (ms_memmap_shared->slot_sel[3] << 6);
+}
+
+void write_exslot_reg(uint8_t data) {
+	int page = 0;
+	for(page = 0; page < 4; page++) {
+		int slot_ex = data & 0x03;
+		select_slot_ex(ms_memmap_shared, page, slot_ex);
+		data >>= 2;
+	}
+}
+
+uint8_t read_exslot_reg() {
+	uint8_t slot_base = ms_memmap_shared->slot_sel[3];
+	uint8_t ret = ms_memmap_shared->slot_sel_ex[slot_base][0] | (ms_memmap_shared->slot_sel_ex[slot_base][1] << 2) | (ms_memmap_shared->slot_sel_ex[slot_base][2] << 4) | (ms_memmap_shared->slot_sel_ex[slot_base][3] << 6);
+	// 読み出すと反転した値が読める
+	return ~ret;
+}
+
+
+/**
+ * @brief メモリマッパーのセグメント切り替え処理
+ * 
+ * @param data 
+ */
+void write_port_FC(uint8_t data) {
+	ms_memmap_shared->mainram_driver->base.did_update_memory_mapper((ms_memmap_driver_t*)ms_memmap_shared->mainram_driver, 0, data);
+}
+
+void write_port_FD(uint8_t data) {
+	ms_memmap_shared->mainram_driver->base.did_update_memory_mapper((ms_memmap_driver_t*)ms_memmap_shared->mainram_driver, 1, data);
+}
+
+void write_port_FE(uint8_t data) {
+	ms_memmap_shared->mainram_driver->base.did_update_memory_mapper((ms_memmap_driver_t*)ms_memmap_shared->mainram_driver, 2, data);
+}
+
+void write_port_FF(uint8_t data) {
+	ms_memmap_shared->mainram_driver->base.did_update_memory_mapper((ms_memmap_driver_t*)ms_memmap_shared->mainram_driver, 3, data);
+}
+
+//
+//
+//
+//
+
+
+uint8_t ms_memmap_read8(uint16_t addr) {
+	if (addr == 0xffff) {
+		// 拡張スロット選択レジスタのアドレスの場合
+		// ページ3が拡張されているかどうかを調べる
+		uint8_t slot_base = ms_memmap_shared->slot_sel[3];
+		if ( ms_memmap_shared->slot_expanded.flag[slot_base] == 1) {
+			// 拡張されている場合は拡張スロット選択レジスタを見る
+			return read_exslot_reg();
+		}
+	}
+	// アドレスからページ番号を取得
+	int page = (addr >> 14) & 0x03;
+	// ページからドライバを特定
+	ms_memmap_driver_t* d = ms_memmap_shared->current_driver[page];
+	return d->read8(d, addr);
+}
+
+void ms_memmap_write8(uint16_t addr, uint8_t data) {
+	if (addr == 0xffff) {
+		// 拡張スロット選択レジスタのアドレスの場合
+		// ページ3が拡張されているかどうかを調べる
+		uint8_t slot_base = ms_memmap_shared->slot_sel[3];
+		if ( ms_memmap_shared->slot_expanded.flag[slot_base] == 1) {
+			// 拡張されている場合は拡張スロット選択レジスタに書き込む
+			write_exslot_reg(data);
+			return;
+		}
+	}
+	// アドレスからページ番号を取得
+	int page = (addr >> 14) & 0x03;
+	// ページからドライバを特定
+	ms_memmap_driver_t* d = ms_memmap_shared->current_driver[page];
+	d->write8(d, addr, data);
+}
+
+uint16_t ms_memmap_read16(uint16_t addr) {
+	if (addr == 0xfffe || (addr & 0x3fff) == 0x3fff) {
+		// 拡張スロット選択レジスタのアドレスにかかる場合や、
+		// ページを跨ぐ場合は、8ビットずつ読む
+		uint16_t ret = ms_memmap_read8(addr) | (ms_memmap_read8(addr + 1) << 8);
+		return ret;
+	}
+	// アドレスからページ番号を取得
+	int page = (addr >> 14) & 0x03;
+	// ページからドライバを特定
+	ms_memmap_driver_t* d = ms_memmap_shared->current_driver[page];
+	return d->read16(d, addr);
+}
+
+void ms_memmap_write16(uint16_t addr, uint16_t data) {
+	if (addr == 0xfffe || (addr & 0x3fff) == 0x3fff) {
+		// 拡張スロット選択レジスタのアドレスのにかかる場合や、
+		// ページを跨ぐ場合は、8ビットずつ読む
+		ms_memmap_write8(addr, data & 0xff);
+		ms_memmap_write8(addr + 1, (data >> 8) & 0xff);
 		return;
 	}
-	megarom_konami->base.write16((ms_memmap_driver_t*)megarom_konami, 0x4000*page + addr, data);
-}
-
-/*
-	KONAAMI MEGAROM with SCC
-*/
-uint8_t ms_memmap_rd8_MEGAROM_KONAMI_SCC(uint8_t* mem, int page, uint16_t addr) {
-	if(megarom_konami_scc == NULL) {
-		printf("MEGAROM KONAMI SCCがロードされていません\n");
-		return 0xff;
-	}
-	return megarom_konami_scc->base.read8((ms_memmap_driver_t*)megarom_konami_scc, 0x4000*page + addr);
-}
-
-void ms_memmap_wr8_MEGAROM_KONAMI_SCC(uint8_t* mem, int page, uint16_t addr, uint8_t data) {
-	if(megarom_konami_scc == NULL) {
-		printf("MEGAROM KONAMI SCCがロードされていません\n");
-		return;
-	}
-	megarom_konami_scc->base.write8((ms_memmap_driver_t*)megarom_konami_scc, 0x4000*page + addr, data);
-}
-
-uint16_t ms_memmap_rd16_MEGAROM_KONAMI_SCC(uint8_t* mem, int page, uint16_t addr) {
-	if(megarom_konami_scc == NULL) {
-		printf("MEGAROM KONAMI SCCがロードされていません\n");
-		return 0xffff;
-	}
-	return megarom_konami_scc->base.read16((ms_memmap_driver_t*)megarom_konami_scc, 0x4000*page + addr);
-}
-
-void ms_memmap_wr16_MEGAROM_KONAMI_SCC(uint8_t* mem, int page, uint16_t addr, uint16_t data) {
-	if(megarom_konami_scc == NULL) {
-		printf("MEGAROM KONAMI SCCがロードされていません\n");
-		return;
-	}
-	megarom_konami_scc->base.write16((ms_memmap_driver_t*)megarom_konami_scc, 0x4000*page + addr, data);
+	// アドレスからページ番号を取得
+	int page = (addr >> 14) & 0x03;
+	// ページからドライバを特定
+	ms_memmap_driver_t* d = ms_memmap_shared->current_driver[page];
+	d->write16(d, addr, data);
 }
