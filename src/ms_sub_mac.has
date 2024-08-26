@@ -10,12 +10,6 @@
 
 	.xref	ms_memmap_init
 
-	.xref	slot_0_0
-	.xref	slot_3_0
-	.xref	slot_3_1
-	.xref	slot_3_2
-	.xref	slot_3_3
-
 	.xref	slot_3_ex
 
 	.xref	VDP_R_01		* VDP コントロールレジスタ 1
@@ -40,8 +34,9 @@
 
 headerlength	equ	8
 
-MFP_GPIP_4	equ	$000118		* 垂直割り込みのベクタアドレス
-MFP_GPIP_6	equ	$000138		* 水平割り込みのベクタアドレス
+MFP_GPIP_4	equ	$000118		* V-DISP割り込みのベクタアドレス
+MFP_GPIP_6	equ	$000138		* 特定ラスタ(CRTC R#9)での割り込みのベクタアドレス
+MFP_GPIP_7	equ	$00013C		* H-SYNC割り込み(全ラスタ割り込み)
 MFP_MPSC_EMP	equ	$000130		* キー入力ベクタアドレス
 IERA		equ	$e88007
 IERB		equ	$e88009
@@ -96,9 +91,16 @@ _new_malloc:
 	lsr.l	#2,d1
 1:	move.l	#0,(a1)+
 	dbra	d1,1b
-@@:	movem.l	(sp)+,d3-d7/a0-a5
+	movem.l	(sp)+,d3-d7/a0-a5
 	unlk	a6
 	rts
+
+	; 確保できなかったらNULLを返す
+@@:	clr.l	d0
+	movem.l	(sp)+,d3-d7/a0-a5
+	unlk	a6
+	rts
+
 
 	clr.l	-(sp)			; himem.sys の常駐確認
 	DOS	__SUPER
@@ -153,11 +155,13 @@ _new_free:
 	link	a6,#0
 	movem.l	d3-d7/a0-a5,-(sp)
 
-	move.l	8(a6),-(sp)
+	move.l	8(a6),d0
+	beq	@f		; NULLチェック
+	move.l	d0,-(sp)
 	DOS	__MFREE
 	lea.l	4(sp),sp
 
-	movem.l	(sp)+,d3-d7/a0-a5
+@@:	movem.l	(sp)+,d3-d7/a0-a5
 	unlk	a6
 	rts
 

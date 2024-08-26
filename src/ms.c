@@ -23,18 +23,12 @@
 #include "ms_iomap.h"
 #include "vdp/ms_vdp.h"
 
-#define NUM_SEGMENTS 4
-
 extern int readMemFromC(int address);
 
 void ms_exit( void);
 
 // メモリ関連
-int mem_initialized = 0;
-int ms_memmap_init();
-void ms_memmap_deinit(void);
-
-void ms_memmap_set_main_mem( void *, int);
+ms_memmap_t* memmap = NULL;
 
 // I/O関連
 ms_iomap_t* iomap = NULL;
@@ -73,8 +67,6 @@ void ms_memmap_register_rom( void* address, int kind, int slot, int page);
 int emuLoop(unsigned int pc, unsigned int counter);
 
 void set_system_roms(void);
-void allocateAndSetROM(const char* romFileName, int kind, int slot, int page);
-void allocateAndSetROM_Cartridge(const char* romFileName);
 
 void _toggleTextPlane(void);
 void _setTextPlane(int textPlaneMode);
@@ -118,7 +110,6 @@ void printHelpAndExit(char* progname) {
 	exit(EXIT_FAILURE);
 }
 
-static unsigned char *MMem;
 static unsigned char *MainROM1;
 static unsigned char *MainROM2;
 static unsigned char *SUBROM;
@@ -129,8 +120,8 @@ static unsigned char *ROM;
 uint32_t max_wait = 0xffffffff;
 int disablekey = 0;
 
-const char *mainrom_cbios = "cbios_main_msx1_jp.rom";
-const char *cbioslogo = "cbios_logo_msx1.rom";
+const char *mainrom_cbios = "cbios_main_msx2_jp.rom";
+const char *cbioslogo = "cbios_logo_msx2.rom";
 const char *subrom_cbios = "cbios_sub.rom";
 
 char *mainrom_user = "MAINROM.ROM";
@@ -316,20 +307,12 @@ int main(int argc, char *argv[]) {
 	/*
 	 メモリシステムの初期化
 	 */
-	mem_initialized = ms_memmap_init();
-	if (mem_initialized == 0)
+	memmap = ms_memmap_init();
+	if (memmap == NULL)
 	{
 		printf("メモリシステムの初期化に失敗しました\n");
 		ms_exit();
 	}
-
-	MMem = new_malloc(64 * 1024 + 8 * NUM_SEGMENTS); /* ６４Ｋ + ８バイト＊総セグメント数	*/
-	if (MMem > (unsigned char *)0x81000000)
-	{
-		printf("メモリが確保できません\n");
-		ms_exit();
-	}
-	ms_memmap_set_main_mem(MMem, (int)NUM_SEGMENTS); /* アセンブラのルーチンへ引き渡し		*/
 
 	/*
 	 VDPシステムの初期化
@@ -381,7 +364,7 @@ int main(int argc, char *argv[]) {
 		for ( j = 0; j < 4; j++) {
 			if ( slot_path[i][j] != NULL) {
 				printf("スロット%d-ページ%dにROMをセットします: %s\n", i, j, slot_path[i][j]);
-				allocateAndSetROM(slot_path[i][j], ROM_TYPE_NORMAL_ROM, i<<2, j);
+				allocateAndSetROM(slot_path[i][j], ROM_TYPE_NORMAL_ROM, i, -1, j);
 			}
 		}
 	}
@@ -417,6 +400,9 @@ int main(int argc, char *argv[]) {
 		printf("VSYNC回数は %d です\n", end - start);
 	}
 
+	// 	全ページの スロットを０で初期化
+	write_port_A8(0);
+
 	if (1) {
 		ms_cpu_emulate(emuLoop, max_wait);
 	} else {
@@ -440,8 +426,8 @@ void ms_exit() {
 	if ( iomap != NULL ) {
 		ms_iomap_deinit(iomap);
 	}
-	if ( mem_initialized ) {
-		ms_memmap_deinit();
+	if ( memmap != NULL ) {
+		ms_memmap_deinit(memmap);
 	}
 	exit(0);
 }
@@ -761,69 +747,18 @@ void set_system_roms() {
 	if (file_exists(mainrom_user) && file_exists(subrom_user)) {
 		// Load user-provided ROMs
 		printf("指定されたBIOS ROMが見つかりました。%s と %sを使用します。\n", mainrom_user, subrom_user);
-		allocateAndSetROM(mainrom_user, ROM_TYPE_NORMAL_ROM, 0x00, 0);
-		allocateAndSetROM(subrom_user, ROM_TYPE_NORMAL_ROM, 0x0d, 0);
+		allocateAndSetROM(mainrom_user, ROM_TYPE_NORMAL_ROM, 0x00, -1, 0);
+		allocateAndSetROM(subrom_user, ROM_TYPE_NORMAL_ROM, 0x03, 1, 0);
     } else {
         // Load default CBIOS ROMs
 		printf("CBIOS ROMを使用します。\n");
-		allocateAndSetROM(mainrom_cbios, ROM_TYPE_NORMAL_ROM, 0x00, 0);
-		allocateAndSetROM(cbioslogo, ROM_TYPE_NORMAL_ROM, 0x00, 2);
-		allocateAndSetROM(subrom_cbios, ROM_TYPE_NORMAL_ROM, 0x0d, 0);
+		allocateAndSetROM(mainrom_cbios, ROM_TYPE_NORMAL_ROM, 0x00, -1, 0);
+		allocateAndSetROM(cbioslogo, ROM_TYPE_NORMAL_ROM, 0x00, -1, 2);
+		allocateAndSetROM(subrom_cbios, ROM_TYPE_NORMAL_ROM, 0x03, 1, 0);
     }
 }
 
 extern int filelength(int fh);
-#define h_length 8
-
-void allocateAndSetROM_Cartridge(const char *romFileName) {
-	allocateAndSetROM(romFileName, ROM_TYPE_NORMAL_ROM, 1<<2, 1);
-}
-
-void allocateAndSetROM(const char *romFileName, int kind, int slot, int page) {
-	int crt_fh;
-	int crt_length;
-	uint8_t *crt_buff;
-	int i;
-
-	crt_fh = open( romFileName, O_RDONLY | O_BINARY);
-	if (crt_fh == -1) {
-		printf("ファイルが開けません. %s\n", romFileName);
-		ms_exit();
-		return;
-	}
-	crt_length = filelength(crt_fh);
-	if(crt_length == -1) {
-		printf("ファイルの長さが取得できません。\n");
-		ms_exit();
-		return;
-	}
-
-	// 16Kバイトずつ読み込んでROMにセット
-	if( crt_length <= 32 * 1024 ) {
-		for(i = 0; i < 2; i++) {
-			if(crt_length < 16 * 1024) {
-				break;
-			}
-			if( ( crt_buff = new_malloc( 16 * 1024 + h_length ) ) >= (uint8_t *)0x81000000) {
-				printf("メモリが確保できません。\n");
-				ms_exit();
-				return;
-			}
-			read( crt_fh, crt_buff + h_length, 16 * 1024);
-			// int j;
-			// for(j = 0; j < 16; j++) {
-			// 	printf("%02x ", crt_buff[h_length + i]);
-			// }
-			// printf("\n");
-			ms_memmap_register_rom(crt_buff, kind, slot, page + i);
-			crt_length -= 16 * 1024;
-		}
-	} else {
-		printf("ファイルが認識できませんでした\n");
-		ms_exit();
-	}
- 	close( crt_fh);
-}
 
 /*
 	for debug

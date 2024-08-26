@@ -82,12 +82,12 @@
 	.xref	rd8_sub_add_p2
 	.xref	rd8_sub_add_p3
 
-	.xref	wt8_sub_add_p0
-	.xref	wt8_sub_add_p1
-	.xref	wt8_sub_add_p2
-	.xref	wt8_sub_add_p3
+	.xref	wr8_sub_add_p0
+	.xref	wr8_sub_add_p1
+	.xref	wr8_sub_add_p2
+	.xref	wr8_sub_add_p3
 
-	.xref	wt16_sub_add_p0
+	.xref	wr16_sub_add_p0
 	.xref	rd16_sub_add_p0
 
 	.xref	exslotreg_read
@@ -540,7 +540,7 @@ page_2_w8:
 	bra	@f
 page_3_w8:
 	movea.l	page3,a0
-	movea.l	wt8_sub_add_p3,a1
+	movea.l	wr8_sub_add_p3,a1
 	cmp.w	#$3fff,d0
 	beq	next_w8
 	bra	@f
@@ -649,7 +649,7 @@ show_page1:
 	pea.l	(a0)
 	DOS	__PRINT
 	lea.l	4(sp),sp
-	move.l	wt8_sub_add_p0+4,d0
+	move.l	wr8_sub_add_p0+4,d0
 	bsr	print_address
 
 	lea.l	22(a0),a0		* rd8 routin address
@@ -663,7 +663,7 @@ show_page1:
 	pea.l	(a0)
 	DOS	__PRINT
 	lea.l	4(sp),sp
-	move.l	wt16_sub_add_p0+4,d0
+	move.l	wr16_sub_add_p0+4,d0
 	bsr	print_address
 
 	lea.l	22(a0),a0		* rd16 routin address
@@ -746,7 +746,7 @@ show_page0:
 	pea.l	(a0)
 	DOS	__PRINT
 	lea.l	4(sp),sp
-	move.l	wt8_sub_add_p0,d0
+	move.l	wr8_sub_add_p0,d0
 	bsr	print_address
 
 	lea.l	22(a0),a0		* rd8 routin address
@@ -760,7 +760,7 @@ show_page0:
 	pea.l	(a0)
 	DOS	__PRINT
 	lea.l	4(sp),sp
-	move.l	wt16_sub_add_p0,d0
+	move.l	wr16_sub_add_p0,d0
 	bsr	print_address
 
 	lea.l	22(a0),a0		* rd16 routin address
@@ -844,7 +844,7 @@ show_page2:
 	pea.l	(a0)
 	DOS	__PRINT
 	lea.l	4(sp),sp
-	move.l	wt8_sub_add_p0+8,d0
+	move.l	wr8_sub_add_p0+8,d0
 	bsr	print_address
 
 	lea.l	22(a0),a0		* rd8 routin address
@@ -858,7 +858,7 @@ show_page2:
 	pea.l	(a0)
 	DOS	__PRINT
 	lea.l	4(sp),sp
-	move.l	wt16_sub_add_p0+8,d0
+	move.l	wr16_sub_add_p0+8,d0
 	bsr	print_address
 
 	lea.l	22(a0),a0		* rd16 routin address
@@ -942,7 +942,7 @@ show_page3:
 	pea.l	(a0)
 	DOS	__PRINT
 	lea.l	4(sp),sp
-	move.l	wt8_sub_add_p0+12,d0
+	move.l	wr8_sub_add_p0+12,d0
 	bsr	print_address
 
 	lea.l	22(a0),a0		* rd8 routin address
@@ -956,7 +956,7 @@ show_page3:
 	pea.l	(a0)
 	DOS	__PRINT
 	lea.l	4(sp),sp
-	move.l	wt16_sub_add_p0+12,d0
+	move.l	wr16_sub_add_p0+12,d0
 	bsr	print_address
 
 	lea.l	22(a0),a0		* rd16 routin address
@@ -1170,7 +1170,7 @@ slot_type:
 	.dc.b	'normal ROM   ',$0d,$0a,0
 	.dc.b	'MEGA-ROM    8',$0d,$0a,0
 	.dc.b	'MEGA-ROM   16',$0d,$0a,0
-	.dc.b	'MEGA-ROM  SCC',$0d,$0a,0
+	.dc.b	'MEGA-ROM KONA',$0d,$0a,0
 	.dc.b	'sound cartrig',$0d,$0a,0
 	.dc.b	'MEGA-ROM pana',$0d,$0a,0
 	.dc.b	'DOS ROM      ',$0d,$0a,0

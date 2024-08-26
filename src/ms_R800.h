@@ -36,6 +36,8 @@ struct ms_cpu_registers {
 	uint8_t w,z;
 };
 
+extern uint16_t ms_cpu_needs_refresh_PC;
+
 extern ms_cpu_registers *ms_cpu_registers_ptr;
 
 int ms_cpu_emulate(int(*)(unsigned int, unsigned int), uint32_t max_wait);

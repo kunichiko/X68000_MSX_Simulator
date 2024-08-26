@@ -40,14 +40,24 @@ ms_vdp_mode_t ms_vdp_GRAPHIC1 = {
 	update_r7_color_GRAPHIC1,
 	// char* get_mode_name_GRAPHIC1(ms_vdp_t* vdp);
 	get_mode_name_GRAPHIC1,
-	// void exec_vdp_command_NONE(ms_vdp_t* vdp, uint8_t cmd);
-	exec_vdp_command_NONE,
+	// void vdp_command_exec_NONE(ms_vdp_t* vdp, uint8_t cmd);
+	vdp_command_exec_NONE,
+	// uint8_t vdp_command_read_DEFAULT(ms_vdp_t* vdp);
+	vdp_command_read_NONE,
+	// void vdp_command_write_DEFAULT(ms_vdp_t* vdp, uint8_t cmd);
+	vdp_command_write_NONE,
 	// void (*update_resolution)(ms_vdp_t* vdp);
 	update_resolution_GRAPHIC1,
 	// void vsync_draw(ms_vdp_t* vdp);
 	vsync_draw_GRAPHIC1,
 	// sprite mode
-	1
+	1,
+	// crt_width
+	256,
+	// dots_per_byte
+	0,	// VDPコマンド用なので未使用
+	// bits_per_dot
+	0	// VDPコマンド用なので未使用
 };
 
 void write_pname_tbl_GRAPHIC1(ms_vdp_t* vdp, uint32_t addr, uint8_t data);
@@ -80,6 +90,7 @@ void update_pnametbl_baddr_GRAPHIC1(ms_vdp_t* vdp) {
 		last_pnametbl_baddr = vdp->pnametbl_baddr;
 		_refresh_GRAPHIC1(vdp);
 	}
+	_refresh_GRAPHIC1(vdp);
 }
 
 
@@ -93,6 +104,7 @@ void update_colortbl_baddr_GRAPHIC1(ms_vdp_t* vdp) {
 		last_colortbl_baddr = vdp->colortbl_baddr;
 		_refresh_GRAPHIC1(vdp);
 	}
+	_refresh_GRAPHIC1(vdp);
 }
 
 static uint32_t last_pgentbl_baddr = 0xffffffff;
@@ -105,10 +117,11 @@ void update_pgentbl_baddr_GRAPHIC1(ms_vdp_t* vdp) {
 		last_pgentbl_baddr = vdp->pgentbl_baddr;
 		_refresh_GRAPHIC1(vdp);
 	}
+	_refresh_GRAPHIC1(vdp);
 }
 
 void update_sprattrtbl_baddr_GRAPHIC1(ms_vdp_t* vdp) {
-	update_sprattrtbl_baddr_DEFAULT(vdp);
+	update_sprattrtbl_baddr_MODE1(vdp);
 }
 
 void update_sprpgentbl_baddr_GRAPHIC1(ms_vdp_t* vdp) {

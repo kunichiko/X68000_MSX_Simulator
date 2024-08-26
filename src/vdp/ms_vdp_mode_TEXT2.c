@@ -39,14 +39,24 @@ ms_vdp_mode_t ms_vdp_TEXT2 = {
 	update_r7_color_TEXT2,
 	// char* get_mode_name_TEXT2(ms_vdp_t* vdp);
 	get_mode_name_TEXT2,
-	// void exec_vdp_command_NONE(ms_vdp_t* vdp, uint8_t cmd);
-	exec_vdp_command_NONE,
+	// void vdp_command_exec_NONE(ms_vdp_t* vdp, uint8_t cmd);
+	vdp_command_exec_NONE,
+	// uint8_t vdp_command_read(ms_vdp_t* vdp);
+	vdp_command_read_NONE,
+	// void vdp_command_write(ms_vdp_t* vdp, uint8_t cmd);
+	vdp_command_write_NONE,
 	// void (*update_resolution)(ms_vdp_t* vdp);
 	update_resolution_TEXT2,
 	// void vsync_draw(ms_vdp_t* vdp);
 	vsync_draw_NONE,
 	// sprite mode
-	0
+	0,
+	// crt_width
+	512,
+	// dots_per_byte
+	0,	// VDPコマンド用なので未使用
+	// bits_per_dot
+	0	// VDPコマンド用なので未使用
 };
 
 
@@ -77,7 +87,7 @@ uint8_t read_vram_TEXT2(ms_vdp_t* vdp) {
 }
 
 void write_vram_TEXT2(ms_vdp_t* vdp, uint8_t data) {
-	write_vram_DEFAULT(vdp, data);
+	vdp->vram[vdp->vram_addr] = data;
 	//
 	uint32_t area = vdp->vram_addr & 0x1f800; // 下位11ビットをクリア
 	if (area == vdp->pgentbl_baddr) {
@@ -111,11 +121,9 @@ void update_pgentbl_baddr_TEXT2(ms_vdp_t* vdp) {
 }
 
 void update_sprattrtbl_baddr_TEXT2(ms_vdp_t* vdp) {
-    update_sprattrtbl_baddr_DEFAULT(vdp);
 }
 
 void update_sprpgentbl_baddr_TEXT2(ms_vdp_t* vdp) {
-    update_sprpgentbl_baddr_DEFAULT(vdp);
 }
 
 void update_r7_color_TEXT2(ms_vdp_t* vdp, uint8_t data) {

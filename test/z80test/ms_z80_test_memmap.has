@@ -13,10 +13,7 @@
 
 	.xdef	ms_mainmem_ptr
 
-	.xdef	page0		; b’èˆ—
-	.xdef	page1
-	.xdef	page2
-	.xdef	page3
+	.xdef	ms_cpu_mem_ptr_array
 
 	; b’è
 	.xdef	HEX
@@ -44,22 +41,31 @@ ms_mainmem_ptr:
 	
 ms_mainmem:
 ms_mainmem_page0:
-	.ds.b	16384
+	.ds.b	8192
 ms_mainmem_page1:
-	.ds.b	16384
+	.ds.b	8192
 ms_mainmem_page2:
-	.ds.b	16384
+	.ds.b	8192
 ms_mainmem_page3:
-	.ds.b	16384
+	.ds.b	8192
+ms_mainmem_page4:
+	.ds.b	8192
+ms_mainmem_page5:
+	.ds.b	8192
+ms_mainmem_page6:
+	.ds.b	8192
+ms_mainmem_page7:
+	.ds.b	8192
 
-page0:
+ms_cpu_mem_ptr_array:
 	.dc.l	ms_mainmem_page0
-page1:
 	.dc.l	ms_mainmem_page1
-page2:
 	.dc.l	ms_mainmem_page2
-page3:
 	.dc.l	ms_mainmem_page3
+	.dc.l	ms_mainmem_page4
+	.dc.l	ms_mainmem_page5
+	.dc.l	ms_mainmem_page6
+	.dc.l	ms_mainmem_page7
 
 ; b’è
 ms_cpu_int:
