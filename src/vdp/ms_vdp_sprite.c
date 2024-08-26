@@ -447,7 +447,11 @@ void write_sprite_color(ms_vdp_t* vdp, int offset, uint32_t color) {
 	}
 }
 
-
+/**
+ * @brief VSYNC期間にスプライトの更新をまとめて行う
+ * 
+ * @param vdp 
+ */
 void ms_vdp_sprite_vsync_draw(ms_vdp_t* vdp) {
 	if (!vdp->sprite_refresh_flag) {
 		return;

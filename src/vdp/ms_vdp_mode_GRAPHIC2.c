@@ -219,12 +219,13 @@ void vsync_draw_GRAPHIC2(ms_vdp_t* vdp) {
 		refresh_addr = vdp->pnametbl_baddr & 0x1fc00;
 		num_refresh = 0;
 	}
+	uint8_t* vram = vdp->vram;
 	// 1回のvsyncで書き換える数の上限
 	int refresh_count = 16;				// だいたい60フレーム = 1秒で 32文字x24行=768文字が書き換えられる計算
 	// 1回のvsyncでチェックする数の上限
 	int check_count = 128;
 	while(refresh_count > 0 && check_count > 0) {
-		uint8_t data = vdp->vram[refresh_addr];
+		uint8_t data = vram[refresh_addr];
 		uint8_t group = (data & 0xe0) >> 5;
 		uint32_t mask = 1 << (((int)data) & 0x1f);
 		if (rewrite_flag_buffer[group] & mask) {
