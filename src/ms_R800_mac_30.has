@@ -88,6 +88,8 @@
 
 	.xref	ms_io_input_table
 	.xref	ms_io_output_table
+	;.xref	no_port_OUT
+	;.xref	no_port_OUT_2
 
 	.xref	native_jpt_add		* ６８ネイティブルーチンのジャンプテーブル
 
@@ -101,8 +103,6 @@
 	.xref	int_block_count
 
 	.xref	ms_vdp_interrupt_tick	; TODO VDP依存を除去
-
-	.xref	w_port_A8
 
 	.xref	eval_flag_all
 	.xref	eval_flag_SZ
@@ -7763,26 +7763,34 @@ input:
 *****************************************************************	
 output:
 	movem.l	d2-d7/a0-a5,-(sp)
-.if 0
+
+	andi.l	#$ff,d0				* 上位バイトを０でクリア
+	andi.l	#$ff,d1				* 上位バイトを０でクリア
+	lea	ms_io_output_table,a0
+	movea.l	(a0,d0.w*4),a0			* d0 の値を変えちゃだめ（68030用→68000用にする時注意）
+.ifdef	DEBUG
 	bsr	print_debug_out
 .endif
-	clr.w	d2
-	move.b	d0,d2				* 上位バイトを０でクリア
-	lea	ms_io_output_table,a0
-	movea.l	(a0,d2.w*4),a0			* d0 の値を変えちゃだめ（68030用→68000用にする時注意）
-	move.b	d1,-(sp)			* Cの関数でも呼べるように引数をセット
-	move.b	d0,-(sp)			* Cの関数でも呼べるように引数をセット
+	move.l	d1,-(sp)			* Cの関数でも呼べるように引数をセット
+	move.l	d0,-(sp)			* Cの関数でも呼べるように引数をセット
 	jsr	(a0)
-@@:	jsr	refresh_PC_if_needed
-	lea	4(sp),sp
+	jsr	refresh_PC_if_needed		* I/Oの出力によってページ切り替えが発生している可能性があるので調べる
+	lea	8(sp),sp
 	movem.l	(sp)+,d2-d7/a0-a5
 	rts
 
 print_debug_out:
-	cmp.w	#1,debug_log_level
+; 	cmp.l	#no_port_OUT,a0
+; 	bne	@f
+; 	rts
+; @@:	cmp.l	#no_port_OUT_2,a0
+; 	bne	@f
+; 	rts
+@@:	cmp.w	#1,debug_log_level
 	bge	@f				* ログレベルが１以上の時
 	rts
 @@:	movem.l	d0-d3/a0-a3,-(sp)
+	move.b	d0,d1
 	lsr.w	#4,d0
 	lea.l	HEX,a0
 	move.b	(a0,d0.w),debug_out_number+0
@@ -7805,10 +7813,10 @@ print_debug_out:
 
 
 debug_out_msg:
-	.dc.b	'I/Oポートに書き込みました。0x'
+	.dc.b	'I/O write P:0x'
 debug_out_number:
 	.dc.b	'00'
-	.dc.b	' 値:0x'
+	.dc.b	' V:0x'
 debug_out_value:
 	.dc.b	'00'
 	.dc.b	0x0d,0x0a,0x00
@@ -7908,7 +7916,7 @@ emu_yield:
 	.dc.w	0
 
 debug_log_level:
-	.dc.w	0
+	.dc.w	1
 
 *	割り込み許可状態を示すフラグ
 *	0 ・・・ DI

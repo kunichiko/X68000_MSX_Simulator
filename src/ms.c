@@ -695,10 +695,20 @@ void dump(unsigned int page, unsigned int pc_16k) {
 // テキスト表示切り替え
 unsigned short* VCON_R02 = (unsigned short*)0x00e82600;
 
+static unsigned short debug_log_level_bup;
+
 void _toggleTextPlane(void) {
 	static int textPlaneMode = 1;
 
 	textPlaneMode = (textPlaneMode + 1) % 2;
+	if (textPlaneMode == 0) {
+		// テキスト表示OFFにする時に、デバッグログをOFFにする
+		debug_log_level_bup = debug_log_level;
+		debug_log_level = 0;
+	}
+	else {
+		debug_log_level = debug_log_level_bup;
+	}
 	_setTextPlane(textPlaneMode);
 }
 

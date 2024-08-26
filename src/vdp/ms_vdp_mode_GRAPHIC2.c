@@ -116,6 +116,7 @@ void write_vram_GRAPHIC2_c(ms_vdp_t* vdp, uint8_t data) {
 }
 
 void update_palette_GRAPHIC2(ms_vdp_t* vdp) {
+	printf("update_palette_GRAPHIC2\n");
 	update_palette_DEFAULT(vdp);
 }
 
@@ -185,11 +186,12 @@ void write_pname_tbl_GRAPHIC2(ms_vdp_t* vdp, uint32_t addr, uint8_t data) {
 	uint32_t pgene_addr = (vdp->pgentbl_baddr & 0x1e000) + (block*256*8) + data16*8;
 	pgene_addr &= 0b11110011111111111 | (vdp->pgentbl_baddr  & 0b00001100000000000);
 
+	uint8_t* vram = vdp->vram;
 	uint16_t* gram = X68_GRAM + posy*8*512 + posx*8;
 	int x,line;
 	for(line=0;line<8;line++) {
-		uint8_t pattern = vdp->vram[pgene_addr + line];
-		uint16_t color = vdp->vram[color_addr + line];
+		uint8_t pattern = vram[pgene_addr + line];
+		uint16_t color = vram[color_addr + line];
 		uint16_t f_color = color >> 4;
 		uint16_t b_color = color & 0x0f;;
 		for(x=0;x<8;x++) {
