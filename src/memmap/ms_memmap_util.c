@@ -15,7 +15,7 @@ int filelength(int fh) {
 	return st.st_size;
 }
 
-void allocateAndSetROM_Cartridge(const char *romFileName) {
+void allocateAndSetROM_Cartridge(const char *romFileName, int slot_base) {
 	int crt_fh;
 	int crt_length;
 	uint8_t *crt_buff;
@@ -59,7 +59,7 @@ void allocateAndSetROM_Cartridge(const char *romFileName) {
 	int kind = detect_rom_type(crt_buff, crt_length);
 	switch(kind) {
 		case ROM_TYPE_NORMAL_ROM:
-			allocateAndSetROM(romFileName, ROM_TYPE_NORMAL_ROM, 1, -1, 1);
+			allocateAndSetROM(romFileName, ROM_TYPE_NORMAL_ROM, slot_base, -1, 1);
 			break;
 		case ROM_TYPE_MEGAROM_8:
 			// ASCII 8K メガロム
@@ -89,7 +89,7 @@ void allocateAndSetROM_Cartridge(const char *romFileName) {
 			break;
 	}
 	if(driver != NULL) {
-		if ( ms_memmap_attach_driver(ms_memmap_shared, driver, 1, -1) != 0) {
+		if ( ms_memmap_attach_driver(ms_memmap_shared, driver, slot_base, -1) != 0) {
 			printf("ドライバのアタッチに失敗しました\n");
 			driver->deinit(driver);
 			return;

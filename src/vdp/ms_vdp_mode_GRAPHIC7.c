@@ -100,7 +100,7 @@ void update_sprattrtbl_baddr_GRAPHIC7(ms_vdp_t* vdp) {
 }
 
 void update_sprpgentbl_baddr_GRAPHIC7(ms_vdp_t* vdp) {
-    update_sprpgentbl_baddr_DEFAULT(vdp);
+    update_sprpgentbl_baddr_MODE2(vdp);
 }
 
 void update_r7_color_GRAPHIC7(ms_vdp_t* vdp, uint8_t data) {

@@ -52,15 +52,15 @@ void rewrite_sprite_if_needed(ms_vdp_t* vdp) {
 		// DIY = 0
 		if( (vdp->cmd_ny_sprite_start < vdp->dy + vdp->ny) && //
 			(vdp->cmd_ny_sprite_end >= vdp->dy)) {
-			rewrite_all_sprite(vdp);
-			//printf("rewite: %d - %d w %d - %d\n", vdp->dy, vdp->dy + vdp->ny, vdp->cmd_ny_sprite_start, vdp->cmd_ny_sprite_end);
+			// TODO パターンジェネレータテーブル、カラーテーブル、アトリビュートテーブルをそれぞれ別に検査する
+			vdp->sprite_refresh_flag |= SPRITE_REFRESH_FLAG_PGEN;
 		}
 	} else {
 		// DIY = 0
 		if( (vdp->cmd_ny_sprite_start <= vdp->dy) && //
 			(vdp->cmd_ny_sprite_end > vdp->dy - vdp->ny)) {
-			rewrite_all_sprite(vdp);
-			//printf("rewite: %d - %d w %d - %d\n", vdp->dy - vdp->ny, vdp->dy, vdp->cmd_ny_sprite_start, vdp->cmd_ny_sprite_end);
+			// TODO パターンジェネレータテーブル、カラーテーブル、アトリビュートテーブルをそれぞれ別に検査する
+			vdp->sprite_refresh_flag |= SPRITE_REFRESH_FLAG_PGEN;
 		}
 	}
 }
