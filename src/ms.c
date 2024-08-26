@@ -546,7 +546,8 @@ int emuLoop(unsigned int pc, unsigned int counter) {
 		{
 			continue;
 		}
-		int v = _iocs_bitsns(i);
+		//int v = _iocs_bitsns(i);
+		int v = ((uint8_t*)0x800)[i];	// IOCS BITSNSのワークエリア直接参照
 		for ( j = 0; j < 8; j++)
 		{
 			if ((v & 1) == 1)
