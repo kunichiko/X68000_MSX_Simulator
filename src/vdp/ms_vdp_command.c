@@ -439,41 +439,52 @@ void cmd_HMMV(ms_vdp_t* vdp, uint8_t cmd) {
 	if (0) {
 		printf("HMMV START********\n");
 	}
+	// 高速化のためのキャッシュ
 	int	crt_width = vdp->ms_vdp_current_mode->crt_width;
 	int dots_per_byte = vdp->ms_vdp_current_mode->dots_per_byte;
 	int bits_per_dot = vdp->ms_vdp_current_mode->bits_per_dot;
+	uint8_t* vram = vdp->vram;
+	uint8_t DIX = vdp->cmd_arg & 0x04;
+	uint8_t DIY = vdp->cmd_arg & 0x08;
+	uint16_t nx = vdp->nx == 0 ? crt_width : vdp->nx; // TODO ドラクエ2でNX=0が使われている
+	uint16_t ny = vdp->ny;
+	uint8_t clr = vdp->clr;
 
 	vdp->cmd_current = cmd;
 	vdp->cmd_arg = vdp->arg;
 	uint32_t dst_vram_addr = get_vram_address(vdp, vdp->dx, vdp->dy, NULL);
 
 	int x,y,i;
-	for(y=0;y<vdp->ny;y++) {
-		for(x=0;x<vdp->nx;x+=2) {
-			uint8_t data = vdp->clr;
+	for(y=0; y < ny; y++) {
+		uint16_t* gram = to_gram(vdp, dst_vram_addr, 0);
+		for(x=0;x < nx; x+=2) {
+			uint8_t data = clr;
 			// VRAMに書き込む
-			vdp->vram[dst_vram_addr] = data;
-			// GRAMに書き込む
-			uint16_t* gram = to_gram(vdp, dst_vram_addr, 0);
-			for(i=0; i < dots_per_byte; i++) {
-				uint16_t dst = (data >> ((dots_per_byte-1-i)*bits_per_dot)) & ((1<<bits_per_dot)-1);
-				gram[0] = dst;
-				if(vdp->ms_vdp_current_mode->crt_width == 256) gram[256*512] = dst;
-				gram++;
+			if( vram[dst_vram_addr] != data ) {
+				vram[dst_vram_addr] = data;
+				vram[dst_vram_addr] = data;
+				// GRAMに書き込む
+				for(i=0; i < dots_per_byte; i++) {
+					uint16_t dst = (data >> ((dots_per_byte-1-i)*bits_per_dot)) & ((1<<bits_per_dot)-1);
+					gram[0+i] = dst;
+					if(crt_width == 256) gram[256*512+i] = dst;
+				}
 			}
 			// DIXに従ってVRAMアドレスを更新
-			if ((vdp->cmd_arg & 0x04) == 0) {
+			if ( DIX == 0) {
 				dst_vram_addr += 1;
+				gram += dots_per_byte;
 			} else {
 				dst_vram_addr -= 1;
+				gram -= dots_per_byte;
 			}
 		}
-		if ( (vdp->cmd_arg & 0x4) == 0 ) {
-			dst_vram_addr -= vdp->nx / dots_per_byte;
+		if ( DIX == 0 ) {
+			dst_vram_addr -= nx / dots_per_byte;
 		} else {
-			dst_vram_addr += vdp->nx / dots_per_byte;
+			dst_vram_addr += nx / dots_per_byte;
 		}
-		if ( (vdp->cmd_arg & 0x8) == 0 ) {
+		if ( DIY == 0 ) {
 			dst_vram_addr += crt_width / dots_per_byte;
 		} else {
 			dst_vram_addr -= crt_width / dots_per_byte;
@@ -487,9 +498,13 @@ void cmd_YMMM(ms_vdp_t* vdp, uint8_t cmd) {
 	if(0) {
 		printf("YMMM START********\n");
 	}
+	// 高速化のためのキャッシュ
 	int	crt_width = vdp->ms_vdp_current_mode->crt_width;
 	int dots_per_byte = vdp->ms_vdp_current_mode->dots_per_byte;
 	int bits_per_dot = vdp->ms_vdp_current_mode->bits_per_dot;
+	uint8_t* vram = vdp->vram;
+	uint8_t DIX = vdp->cmd_arg & 0x04;
+	uint8_t DIY = vdp->cmd_arg & 0x08;
 
 	vdp->cmd_current = cmd;
 	vdp->cmd_arg = vdp->arg;
@@ -497,41 +512,44 @@ void cmd_YMMM(ms_vdp_t* vdp, uint8_t cmd) {
 	uint32_t dst_vram_addr = get_vram_address(vdp, vdp->dx, vdp->dy, NULL);
 
 	// DIXによってX方向のどちらの画面端まで転送するかが変わるのでnxが変化する
-	int nx = (vdp->cmd_arg & 0x04) == 0 ? (crt_width-vdp->dx) : vdp->dx;
+	int nx = DIX == 0 ? (crt_width-vdp->dx) : vdp->dx;
 
 	int x,y,i;
 	for(y=0; y < vdp->ny; y++) {
 		uint16_t* gram = to_gram(vdp, dst_vram_addr, 0);
 		for(x=0; x < nx; x+=dots_per_byte) {	// dots_per_byte ドットずつ処理
-			uint8_t data = vdp->vram[src_vram_addr];
+			uint8_t data = vram[src_vram_addr];
 			// VRAMに書き込む
-			vdp->vram[dst_vram_addr] = data;
-			// GRAMに書き込む
-			for(i=0; i < dots_per_byte; i++) {
-				uint16_t dst = (data >> ((dots_per_byte-1-i)*bits_per_dot)) & ((1<<bits_per_dot)-1);
-				gram[0] = dst;
-				if(vdp->ms_vdp_current_mode->crt_width == 256) gram[256*512] = dst;
-				gram++;
+			if( vram[dst_vram_addr] != data ) {
+				vram[dst_vram_addr] = data;
+				// GRAMに書き込む
+				for(i=0; i < dots_per_byte; i++) {
+					uint16_t dst = (data >> ((dots_per_byte-1-i)*bits_per_dot)) & ((1<<bits_per_dot)-1);
+					gram[0+i] = dst;
+					if(crt_width == 256) gram[256*512+i] = dst;
+				}
 			}
 			// DIXに従ってVRAMアドレスを更新
 			if ((vdp->cmd_arg & 0x04) == 0) {
 				// DIX=0の時
 				src_vram_addr += 1;
 				dst_vram_addr += 1;
+				gram += dots_per_byte;
 			} else {
 				// DIX=1の時
 				src_vram_addr -= 1;
 				dst_vram_addr -= 1;
+				gram -= dots_per_byte;
 			}
 		}
-		if ( (vdp->cmd_arg & 0x4) == 0 ) {
+		if ( DIX == 0 ) {
 			src_vram_addr -= nx / dots_per_byte;
 			dst_vram_addr -= nx / dots_per_byte;
 		} else {
 			src_vram_addr += nx / dots_per_byte;
 			dst_vram_addr += nx / dots_per_byte;
 		}
-		if ( (vdp->cmd_arg & 0x8) == 0 ) {
+		if ( DIY == 0 ) {
 			src_vram_addr += crt_width / dots_per_byte;
 			dst_vram_addr += crt_width / dots_per_byte;
 		} else {
@@ -548,9 +566,13 @@ void cmd_HMMM(ms_vdp_t* vdp, uint8_t cmd) {
 		printf("HMMM START****\n");
 	}
 
+	// 高速化のためのキャッシュ
 	int	crt_width = vdp->ms_vdp_current_mode->crt_width;
 	int dots_per_byte = vdp->ms_vdp_current_mode->dots_per_byte;
 	int bits_per_dot = vdp->ms_vdp_current_mode->bits_per_dot;
+	uint8_t* vram = vdp->vram;
+	uint8_t DIX = vdp->cmd_arg & 0x04;
+	uint8_t DIY = vdp->cmd_arg & 0x08;
 
 	vdp->cmd_current = cmd;
 	vdp->cmd_arg = vdp->arg;
@@ -561,35 +583,38 @@ void cmd_HMMM(ms_vdp_t* vdp, uint8_t cmd) {
 	for(y=0; y < vdp->ny; y++) {
 		uint16_t* gram = to_gram(vdp, dst_vram_addr, 0);
 		for(x=0; x < vdp->nx; x+=dots_per_byte) {	// dots_per_byte ドットずつ処理
-			uint8_t data = vdp->vram[src_vram_addr];
+			uint8_t data = vram[src_vram_addr];
 			// VRAMに書き込む
-			vdp->vram[dst_vram_addr] = data;
-			// GRAMに書き込む
-			for(i=0; i < dots_per_byte; i++) {
-				uint16_t dst = (data >> ((dots_per_byte-1-i)*bits_per_dot)) & ((1<<bits_per_dot)-1);
-				gram[0] = dst;
-				if(vdp->ms_vdp_current_mode->crt_width == 256) gram[256*512] = dst;
-				gram++;
+			if( vram[dst_vram_addr] != data ) {
+				vram[dst_vram_addr] = data;
+				// GRAMに書き込む
+				for(i=0; i < dots_per_byte; i++) {
+					uint16_t dst = (data >> ((dots_per_byte-1-i)*bits_per_dot)) & ((1<<bits_per_dot)-1);
+					gram[0+i] = dst;
+					if(crt_width == 256) gram[256*512+i] = dst;
+				}
 			}
 			// DIXに従ってVRAMアドレスを更新
-			if ((vdp->cmd_arg & 0x04) == 0) {
+			if (DIX == 0) {
 				// DIX=0の時
 				src_vram_addr += 1;
 				dst_vram_addr += 1;
+				gram += dots_per_byte;
 			} else {
 				// DIX=1の時
 				src_vram_addr -= 1;
 				dst_vram_addr -= 1;
+				gram -= dots_per_byte;
 			}
 		}
-		if ( (vdp->cmd_arg & 0x4) == 0 ) {
+		if ( DIX == 0 ) {
 			src_vram_addr -= vdp->nx / dots_per_byte;
 			dst_vram_addr -= vdp->nx / dots_per_byte;
 		} else {
 			src_vram_addr += vdp->nx / dots_per_byte;
 			dst_vram_addr += vdp->nx / dots_per_byte;
 		}
-		if ( (vdp->cmd_arg & 0x8) == 0 ) {
+		if ( DIY == 0 ) {
 			src_vram_addr += crt_width / dots_per_byte;
 			dst_vram_addr += crt_width / dots_per_byte;
 		} else {

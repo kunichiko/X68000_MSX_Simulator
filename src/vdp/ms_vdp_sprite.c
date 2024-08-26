@@ -228,7 +228,7 @@ void refresh_sprite_256_mode2(ms_vdp_t* vdp) {
 		}
 
 		// ************
-		m = plNum; // テスト用
+		//m = plNum; // テスト用
 		// ************
 
 		// ラインごとの合成処理
@@ -261,7 +261,7 @@ void refresh_sprite_256_mode2(ms_vdp_t* vdp) {
 							break;
 						}
 						// CC=1のものが見つかったので合成する
-						uint32_t color_add = pcol[j*16+yy] & 0xf;
+						uint32_t color_add = pcol[j*16+y] & 0xf;
 						uint32_t colorex_add = color_add << 28 | color_add << 24 | color_add << 20 | color_add << 16 | color_add << 12 | color_add << 8 | color_add << 4 | color_add;
 						uint32_t ptNum_add = patr[j*4+2];
 						uint32_t pattern_add = vdp->x68_pcg_buffer[(ptNum_add & 0xff)*8+yy] & colorex_add;
