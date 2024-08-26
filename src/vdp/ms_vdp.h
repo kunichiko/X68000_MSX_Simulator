@@ -172,7 +172,7 @@ typedef struct ms_vdp {
 	uint8_t* vram;
 
 	// X68000のPCGに転送するためのバッファ領域
-	unsigned int* x68_pcg_buffer;
+	uint32_t* x68_pcg_buffer;
 	int last_visible_sprite_planes;
 	int last_visible_sprite_size;
 
@@ -186,8 +186,45 @@ typedef struct ms_vdp {
 	uint16_t cmd_ny_count;
 	uint16_t cmd_ny_sprite_start;	// VDPでスプライト領域を書き換えられたかの検出用
 	uint16_t cmd_ny_sprite_end;		// VDPでスプライト領域を書き換えられたかの検出用
+
+	// スプライトリフレッシュ要求フラグ
+	// どのビットが1になっているかで、再描画する範囲を決定します。
+	// ビット番号が下のものほど軽い処理で、上になる程思い処理としています。
+	// 現状で定義しているのは以下の通りです。
+	// bit 0: スプライトの座標や、表示非表示のみの変更
+	// bit 1: スプライトアトリビュートテーブル/カラーテーブルの変更 (パターン番号や色の変更のみで、パターン自体に変更はない)
+	// bit 2: CCビットビットマップフラグの変更
+	// bit 3: パターンジェネレータテーブルの変更
+	//
+	// bit0をセットすると、スプライト非表示ビットの変更や、スプライトのY=208による非表示、R#23の縦スクロールによる
+	// 位置変化などを更新します。
+	// 個別スプライトの X座標、Y座標の変更は即座に反映させているので、これをセットしなくても、
+	// スプライトの座標は変化します。
+	// （もしかしたら、将来、XY座標も遅延リフレッシュさせるようにするかも？）
+	//
+	// bit1をセットすると、全スプライトプレーンに対応するPCGを更新します。
+	// 実PCGは事前に計算したPCGバッファを使っているため、VRAM上のパターンが変更されている場合は、
+	// bit3の方もセットしないと追従しません。
+	// bit1はたとえば、VDPで直接スプライトアトリビュートテーブルを書き潰された場合や、スプライトアトリビュート
+	// テーブルベースアドレスレジスタに変更が入った場合に使用します。このビットが立っていた場合は、
+	// キャッシュされているPCGバッファを元に X68000側のスプライトパターンを全て再描画しますが、
+	// MSX側で色が変更されただけでも、X68000側はカラーコードを書き直さないといけないため、
+	// この処理が必要です
+	//
+	// bit2をセットすると、スプライトモード2のCCビットを全検査して、ビットマップフラグ再作成します。
+	// スプライトカラーテーブルベースアドレスが変更された時にセットする必要があります。
+	//
+	// bit3は、VDPで直接スプライトパターンジェネレータテーブルを書き潰された場合や、スプライトパターン
+	// ジェネレータテーブルベースアドレスレジスタに変更が入った場合に使用します。
+	// このビットが立っていた場合は、MSXのパターンジェネレータテーブルの値を元にPCGバッファを再構築した上で、
+	// X68000側のスプライトパターンを全て再描画しなおします。
+	uint16_t sprite_refresh_flag;
 } ms_vdp_t;
 
+#define SPRITE_REFRESH_FLAG_COORD	0x01
+#define SPRITE_REFRESH_FLAG_ATTR	0x02
+#define SPRITE_REFRESH_FLAG_CC		0x04
+#define SPRITE_REFRESH_FLAG_PGEN	0x08
 
 /*
  MSXの画面モードごとに切り替える処理群
@@ -230,12 +267,16 @@ ms_vdp_t* ms_vdp_init();
 void ms_vdp_deinit(ms_vdp_t* vdp);
 void ms_vdp_set_mode(ms_vdp_t* vdp, int mode);
 
+void ms_vdp_vsync_draw(ms_vdp_t* vdp);
+
 void write_sprite_pattern(ms_vdp_t* vdp, int offset, uint32_t pattern);
 void write_sprite_attribute(ms_vdp_t* vdp, int offset, uint32_t attribute);
-void update_sprite_visibility(ms_vdp_t* vdp);
 
 void update_sprattrtbl_baddr_MODE1(ms_vdp_t* vdp);
 void update_sprattrtbl_baddr_MODE2(ms_vdp_t* vdp);
+
+void update_sprpgentbl_baddr_MODE1(ms_vdp_t* vdp);
+void update_sprpgentbl_baddr_MODE2(ms_vdp_t* vdp);
 
 void vsync_draw_NONE(ms_vdp_t* vdp);
 
@@ -256,8 +297,8 @@ void vdp_command_write(ms_vdp_t* vdp, uint8_t data);
  */
 void update_resolution_COMMON(ms_vdp_t* vdp, unsigned int res, unsigned int color, unsigned int bg);
 
-
 void update_vdp_sprite_area(ms_vdp_t* vdp);
-void rewrite_all_sprite(ms_vdp_t* vdp);
+
+void ms_vdp_sprite_vsync_draw(ms_vdp_t* vdp);
 
 #endif

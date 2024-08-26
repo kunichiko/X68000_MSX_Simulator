@@ -13,7 +13,6 @@
 	.xref	_write_sprite_pattern
 	.xref	_write_sprite_attribute
 	.xref	_write_sprite_color
-	.xref	_update_sprite_visibility
 	.xref	HEX
 
 	.xref	cpu_emu_yield
@@ -1000,9 +999,6 @@ w_R1:	move.b	d1,offset_ms_vdp_r01(a5)
 	or.w	d2,d0
 	bsr	set_CRT
 
-	move.l	a5,-(sp)		* 構造体のアドレスを引数に
-	bsr	_update_sprite_visibility
-	lea.l	4(sp),sp
 	rts
 
 *
@@ -1134,9 +1130,6 @@ w_R7:	move.b	d1,offset_ms_vdp_r07_(a5)
 ;		0=カラーモード(デフォルト)
 ;		1=白黒モード
 w_R8:	move.b	d1,offset_ms_vdp_r08(a5)
-	move.l	a5,-(sp)		* 構造体のアドレスを引数に
-	bsr	_update_sprite_visibility
-	lea.l	4(sp),sp
 	rts
 
 ; R#9	VDP Mode Register 3
@@ -1201,22 +1194,6 @@ w_R23:						* 縦スクロール
 	move.w	d1,8(a0)
 	move.w	d1,12(a0)
 
-	; スプライトのスクロール値を更新
-	lea	X68_SSR+2,a0	* y座標
-	movea.l	offset_ms_vdp_vram(a5),a1
-	add.l offset_ms_vdp_sprattrtbl_baddr(a5),a1
-	
-	move.w	#32-1,d0
-@@:	clr.w	d2
-	move.b	(a1),d2		* スプライトのY座標を取得
-	addq.w	#1,d2		* MSXのスプライトは1ラインずれる
-	sub.w	d1,d2		* スクロール値を引く
-	andi.w	#$ff,d2
-	addi.w	#16,d2		* X68000のスプライトの原点は(16,16)
-	move.w	d2,(a0)
-	lea	8(a0),a0
-	lea	4(a1),a1
-	dbra	d0,@b
 	rts
 
 ; 512ドットモードの場合
@@ -1229,23 +1206,6 @@ w_R23:						* 縦スクロール
 	move.w	d0,8(a0)
 	move.w	d0,12(a0)
 
-	lea	X68_SSR+2,a0			* y座標
-	movea.l	offset_ms_vdp_vram(a5),a1
-	add.l offset_ms_vdp_sprattrtbl_baddr(a5),a1
-	
-	; TODO 512ドットの時はスプライトを4倍使っているのでその対応が必要
-	move.w	#32-1,d0
-@@:	clr.w	d2
-	move.b	(a1),d2		* スプライトのY座標を取得
-	addq.w	#1,d2		* MSXのスプライトは1ラインずれる
-	sub.w	d1,d2		* スクロール値を引く
-	add.w	d2,d2		* 512ドットモードの場合は2倍
-	andi.w	#511,d2
-	addi.w	#16,d2		* X68000のスプライトの原点は(16,16)
-	move.w	d2,(a0)
-	lea	8(a0),a0
-	lea	4(a1),a1
-	dbra	d0,@b
 	rts
 
 SX_l:	move.b	d1,offset_ms_vdp_sx+1(a5)

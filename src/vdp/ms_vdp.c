@@ -113,10 +113,14 @@ ms_vdp_t* ms_vdp_init() {
 		printf("メモリが確保できません\n");
 		return NULL;
 	}
-	// X68000は 1スプライト(16x16)パターンあたり128バイトが必要
+	// X68000は 1スプライト(16x16)パターンあたり128バイト(uint32_tが32ワード)が必要
 	// MSXは 256個定義できるが、X68000は128個しか定義できないため、メモリ上に定義領域を作っておき
 	// 表示時に転送するようにしている
-	if ( (ms_vdp_shared->x68_pcg_buffer = (unsigned int*)new_malloc( 256 * 32 * sizeof(unsigned int))) == NULL)
+	// PCGバッファの必要最大量は、
+	//  * MSX 8x8ドットのスプライト256定義
+	//  * X68000の512ドットモードで拡大スプライトを使うと1ドットが4ドットになり、16x16ドットのスプライトを4つ並べて表示する
+	//  * => 256 * 4 * 32 * 4バイト = 128KB
+	if ( (ms_vdp_shared->x68_pcg_buffer = (uint32_t*)new_malloc( 256 * 4 * 32 * sizeof(uint32_t))) == NULL)
 	{
 		printf("メモリが確保できません\n");
 		return NULL;
@@ -293,4 +297,39 @@ void update_resolution_COMMON(ms_vdp_t* vdp, unsigned int res, unsigned int colo
 					(0x0 << 3 ) | // BG1 ON
 					(0x1 << 2 ) | // BG0 TXSEL
 					((bg & 0x1) << 0 );  // BG0 ON
+}
+
+
+uint8_t last_vdp_R1 = 0;
+uint8_t last_vdp_R8 = 0;
+uint8_t last_vdp_R23 = 0;
+
+/*
+*/
+void ms_vdp_vsync_draw(ms_vdp_t* vdp) {
+	// 画面モードごとの再描画処理を呼び出す
+	vdp->ms_vdp_current_mode->vsync_draw(vdp);
+
+	// スプライトの再描画処理
+
+	if ( (vdp->r01 & 0x01) != (last_vdp_R1 & 0x01) ) {
+		// スプライトの拡大/標準サイズが変化
+		// TODO: まだスプライトの拡大は対応していない
+	}
+	if ( (vdp->r01 & 0x02) != (last_vdp_R1 & 0x02) ) {
+		// スプライトサイズ(8x8 or 16x16)が変化
+		vdp->sprite_refresh_flag |= SPRITE_REFRESH_FLAG_PGEN;
+	}
+	if ( (vdp->r08 & 0x01) != (last_vdp_R8 & 0x01) ) {
+		// スプライト表示 ON/OFFフラグが変化
+		vdp->sprite_refresh_flag |= SPRITE_REFRESH_FLAG_COORD;
+	}
+	if ( vdp->r23 != last_vdp_R23 ) {
+		// スクロール量が変化
+		vdp->sprite_refresh_flag |= SPRITE_REFRESH_FLAG_COORD;
+	}
+	ms_vdp_sprite_vsync_draw(vdp);
+	last_vdp_R1 = vdp->r01;
+	last_vdp_R8 = vdp->r08;
+	last_vdp_R23 = vdp->r23;
 }

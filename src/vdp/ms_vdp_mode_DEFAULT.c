@@ -10,7 +10,6 @@ void update_palette_DEFAULT(ms_vdp_t* vdp);
 void update_pnametbl_baddr_DEFAULT(ms_vdp_t* vdp);
 void update_colortbl_baddr_DEFAULT(ms_vdp_t* vdp);
 void update_pgentbl_baddr_DEFAULT(ms_vdp_t* vdp);
-void update_sprpgentbl_baddr_DEFAULT(ms_vdp_t* vdp);
 void update_r7_color_DEFAULT(ms_vdp_t* vdp, uint8_t data);
 char* get_mode_name_DEFAULT(ms_vdp_t* vdp);
 void update_resolution_DEFAULT(ms_vdp_t* vdp);
@@ -34,8 +33,8 @@ ms_vdp_mode_t ms_vdp_DEFAULT = {
 	update_pgentbl_baddr_DEFAULT,
 	// void update_sprattrtbl_baddr_MODE1(ms_vdp_t* vdp);
 	update_sprattrtbl_baddr_MODE1,
-	// void update_sprpgentbl_baddr_DEFAULT(ms_vdp_t* vdp);
-	update_sprpgentbl_baddr_DEFAULT,
+	// void update_sprpgentbl_baddr_MODE1(ms_vdp_t* vdp);
+	update_sprpgentbl_baddr_MODE1,
 	// void update_r7_color_DEFAULT(ms_vdp_t* vdp, uint8_t data);
 	update_r7_color_DEFAULT,
 	// char* get_mode_name_DEFAULT(ms_vdp_t* vdp);
@@ -136,18 +135,30 @@ void update_sprattrtbl_baddr_MODE2(ms_vdp_t* vdp) {
 	// カラーテーブル		: b9はアトリビュートテーブルの反転、b8-b7は0として扱う	
 	vdp->sprattrtbl_baddr = ((vdp->_r11 << 15) | (vdp->_r05 << 7)) & 0x1fe00;
 	vdp->sprcolrtbl_baddr = vdp->sprattrtbl_baddr ^ 0x200;
+
+	update_vdp_sprite_area(vdp);
+	vdp->sprite_refresh_flag |= SPRITE_REFRESH_FLAG_CC;
+	vdp->sprite_refresh_flag |= SPRITE_REFRESH_FLAG_ATTR;
 }
 
-void update_sprpgentbl_baddr_DEFAULT(ms_vdp_t* vdp) {
+void update_sprpgentbl_baddr_MODE1(ms_vdp_t* vdp) {
 	// R06 に b16-b11
 	uint32_t addr = (vdp->_r06 << 11) & 0x1ffff;
 	if( vdp->sprpgentbl_baddr != addr ) {
-		vdp->sprpgentbl_baddr = addr;
 		// 更新されたら、全てのスプライトのパターンを再生成する
-		int i;
-		for(i=0;i<256*8;i++) {
-			write_sprite_pattern(vdp, i, vdp->vram[addr + i]);
-		}
+		vdp->sprpgentbl_baddr = addr;
+		vdp->sprite_refresh_flag |= SPRITE_REFRESH_FLAG_PGEN;
+	}
+}
+
+void update_sprpgentbl_baddr_MODE2(ms_vdp_t* vdp) {
+	// R06 に b16-b11
+	uint32_t addr = (vdp->_r06 << 11) & 0x1ffff;
+	if( vdp->sprpgentbl_baddr != addr ) {
+		// 更新されたら、全てのスプライトのパターンを再生成する
+		vdp->sprpgentbl_baddr = addr;
+		vdp->sprite_refresh_flag |= SPRITE_REFRESH_FLAG_PGEN;
+		update_vdp_sprite_area(vdp);
 	}
 }
 

@@ -39,6 +39,12 @@ ROMの種類は自動判別しますが、現在サポートしているのは�
 
 です。
 
+`-r1` や `-r2` を使うと、アタッチするスロットを明示的に指定することが可能です。例えば、スロット1に [TINY SLOT CHECKER for MSX](https://www.tiny-yarou.com/slotchecker.html) の ROMをセットし、スロット2にゲームのROMをセットしたいる場合は、以下のようにして起動します。
+
+```
+> ms.x -r1 TNSLCK.ROM -r2 GAME.ROM
+```
+
 ## 起動後の操作
 
 * HELPキー

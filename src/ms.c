@@ -92,7 +92,7 @@ volatile extern unsigned short interrupt_history_wr;
 volatile extern unsigned short interrupt_history_rd;
 
 void printHelpAndExit(char* progname) {
-	fprintf(stderr, "Usage: %s [-m MAINROM_PATH] [-w MAX_WAIT] [-s SUBROM_PATH] [-r ROM_PATH] [-r11 ROM1_PATH] [-r12 ROM2_PATH]\n", progname);
+	fprintf(stderr, "Usage: %s  [-w MAX_WAIT] [-m MAINROM_PATH] [-s SUBROM_PATH] [-r1 ROM_PATH for slot 1] [-r2 ROM_PATH for slot 2] [-rNM ROM_PATH for slot N page M]\n", progname);
 	fprintf(stderr, " --vsrate vsync rate (1-60)\n");
 	fprintf(stderr, "    1: every frame, 2: every 2 frames, ...\n");
 	fprintf(stderr, "    default is 1.\n");
@@ -138,7 +138,8 @@ char *subrom_user = "SUBROM.ROM";
 */
 int main(int argc, char *argv[]) {
 	int i, j;
-	char *cartridge_path = NULL; // カートリッジのパス
+	char *cartridge_path_slot1 = NULL; // カートリッジのパス
+	char *cartridge_path_slot2 = NULL; // カートリッジのパス
 	char *slot_path[4][4]; // 個々のスロットにセットするROMのパス
 	int opt;
     const char* optstring = "hm:s:w:r:" ; // optstringを定義します
@@ -203,8 +204,30 @@ int main(int argc, char *argv[]) {
 			}
 			break;
 		case 'r': // -rNN オプション
-			if (strlen(optarg) == 2 && isdigit(optarg[0]) && isdigit(optarg[1])) {
-				// -r に続く2桁の数字を取得
+			if (strlen(optarg) == 1 && isdigit(optarg[0]) ) {
+				// -r に数字が1桁続く場合
+				int slot = atoi(optarg);
+				if ( slot >= 1 && slot <= 2) {
+					// 次の引数（ROMファイル名）を取得
+					if (argv[optind] != NULL)
+					{
+						if (slot == 1) {
+							cartridge_path_slot1 = argv[optind++];
+						} else {
+							cartridge_path_slot2 = argv[optind++];
+						}
+					}
+					else
+					{
+						printf("ROMファイル名が指定されていません\n");
+						ms_exit();
+					}
+				} else {
+					printf("スロット番号は1か2を指定してください。\n");
+					printHelpAndExit(argv[0]);
+				}
+			} else if (strlen(optarg) == 2 && isdigit(optarg[0]) && isdigit(optarg[1])) {
+				// -r に数字が2桁続く場合
 				int num = atoi(optarg);
 				int slot = (num / 10);
 				int page = num % 10; // 1の位がpage
@@ -224,10 +247,11 @@ int main(int argc, char *argv[]) {
 					printHelpAndExit(argv[0]);
 				}
 			} else {
+				// -r 単独は -r1 と同じとみなす
 				// 次の引数（ROMファイル名）を取得
 				if (optarg != NULL)
 				{
-					cartridge_path = optarg;
+					cartridge_path_slot1 = optarg;
 				}
 				else
 				{
@@ -370,8 +394,11 @@ int main(int argc, char *argv[]) {
 	}
 
 	// サイズを自動判別してROMをセット
-	if (cartridge_path != NULL) {
-		allocateAndSetROM_Cartridge(cartridge_path);
+	if (cartridge_path_slot1 != NULL) {
+		allocateAndSetROM_Cartridge(cartridge_path_slot1, 1);
+	}
+	if (cartridge_path_slot2 != NULL) {
+		allocateAndSetROM_Cartridge(cartridge_path_slot2, 2);
 	}
 
 	printf("X680x0 MSXシミュレーター with elf2x68k\n");
@@ -497,7 +524,7 @@ int emuLoop(unsigned int pc, unsigned int counter) {
 	emuLoopCounter++;
 
 	if( vdp != NULL) {
-		vdp->ms_vdp_current_mode->vsync_draw(vdp);
+		ms_vdp_vsync_draw(vdp);
 	}
 
 	if(emuLoopCounter % host_rate != 0) {
