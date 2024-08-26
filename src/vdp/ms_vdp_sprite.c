@@ -407,3 +407,24 @@ void update_sprite_visibility(ms_vdp_t* vdp) {
 		}
 	}
 }
+
+void rewrite_all_sprite(ms_vdp_t* vdp) {
+	if(0) {
+		printf(".");
+		fflush(stdout); 
+	}
+	int i,j;
+	uint32_t sprpgenaddr = vdp->sprpgentbl_baddr & 0x1fe00; // 下位9ビットをクリア
+	for(i=0;i<256;i++) {
+		for(j=0;j<8;j++) {
+			write_sprite_pattern(vdp, i*8+j, vdp->vram[sprpgenaddr + i*8 + j]);
+		}
+	}
+	uint32_t sprattraddr = vdp->sprattrtbl_baddr; // & 0x1f80; // 下位7ビットをクリア
+	for(i=0;i<32;i++) {
+		write_sprite_attribute(vdp, i*4+0, vdp->vram[sprattraddr + i*4 + 0]);
+		write_sprite_attribute(vdp, i*4+1, vdp->vram[sprattraddr + i*4 + 1]);
+		//write_sprite_attribute(vdp, i*4+3, vdp->vram[sprattraddr + i*4 + 3]);
+	}
+	refresh_sprite_256_mode2(vdp);
+}

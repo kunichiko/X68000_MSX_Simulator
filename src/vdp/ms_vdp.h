@@ -184,6 +184,8 @@ typedef struct ms_vdp {
 	uint16_t cmd_vram_addr_mod;		// 論理転送時、vram_addrの1バイト内の位置 GRAPHIC4,6の場合は 0,1、GRAPHIC5の場合は 0,1,2,3
 	uint16_t cmd_nx_count;
 	uint16_t cmd_ny_count;
+	uint16_t cmd_ny_sprite_start;	// VDPでスプライト領域を書き換えられたかの検出用
+	uint16_t cmd_ny_sprite_end;		// VDPでスプライト領域を書き換えられたかの検出用
 } ms_vdp_t;
 
 
@@ -253,5 +255,9 @@ void vdp_command_write(ms_vdp_t* vdp, uint8_t data);
  * @param bg 0=非表示, 1=表示
  */
 void update_resolution_COMMON(ms_vdp_t* vdp, unsigned int res, unsigned int color, unsigned int bg);
+
+
+void update_vdp_sprite_area(ms_vdp_t* vdp);
+void rewrite_all_sprite(ms_vdp_t* vdp);
 
 #endif

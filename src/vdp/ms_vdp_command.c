@@ -7,6 +7,64 @@
 #include <stddef.h>
 #include "ms_vdp.h"
 
+uint16_t get_Y_from_vaddr(ms_vdp_t* vdp, uint32_t vaddr) {
+	switch(vdp->crt_mode) {
+	case CRT_MODE_GRAPHIC4:
+		return (vaddr & 0x1ff80) >> 7;
+	case CRT_MODE_GRAPHIC5:
+		return (vaddr & 0x1ff80) >> 7;
+	case CRT_MODE_GRAPHIC6:
+		return (vaddr & 0x1ff00) >> 8;
+	case CRT_MODE_GRAPHIC7:
+		return (vaddr & 0x1ff00) >> 8;
+	}
+	return 0;
+}
+
+void update_vdp_sprite_area(ms_vdp_t* vdp) {
+	uint16_t Y_start = 65535;
+	uint16_t Y_end = 0;
+	uint16_t Y;
+
+	Y = get_Y_from_vaddr(vdp, (vdp->sprattrtbl_baddr & 0x1fe00) );
+	if ( Y < Y_start ) Y_start = Y;
+	Y = get_Y_from_vaddr(vdp, (vdp->sprattrtbl_baddr & 0x1fe00) + 4*32 - 1);
+	if ( Y > Y_end ) Y_end = Y;
+
+	Y = get_Y_from_vaddr(vdp, vdp->sprpgentbl_baddr);
+	if ( Y < Y_start ) Y_start = Y;
+	Y = get_Y_from_vaddr(vdp, vdp->sprpgentbl_baddr + 8*256 - 1);
+	if ( Y > Y_end ) Y_end = Y;
+
+	Y = get_Y_from_vaddr(vdp, vdp->sprcolrtbl_baddr);
+	if ( Y < Y_start ) Y_start = Y;
+	Y = get_Y_from_vaddr(vdp, vdp->sprcolrtbl_baddr + 16*32 - 1);
+	if ( Y > Y_end ) Y_end = Y;
+
+	vdp->cmd_ny_sprite_start = Y_start;
+	vdp->cmd_ny_sprite_end = Y_end;
+
+	printf("update_vdp_sprite_area: %d - %d\n", Y_start, Y_end);
+}
+
+void rewrite_sprite_if_needed(ms_vdp_t* vdp) {
+	if ( (vdp->cmd_arg & 0x8) == 0 ) {
+		// DIY = 0
+		if( (vdp->cmd_ny_sprite_start < vdp->dy + vdp->ny) && //
+			(vdp->cmd_ny_sprite_end >= vdp->dy)) {
+			rewrite_all_sprite(vdp);
+			//printf("rewite: %d - %d w %d - %d\n", vdp->dy, vdp->dy + vdp->ny, vdp->cmd_ny_sprite_start, vdp->cmd_ny_sprite_end);
+		}
+	} else {
+		// DIY = 0
+		if( (vdp->cmd_ny_sprite_start <= vdp->dy) && //
+			(vdp->cmd_ny_sprite_end > vdp->dy - vdp->ny)) {
+			rewrite_all_sprite(vdp);
+			//printf("rewite: %d - %d w %d - %d\n", vdp->dy - vdp->ny, vdp->dy, vdp->cmd_ny_sprite_start, vdp->cmd_ny_sprite_end);
+		}
+	}
+}
+
 /*
 	DX, DYから VRAMアドレスを求める
 
@@ -312,6 +370,7 @@ void cmd_LMMC_exe(ms_vdp_t* vdp, uint8_t value) {
 	if(vdp->cmd_ny_count == 0 && vdp->cmd_nx_count == 0) {
 		vdp->s02 &= 0xfe;	// CEビットをクリア
 		vdp->cmd_current = 0;
+		rewrite_sprite_if_needed(vdp);
 		return;
 	}
 	int	crt_width = vdp->ms_vdp_current_mode->crt_width;
@@ -420,6 +479,8 @@ void cmd_HMMV(ms_vdp_t* vdp, uint8_t cmd) {
 			dst_vram_addr -= crt_width / dots_per_byte;
 		}
 	}
+
+	rewrite_sprite_if_needed(vdp);
 }
 
 void cmd_YMMM(ms_vdp_t* vdp, uint8_t cmd) {
@@ -478,14 +539,13 @@ void cmd_YMMM(ms_vdp_t* vdp, uint8_t cmd) {
 			dst_vram_addr -= crt_width / dots_per_byte;
 		}
 	}
+
+	rewrite_sprite_if_needed(vdp);
 }
 
 void cmd_HMMM(ms_vdp_t* vdp, uint8_t cmd) {
 	if(0) {
 		printf("HMMM START****\n");
-		printf("  sx=0x%03x, sy=0x%03x\n", vdp->sx, vdp->sy);
-		printf("  dx=0x%03x, dy=0x%03x\n", vdp->dx, vdp->dy);
-		printf("  nx=0x%03x, ny=0x%03x\n", vdp->nx, vdp->ny);
 	}
 
 	int	crt_width = vdp->ms_vdp_current_mode->crt_width;
@@ -537,6 +597,7 @@ void cmd_HMMM(ms_vdp_t* vdp, uint8_t cmd) {
 			dst_vram_addr -= crt_width / dots_per_byte;
 		}
 	}
+	rewrite_sprite_if_needed(vdp);
 }
 
 
@@ -568,6 +629,7 @@ void cmd_HMMC_exe(ms_vdp_t* vdp, uint8_t value) {
 	if(vdp->cmd_ny_count == 0 && vdp->cmd_nx_count == 0) {
 		vdp->s02 &= 0xfe;	// CEビットをクリア
 		vdp->cmd_current = 0;
+		rewrite_sprite_if_needed(vdp);
 		return;
 	}
 	int	crt_width = vdp->ms_vdp_current_mode->crt_width;
