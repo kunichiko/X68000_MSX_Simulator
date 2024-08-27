@@ -1894,7 +1894,7 @@ w_p_name_tx2_mac:
 	rts
 
 w_GRAPHIC1_mac:
-	link	a6,#-2
+	link	a6,#-4
 	movem.l	d1-d3/a0-a5,-(sp)
 
 	move.l	8(a6),d1
@@ -1906,49 +1906,61 @@ w_GRAPHIC1_mac:
 	sub.b	d1,d2
 	move.b	d2,-2(a6)			* 差分フラグをセット
 	.endif
-	move.b	d1,0(a0,d0.l)			* VRAM へ書き込み
+	move.b	(a0,d0.l),-4(a6)		* 以前の値を保存
+	move.b	d1,(a0,d0.l)			* VRAM へ書き込み
 
-	* colortbl_baddrと一致していたらカラーテーブルへの書き込み
+; colortbl_baddrと一致していたらカラーテーブルへの書き込み
 @@:	andi.w	#%11111111_11000000,d0		* 下位6ビットをクリア
 	move.l	offset_ms_vdp_colortbl_baddr(a5),d2
 	andi.w	#%11111111_11000000,d2
 	cmp.l	d2,d0
 	bne	@f
-	movem.l	d0-d1,-(sp)
+
+	.if DIFFDRAW=1 ;差分がある時のみ書き込み
+	cmp.b	#0,-2(a6)			* 差分フラグをチェック
+	beq	9f
+	.endif
+
+	move.b	-4(a6),d0			* 以前の値を取得
 	bsr	w_color_GR1			* カラーテーブルへの書き込み
-	movem.l	(sp)+,d0-d1
 
 	bra	9f	; テーブルが重なっている場合もありうるので本当はスキップしてはいけないのだが……
 
-	* sprattrtbl_baddrと一致していたらスプライトアトリビュートテーブルへの書き込み
+; sprattrtbl_baddrと一致していたらスプライトアトリビュートテーブルへの書き込み
 @@:	andi.w	#%11111111_10000000,d0		* 下位7ビットをクリア
 	move.l	offset_ms_vdp_sprattrtbl_baddr(a5),d2
 	andi.w	#%11111111_10000000,d2
 	cmp.l	d2,d0
 	bne	@f
-	movem.l	d0-d1,-(sp)
+
+	.if DIFFDRAW=1 ;差分がある時のみ書き込み
+	cmp.b	#0,-2(a6)			* 差分フラグをチェック
+	beq	9f
+	.endif
+
+	move.b	-4(a6),d0			* 以前の値を取得
 	bsr	w_SP_attr			* スプライトアトリビュートテーブルへの書き込み
-	movem.l	(sp)+,d0-d1
 
 	bra	9f	; テーブルが重なっている場合もありうるので本当はスキップしてはいけないのだが……
 
-	* offset_ms_vdp_pnametbl_baddr(a5)と一致していたらパターンネームテーブルへの書き込み
+; offset_ms_vdp_pnametbl_baddr(a5)と一致していたらパターンネームテーブルへの書き込み
 @@:	andi.w	#%11111100_00000000,d0		* 下位10ビットをクリア
 	move.l	offset_ms_vdp_pnametbl_baddr(a5),d2
 	andi.w	#%11111100_00000000,d2
 	cmp.l	d2,d0
 	bne	@f
+
 	.if DIFFDRAW=1 ;差分描画の実験
 	cmp.b	#0,-2(a6)			* 差分フラグをチェック
 	beq	@f
 	.endif
-	movem.l	d0-d1,-(sp)
+
+	move.b	-4(a6),d0			* 以前の値を取得
 	bsr	w_p_name_GR1			* パターンネームテーブルへの書き込み
-	movem.l	(sp)+,d0-d1
 
 	bra	9f	; テーブルが重なっている場合もありうるので本当はスキップしてはいけないのだが……
 
-	* sprpatgentbl_baddrと一致していたらスプライトパターンジェネレータテーブルへの書き込み
+; sprpatgentbl_baddrと一致していたらスプライトパターンジェネレータテーブルへの書き込み
 @@:	andi.w	#%11111000_00000000,d0		* 下位11ビットをクリア
 	move.l	offset_ms_vdp_sprpgentbl_baddr(a5),d2
 	andi.w	#%11111000_00000000,d2
@@ -1966,9 +1978,14 @@ w_GRAPHIC1_mac:
 	andi.w	#%11111000_00000000,d2
 	cmp.l	d2,d0
 	bne	@f
-	movem.l	d0-d1,-(sp)
+
+	.if DIFFDRAW=1 ;差分描画の実験
+	cmp.b	#0,-2(a6)			* 差分フラグをチェック
+	beq	@f
+	.endif
+
+	move.b	-4(a6),d0			* 以前の値を取得
 	bsr	w_p_gene_GR1			* パターンジェネレータテーブルへの書き込み
-	movem.l	(sp)+,d0-d1
 
 @@:	* VRAM書き込みアドレスをインクリメント
 9:	move.l	offset_ms_vdp_vram_addr(a5),d0
@@ -2097,7 +2114,7 @@ w_p_name_GR1:
 
 
 w_GRAPHIC2_mac:
-	link	a6,#-2
+	link	a6,#-4
 	movem.l	d1-d3/a0-a5,-(sp)
 
 	move.l	8(a6),d1
@@ -2109,68 +2126,90 @@ w_GRAPHIC2_mac:
 	sub.b	d1,d2
 	move.b	d2,-2(a6)			* 差分フラグをセット
 	.endif
-	move.b	d1,0(a0,d0.l)			* VRAM へ書き込み
+	move.b	(a0,d0.l),-4(a6)		* 以前の値を保存
+	move.b	d1,(a0,d0.l)			* VRAM へ書き込み
 
-	* sprattrtbl_baddrと一致していたらスプライトアトリビュートテーブルへの書き込み
+; sprattrtbl_baddrと一致していたらスプライトアトリビュートテーブルへの書き込み
 	andi.w	#%11111111_10000000,d0		* 下位7ビットをクリア
 	move.l	offset_ms_vdp_sprattrtbl_baddr(a5),d2
 	andi.w	#%11111111_10000000,d2
 	cmp.l	d2,d0
 	bne	@f
-	movem.l	d0-d1,-(sp)
+
+	.if DIFFDRAW=1 ;差分がある時のみ書き込み
+	cmp.b	#0,-2(a6)			* 差分フラグをチェック
+	beq	9f
+	.endif
+
+	move.b	-4(a6),d0			* 以前の値を取得
 	bsr	w_SP_attr			* スプライトアトリビュートテーブルへの書き込み
-	movem.l	(sp)+,d0-d1
 
 	bra	9f	; テーブルが重なっている場合もありうるので本当はスキップしてはいけないのだが……
 
-	* offset_ms_vdp_pnametbl_baddr(a5)と一致していたらパターンネームテーブルへの書き込み
+; offset_ms_vdp_pnametbl_baddr(a5)と一致していたらパターンネームテーブルへの書き込み
 @@:	andi.w	#%11111100_00000000,d0		* 下位10ビットをクリア
 	move.l	offset_ms_vdp_pnametbl_baddr(a5),d2
 	andi.w	#%11111100_00000000,d2
 	cmp.l	d2,d0
 	bne	@f
-	.if DIFFDRAW=1 ;差分描画の実験
+
+	.if DIFFDRAW=1 ;差分がある時のみ書き込み
 	cmp.b	#0,-2(a6)			* 差分フラグをチェック
-	beq	@f
+	beq	9f
 	.endif
-	movem.l	d0-d1,-(sp)
+
+	move.b	-4(a6),d0			* 以前の値を取得
 	bsr	w_p_name_GR2			* パターンネームテーブルへの書き込み
-	movem.l	(sp)+,d0-d1
 
 	bra	9f	; テーブルが重なっている場合もありうるので本当はスキップしてはいけないのだが……
 
-	* sprpatgentbl_baddrと一致していたらスプライトパターンジェネレータテーブルへの書き込み
+; sprpatgentbl_baddrと一致していたらスプライトパターンジェネレータテーブルへの書き込み
 @@:	andi.w	#%11111000_00000000,d0		* 下位11ビットをクリア
 	move.l	offset_ms_vdp_sprpgentbl_baddr(a5),d2
 	andi.w	#%11111000_00000000,d2
 	cmp.l	d2,d0
 	bne	@f
-	movem.l	d0-d1,-(sp)
+
+	.if DIFFDRAW=1 ;差分がある時のみ書き込み
+	cmp.b	#0,-2(a6)			* 差分フラグをチェック
+	beq	9f
+	.endif
+
+	move.b	-4(a6),d0			* 以前の値を取得
 	bsr	w_SP_p_gene			* スプライトパターンジェネレータテーブルへの書き込み
-	movem.l	(sp)+,d0-d1
 
 	bra	9f	; テーブルが重なっている場合もありうるので本当はスキップしてはいけないのだが……
 
-	* pgentbl_baddr と一致していたらパターンジェネレータテーブルへの書き込み
+; pgentbl_baddr と一致していたらパターンジェネレータテーブルへの書き込み
 @@:	andi.w	#%11100000_00000000,d0		* 下位13ビットをクリア
 	move.l	offset_ms_vdp_pgentbl_baddr(a5),d2
 	andi.w	#%11100000_00000000,d2
 	cmp.l	d2,d0
 	bne	@f
-	movem.l	d0-d1,-(sp)
+
+	.if DIFFDRAW=1 ;差分がある時のみ書き込み
+	cmp.b	#0,-2(a6)			* 差分フラグをチェック
+	beq	9f
+	.endif
+
+	move.b	-4(a6),d0			* 以前の値を取得
 	bsr	w_p_gene_GR2			* パターンジェネレータテーブルへの書き込み
-	movem.l	(sp)+,d0-d1
 
 	bra	9f	; テーブルが重なっている場合もありうるので本当はスキップしてはいけないのだが……
 
-	* colortbl_baddrと一致していたらカラーテーブルへの書き込み
+; colortbl_baddrと一致していたらカラーテーブルへの書き込み
 @@:	move.l	offset_ms_vdp_colortbl_baddr(a5),d2
 	andi.w	#%11100000_00000000,d2
 	cmp.l	d2,d0
 	bne	@f
-	movem.l	d0-d1,-(sp)
+
+	.if DIFFDRAW=1 ;差分がある時のみ書き込み
+	cmp.b	#0,-2(a6)			* 差分フラグをチェック
+	beq	9f
+	.endif
+
+	move.b	-4(a6),d0			* 以前の値を取得
 	bsr	w_color_GR2			* カラーテーブルへの書き込み
-	movem.l	(sp)+,d0-d1
 
 @@:	* VRAM書き込みアドレスをインクリメント
 9:	move.l	offset_ms_vdp_vram_addr(a5),d0
@@ -2186,44 +2225,59 @@ w_GRAPHIC2_mac:
 	rts
 
 * スプライトアトリビュートテーブルへの書き込み
-* d1.b ・・・ 値
+* d0.b ・・・ 以前の値
+* d1.b ・・・ 書き込まれた値
 w_SP_attr:
+	movem.l	d0-d2,-(sp)
+	and.l	#$ff,d0
+	and.l	#$ff,d1
+	move.l	d0,-(sp)			* 第4引数 以前の値
+	move.l	d1,-(sp)			* 第3引数 書き込まれた値
 	movea.l	ms_vdp_shared,a5		* ms_vdp_t へのポインタを取得
 	move.l	offset_ms_vdp_vram_addr(a5),d0
-	sub.l	offset_ms_vdp_sprattrtbl_baddr(a5),d0			* オフセット
-	and.l	#$ff,d1
-	movem.l	d0-d2,-(sp)
-	move.l	ms_vdp_shared,-(sp)		* 構造体のアドレス
+	sub.l	offset_ms_vdp_sprattrtbl_baddr(a5),d0
+	move.l	d0,-(sp)			* 第2引数 オフセット
+	move.l	ms_vdp_shared,-(sp)		* 第1引数 構造体のアドレス
 	jsr	_write_sprite_attribute
-	lea.l	4(sp),sp
+	lea.l	16(sp),sp
 	movem.l	(sp)+,d0-d2
 	rts
 
 * スプライトカラーテーブルへの書き込み
-* d1.b ・・・ 値
+* d0.b ・・・ 以前の値
+* d1.b ・・・ 書き込まれた値
 w_SP_color:
+	movem.l	d0-d2,-(sp)
+	and.l	#$ff,d0
+	and.l	#$ff,d1
+	move.l	d0,-(sp)			* 第4引数 以前の値
+	move.l	d1,-(sp)			* 第3引数 書き込まれた値
 	movea.l	ms_vdp_shared,a5		* ms_vdp_t へのポインタを取得
 	move.l	offset_ms_vdp_vram_addr(a5),d0
-	sub.l	offset_ms_vdp_sprcolrtbl_baddr(a5),d0			* オフセット
-	and.l	#$ff,d1
-	movem.l	d0-d2,-(sp)
-	move.l	ms_vdp_shared,-(sp)		* 構造体のアドレス
+	sub.l	offset_ms_vdp_sprcolrtbl_baddr(a5),d0
+	move.l	d0,-(sp)			* 第2引数 オフセット
+	move.l	ms_vdp_shared,-(sp)		* 第1引数 構造体のアドレス
 	jsr	_write_sprite_color
-	lea.l	4(sp),sp
+	lea.l	16(sp),sp
 	movem.l	(sp)+,d0-d2
 	rts
 
 * スプライトパターンジェネレータテーブルへの書き込み
-* d1.b ・・・ 値
+* d0.b ・・・ 以前の値
+* d1.b ・・・ 書き込まれた値
 w_SP_p_gene:
+	movem.l	d0-d2,-(sp)
+	and.l	#$ff,d0
+	and.l	#$ff,d1
+	move.l	d0,-(sp)			* 第4引数 以前の値
+	move.l	d1,-(sp)			* 第3引数 書き込まれた値
 	movea.l	ms_vdp_shared,a5		* ms_vdp_t へのポインタを取得
 	move.l	offset_ms_vdp_vram_addr(a5),d0
 	sub.l	offset_ms_vdp_sprpgentbl_baddr(a5),d0			* オフセット
-	and.l	#$ff,d1
-	movem.l	d0-d2,-(sp)
-	move.l	ms_vdp_shared,-(sp)		* 構造体のアドレス
+	move.l	d0,-(sp)			* 第2引数 オフセット
+	move.l	ms_vdp_shared,-(sp)		* 第1引数 構造体のアドレス
 	jsr	_write_sprite_pattern
-	lea.l	4(sp),sp
+	lea.l	16(sp),sp
 	movem.l	(sp)+,d0-d2
 	rts
 
@@ -2347,63 +2401,91 @@ w_GRAPHIC3_mac:
 
 
 w_GRAPHIC4_mac:
+	link	a6,#-4
+	movem.l	d1-d3/a0-a5,-(sp)
+
 	movea.l	ms_vdp_shared,a5		* ms_vdp_t へのポインタを取得
-	move.l	4(sp),d1
 
 	; GRAMアドレス再計算 （デバッグ用）
-	move.l	d1,-(sp)
 	move.l	offset_ms_vdp_vram_addr(a5),d1
 	bsr	s_GRAPHIC4
-	move.l	(sp)+,d1
+
+	move.l	8(a6),d1			* d1 : 引数(書き込む値)を取得
 
 	movea.l	offset_ms_vdp_vram(a5),a0
 	move.l	offset_ms_vdp_vram_addr(a5),d0	* D0 ・・書き込むアドレス
-	move.b	d1,0(a0,d0.l)			* VRAM へ書き込み
+	.if DIFFDRAW=1 ;差分描画の実験
+	move.b	(a0,d0.l),d2
+	sub.b	d1,d2
+	move.b	d2,-2(a6)			* 差分フラグをセット
+	.endif
+	move.b	(a0,d0.l),-4(a6)		* 以前の値を保存
+	move.b	d1,(a0,d0.l)			* VRAM へ書き込み
 
+; GRAM書き換え
 	movea.l	offset_ms_vdp_gram_addr(a5),a0
+	.if DIFFDRAW=1 ;差分がある時のみ書き込み
+	cmp.b	#0,-2(a6)			* 差分フラグをチェック
+	beq	@f
+	.endif
 	move.b	d1,d2
 	lsr.w	#4,d2
-	move.w	d2,(a0)			* 上位4ビット
-	move.w	d2,1024*256(a0)		* 円筒スクロール対応
-	move.w	d1,2(a0)		* 下位4ビット
-	move.w	d1,1024*256+2(a0)	* 円筒スクロール対応
-	lea	4(a0),a0
+	move.w	d2,(a0)				* 上位4ビット
+	move.w	d2,1024*256(a0)			* 円筒スクロール対応
+	move.w	d1,2(a0)			* 下位4ビット
+	move.w	d1,1024*256+2(a0)		* 円筒スクロール対応
 
+@@:	lea	4(a0),a0			* GRAMアドレスインクリメント
 	move.l	a0,-(sp)
 
-	* sprattrtbl_baddrと一致していたらスプライトアトリビュートテーブルへの書き込み
+; sprattrtbl_baddrと一致していたらスプライトアトリビュートテーブルへの書き込み
 	andi.w	#%11111111_10000000,d0		* 下位7ビットをクリア
 	move.l	offset_ms_vdp_sprattrtbl_baddr(a5),d2
 	andi.w	#%11111111_10000000,d2
 	cmp.l	d2,d0
 	bne	@f
-	movem.l	d0-d1,-(sp)
+
+	.if DIFFDRAW=1 ;差分がある時のみ書き込み
+	cmp.b	#0,-2(a6)			* 差分フラグをチェック
+	beq	9f
+	.endif
+
+	move.b	-4(a6),d0			* 以前の値を取得
 	bsr	w_SP_attr			* スプライトアトリビュートテーブルへの書き込み
-	movem.l	(sp)+,d0-d1
 
 	bra	9f	; テーブルが重なっている場合もありうるので本当はスキップしてはいけないのだが……
 
-	* sprcolrtbl_baddrと一致していたらスプライトカラーテーブルへの書き込み
+; sprcolrtbl_baddrと一致していたらスプライトカラーテーブルへの書き込み
 @@:	andi.w	#%11111110_00000000,d0		* 下位9ビットをクリア
 	move.l	offset_ms_vdp_sprcolrtbl_baddr(a5),d2
 	andi.w	#%11111110_00000000,d2
 	cmp.l	d2,d0
 	bne	@f
-	movem.l	d0-d1,-(sp)
+
+	.if DIFFDRAW=1 ;差分がある時のみ書き込み
+	cmp.b	#0,-2(a6)			* 差分フラグをチェック
+	beq	9f
+	.endif
+
+	move.b	-4(a6),d0			* 以前の値を取得
 	bsr	w_SP_color			* スプライトカラーテーブルへの書き込み
-	movem.l	(sp)+,d0-d1
 
 	bra	9f	; テーブルが重なっている場合もありうるので本当はスキップしてはいけないのだが……
 
-	* sprpatgentbl_baddrと一致していたらスプライトパターンジェネレータテーブルへの書き込み
+; sprpatgentbl_baddrと一致していたらスプライトパターンジェネレータテーブルへの書き込み
 @@:	andi.w	#%11111000_00000000,d0		* 下位11ビットをクリア
 	move.l	offset_ms_vdp_sprpgentbl_baddr(a5),d2
 	andi.w	#%11111000_00000000,d2
 	cmp.l	d2,d0
 	bne	@f
-	movem.l	d0-d1,-(sp)
+
+	.if DIFFDRAW=1 ;差分がある時のみ書き込み
+	cmp.b	#0,-2(a6)			* 差分フラグをチェック
+	beq	9f
+	.endif
+
+	move.b	-4(a6),d0			* 以前の値を取得
 	bsr	w_SP_p_gene			* スプライトパターンジェネレータテーブルへの書き込み
-	movem.l	(sp)+,d0-d1
 
 	bra	9f	; テーブルが重なっている場合もありうるので本当はスキップしてはいけないのだが……
 
@@ -2419,30 +2501,111 @@ w_GRAPHIC4_mac:
 	lea.l	512*2-256*2(a0),a0		* 次のラインへ
 @@:	move.l	a0,offset_ms_vdp_gram_addr(a5)
 
+	movem.l	(sp)+,d1-d3/a0-a5
+	unlk	a6
 	rts
 
 w_GRAPHIC5_mac:
-	move.l	4(sp),d1
+	link	a6,#-4
+	movem.l	d1-d3/a0-a5,-(sp)
 
 	movea.l	ms_vdp_shared,a5		* ms_vdp_t へのポインタを取得
+	; GRAMアドレス再計算 （デバッグ用）
+	move.l	offset_ms_vdp_vram_addr(a5),d1
+	bsr	s_GRAPHIC5
+
+	move.l	8(a6),d1			* d1 : 引数(書き込む値)を取得
+
+	movea.l	offset_ms_vdp_vram(a5),a0
+	move.l	offset_ms_vdp_vram_addr(a5),d0	* D0 ・・書き込むアドレス
+	.if DIFFDRAW=1 ;差分描画の実験
+	move.b	(a0,d0.l),d2
+	sub.b	d1,d2
+	move.b	d2,-2(a6)			* 差分フラグをセット
+	.endif
+	move.b	(a0,d0.l),-4(a6)		* 以前の値を保存
+	move.b	d1,(a0,d0.l)			* VRAM へ書き込み
+
+; GRAM書き換え
 	movea.l	offset_ms_vdp_gram_addr(a5),a0
+	.if DIFFDRAW=1 ;差分がある時のみ書き込み
+	cmp.b	#0,-2(a6)			* 差分フラグをチェック
+	beq	@f
+	.endif
 	clr.w	d0
 	move.b	d1,d0
 	lsr.w	#6,d0
-	move.w	d0,(a0)+
+	move.w	d0,(a0)
 
 	move.b	d1,d0
 	andi.w	#%00110000,d0
 	lsr.w	#4,d0
-	move.w	d0,(a0)+
+	move.w	d0,2(a0)
 
 	move.b	d1,d0
 	andi.w	#%00001100,d0
 	lsr.w	#2,d0
-	move.w	d0,(a0)+
+	move.w	d0,4(a0)
 
 	andi.w	#%00000011,d1
-	move.w	d1,(a0)+
+	move.w	d1,6(a0)
+
+@@:	lea	8(a0),a0			* GRAMアドレスインクリメント
+	move.l	a0,-(sp)
+
+; sprattrtbl_baddrと一致していたらスプライトアトリビュートテーブルへの書き込み
+	andi.w	#%11111111_10000000,d0		* 下位7ビットをクリア
+	move.l	offset_ms_vdp_sprattrtbl_baddr(a5),d2
+	andi.w	#%11111111_10000000,d2
+	cmp.l	d2,d0
+	bne	@f
+
+	.if DIFFDRAW=1 ;差分がある時のみ書き込み
+	cmp.b	#0,-2(a6)			* 差分フラグをチェック
+	beq	9f
+	.endif
+
+	move.b	-4(a6),d0			* 以前の値を取得
+	bsr	w_SP_attr			* スプライトアトリビュートテーブルへの書き込み
+
+	bra	9f	; テーブルが重なっている場合もありうるので本当はスキップしてはいけないのだが……
+
+; sprcolrtbl_baddrと一致していたらスプライトカラーテーブルへの書き込み
+@@:	andi.w	#%11111110_00000000,d0		* 下位9ビットをクリア
+	move.l	offset_ms_vdp_sprcolrtbl_baddr(a5),d2
+	andi.w	#%11111110_00000000,d2
+	cmp.l	d2,d0
+	bne	@f
+
+	.if DIFFDRAW=1 ;差分がある時のみ書き込み
+	cmp.b	#0,-2(a6)			* 差分フラグをチェック
+	beq	9f
+	.endif
+
+	move.b	-4(a6),d0			* 以前の値を取得
+	bsr	w_SP_color			* スプライトカラーテーブルへの書き込み
+
+	bra	9f	; テーブルが重なっている場合もありうるので本当はスキップしてはいけないのだが……
+
+; sprpatgentbl_baddrと一致していたらスプライトパターンジェネレータテーブルへの書き込み
+@@:	andi.w	#%11111000_00000000,d0		* 下位11ビットをクリア
+	move.l	offset_ms_vdp_sprpgentbl_baddr(a5),d2
+	andi.w	#%11111000_00000000,d2
+	cmp.l	d2,d0
+	bne	@f
+
+	.if DIFFDRAW=1 ;差分がある時のみ書き込み
+	cmp.b	#0,-2(a6)			* 差分フラグをチェック
+	beq	9f
+	.endif
+
+	move.b	-4(a6),d0			* 以前の値を取得
+	bsr	w_SP_p_gene			* スプライトパターンジェネレータテーブルへの書き込み
+
+	bra	9f	; テーブルが重なっている場合もありうるので本当はスキップしてはいけないのだが……
+
+@@:	* VRAM書き込みアドレスをインクリメント
+9:	move.l	(sp)+,a0
 
 	move.l	offset_ms_vdp_vram_addr(a5),d1
 	addq.l	#1,d1				* インクリメント	
@@ -2452,52 +2615,214 @@ w_GRAPHIC5_mac:
 	bne	@f
 	lea.l	1024(a0),a0			* 一ライン飛ばす
 @@:	move.l	a0,offset_ms_vdp_gram_addr(a5)
+
+	movem.l	(sp)+,d1-d3/a0-a5
+	unlk	a6
 	rts
 
 w_GRAPHIC6_mac:
-	move.l	4(sp),d1
+	link	a6,#-4
+	movem.l	d1-d3/a0-a5,-(sp)
 
 	movea.l	ms_vdp_shared,a5		* ms_vdp_t へのポインタを取得
-	movea.l	offset_ms_vdp_gram_addr(a5),a0
-	clr.w	d0
-	move.b	d1,d0
-	lsr.w	#4,d0
-	move.w	d0,(a0)+
+	; GRAMアドレス再計算 （デバッグ用）
+	move.l	offset_ms_vdp_vram_addr(a5),d1
+	bsr	s_GRAPHIC6
 
-*	andi.w	#%00001111,d1
-	move.w	d1,(a0)+
+	move.l	8(a6),d1			* d1 : 引数(書き込む値)を取得
+
+	movea.l	offset_ms_vdp_vram(a5),a0
+	move.l	offset_ms_vdp_vram_addr(a5),d0	* D0 ・・書き込むアドレス
+	.if DIFFDRAW=1 ;差分描画の実験
+	move.b	(a0,d0.l),d2
+	sub.b	d1,d2
+	move.b	d2,-2(a6)			* 差分フラグをセット
+	.endif
+	move.b	(a0,d0.l),-4(a6)		* 以前の値を保存
+	move.b	d1,(a0,d0.l)			* VRAM へ書き込み
+
+; GRAM書き換え
+	movea.l	offset_ms_vdp_gram_addr(a5),a0
+	.if DIFFDRAW=1 ;差分がある時のみ書き込み
+	cmp.b	#0,-2(a6)			* 差分フラグをチェック
+	beq	@f
+	.endif
+
+	move.w	d1,2(a0)			* 下位4ビット(右側ピクセル)の書き込み
+	lsr.w	#4,d1
+	move.w	d1,0(a0)			* 上位4ビット(左側ピクセル)の書き込み
+
+@@:	lea	4(a0),a0			* GRAMアドレスインクリメント
+	move.l	a0,-(sp)
+
+; sprattrtbl_baddrと一致していたらスプライトアトリビュートテーブルへの書き込み
+	andi.w	#%11111111_10000000,d0		* 下位7ビットをクリア
+	move.l	offset_ms_vdp_sprattrtbl_baddr(a5),d2
+	andi.w	#%11111111_10000000,d2
+	cmp.l	d2,d0
+	bne	@f
+
+	.if DIFFDRAW=1 ;差分がある時のみ書き込み
+	cmp.b	#0,-2(a6)			* 差分フラグをチェック
+	beq	9f
+	.endif
+
+	move.b	-4(a6),d0			* 以前の値を取得
+	bsr	w_SP_attr			* スプライトアトリビュートテーブルへの書き込み
+
+	bra	9f	; テーブルが重なっている場合もありうるので本当はスキップしてはいけないのだが……
+
+; sprcolrtbl_baddrと一致していたらスプライトカラーテーブルへの書き込み
+@@:	andi.w	#%11111110_00000000,d0		* 下位9ビットをクリア
+	move.l	offset_ms_vdp_sprcolrtbl_baddr(a5),d2
+	andi.w	#%11111110_00000000,d2
+	cmp.l	d2,d0
+	bne	@f
+
+	.if DIFFDRAW=1 ;差分がある時のみ書き込み
+	cmp.b	#0,-2(a6)			* 差分フラグをチェック
+	beq	9f
+	.endif
+
+	move.b	-4(a6),d0			* 以前の値を取得
+	bsr	w_SP_color			* スプライトカラーテーブルへの書き込み
+
+	bra	9f	; テーブルが重なっている場合もありうるので本当はスキップしてはいけないのだが……
+
+; sprpatgentbl_baddrと一致していたらスプライトパターンジェネレータテーブルへの書き込み
+@@:	andi.w	#%11111000_00000000,d0		* 下位11ビットをクリア
+	move.l	offset_ms_vdp_sprpgentbl_baddr(a5),d2
+	andi.w	#%11111000_00000000,d2
+	cmp.l	d2,d0
+	bne	@f
+
+	.if DIFFDRAW=1 ;差分がある時のみ書き込み
+	cmp.b	#0,-2(a6)			* 差分フラグをチェック
+	beq	9f
+	.endif
+
+	move.b	-4(a6),d0			* 以前の値を取得
+	bsr	w_SP_p_gene			* スプライトパターンジェネレータテーブルへの書き込み
+
+	bra	9f	; テーブルが重なっている場合もありうるので本当はスキップしてはいけないのだが……
+
+@@:	* VRAM書き込みアドレスをインクリメント
+9:	move.l	(sp)+,a0
 
 	move.l	offset_ms_vdp_vram_addr(a5),d1
 	addq.l	#1,d1				* インクリメント	
 	andi.l	#%00000001_11111111_11111111,d1
 	move.l	d1,offset_ms_vdp_vram_addr(a5)
-	andi.w	#%00000000_00000000_11111111,d1	* ライン境界をまたいだか
+	andi.w	#%00000000_00000000_11111111,d1	* ライン境界をまたいだか (GRAPHIC6は1ライン256バイト)
 	bne	@f
 	lea.l	1024(a0),a0			* 一ライン飛ばす
 @@:	move.l	a0,offset_ms_vdp_gram_addr(a5)
+
+	movem.l	(sp)+,d1-d3/a0-a5
+	unlk	a6
 	rts
 	
 w_GRAPHIC7_mac:
-	move.l	4(sp),d1
+	link	a6,#-4
+	movem.l	d1-d3/a0-a5,-(sp)
 
 	movea.l	ms_vdp_shared,a5		* ms_vdp_t へのポインタを取得
+
+	; GRAMアドレス再計算 （デバッグ用）
+	move.l	offset_ms_vdp_vram_addr(a5),d1
+	bsr	s_GRAPHIC7
+
+	move.l	8(a6),d1			* d1 : 引数(書き込む値)を取得
+
+	movea.l	offset_ms_vdp_vram(a5),a0
+	move.l	offset_ms_vdp_vram_addr(a5),d0	* D0 ・・書き込むアドレス
+	.if DIFFDRAW=1 ;差分描画の実験
+	move.b	(a0,d0.l),d2
+	sub.b	d1,d2
+	move.b	d2,-2(a6)			* 差分フラグをセット
+	.endif
+	move.b	(a0,d0.l),-4(a6)		* 以前の値を保存
+	move.b	d1,(a0,d0.l)			* VRAM へ書き込み
+
+; GRAM書き換え
 	movea.l	offset_ms_vdp_gram_addr(a5),a0
-	clr.l	d0
-	move.b	d1,d0
-	swap	d0
-	move.b	d1,d0
-	move.l	d0,(a0)+
+	.if DIFFDRAW=1 ;差分がある時のみ書き込み
+	cmp.b	#0,-2(a6)			* 差分フラグをチェック
+	beq	@f
+	.endif
+	move.w	d1,0(a0)
+	move.w	d1,1024*256(a0)			* 円筒スクロール対応
+
+@@:	lea	2(a0),a0			* GRAMアドレスインクリメント
+	move.l	a0,-(sp)
+
+; sprattrtbl_baddrと一致していたらスプライトアトリビュートテーブルへの書き込み
+	andi.w	#%11111111_10000000,d0		* 下位7ビットをクリア
+	move.l	offset_ms_vdp_sprattrtbl_baddr(a5),d2
+	andi.w	#%11111111_10000000,d2
+	cmp.l	d2,d0
+	bne	@f
+
+	.if DIFFDRAW=1 ;差分がある時のみ書き込み
+	cmp.b	#0,-2(a6)			* 差分フラグをチェック
+	beq	9f
+	.endif
+
+	move.b	-4(a6),d0			* 以前の値を取得
+	bsr	w_SP_attr			* スプライトアトリビュートテーブルへの書き込み
+
+	bra	9f	; テーブルが重なっている場合もありうるので本当はスキップしてはいけないのだが……
+
+; sprcolrtbl_baddrと一致していたらスプライトカラーテーブルへの書き込み
+@@:	andi.w	#%11111110_00000000,d0		* 下位9ビットをクリア
+	move.l	offset_ms_vdp_sprcolrtbl_baddr(a5),d2
+	andi.w	#%11111110_00000000,d2
+	cmp.l	d2,d0
+	bne	@f
+
+	.if DIFFDRAW=1 ;差分がある時のみ書き込み
+	cmp.b	#0,-2(a6)			* 差分フラグをチェック
+	beq	9f
+	.endif
+
+	move.b	-4(a6),d0			* 以前の値を取得
+	bsr	w_SP_color			* スプライトカラーテーブルへの書き込み
+
+	bra	9f	; テーブルが重なっている場合もありうるので本当はスキップしてはいけないのだが……
+
+; sprpatgentbl_baddrと一致していたらスプライトパターンジェネレータテーブルへの書き込み
+@@:	andi.w	#%11111000_00000000,d0		* 下位11ビットをクリア
+	move.l	offset_ms_vdp_sprpgentbl_baddr(a5),d2
+	andi.w	#%11111000_00000000,d2
+	cmp.l	d2,d0
+	bne	@f
+
+	.if DIFFDRAW=1 ;差分がある時のみ書き込み
+	cmp.b	#0,-2(a6)			* 差分フラグをチェック
+	beq	9f
+	.endif
+
+	move.b	-4(a6),d0			* 以前の値を取得
+	bsr	w_SP_p_gene			* スプライトパターンジェネレータテーブルへの書き込み
+
+	bra	9f	; テーブルが重なっている場合もありうるので本当はスキップしてはいけないのだが……
+
+@@:	* VRAM書き込みアドレスをインクリメント
+9:	move.l	(sp)+,a0
 
 	move.l	offset_ms_vdp_vram_addr(a5),d1
 	addq.l	#1,d1				* インクリメント	
 	andi.l	#%00000001_11111111_11111111,d1
 	move.l	d1,offset_ms_vdp_vram_addr(a5)
-	andi.w	#%00000000_00000000_11111111,d1	* ライン境界をまたいだか
+	andi.w	#%00000000_00000000_11111111,d1	* ライン境界をまたいだか (GRAPHIC7は1ライン256バイト)
 	bne	@f
-	lea.l	1024(a0),a0			* 一ライン飛ばす
+	lea.l	512*2-256*2(a0),a0		* 次のラインへ
 @@:	move.l	a0,offset_ms_vdp_gram_addr(a5)
-	rts
 
+	movem.l	(sp)+,d1-d3/a0-a5
+	unlk	a6
+	rts
+	
 
 *
 * VDP コマンド

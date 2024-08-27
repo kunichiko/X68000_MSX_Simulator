@@ -111,6 +111,9 @@ void init_sprite(ms_vdp_t* vdp) {
 	}
 	vdp->last_visible_sprite_planes = 0;
 	vdp->last_visible_sprite_size = 0;
+
+	// 初期化処理
+	vdp->sprite_refresh_flag |= SPRITE_REFRESH_FLAG_PGEN;
 }
 
 void write_sprite_pattern_256(ms_vdp_t* vdp, int offset, uint32_t pattern);
@@ -121,12 +124,14 @@ void write_sprite_pattern_512(ms_vdp_t* vdp, int offset, uint32_t pattern);
      offset: パターンジェネレータテーブルのベースアドレスからのオフセットバイト
      pattern: 書き込むパターン(下位8bitのみ使用)
 */
-void write_sprite_pattern(ms_vdp_t* vdp, int offset, uint32_t pattern) {
+void write_sprite_pattern(ms_vdp_t* vdp, int offset, uint32_t pattern, int32_t old_pattern) {
 	if(vdp->ms_vdp_current_mode->sprite_mode & 0x80) {
 		write_sprite_pattern_512(vdp, offset, pattern);
 	} else {
 		write_sprite_pattern_256(vdp, offset, pattern);
 	}
+	// パターンジェネレータテーブルが変更されたら、アトリビュートテーブルの更新をかける
+	vdp->sprite_refresh_flag |= SPRITE_REFRESH_FLAG_ATTR;
 }
 
 void write_sprite_pattern_256(ms_vdp_t* vdp, int offset, uint32_t pattern) {
@@ -178,31 +183,41 @@ void write_sprite_pattern_512(ms_vdp_t* vdp, int offset, uint32_t pattern) {
 	vdp->x68_pcg_buffer[ptNum * PCG_BUF_UNIT_D2X + pcgLine+1 + 16] = pRight;
 }
 
-void write_sprite_attribute_256(ms_vdp_t* vdp, int offset, uint32_t attribute);
-void write_sprite_attribute_512(ms_vdp_t* vdp, int offset, uint32_t attribute);
+void write_sprite_attribute_256(ms_vdp_t* vdp, int offset, uint32_t attribute, int32_t old_attribute);
+void write_sprite_attribute_512(ms_vdp_t* vdp, int offset, uint32_t attribute, int32_t old_attribute);
 void refresh_sprite_512(ms_vdp_t* vdp, int plNum);
 void refresh_sprite_256(ms_vdp_t* vdp, int plNum);
 void refresh_sprite_256_mode1(ms_vdp_t* vdp, int plNum);
 void refresh_sprite_256_mode2(ms_vdp_t* vdp);
 
-void write_sprite_attribute(ms_vdp_t* vdp, int offset, uint32_t attribute) {
+void write_sprite_attribute(ms_vdp_t* vdp, int offset, uint32_t attribute, int32_t old_attribute) {
 	if(vdp->ms_vdp_current_mode->sprite_mode & 0x80) {
-		write_sprite_attribute_512(vdp, offset, attribute);
+		write_sprite_attribute_512(vdp, offset, attribute, old_attribute);
 	} else {
-		write_sprite_attribute_256(vdp, offset, attribute);
+		write_sprite_attribute_256(vdp, offset, attribute, old_attribute);
 	}
 }
 
-void write_sprite_attribute_256(ms_vdp_t* vdp, int offset, uint32_t attribute) {
+void write_sprite_attribute_256(ms_vdp_t* vdp, int offset, uint32_t attribute, int32_t old_attribute) {
 	int i,j;
-	int plNum = (offset / 4) % 32; // MSXのスプライトプレーン番号
+	int plNum = (((uint32_t)offset) / 4); // MSXのスプライトプレーン番号
 	int type = offset % 4; // 属性の種類
+
+	if (plNum >= 32) {
+		return;
+	}
 
 	uint8_t* pattr = vdp->vram + vdp->sprattrtbl_baddr;
 	switch(type) {
 		case 0: // Y座標
-			if(plNum >= vdp->last_visible_sprite_planes || attribute == 208) {
+			// Y=208の対応のため、Y座標の208の値が変化したら、スプライトの再配置を行う
+			if ( attribute == 208 || old_attribute == 208) {
 				vdp->sprite_refresh_flag |= SPRITE_REFRESH_FLAG_COORD;
+				if (old_attribute != 208 ) {
+					for(i=plNum;i<32;i++) {
+					//	X68_SSR[i*SSR_UNIT+3] = 0;	// スプライト非表示
+					}
+				}
 			}
 			uint8_t scroll_offset = vdp->r23; // 縦スクロール量
 			// MSXは1ライン下に表示されるので+1
@@ -239,18 +254,20 @@ void refresh_sprite_256(ms_vdp_t* vdp, int plNum) {
 void refresh_sprite_256_mode1(ms_vdp_t* vdp, int plNum) {
 	int i,j;
 	uint8_t* p = vdp->vram + vdp->sprattrtbl_baddr;
-	unsigned int ptNum = p[plNum*SAT_SIZE+2];
-	unsigned int color = p[(plNum*SAT_SIZE & 0x1fffc)+3] & 0xf;
-	unsigned int colorex = color << 28 | color << 24 | color << 20 | color << 16 | color << 12 | color << 8 | color << 4 | color;
+	uint32_t* x68_pcg_buffer = vdp->x68_pcg_buffer;
+	uint32_t ptNum = p[plNum*SAT_SIZE+2];
+	ptNum &= (vdp->sprite_size == 0) ? 0xff : 0xfc;
+	uint32_t color = p[plNum*SAT_SIZE+3] & 0xf;
+	uint32_t colorex = color << 28 | color << 24 | color << 20 | color << 16 | color << 12 | color << 8 | color << 4 | color;
 	if (vdp->sprite_size == 0) {
 		// 8x8
 		for( i = 0; i < 8; i++) { 
-			X68_PCG[plNum*PCG_UNIT+i] = vdp->x68_pcg_buffer[(ptNum & 0xff)*PCG_BUF_UNIT_D1X+i] & colorex;
+			X68_PCG[plNum*PCG_UNIT+i] = x68_pcg_buffer[ptNum*PCG_BUF_UNIT_D1X+i] & colorex;
 		}
 	} else {
 		// 16x16
 		for( i = 0; i < 32; i++) { 
-			X68_PCG[plNum*PCG_UNIT+i] = vdp->x68_pcg_buffer[(ptNum & 0xfc)*PCG_BUF_UNIT_D1X+i] & colorex;
+			X68_PCG[plNum*PCG_UNIT+i] = x68_pcg_buffer[ptNum*PCG_BUF_UNIT_D1X+i] & colorex;
 		}
 	}
 }
@@ -356,14 +373,15 @@ void refresh_sprite_256_mode2(ms_vdp_t* vdp) {
 }
 
 
-void write_sprite_attribute_512(ms_vdp_t* vdp, int offset, uint32_t attribute) {
+void write_sprite_attribute_512(ms_vdp_t* vdp, int offset, uint32_t attribute, int32_t old_attribute) {
 	int i,j;
 	int plNum = (offset / SAT_SIZE) % 32; // MSXのスプライトプレーン番号
 	int type = offset % SAT_SIZE; // 属性の種類
 
 	switch(type) {
 		case 0: // Y座標
-			if(plNum >= vdp->last_visible_sprite_planes || attribute == 208) {
+			// Y=208の対応のため、Y座標の208の値が変化したら、スプライトの再配置を行う
+			if ( attribute == 208 || old_attribute == 208) {
 				vdp->sprite_refresh_flag |= SPRITE_REFRESH_FLAG_COORD;
 			}
 			uint8_t scroll_offset = vdp->r23; // 縦スクロール量
@@ -428,7 +446,7 @@ void refresh_sprite_512(ms_vdp_t* vdp, int plNum) {
      offset: カラーテーブルのベースアドレスからのオフセットバイト
      pattern: 書き込む値(下位8bitのみ使用)
 */
-void write_sprite_color(ms_vdp_t* vdp, int offset, uint32_t color) {
+void write_sprite_color(ms_vdp_t* vdp, int offset, uint32_t color, int32_t old_color) {
 	if((vdp->ms_vdp_current_mode->sprite_mode & 0x3) != 2) {
 		//　スプライトモード2以外は何もしない
 		return;
@@ -447,8 +465,16 @@ void write_sprite_color(ms_vdp_t* vdp, int offset, uint32_t color) {
 	}
 }
 
-
+/**
+ * @brief VSYNC期間にスプライトの更新をまとめて行う
+ * 
+ * @param vdp 
+ */
 void ms_vdp_sprite_vsync_draw(ms_vdp_t* vdp) {
+	//vdp->sprite_refresh_flag |= SPRITE_REFRESH_FLAG_PGEN;	// 全書き換え
+	vdp->sprite_refresh_flag |= SPRITE_REFRESH_FLAG_ATTR;	// アトリビュートテーブルのみ再検査
+	//vdp->sprite_refresh_flag |= SPRITE_REFRESH_FLAG_COORD;	// 実験的に、位置調整は毎回行うようにしてみる
+
 	if (!vdp->sprite_refresh_flag) {
 		return;
 	}
@@ -467,7 +493,7 @@ void ms_vdp_sprite_vsync_draw(ms_vdp_t* vdp) {
 		uint32_t sprpgenaddr = vdp->sprpgentbl_baddr & 0x1fe00; // 下位9ビットをクリア
 		for(i=0;i<256;i++) {
 			for(j=0;j<8;j++) {
-				write_sprite_pattern(vdp, i*8+j, vram[sprpgenaddr + i*8 + j]);
+				write_sprite_pattern(vdp, i*8+j, vram[sprpgenaddr + i*8 + j], -1);
 			}
 		}
 		flag |= SPRITE_REFRESH_FLAG_CC;	// CCフラグ更新、PCG更新、スプライトアトリビュートテーブルの更新も行う
@@ -486,7 +512,7 @@ void ms_vdp_sprite_vsync_draw(ms_vdp_t* vdp) {
 				sprite_cc_flags[plNum] = ccflag;
 			}
 		}
-		flag |= SPRITE_REFRESH_FLAG_ATTR;	// スプライトカラーテーブルの更新も行う
+		flag |= SPRITE_REFRESH_FLAG_ATTR;	// スプライトアトリビュートテーブルの更新も行う
 	}
 	if (flag & SPRITE_REFRESH_FLAG_ATTR) {
 		// PCG更新処理
@@ -505,7 +531,7 @@ void ms_vdp_sprite_vsync_draw(ms_vdp_t* vdp) {
 				refresh_sprite_256_mode2(vdp);
 			}
 		}
-		flag != SPRITE_REFRESH_FLAG_COORD;	// スプライトアトリビュートテーブルの更新も行う
+		flag |= SPRITE_REFRESH_FLAG_COORD;	// スプライトアトリビュートテーブルの更新も行う
 	}
 	if (flag & SPRITE_REFRESH_FLAG_COORD) {
 		// スプライトアトリビュートテーブルのみの更新
@@ -524,16 +550,13 @@ void ms_vdp_sprite_vsync_draw(ms_vdp_t* vdp) {
 					// このプレーン以降は描画しない
 					break;
 				}
-				switch(spMode) {
-				case 1:
+				if(spMode == 1) {
 					ec = (sprattr[plNum*SAT_SIZE+3] & 0x80) >> 7;
-					break;
-				case 2:
+				} else {
 					ec = (sprcolr[plNum*COL_SIZE+0] & 0x80) >> 7; // ラインごとのECはサポートしないので1ライン目だけみる
-					break;
 				}
 				y = ((y + 1 - scroll_offset) & 0xff) * mag512 + 16;
-				x = (x * mag512 - ec*32 + 16) & 0x3ff;
+				x = ((x  - ec*32)* mag512 + 16) & 0x3ff;
 				if( mag512 == 2 && spSize == 16) {
 					// 512ドットモード、16x16サイズの時
 					for( i=0; i<4; i++) {

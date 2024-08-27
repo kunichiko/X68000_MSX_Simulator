@@ -122,7 +122,13 @@ void update_pgentbl_baddr_DEFAULT(ms_vdp_t* vdp) {
 void update_sprattrtbl_baddr_MODE1(ms_vdp_t* vdp) {
 	// R05 に b14-b7
 	// R11 に b16-b15
-	vdp->sprattrtbl_baddr = ((vdp->_r11 << 15) | (vdp->_r05 << 7)) & 0x1ffff;
+	// MODE1では、b7まで使われ、b6-b0は0として扱われる
+	uint32_t addr = ((vdp->_r11 << 15) | (vdp->_r05 << 7)) & 0x1ff80;
+	if (vdp->sprattrtbl_baddr != addr) {
+		// 更新されたら、全てのスプライトのアトリビュートを再生成する
+		vdp->sprattrtbl_baddr = addr;
+		vdp->sprite_refresh_flag |= SPRITE_REFRESH_FLAG_ATTR;
+	}
 }
 
 void update_sprattrtbl_baddr_MODE2(ms_vdp_t* vdp) {
@@ -133,12 +139,15 @@ void update_sprattrtbl_baddr_MODE2(ms_vdp_t* vdp) {
 	// ese-vdpでは以下のようにしていた
 	// アトリビュートテーブル: b9は書き込まれた値をそのまま使う、b8-b7は0として扱う
 	// カラーテーブル		: b9はアトリビュートテーブルの反転、b8-b7は0として扱う	
-	vdp->sprattrtbl_baddr = ((vdp->_r11 << 15) | (vdp->_r05 << 7)) & 0x1fe00;
-	vdp->sprcolrtbl_baddr = vdp->sprattrtbl_baddr ^ 0x200;
-
-	update_vdp_sprite_area(vdp);
-	vdp->sprite_refresh_flag |= SPRITE_REFRESH_FLAG_CC;
-	vdp->sprite_refresh_flag |= SPRITE_REFRESH_FLAG_ATTR;
+	uint32_t addr = ((vdp->_r11 << 15) | (vdp->_r05 << 7)) & 0x1fe00;
+	if (vdp->sprattrtbl_baddr != addr) {
+		// 更新されたら、全てのスプライトのアトリビュートを再生成する
+		vdp->sprattrtbl_baddr = addr;
+		vdp->sprcolrtbl_baddr = addr ^ 0x200;
+		update_vdp_sprite_area(vdp);
+		vdp->sprite_refresh_flag |= SPRITE_REFRESH_FLAG_CC;
+		vdp->sprite_refresh_flag |= SPRITE_REFRESH_FLAG_ATTR;
+	}
 }
 
 void update_sprpgentbl_baddr_MODE1(ms_vdp_t* vdp) {

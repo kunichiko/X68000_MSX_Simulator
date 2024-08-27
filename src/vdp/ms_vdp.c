@@ -229,6 +229,9 @@ void ms_vdp_set_mode(ms_vdp_t* vdp, int mode) {
 	}
 	vdp->ms_vdp_current_mode->init(vdp);
 	printf("VDP Mode: %s\n", vdp->ms_vdp_current_mode->get_mode_name(vdp));
+
+	// スプライトの初期化処理
+	vdp->sprite_refresh_flag |= SPRITE_REFRESH_FLAG_PGEN;
 }
 
 
@@ -236,12 +239,12 @@ uint16_t crtc_values[4][13] = {
 	// 256x192, 60Hz
 	{	45, 4,  6, 38, 524, 5, 40, 424, 25, // CRTCレジスタ0-8
 		0xff,   6+4,           40, // スプライトコントローラ画面モードレジスタ
-		8*8	// テキスト画面のオフセット値
+		8*(32+8)	// テキスト画面のオフセット値
 	},
 	// 256x212, 60Hz
 	{	45, 4,  6, 38, 524, 5, 52, 476, 27, // CRTCレジスタ0-8
 		0xff,   6+4,           52, // スプライトコントローラ画面モードレジスタ
-		8*5+4	// テキスト画面のオフセット値
+		8*(32+5)+4	// テキスト画面のオフセット値
 	},
 	// 512x384, 60Hz
 	{	91, 9, 17, 81, 524, 5, 40, 424, 25, // CRTCレジスタ0-8

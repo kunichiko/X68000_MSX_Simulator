@@ -44,7 +44,7 @@ void update_vdp_sprite_area(ms_vdp_t* vdp) {
 	vdp->cmd_ny_sprite_start = Y_start;
 	vdp->cmd_ny_sprite_end = Y_end;
 
-	printf("update_vdp_sprite_area: %d - %d\n", Y_start, Y_end);
+	//printf("update_vdp_sprite_area: %d - %d\n", Y_start, Y_end);
 }
 
 void rewrite_sprite_if_needed(ms_vdp_t* vdp) {

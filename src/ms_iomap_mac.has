@@ -12,6 +12,9 @@
 	.include	iocscall.mac
 	.include	doscall.mac
 
+	.xdef	no_port_OUT
+	.xdef	no_port_OUT_2
+
 	.xdef	ms_io_input_table
 	.xdef	ms_io_output_table
 

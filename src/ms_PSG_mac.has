@@ -6,11 +6,12 @@
 *				1995.10.19		by Kuni.
 *
 
-	.include	iocscall.mac
-	.include	doscall.mac
+	.include	iocscall.equ
+	.include	doscall.equ
 
 
 	.xref	PSG2OPM_tbl
+	.xref	_ms_peripherals_led_kana
 
 	.xdef	ms_psg_init
 	.xdef	ms_psg_deinit
@@ -89,7 +90,7 @@ ms_psg_init:
 *	-200セント(半音)調整し、キーフラクションで+7.8125セント調整する。
 *
 	move.l	#$10D7*4,-(sp)			* 本当は $1000*2でよくも出来るけど
-	DOS	__MALLOC				* 手抜きのため。
+	DOS	_MALLOC				* 手抜きのため。
 	lea.l	4(sp),sp
 
 	tst.l	d0
@@ -205,22 +206,22 @@ ms_psg_init:
 
 *	割り込みの設定
 	lea.l	OPM_int,a1
-	IOCS	__OPMINTST
+	IOCS	_OPMINTST
 	tst.l	d0
 	beq	@f
 
 	pea.l	errms_OPM_int			* 既に使用中のとき
-	DOS	__PRINT
+	DOS	_PRINT
 	lea.l	4(sp),sp
 	move.w	sr,d0
 	move.w	d0,-(sp)
 	or.w	#%00000111_00000000,d0		* 割り込み禁止
 	move.w	d0,sr
 	clr.l	a1
-	IOCS	__OPMINTST
+	IOCS	_OPMINTST
 	move.w	(sp)+,sr			* 割り込み復帰
 	lea.l	OPM_int,a1
-	IOCS	__OPMINTST
+	IOCS	_OPMINTST
 
 @@:	w_OPM	#$dc,#$10			* CLKA = 881
 	w_OPM	#$01,#$11			* 143*16μｓごとに割り込み
@@ -243,7 +244,7 @@ ms_psg_deinit:
 	or.w	#%00000111_00000000,d0	* 一時的に割り込み禁止
 	move.w	d0,sr
 	clr.l	a1			* OPM割り込みを禁止
-	IOCS	__OPMINTST
+	IOCS	_OPMINTST
 	move.w	(sp)+,sr		* sr を復元
 
 *	すべてキーオフ
@@ -629,26 +630,19 @@ w_PSG_R13:
 
 w_PSG_R14:
 	pea.l	errms_PSG_R14_wr
-	DOS	__PRINT
+	DOS	_PRINT
 	lea.l	4(sp),sp
 	rts
 
 w_PSG_R15:
 	move.b	d1,PSG_R15
 
-	move.w	d1,-(sp)
-	btst.l	#7,d1			* かな ＬＥＤの制御
-	beq	1f			* 	0 ・・ on   1 ・・ off
-	clr.b	d2			* 消灯
-	moveq.l	#0,d1			* かな
-	IOCS	__LEDMOD
-	bra	@f
+	move.b	d1,d0
+	andi.b	#%10000000,d0		* bit7: かなLEDの状態
+	lsr.b	#7,d0			* フラグを保存して、VSYNC期間に反映させる
+	move.b	d0,_ms_peripherals_led_kana
 
-1:	moveq.l	#1,d2			* 点灯
-	moveq.l	#0,d1			* かな
-	IOCS	__LEDMOD
-
-@@:	move.w	(sp)+,d1		* R15のbit6に書き込んだ値で、ジョイスティックポート1と2の選択が切り替わる(0:JOY1, 1:JOY2)
+	* R15のbit6に書き込んだ値で、ジョイスティックポート1と2の選択が切り替わる(0:JOY1, 1:JOY2)
 	btst.l	#6,d1
 	beq	1f
 	move.w	#1,port_sel

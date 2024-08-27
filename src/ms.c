@@ -72,7 +72,7 @@ void _toggleTextPlane(void);
 void _setTextPlane(int textPlaneMode);
 void _moveTextPlane(int cursorKeyHit);
 
-unsigned short host_rate = 3;
+unsigned short host_rate = 1;
 
 volatile extern unsigned short ms_vdp_interrupt_tick;
 volatile extern unsigned short ms_vdp_vsync_rate;
@@ -101,7 +101,7 @@ void printHelpAndExit(char* progname) {
 	fprintf(stderr, " --hostrate host key operation rate (1-60)\n");
 	fprintf(stderr, "    1: every frame, 2: every 2 frames, ...\n");
 	fprintf(stderr, "    default is 3.\n");
-	fprintf(stderr, " --hostdelay host key interruption delay cycle (1-999)\n");
+	fprintf(stderr, " --hostdelay host key interruption delay cycle (1-9999)\n");
 	fprintf(stderr, "    default is 20 cycles.\n");
 	fprintf(stderr, " --disablekey\n");
 	fprintf(stderr, "    disable key input for performance test.\n");
@@ -307,7 +307,7 @@ int main(int argc, char *argv[]) {
 			longopt = &longopts[longindex];
 			if (longopt->has_arg == required_argument & optarg != NULL) {
 				host_delay = atoi(optarg);
-				if (host_delay < 1 || host_delay > 999) {
+				if (host_delay < 1 || host_delay > 9999) {
 					printf("ホスト処理遅延カウントが不正です\n");
 					printHelpAndExit(argv[0]);
 				}
@@ -327,6 +327,9 @@ int main(int argc, char *argv[]) {
 		printf("スーパーバイザーモードに移行できませんでした\n");
 		return -1;
 	}
+
+	// CTRL+Cで中断されたときに、ms_exitを呼び出すようにする
+	_dos_intvcs(0xfff1, ms_exit);
 
 	/*
 	 メモリシステムの初期化
@@ -438,12 +441,12 @@ int main(int argc, char *argv[]) {
 
 	printf("終了します\n");
 
-	_iocs_crtmod(0x10);
-
 	ms_exit();
 }
 
 void ms_exit() {
+	_iocs_crtmod(0x10);
+
 	if ( psg_initialized ) {
 		ms_psg_deinit();
 	}
@@ -508,6 +511,8 @@ int divider = 0;
 
 void dump(unsigned int page, unsigned int pc_16k);
 
+void sync_keyboard_leds();
+
 int emuLoop(unsigned int pc, unsigned int counter) {
 	static int emuLoopCounter = 0;
 	int i,j;
@@ -531,6 +536,7 @@ int emuLoop(unsigned int pc, unsigned int counter) {
 		return 0;
 	}
 
+	sync_keyboard_leds();
 
 	kigoKeyHit = 0;
 	helpKeyHit = 0;
@@ -692,13 +698,43 @@ void dump(unsigned int page, unsigned int pc_16k) {
 	}
 }
 
+static uint8_t keyboard_led_counter = 0;
+static uint8_t last_led_caps = 0;
+static uint8_t last_led_kana = 0;
+
+void sync_keyboard_leds() {
+	if (keyboard_led_counter == 0) {
+		keyboard_led_counter = 3;
+		if( last_led_caps != ms_peripherals_led_caps) {
+			ms_iocs_ledctrl(0x3, ms_peripherals_led_caps);
+			last_led_caps = ms_peripherals_led_caps;
+		}
+		if( last_led_kana != ms_peripherals_led_kana) {
+			ms_iocs_ledctrl(0x0, ms_peripherals_led_kana);
+			last_led_kana = ms_peripherals_led_kana;
+		}
+	} else {
+		keyboard_led_counter--;
+	}
+}
+
 // テキスト表示切り替え
 unsigned short* VCON_R02 = (unsigned short*)0x00e82600;
+
+static unsigned short debug_log_level_bup;
 
 void _toggleTextPlane(void) {
 	static int textPlaneMode = 1;
 
 	textPlaneMode = (textPlaneMode + 1) % 2;
+	if (textPlaneMode == 0) {
+		// テキスト表示OFFにする時に、デバッグログをOFFにする
+		debug_log_level_bup = debug_log_level;
+		debug_log_level = 0;
+	}
+	else {
+		debug_log_level = debug_log_level_bup;
+	}
 	_setTextPlane(textPlaneMode);
 }
 
