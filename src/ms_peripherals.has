@@ -34,11 +34,14 @@
 
 	.xref	slot_reg
 
-	.xdef	_KEYSNS_tbl_ptr
-
 	.xref	cpu_emu_yield
 	.xref	KEY_vector
 	.xref	debug_log_level
+
+	.xdef	_KEYSNS_tbl_ptr
+
+	.xdef	_ms_peripherals_led_caps
+	.xdef	_ms_peripherals_led_kana
 
 	.68000
 
@@ -176,23 +179,12 @@ w_port_91:				* プリンタポート
 	rts
 
 w_port_AA:
-	move.b	p_AA,d0			* 以前の値を読み込む
 	move.b	d1,p_AA
 
-	eor.b	d1,d0
-	btst.l	#6,d0			* ビット６は CAPS ランプの制御
-	beq	@f			* 変化していなければ無視
-	btst.l	#6,d1			* 書き込んだ値を見て点灯／消灯を決める
-	beq	1f			* 	0 ・・ on   1 ・・ off
-	moveq.l	#3,d1			* CAPS
-	clr.b	d2			* 消灯
-	IOCS	_LEDMOD
-	bra	@f
-1:
-	moveq.l	#3,d1			* CAPS
-	moveq.l	#1,d2			* 点灯
-	IOCS	_LEDMOD
-@@:
+	move.b	d1,d0
+	andi.w	#%01000000,d0		* ビット６は CAPS ランプの制御
+	lsr.w	#6,d0			* フラグを保存して、VSYNC期間に反映させる
+	move.b	d0,_ms_peripherals_led_caps
 	rts
 
 *
@@ -366,5 +358,12 @@ p_FC:	.dc.b	3			* マッパースロット選択レジスター
 p_FD:	.dc.b	2			* 初期値に意味はない。何となく。
 p_FE:	.dc.b	1
 p_FF:	.dc.b	0
+
+
+;	状態保持用
+_ms_peripherals_led_caps:
+	.dc.b	0
+_ms_peripherals_led_kana:
+	.dc.b	0
 
 	.end

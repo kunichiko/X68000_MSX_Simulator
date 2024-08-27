@@ -15,4 +15,9 @@
 void* new_malloc( int );
 void new_free( void * );
 
+void ms_iocs_ledctrl(uint8_t type, uint8_t onoff);
+
+extern uint8_t ms_peripherals_led_caps;
+extern uint8_t ms_peripherals_led_kana;
+
 #endif // MS_H

@@ -269,8 +269,9 @@ void ms_vdp_set_mode(ms_vdp_t* vdp, int mode);
 
 void ms_vdp_vsync_draw(ms_vdp_t* vdp);
 
-void write_sprite_pattern(ms_vdp_t* vdp, int offset, uint32_t pattern);
-void write_sprite_attribute(ms_vdp_t* vdp, int offset, uint32_t attribute);
+void write_sprite_pattern(ms_vdp_t* vdp, int offset, uint32_t pattern, int32_t old_pattern);
+void write_sprite_attribute(ms_vdp_t* vdp, int offset, uint32_t attribute, int32_t old_attribute);
+void write_sprite_color(ms_vdp_t* vdp, int offset, uint32_t color, int32_t old_color);
 
 void update_sprattrtbl_baddr_MODE1(ms_vdp_t* vdp);
 void update_sprattrtbl_baddr_MODE2(ms_vdp_t* vdp);

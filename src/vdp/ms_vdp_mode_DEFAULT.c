@@ -122,7 +122,8 @@ void update_pgentbl_baddr_DEFAULT(ms_vdp_t* vdp) {
 void update_sprattrtbl_baddr_MODE1(ms_vdp_t* vdp) {
 	// R05 に b14-b7
 	// R11 に b16-b15
-	uint32_t addr = ((vdp->_r11 << 15) | (vdp->_r05 << 7)) & 0x1ffff;
+	// MODE1では、b7まで使われ、b6-b0は0として扱われる
+	uint32_t addr = ((vdp->_r11 << 15) | (vdp->_r05 << 7)) & 0x1ff80;
 	if (vdp->sprattrtbl_baddr != addr) {
 		// 更新されたら、全てのスプライトのアトリビュートを再生成する
 		vdp->sprattrtbl_baddr = addr;

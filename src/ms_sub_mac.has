@@ -27,6 +27,8 @@
 	.xdef	_new_free
 	.xdef	_new_read
 
+	.xdef	ms_iocs_ledctrl
+
 	.xdef	ms_vdp_int
 	.xdef	ms_cpu_int
 	.xdef	int_block_count
@@ -224,6 +226,14 @@ _new_read_210:
 	print	msg00
 
 	DOS	__EXIT
+
+
+ms_iocs_ledctrl:
+	move.l	4(sp),d1	* led key code
+	move.l	8(sp),d2	* on = 1, off = 0
+	move.b	#$06,d0
+	trap	#15
+	rts
 
 	.data
 

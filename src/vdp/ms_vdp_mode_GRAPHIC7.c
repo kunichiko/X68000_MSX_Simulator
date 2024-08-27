@@ -123,5 +123,5 @@ void vdp_command_write_GRAPHIC7(ms_vdp_t* vdp, uint8_t value) {
 }
 
 void update_resolution_GRAPHIC7(ms_vdp_t* vdp) {
-	update_resolution_COMMON(vdp, 1, 1, 0); // 512, 256色, BG不使用
+	update_resolution_COMMON(vdp, 0, 1, 0); // 512, 256色, BG不使用
 }

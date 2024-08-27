@@ -76,43 +76,7 @@ uint8_t read_vram_GRAPHIC2(ms_vdp_t* vdp) {
 }
 
 void write_vram_GRAPHIC2(ms_vdp_t* vdp, uint8_t data) {
-	//write_vram_GRAPHIC2_c(vdp, data);
 	w_GRAPHIC2_mac(data);
-}
-
-/*
-	アセンブラのルーチンを使っているので使ってないが一応残している
- */
-void write_vram_GRAPHIC2_c(ms_vdp_t* vdp, uint8_t data) {
-	vdp->vram[vdp->vram_addr] = data;
-	//
-	uint32_t area = vdp->vram_addr;
-	area &= 0x1ff80;	// 下位7ビットをクリア
-	if (area == vdp->sprattrtbl_baddr) {
-		write_sprite_attribute(vdp, vdp->vram_addr - area, data);
-	} else {
-		area &= 0x1fc00; // 下位10ビットをクリア
-		if (area == vdp->pnametbl_baddr) {
-			uint32_t addr = vdp->vram_addr & 0x03ff;
-			write_pname_tbl_GRAPHIC2(vdp, addr, data);
-		} else {
-		 	area &= 0x1f800; // 下位11ビットをクリア
-			if (area == vdp->sprpgentbl_baddr) {
-				write_sprite_pattern(vdp, vdp->vram_addr - area, data);
-			} else {
-			 	area &= 0x1e000; // 下位13ビットをクリア
-			 	if (area == vdp->colortbl_baddr) {
-					//write_color_tbl(vdp, data);
-				} else if (area == vdp->pgentbl_baddr) {
-					//write_pgen_tbl(vdp, data);
-				}
-			}
-		}
-	}
-		
-	uint32_t addr_h = (vdp->vram_addr + 0) & 0xc000;
-	uint32_t addr_l = (vdp->vram_addr + 1) & 0x3fff;
-	vdp->vram_addr = (addr_h | addr_l);
 }
 
 void update_palette_GRAPHIC2(ms_vdp_t* vdp) {
@@ -157,10 +121,12 @@ void update_pgentbl_baddr_GRAPHIC2(ms_vdp_t* vdp) {
 }
 
 void update_sprattrtbl_baddr_GRAPHIC2(ms_vdp_t* vdp) {
+	printf("update sprattrtbl baddr GR2\n");
     update_sprattrtbl_baddr_MODE1(vdp);
 }
 
 void update_sprpgentbl_baddr_GRAPHIC2(ms_vdp_t* vdp) {
+	printf("update sprpgentbl baddr GR2\n");
     update_sprpgentbl_baddr_MODE1(vdp);
 }
 
@@ -223,7 +189,8 @@ void vsync_draw_GRAPHIC2(ms_vdp_t* vdp) {
 	}
 	uint8_t* vram = vdp->vram;
 	// 1回のvsyncで書き換える数の上限
-	int refresh_count = 16;				// だいたい60フレーム = 1秒で 32文字x24行=768文字が書き換えられる計算
+	//int refresh_count = 16;				// だいたい60フレーム = 1秒で 32文字x24行=768文字が書き換えられる計算
+	int refresh_count = 32;				// だいたい30フレーム = 0.5秒で 32文字x24行=768文字が書き換えられる計算
 	// 1回のvsyncでチェックする数の上限
 	int check_count = 128;
 	while(refresh_count > 0 && check_count > 0) {
@@ -237,7 +204,9 @@ void vsync_draw_GRAPHIC2(ms_vdp_t* vdp) {
 		}
 		check_count--;
 		refresh_addr++;
-		if ((refresh_addr & 0x3ff) == 0) {
+		// GRAPHIC2は24行しか見えないので、32x24 = 768文字までみる
+		// TODO: GRAPHIC3の場合は縦スクロールや、212ラインモードがあるので、最後まで見る必要がある
+		if ((refresh_addr & 0x3ff) == 0x300) {
 			// 一周したので初期化
 			refresh_addr = 0;
 			return;

@@ -11,6 +11,7 @@
 
 
 	.xref	PSG2OPM_tbl
+	.xref	_ms_peripherals_led_kana
 
 	.xdef	ms_psg_init
 	.xdef	ms_psg_deinit
@@ -634,25 +635,14 @@ w_PSG_R14:
 	rts
 
 w_PSG_R15:
-	move.b	PSG_R15,d0		* 以前の値を読み込む
 	move.b	d1,PSG_R15
 
-	move.w	d1,-(sp)
-	eor.b	d1,d0
-	btst.l	#7,d0			* かな ＬＥＤの制御
-	beq	@f			* 変化していなければ無視
-	btst.l	#7,d1			* かな ＬＥＤの制御
-	beq	1f			* 	0 ・・ on   1 ・・ off
-	clr.b	d2			* 消灯
-	moveq.l	#0,d1			* かな
-	IOCS	_LEDMOD
-	bra	@f
+	move.b	d1,d0
+	andi.b	#%10000000,d0		* bit7: かなLEDの状態
+	lsr.b	#7,d0			* フラグを保存して、VSYNC期間に反映させる
+	move.b	d0,_ms_peripherals_led_kana
 
-1:	moveq.l	#1,d2			* 点灯
-	moveq.l	#0,d1			* かな
-	IOCS	_LEDMOD
-
-@@:	move.w	(sp)+,d1		* R15のbit6に書き込んだ値で、ジョイスティックポート1と2の選択が切り替わる(0:JOY1, 1:JOY2)
+	* R15のbit6に書き込んだ値で、ジョイスティックポート1と2の選択が切り替わる(0:JOY1, 1:JOY2)
 	btst.l	#6,d1
 	beq	1f
 	move.w	#1,port_sel

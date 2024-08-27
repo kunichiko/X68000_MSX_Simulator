@@ -7916,7 +7916,7 @@ emu_yield:
 	.dc.w	0
 
 debug_log_level:
-	.dc.w	1
+	.dc.w	0
 
 *	割り込み許可状態を示すフラグ
 *	0 ・・・ DI
