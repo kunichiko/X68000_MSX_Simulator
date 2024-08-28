@@ -6,14 +6,15 @@
 #define ROM_TYPE_NOTHING			0
 #define ROM_TYPE_MAPPER_RAM			1
 #define ROM_TYPE_NORMAL_ROM			2
-#define ROM_TYPE_MEGAROM_8			3
-#define ROM_TYPE_MEGAROM_16			4
-#define ROM_TYPE_MEGAROM_KONAMI		5
-#define ROM_TYPE_MEGAROM_KONAMI_SCC	6
-#define ROM_TYPE_SOUND_CARTRIG		7
-#define ROM_TYPE_MEGAROM_PANA		8
-#define ROM_TYPE_DOS_ROM			9
-#define ROM_TYPE_PAC				10
+#define ROM_TYPE_MEGAROM_GENERIC_8K	3
+#define ROM_TYPE_MEGAROM_ASCII_8K	4
+#define ROM_TYPE_MEGAROM_ASCII_16K	5
+#define ROM_TYPE_MEGAROM_KONAMI		6
+#define ROM_TYPE_MEGAROM_KONAMI_SCC	7
+#define ROM_TYPE_SOUND_CARTRIG		8
+#define ROM_TYPE_MEGAROM_PANA		9
+#define ROM_TYPE_DOS_ROM			10
+#define ROM_TYPE_PAC				11
 
 #define MS_MEMMAP_HEADER_LENGTH 8
 #define MS_MEMMAP_NUM_SEGMENTS 4
@@ -135,7 +136,12 @@ void ms_memmap_set_main_mem( void *, int);
 int ms_memmap_attach_driver(ms_memmap_t* memmap, ms_memmap_driver_t* driver, int slot_base, int slot_ex);
 
 void allocateAndSetROM(const char *romFileName, int kind, int slot_base, int slot_ex, int page);
-void allocateAndSetROM_Cartridge(const char* romFileName, int slot_base);
+void allocateAndSetROM_Cartridge(const char* romFileName, int slot_base, int kind);
+
+uint8_t ms_memmap_read8(uint16_t addr);
+void ms_memmap_write8(uint16_t addr, uint8_t data);
+uint16_t ms_memmap_read16(uint16_t addr);
+void ms_memmap_write16(uint16_t addr, uint16_t data);
 
 int filelength(int fh);
 
@@ -143,7 +149,8 @@ int filelength(int fh);
 #include "ms_memmap_NOTHING.h"
 #include "ms_memmap_NORMALROM.h"
 #include "ms_memmap_MAINRAM.h"
-#include "ms_memmap_MEGAROM_8K.h"
+#include "ms_memmap_MEGAROM_GENERIC_8K.h"
+#include "ms_memmap_MEGAROM_ASCII_8K.h"
 #include "ms_memmap_MEGAROM_KONAMI.h"
 #include "ms_memmap_MEGAROM_KONAMI_SCC.h"
 

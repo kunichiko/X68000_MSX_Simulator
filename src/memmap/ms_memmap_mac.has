@@ -4,6 +4,8 @@
 	.include	doscall.mac
 	.include	ms.mac
 
+	.xref	debug_log_level
+
 	.xref	_new_malloc
 	.xref	_new_free
 	.xref	_new_read

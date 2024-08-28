@@ -15,7 +15,14 @@ int filelength(int fh) {
 	return st.st_size;
 }
 
-void allocateAndSetROM_Cartridge(const char *romFileName, int slot_base) {
+/**
+ * @brief 
+ * 
+ * @param romFileName 
+ * @param slot_base 
+ * @param kind ROMタイプの指定。-1 を指定すると自動判定します
+ */
+void allocateAndSetROM_Cartridge(const char *romFileName, int slot_base, int kind) {
 	int crt_fh;
 	int crt_length;
 	uint8_t *crt_buff;
@@ -56,14 +63,24 @@ void allocateAndSetROM_Cartridge(const char *romFileName, int slot_base) {
 	}
 
 	ms_memmap_driver_t* driver = NULL;
-	int kind = detect_rom_type(crt_buff, crt_length);
+	if (kind == -1) {
+		kind = detect_rom_type(crt_buff, crt_length);
+	}
 	switch(kind) {
 		case ROM_TYPE_NORMAL_ROM:
 			allocateAndSetROM(romFileName, ROM_TYPE_NORMAL_ROM, slot_base, -1, 1);
 			break;
-		case ROM_TYPE_MEGAROM_8:
+		case ROM_TYPE_MEGAROM_GENERIC_8K:
+			// GENERIC 8K メガロム
+			driver = ms_memmap_MEGAROM_GENERIC_8K_init(ms_memmap_shared, crt_buff, crt_length);
+			if( driver == NULL) {
+				printf("MEGAROM GENERIC 8Kの初期化に失敗しました\n");
+				return;
+			}
+			break;
+		case ROM_TYPE_MEGAROM_ASCII_8K:
 			// ASCII 8K メガロム
-			driver = ms_memmap_MEGAROM_8K_init(ms_memmap_shared, crt_buff, crt_length);
+			driver = ms_memmap_MEGAROM_ASCII_8K_init(ms_memmap_shared, crt_buff, crt_length);
 			if( driver == NULL) {
 				printf("MEGAROM 8Kの初期化に失敗しました\n");
 				return;
@@ -166,6 +183,13 @@ int detect_rom_type(uint8_t* buffer, int length) {
 	printf("ASCII 8K: %d\n", ascii8k);
 	printf("ASCII 16K: %d\n", ascii16k);
 
+	if (ascii8k > 0 ) {
+		ascii8k--; // 優先順位調整
+	}
+	if (konami_scc_with == 0 && konami_scc_without == 0 && ascii8k == 0 && ascii16k == 0) {
+		printf("GENERIC 8Kメガロムと推定しました。\n");
+		return ROM_TYPE_MEGAROM_GENERIC_8K;
+	}
 	if (konami_scc_with >= konami_scc_without && konami_scc_with >= ascii8k && konami_scc_with >= ascii16k) {
 		printf("コナミ SCC 付きメガロムと推定しました。\n");
 		return ROM_TYPE_MEGAROM_KONAMI_SCC;
@@ -174,13 +198,14 @@ int detect_rom_type(uint8_t* buffer, int length) {
 		return ROM_TYPE_MEGAROM_KONAMI;
 	} else if (ascii8k >= konami_scc_with && ascii8k >= konami_scc_without && ascii8k >= ascii16k) {
 		printf("ASCII 8K メガロムと推定しました。\n");
-		return ROM_TYPE_MEGAROM_8;
+		return ROM_TYPE_MEGAROM_ASCII_8K;
 	} else if (ascii16k >= konami_scc_with && ascii16k >= konami_scc_without && ascii16k >= ascii8k) {
 		printf("ASCII 16K メガロムと推定しました。\n");
-		return ROM_TYPE_MEGAROM_16;
+		return ROM_TYPE_MEGAROM_ASCII_16K;
 	}
-	printf("通常のロムと推定しました。\n");
-	return ROM_TYPE_NORMAL_ROM;
+	// ここには来ないはず
+	printf("GENERIC 8Kメガロムと推定しました。\n");
+	return ROM_TYPE_MEGAROM_GENERIC_8K;
 }
 
 void allocateAndSetROM(const char *romFileName, int kind, int slot_base, int slot_ex, int page) {

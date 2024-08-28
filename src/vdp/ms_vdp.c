@@ -126,6 +126,8 @@ ms_vdp_t* ms_vdp_init() {
 		return NULL;
 	}
 
+	// b7: F,  b6: 5S, b5: Collision, b4-b0: Õ“Ë”Ô†
+	ms_vdp_shared->s00 = 0b00011111;
 	// b7: FL, b6: LPS, b5-1: V9958‚ÌID, b0: FH
 	ms_vdp_shared->s01 = 0b00000100;
 	// b7: TR, b6: VR, b5: HR, b4: BD, b3: 1, b2: 1, b1: EO, b0: CE

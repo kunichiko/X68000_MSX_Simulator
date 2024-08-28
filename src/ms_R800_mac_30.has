@@ -126,7 +126,6 @@
 	.xdef	cpu_cycle_last
 	.xdef	cpu_cycle_wait
 	.xdef	debug_log_level
-	.xdef	_readMemFromC
 	.xdef	int_skip_counter
 	.xdef	int_exec_counter
 	.xdef	interrupt_history_ptr
@@ -1002,24 +1001,6 @@ history_not_full:
 
 	rts
 
-
-*******************************************************************
-* Cから読み出すサブルーチン
-*******************************************************************
-_readMemFromC:
-	link	a6,#0
-	movem.l	d1-d7/a0-a5,-(sp)
-	
-	move.l	8(a6),d0	* 引数1のアドレスを取得
-
-	lea.l	registers,a3
-	jsr	ms_read_mem_8	* メモリから 8ビットのデータを読み込む
-
-	and.l	#$ff,d0		* 上位24ビットをクリア
-
-	movem.l	(sp)+,d1-d7/a0-a5
-	unlk	a6
-	rts
 
 *******************************************************************
 * 基本命令ジャンプテーブル
@@ -3447,9 +3428,11 @@ DI:	move.b	#0,interrupt_enable
 
 	.dc.w	4			* サイクル数
 	.dc.w	1-1			* 命令語長-1
-EI:	move.b	#1,interrupt_enable	* EIは１命令おいて実行されるので、このタイミングで1命令実行する
+EI:	cmpi.b	#1,interrupt_enable	* すでに割り込み許可状態ならそのままリターン
+	beq	@f
+	move.b	#1,interrupt_enable	* EIは１命令おいてから割り込み許可する必要があるので、このタイミングで1命令実行する
 	bsr	cpu_exec_core
-	rts
+@@:	rts
 
 ;---------------------------------------------------------------------------------------
 RST_XXH	macro	value
