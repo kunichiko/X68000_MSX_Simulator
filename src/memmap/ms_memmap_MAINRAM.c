@@ -37,10 +37,10 @@ ms_memmap_driver_t* ms_memmap_MAINRAM_init(ms_memmap_t* memmap) {
 	}
 	//
 	instance->num_segments = MAINRAM_SIZE / (16*1024);
-	instance->selected_segment[0] = 0;
-	instance->selected_segment[1] = 1;
-	instance->selected_segment[2] = 2;
-	instance->selected_segment[3] = 3;
+	instance->selected_segment[0] = 3;
+	instance->selected_segment[1] = 2;
+	instance->selected_segment[2] = 1;
+	instance->selected_segment[3] = 0;
 
 	int page8k;
 	for(page8k = 0; page8k < 8; page8k++) {
@@ -105,7 +105,8 @@ uint16_t ms_memmap_read16_MAINRAM(ms_memmap_driver_t* driver, uint16_t addr) {
 	int long_addr = (addr & 0x3fff) + (0x4000 * d->selected_segment[slot]);
 
 	// addr はページ境界をまたがないようになっているので気にせずOK
-	return driver->buffer[long_addr] | (driver->buffer[long_addr + 1] << 8);
+	uint16_t ret = driver->buffer[long_addr] | (driver->buffer[long_addr + 1] << 8);
+	return ret;
 }
 
 void ms_memmap_write16_MAINRAM(ms_memmap_driver_t* driver, uint16_t addr, uint16_t data) {

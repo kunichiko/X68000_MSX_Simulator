@@ -350,7 +350,9 @@ void cmd_LMMM(ms_vdp_t* vdp, uint8_t cmd, uint8_t logiop) {
 void cmd_LMMC_exe(ms_vdp_t* vdp, uint8_t value);
 
 void cmd_LMMC(ms_vdp_t* vdp, uint8_t cmd, uint8_t logiop) {
-	printf("LMMC STAR********\n");
+	if (0) {
+		printf("LMMC STAR********\n");
+	}
 
 	int mod;
 	vdp->cmd_current = cmd;
@@ -633,7 +635,9 @@ void cmd_HMMC_exe(ms_vdp_t* vdp, uint8_t value);
 static uint8_t debug_count = 0;
 
 void cmd_HMMC(ms_vdp_t* vdp, uint8_t cmd) {
-	printf("HMMC START********\n");
+	if (0) {
+		printf("HMMC START********\n");
+	}
 
 	int	crt_width = vdp->ms_vdp_current_mode->crt_width;
 	int dots_per_byte = vdp->ms_vdp_current_mode->dots_per_byte;

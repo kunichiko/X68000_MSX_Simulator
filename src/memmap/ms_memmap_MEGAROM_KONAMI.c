@@ -40,7 +40,7 @@ ms_memmap_driver_t* ms_memmap_MEGAROM_KONAMI_init(ms_memmap_t* memmap, const uin
 	}
 
 	for(page8k = 2; page8k < 6; page8k++) {
-		_select_bank_8K(instance, page8k, page8k-2);	// KONAMIƒƒKƒƒ€‚Ìê‡A‰Šú’l‚Í0,1,2,3
+		_select_bank_KONAMI(instance, page8k, page8k-2);	// KONAMIƒƒKƒƒ€‚Ìê‡A‰Šú’l‚Í0,1,2,3
 	}
 	return (ms_memmap_driver_t*)instance;
 }
@@ -126,14 +126,17 @@ void ms_memmap_write8_MEGAROM_KONAMI(ms_memmap_driver_t* driver, uint16_t addr, 
 			break;
 		case 0x6:
 		case 0x7:
+			// 0x6000-0x7fff
 			page8k = 3;
 			break;
 		case 0x8:
 		case 0x9:
+			// 0x8000-0x9fff
 			page8k = 4;
 			break;
 		case 0xa:
 		case 0xb:
+			// 0xa000-0xbfff
 			page8k = 5;
 			break;
 	}

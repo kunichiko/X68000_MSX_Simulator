@@ -77,7 +77,6 @@ uint8_t read_vram_GRAPHIC6(ms_vdp_t* vdp) {
 }
 
 void write_vram_GRAPHIC6(ms_vdp_t* vdp, uint8_t data) {
-	vdp->vram[vdp->vram_addr] = data;
 	w_GRAPHIC6_mac(data);
 }
 

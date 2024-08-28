@@ -38,7 +38,8 @@ OBJS = $(BUILD_DIR)/ms.o \
 		$(BUILD_DIR)/ms_memmap_NOTHING.o \
 		$(BUILD_DIR)/ms_memmap_MAINRAM.o \
 		$(BUILD_DIR)/ms_memmap_NORMALROM.o \
-		$(BUILD_DIR)/ms_memmap_MEGAROM_8K.o \
+		$(BUILD_DIR)/ms_memmap_MEGAROM_GENERIC_8K.o \
+		$(BUILD_DIR)/ms_memmap_MEGAROM_ASCII_8K.o \
 		$(BUILD_DIR)/ms_memmap_MEGAROM_KONAMI.o \
 		$(BUILD_DIR)/ms_memmap_MEGAROM_KONAMI_SCC.o \
 		$(BUILD_DIR)/ms_vdp.o \
@@ -74,7 +75,8 @@ OBJS_DEBUG = $(BUILD_DIR)/ms_d.o \
 		$(BUILD_DIR)/ms_memmap_NOTHING_d.o \
 		$(BUILD_DIR)/ms_memmap_MAINRAM_d.o \
 		$(BUILD_DIR)/ms_memmap_NORMALROM_d.o \
-		$(BUILD_DIR)/ms_memmap_MEGAROM_8K_d.o \
+		$(BUILD_DIR)/ms_memmap_MEGAROM_GENERIC_8K_d.o \
+		$(BUILD_DIR)/ms_memmap_MEGAROM_ASCII_8K_d.o \
 		$(BUILD_DIR)/ms_memmap_MEGAROM_KONAMI_d.o \
 		$(BUILD_DIR)/ms_memmap_MEGAROM_KONAMI_SCC_d.o \
 		$(BUILD_DIR)/ms_vdp_d.o \

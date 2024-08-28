@@ -21,9 +21,8 @@
 #include "ms.h"
 #include "ms_R800.h"
 #include "ms_iomap.h"
+#include "memmap/ms_memmap.h"
 #include "vdp/ms_vdp.h"
-
-extern int readMemFromC(int address);
 
 void ms_exit( void);
 
@@ -92,7 +91,9 @@ volatile extern unsigned short interrupt_history_wr;
 volatile extern unsigned short interrupt_history_rd;
 
 void printHelpAndExit(char* progname) {
-	fprintf(stderr, "Usage: %s  [-w MAX_WAIT] [-m MAINROM_PATH] [-s SUBROM_PATH] [-r1 ROM_PATH for slot 1] [-r2 ROM_PATH for slot 2] [-rNM ROM_PATH for slot N page M]\n", progname);
+	fprintf(stderr, "Usage: %s  [-w MAX_WAIT] [-m MAINROM_PATH] [-s SUBROM_PATH] [-r1 ROM_PATH for slot 1][,KIND] [-r2 ROM_PATH for slot 2][,KIND] [-rNM ROM_PATH for slot N page M]\n", progname);
+	fprintf(stderr, " KIND is ROM type:\n");
+	fprintf(stderr, "    NOR: Normal ROM, G8K: GENERIC 8K, A8K: ASCII 8K, A16: ASCII 16K, KON: Konami, SCC: Konami SCC\n");
 	fprintf(stderr, " --vsrate vsync rate (1-60)\n");
 	fprintf(stderr, "    1: every frame, 2: every 2 frames, ...\n");
 	fprintf(stderr, "    default is 1.\n");
@@ -127,6 +128,30 @@ const char *subrom_cbios = "cbios_sub.rom";
 char *mainrom_user = "MAINROM.ROM";
 char *subrom_user = "SUBROM.ROM";
 
+char* separate_rom_kind(char* path, int* kind) {
+	char* p = strchr(path, ',');
+	if (p != NULL) {
+		*p = '\0';
+		p++;
+		if (strcmp(p, "NOR") == 0) {
+			*kind = ROM_TYPE_NORMAL_ROM;
+		} else if (strcmp(p, "G8K") == 0) {
+			*kind = ROM_TYPE_MEGAROM_GENERIC_8K;
+		} else if (strcmp(p, "A8K") == 0) {
+			*kind = ROM_TYPE_MEGAROM_ASCII_8K;
+		} else if (strcmp(p, "A16") == 0) {
+			*kind = ROM_TYPE_MEGAROM_ASCII_16K;
+		} else if (strcmp(p, "KON") == 0) {
+			*kind = ROM_TYPE_MEGAROM_KONAMI;
+		} else if (strcmp(p, "SCC") == 0) {
+			*kind = ROM_TYPE_MEGAROM_KONAMI_SCC;
+		} else {
+			*kind = -1;
+		}
+	}
+	return path;
+}
+
 /*
 	メイン関数
 
@@ -139,7 +164,9 @@ char *subrom_user = "SUBROM.ROM";
 int main(int argc, char *argv[]) {
 	int i, j;
 	char *cartridge_path_slot1 = NULL; // カートリッジのパス
+	int cartridge_kind_slot1 = -1; // カートリッジの種類
 	char *cartridge_path_slot2 = NULL; // カートリッジのパス
+	int cartridge_kind_slot2 = -1; // カートリッジの種類
 	char *slot_path[4][4]; // 個々のスロットにセットするROMのパス
 	int opt;
     const char* optstring = "hm:s:w:r:" ; // optstringを定義します
@@ -213,8 +240,10 @@ int main(int argc, char *argv[]) {
 					{
 						if (slot == 1) {
 							cartridge_path_slot1 = argv[optind++];
+							cartridge_path_slot1 = separate_rom_kind(cartridge_path_slot1, &cartridge_kind_slot1);
 						} else {
 							cartridge_path_slot2 = argv[optind++];
+							cartridge_path_slot2 = separate_rom_kind(cartridge_path_slot2, &cartridge_kind_slot2);
 						}
 					}
 					else
@@ -252,6 +281,7 @@ int main(int argc, char *argv[]) {
 				if (optarg != NULL)
 				{
 					cartridge_path_slot1 = optarg;
+					cartridge_path_slot1 = separate_rom_kind(cartridge_path_slot1, &cartridge_kind_slot1);
 				}
 				else
 				{
@@ -398,10 +428,10 @@ int main(int argc, char *argv[]) {
 
 	// サイズを自動判別してROMをセット
 	if (cartridge_path_slot1 != NULL) {
-		allocateAndSetROM_Cartridge(cartridge_path_slot1, 1);
+		allocateAndSetROM_Cartridge(cartridge_path_slot1, 1, cartridge_kind_slot1);
 	}
 	if (cartridge_path_slot2 != NULL) {
-		allocateAndSetROM_Cartridge(cartridge_path_slot2, 2);
+		allocateAndSetROM_Cartridge(cartridge_path_slot2, 2, cartridge_kind_slot2);
 	}
 
 	printf("X680x0 MSXシミュレーター with elf2x68k\n");
@@ -439,12 +469,13 @@ int main(int argc, char *argv[]) {
 		debugger();
 	}
 
-	printf("終了します\n");
-
 	ms_exit();
 }
 
 void ms_exit() {
+	printf("終了します。何かキーを押してください。\n");
+	_iocs_b_keyinp();
+
 	_iocs_crtmod(0x10);
 
 	if ( psg_initialized ) {
@@ -509,7 +540,7 @@ extern unsigned char* KEYSNS_tbl_ptr;
 
 int divider = 0;
 
-void dump(unsigned int page, unsigned int pc_16k);
+void dump(unsigned int page, unsigned int pc_8k);
 
 void sync_keyboard_leds();
 
@@ -634,7 +665,7 @@ int emuLoop(unsigned int pc, unsigned int counter) {
 		printf("\n");
 		printf("loop count=%08d\ncycle=%08ld wait=%ld\n", emuLoopCounter, cpu_cycle_last, cpu_cycle_wait);
 		printf("COUNTER=%08x, inttick=%08d\n", counter, ms_vdp_interrupt_tick);
-		dump(pc >> 16, pc & 0x3fff);
+		dump(pc >> 16, pc & 0x1fff);
 	}
 	kigoKeyHitLast = kigoKeyHit;
 
@@ -654,7 +685,7 @@ int emuLoop(unsigned int pc, unsigned int counter) {
 }
 
 // メモリダンプ
-void dump(unsigned int page, unsigned int pc_16k) {
+void dump(unsigned int page, unsigned int pc_8k) {
 	int i,j;
 	int pcbase,pc;
 	int data;
@@ -682,7 +713,7 @@ void dump(unsigned int page, unsigned int pc_16k) {
 	}
 	printf("\n");
 
-	pc = (page << 14) | (pc_16k & 0x3fff);
+	pc = (page << 13) | (pc_8k & 0x1fff);
 	pcbase = (pc & 0xfff0);
 	printf("PAGE=%04x, PC=%04x, EXEC=%04d SKIP=%04d (+%04d)\n", page, (pc&0xffff), int_exec_counter, current_int_skip_counter,current_int_skip_counter - last_int_skip_counter);
 	last_int_skip_counter = current_int_skip_counter;
@@ -691,7 +722,7 @@ void dump(unsigned int page, unsigned int pc_16k) {
 		printf("%04x: ", pcbase + i * 16);
 		for (j = 0; j < 16; j++)
 		{
-			data = readMemFromC(pcbase + i * 16 + j);
+			data = ms_memmap_read8(pcbase + i * 16 + j);
 			printf("%02x ", data);
 		}
 		printf("\n");

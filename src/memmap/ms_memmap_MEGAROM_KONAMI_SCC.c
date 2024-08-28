@@ -40,7 +40,7 @@ ms_memmap_driver_t* ms_memmap_MEGAROM_KONAMI_SCC_init(ms_memmap_t* memmap, const
 	}
 
 	for(page8k = 2; page8k < 6; page8k++) {
-		_select_bank_8K(instance, page8k, page8k-2);	// KONAMI SCCƒƒKƒƒ€‚Ìê‡A‰Šú’l‚Í0,1,2,3
+		_select_bank_KONAMI_SCC(instance, page8k, page8k-2);	// KONAMI SCCƒƒKƒƒ€‚Ìê‡A‰Šú’l‚Í0,1,2,3
 	}
 
 	return (ms_memmap_driver_t*)instance;

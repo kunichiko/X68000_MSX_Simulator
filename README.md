@@ -37,12 +37,27 @@ ROMの種類は自動判別しますが、現在サポートしているのは�
 * メガロム (コナミ SCCなし方式)
 * メガロム (コナミ SCCあり方式。ただしSCCは鳴りません)
 
-です。
+です。自動判別がうまくいかない場合は、ファイル名の後に `,<ROM種別>` をつけて強制的に指定することも可能です。
 
-`-r1` や `-r2` を使うと、アタッチするスロットを明示的に指定することが可能です。例えば、スロット1に [TINY SLOT CHECKER for MSX](https://www.tiny-yarou.com/slotchecker.html) の ROMをセットし、スロット2にゲームのROMをセットしたいる場合は、以下のようにして起動します。
+使えるROM種別は以下の通りです。
+
+* NOR: 通常のROM (16KB, 32KB)
+* G8K: メガロム (GENERIC 8K方式)
+* A8K: メガロム (ASCII 8K方式)
+* A16: メガロム (ASCII 16K方式)
+* KON: メガロム (コナミ SCCなし方式)
+* SCC: メガロム (コナミ SCCあり方式)
+
+例:
+```
+> ms.x -r GAME.ROM,G8K
+```
+
+
+また、 `-r1` や `-r2` を使うと、アタッチするスロットを明示的に指定することが可能です。例えば、スロット1に [TINY SLOT CHECKER for MSX](https://www.tiny-yarou.com/slotchecker.html) の ROMをセットし、スロット2にゲームのROMをセットしたいる場合は、以下のようにして起動します。
 
 ```
-> ms.x -r1 TNSLCK.ROM -r2 GAME.ROM
+> ms.x -r1 TNSLCK.ROM -r2 GAME.ROM,NOR
 ```
 
 ## 起動後の操作

@@ -97,19 +97,19 @@ typedef struct ms_memmap_driver {
 
 ```C
 // 構造体を拡張し、プロパティを追加する
-typedef struct ms_memmap_driver_MEGAROM_8K {
+typedef struct ms_memmap_driver_MEGAROM_ASCII_8K {
 	ms_memmap_driver_t base;
 	// extended properties
 	int bank_size;
 	int selected_bank[4];	// SLOT1前半、SLOT1後半、SLOT2前半、SLOT2後半の4つのバンクの選択状態
-} ms_memmap_driver_MEGAROM_8K_t;
+} ms_memmap_driver_MEGAROM_ASCII_8K_t;
 ```
 
 インスタンスの確保(alloc)と初期化(init)は、各ドライバごとに用意されているグローバル関数によって行います。これは、memmapモジュールがROMイメージを読み込む際に行われます。
 
 ```C
-	ms_memmap_driver_MEGAROM_8K_t megarom_8k = ms_memmap_MEGAROM_8K_init(ms_memmap_shared, crt_buff, crt_length);
-	if( megarom_8k == NULL) {
+	ms_memmap_driver_MEGAROM_ASCII_8K_t MEGAROM_ASCII_8K = ms_memmap_MEGAROM_ASCII_8K_init(ms_memmap_shared, crt_buff, crt_length);
+	if( MEGAROM_ASCII_8K == NULL) {
 		printf("MEGAROMの初期化に失敗しました\n");
 		return;
 	}
@@ -121,11 +121,11 @@ typedef struct ms_memmap_driver_MEGAROM_8K {
 今はまだ仕組みがないですが、動的に解除する際は memmap から、will_detachメソッドが呼び出され、その後、deinitで解放されます。
 
 ```C
-	if( megarom_8k->base.will_deattach(megarom_8k, slot) != 0) {
+	if( MEGAROM_ASCII_8K->base.will_deattach(MEGAROM_ASCII_8K, slot) != 0) {
 		printf("MEGAROMのデタッチに失敗しました\n");
 		return;
 	}
-	megarom_8k->base.deinit(megarom_8k);
+	MEGAROM_ASCII_8K->base.deinit(MEGAROM_ASCII_8K);
 ```
 
 ## 細かなチューニング
@@ -180,6 +180,24 @@ https://www.msx.org/wiki/Disk-ROM_BIOS
 
 GRAPHIC1はBG画面を使うと効率化できそうなので、必要ならそれもやろうと思っています。一方で、ゲームでよく使われるGRAPHIC2やGRAPHIC3(SCREEEN2、4)はBGだとパターン数が足りなくて実現できないので、グラフィックを使う必要があります。なので無理してGRAPHIC1だけやらなくてもいいかなと思っています。
 
+## デバッグログ、コンソールの整備
+
+今は、printfでデバッグログを出力しているのですが、これをもう少し整備したいです。ログレベルの設定も導入を始めていますが、まだ不十分なので以下のようなことをしたいと思っています。
+
+* MS_LOG() マクロの整備
+	* printfの代わりにこれを使うようにします
+	* 同等のアセンブラマクロも用意し、アセンブラからも使えるようにします
+* MS_LOG() にログレベルを追加
+	* ログレベルを設定できるようにします
+	* ログレベルによって、出力するログを制御できるようにします
+* テキストコンソールを閉じたときは、ログ出力も止まるようにする
+	* 出しっぱなしにしたいケースもあるかもしれないですが、とりあえずは閉じたら止まるようにします
+
+## 一時停止機能、リセット機能などの追加
+
+デバッグ中に、エミュレータの動作を一時停止したいことがあります。一時停止時にはレジスタの状態をダンプできるようにもしたいです。
+また、MSXをリセットしたり、ウェイトレベルを動的に変えたりといった、エミュレータの動作を制御する機能も追加したいです。
+
 ### SET ADJUSTへの対応
 
 CRTCをうまくいじって、SET ADJUSTに対応できないかな？と思っています。ブラウン管ディスプレイでうまくいったとしても、液晶画面とかだとクリップされてしまってダメかもしれませんが……。
@@ -199,6 +217,21 @@ CRTCをうまくいじって、SET ADJUSTに対応できないかな？と思っ
 ## PSGのエンベロープの真面目な実装
 
 できる範囲でやってみようかなと思っています。
+
+## MSX Rom Databaseのサポート
+
+blueMSXや openMSXがサポートしているROMデータベースファイル(XML)を読み込めるようにしたい。
+https://www.msxblue.com/manual/romdatabase.htm
+
+## プリエンプティブマルチタスクの実装
+
+これはもう趣味の領域です。実機は CPUの実行とVDPの実行が並行に動きますが、X68000はシングルコアなので、ソフトではどうしても交互に行うしかありません。
+後述するように、Kepler XにVDPを載せればいいのですが、興味半分で、プリエンプティブマルチタスクを実装してみたいです。
+
+具体的にはタイマー割り込みを使い、①Z80のエミュレーションコアに割り当てる時間、②VDPに割り当てる時間、③その他の補助処理に割り当てる時間、を自分割で並行で動かせるようにします（Phantom Xなどを使っていて、CPUエミュレーションが十分に早い前提ですが）。
+たとえば、1msごとに割り込みをかけ、1フレーム(16msec)をだいたい16分割くらいできるようにし、それぞれを交互に実行できるようにします。
+
+それぞれのコアは、実行速度を計測しながら、動きが早すぎる場合は yieldして他の処理に切り替えるようにします。遅い場合でも時間が来ると強制的にタスクスイッチが起こるようにし、他のタスクが止まらないようにします。また、それぞれの最大割り当てスロットも調整できるようにして、たとえばVDPよりCPUを優先するとか、そういうこともできるようにします。
 
 ## Kepler X との協調動作
 
