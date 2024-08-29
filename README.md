@@ -44,7 +44,7 @@ ROMの種類は自動判別しますが、現在サポートしているのは�
 * NOR: 通常のROM (16KB, 32KB)
 * G8K: メガロム (GENERIC 8K方式)
 * A8K: メガロム (ASCII 8K方式)
-* A16: メガロム (ASCII 16K方式)
+* A16: メガロム (ASCII 16K方式) (未実装)
 * KON: メガロム (コナミ SCCなし方式)
 * SCC: メガロム (コナミ SCCあり方式)
 
@@ -59,6 +59,34 @@ ROMの種類は自動判別しますが、現在サポートしているのは�
 ```
 > ms.x -r1 TNSLCK.ROM -r2 GAME.ROM,NOR
 ```
+
+### ROMデータベース
+
+お持ちのROMがどのメガロムタイプかを判別するのは容易ではないのですが、[msx.orgのフォーラムの Vamplerさんの投稿](https://www.msx.org/forum/msx-talk/openmsx/openmsx-romdb-download) にリンクされている、[openMSX用 ROM DB (softwaredb)](https://romdb.vampier.net/archive.php) に、ROMのバイナリHASHとメガロムタイプの一覧がありますので、そちらが参考になります。zipファイルを解凍して出てくるXMLファイルを見れば、なんとなく雰囲気がわかるかと思います。
+
+各ROMのタイトルの下に、以下のようなXMLが記述されています。
+
+```
+<dump><megarom><type>GenericKonami</type><hash>68691348a29ce59046f993e9abaf3c8651bdda3c</hash></megarom></dump>
+```
+
+お持ちのROMイメージのSHA1ハッシュが `68691348a29ce59046f993e9abaf3c8651bdda3c` であれば、このXMLから `GenericKonami` というメガロムタイプであることがわかります。
+
+このタイプはどうやらかなりたくさんあるようで、おそらくこの辺りが一覧だと思います。
+https://www.msxblue.com/manual/rommappers_c.htm
+
+これら全てを対応しているわけではありませんので、ご了承ください。また呼び方がちょっと違うケースもあり、混乱しますが、今のところ、以下のような対応になっていると思います。
+
+* ASCII8: ASCII 8K方式 `A8K`
+* ASCII16: ASCII 16K方式 `A16` (未対応)
+* GenericKonami: GENERIC 8K方式 `G8K`
+* Konami: コナミ SCCなし方式 `KON`
+* KonamiSCC: コナミ SCCあり方式 `SCC`
+
+XMLの仕様については、以下を参照してください。
+https://www.msxblue.com/manual/romdatabase.htm
+
+将来的にはこのデータベースファイルを使って、ROMの自動判別を行うようにしたいです。
 
 ## 起動後の操作
 
