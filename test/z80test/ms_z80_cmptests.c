@@ -196,7 +196,7 @@ int through_test_normal(value_func_t value_func)
 	for(int i=0;i<0x100;i++)
 	{
 		if (i == 0x76 || i == 0xcb || i == 0xdd || i== 0xed || i == 0xfd || //
-			i == 0xd3 || i == 0xdb || i == 0xfb)
+			i == 0xd3 || i == 0xdb)
 		{
 			continue;
 		}
@@ -239,7 +239,7 @@ int through_test_normal_page_edge(value_func_t value_func)
 	for(int i=0;i<0x100;i++)
 	{
 		if (i == 0x76 || i == 0xcb || i == 0xdd || i== 0xed || i == 0xfd || //
-			i == 0xd3 || i == 0xdb || i == 0xfb)
+			i == 0xd3 || i == 0xdb)
 		{
 			continue;
 		}
@@ -405,7 +405,7 @@ int through_test_ddfd(value_func_t value_func)
 	{
 		for(int i=0;i<0x100;i++)
 		{
-			if (i == 0x76 || i == 0xcb || i == 0xdb || i == 0xdd || i== 0xed || i== 0xfb || i == 0xfd) {
+			if (i == 0x76 || i == 0xcb || i == 0xdb || i == 0xdd || i== 0xed || i == 0xfd) {
 				continue;
 			}
 			printf("Test: 0x%02x 0x%02x ... ", j, i);
