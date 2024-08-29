@@ -133,17 +133,17 @@ char* separate_rom_kind(char* path, int* kind) {
 	if (p != NULL) {
 		*p = '\0';
 		p++;
-		if (strcmp(p, "NOR") == 0) {
+		if (strcasecmp(p, "NOR") == 0) {
 			*kind = ROM_TYPE_NORMAL_ROM;
-		} else if (strcmp(p, "G8K") == 0) {
+		} else if (strcasecmp(p, "G8K") == 0) {
 			*kind = ROM_TYPE_MEGAROM_GENERIC_8K;
-		} else if (strcmp(p, "A8K") == 0) {
+		} else if (strcasecmp(p, "A8K") == 0) {
 			*kind = ROM_TYPE_MEGAROM_ASCII_8K;
-		} else if (strcmp(p, "A16") == 0) {
+		} else if (strcasecmp(p, "A16") == 0) {
 			*kind = ROM_TYPE_MEGAROM_ASCII_16K;
-		} else if (strcmp(p, "KON") == 0) {
+		} else if (strcasecmp(p, "KON") == 0) {
 			*kind = ROM_TYPE_MEGAROM_KONAMI;
-		} else if (strcmp(p, "SCC") == 0) {
+		} else if (strcasecmp(p, "SCC") == 0) {
 			*kind = ROM_TYPE_MEGAROM_KONAMI_SCC;
 		} else {
 			*kind = -1;

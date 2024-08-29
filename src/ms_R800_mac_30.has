@@ -558,6 +558,7 @@ cpu_pc_msg_ix:
 cpu_exec_core:
 	clr.w	d0			* d0 の上位ビットを０にクリア
 	move.b	(a4,d7.w),d0		* 命令を読み込む
+	move.b	d0,last_opcode		* 最後に実行した命令を保存
 	lea.l	instructions,a0
 	movea.l	(a0,d0.w*4),a0		* ジャンプ先を取得
 	move.l	-4(a0),d1		* 命令のサイクル数と命令語長を取得 d1:サイクル数, d2:命令語長
@@ -727,8 +728,11 @@ calc_wait_slow:
 	; 割り込み処理
 check_interrupt:
 	cmpi.b	#0,interrupt_enable
-	beq	skip_by_di	* DIなら割り込まない
-	; EI = 1だった場合、割り込みを処理する
+	beq	skip_interrupt	* DIなら割り込まない
+	; EI = 1だった場合、割り込みを処理するが、
+	; EIの実行直後の場合は割り込みをスキップする
+	cmpi.b	#$fb,last_opcode
+	beq	skip_interrupt
 	; あらためて割り込み要求端子の値(ms_cpu_int)を見て割り込み要求があるかどうかを見る
 	cmpi.b	#0,ms_cpu_int
 	beq	next_emu_yield
@@ -758,7 +762,7 @@ check_interrupt:
 	move.l	emu_counter,emu_counter_latch	* この時点の値を覚えておく
 	bra	check_yield_rts
 
-skip_by_di:
+skip_interrupt:
 	move.w	#2,d0
 	bsr	add_interrupt_history
 	bra	next_emu_yield
@@ -3426,13 +3430,18 @@ CPL:	bsr	eval_flag_all		* 全てのフラグを再評価
 DI:	move.b	#0,interrupt_enable
 	rts
 
+;
+; EIの挙動として、「次の命令までは割り込みがかからずに実行される」というものがあります。
+; 割り込み処理ルーチンの最後は通常以下のような並びになっていますが、
+;	EI
+;	RETI
+; この仕様のおかげで、割り込みが許可されるのは RETIによって元の処理に戻った後になります。
+; これを実現するためには、EIの命令の直後であることをなんらかのフラグで覚えておく必要があります。
+; 今は、「最後に実行したOPコード」を last_opcodeに覚えておくようにして対応しています。
 	.dc.w	4			* サイクル数
 	.dc.w	1-1			* 命令語長-1
-EI:	cmpi.b	#1,interrupt_enable	* すでに割り込み許可状態ならそのままリターン
-	beq	@f
-	move.b	#1,interrupt_enable	* EIは１命令おいてから割り込み許可する必要があるので、このタイミングで1命令実行する
-	bsr	cpu_exec_core
-@@:	rts
+EI:	move.b	#1,interrupt_enable	* 割り込みを許可
+	rts
 
 ;---------------------------------------------------------------------------------------
 RST_XXH	macro	value
@@ -7901,10 +7910,17 @@ emu_yield:
 debug_log_level:
 	.dc.w	0
 
-*	割り込み許可状態を示すフラグ
-*	0 ・・・ DI
-*	1 ・・・ EI
+;	割り込み許可状態を示すフラグ
+;	0 ・・・ DI
+;	1 ・・・ EI
 interrupt_enable:
+	.dc.b	0
+
+;	最後に実行した命令のオペコード (最初の1バイトのみ)
+;	正確には命令フェッチした直後にセットされるので、メインループの中やエミュレータの
+;	割り込み処理の中では「最後に実行した命令」ですが、各命令の処理中は
+;	「今実行中の命令」となります。
+last_opcode:
 	.dc.b	0
 
 interrupt_mode:
