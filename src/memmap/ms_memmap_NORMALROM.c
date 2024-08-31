@@ -9,18 +9,26 @@
 char* driver_name_NORMALROM = "NORMALROM";
 
 /*
-	確保 & 初期化ルーチン
+	確保ルーチン
  */
-ms_memmap_driver_t* ms_memmap_NORMALROM_init(ms_memmap_t* memmap, uint8_t* buffer, int page) {
-	ms_memmap_driver_NORMALROM_t* instance;
-	instance = (ms_memmap_driver_NORMALROM_t*)new_malloc(sizeof(ms_memmap_driver_NORMALROM_t));
+ms_memmap_driver_NORMALROM_t* ms_memmap_NORMALROM_alloc() {
+	return (ms_memmap_driver_NORMALROM_t*)new_malloc(sizeof(ms_memmap_driver_NORMALROM_t));
+}
+
+/*
+	初期化ルーチン
+ */
+void ms_memmap_NORMALROM_init(ms_memmap_driver_NORMALROM_t* instance, ms_memmap_t* memmap, uint8_t* buffer, int page) {
 	if (instance == NULL) {
-		return NULL;
+		return;
 	}
-	instance->base.memmap = memmap;
+
+	ms_memmap_driver_init(&instance->base, memmap, buffer);
+
+	// プロパティやメソッドの登録
 	instance->base.type = ROM_TYPE_NORMAL_ROM;
 	instance->base.name = driver_name_NORMALROM;
-	instance->base.deinit = ms_memmap_deinit_NORMALROM;
+	//instance->base.deinit = ms_memmap_NORMALROM_deinit; オーバーライド不要
 	instance->base.did_attach = ms_memmap_did_attach_NORMALROM;
 	instance->base.will_detach = ms_memmap_will_detach_NORMALROM;
 	instance->base.did_update_memory_mapper = ms_memmap_did_update_memory_mapper_NORMALROM;
@@ -29,7 +37,6 @@ ms_memmap_driver_t* ms_memmap_NORMALROM_init(ms_memmap_t* memmap, uint8_t* buffe
 	instance->base.write8 = ms_memmap_write8_NORMALROM;
 	instance->base.write16 = ms_memmap_write16_NORMALROM;
 
-	instance->base.buffer = buffer;
 
 	int page8k;
 	for(page8k = 0; page8k < 8; page8k++) {
@@ -40,13 +47,7 @@ ms_memmap_driver_t* ms_memmap_NORMALROM_init(ms_memmap_t* memmap, uint8_t* buffe
 		}
 	}
 	
-	return (ms_memmap_driver_t*)instance;
-}
-
-void ms_memmap_deinit_NORMALROM(ms_memmap_driver_t* driver) {
-	ms_memmap_driver_NORMALROM_t* d = (ms_memmap_driver_NORMALROM_t*)driver;
-	new_free(d->base.buffer);
-	new_free(d);
+	return;
 }
 
 void ms_memmap_did_attach_NORMALROM(ms_memmap_driver_t* driver) {

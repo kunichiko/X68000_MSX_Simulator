@@ -263,10 +263,11 @@ typedef struct ms_vdp_mode {
 	int bits_per_dot; // 1ドットあたりのビット数 (VDPコマンド用)
 } ms_vdp_mode_t;
 
-ms_vdp_t* ms_vdp_init();
-void ms_vdp_deinit(ms_vdp_t* vdp);
-void ms_vdp_set_mode(ms_vdp_t* vdp, int mode);
+ms_vdp_t* ms_vdp_alloc();
+void ms_vdp_init(ms_vdp_t* instance);
+void ms_vdp_deinit(ms_vdp_t* instance);
 
+void ms_vdp_set_mode(ms_vdp_t* vdp, int mode);
 void ms_vdp_vsync_draw(ms_vdp_t* vdp);
 
 void write_sprite_pattern(ms_vdp_t* vdp, int offset, uint32_t pattern, int32_t old_pattern);

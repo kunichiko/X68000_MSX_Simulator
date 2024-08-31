@@ -85,51 +85,10 @@ typedef struct ms_memmap_slot {
 	ms_memmap_page_t page_3;
 } ms_memmap_page_slot_t;
 
-typedef struct ms_memmap_driver ms_memmap_driver_t;
-
-typedef struct ms_memmap_driver {
-	// 本ドライバインスタンスを解放する場合に呼び出します
-	void (*deinit)(ms_memmap_driver_t* driver);
-	// memmapモジュールが本ドライバをアタッチした際に呼び出します
-	void (*did_attach)(ms_memmap_driver_t* driver);
-	// memmapモジュールが本ドライバをデタッチする際に呼び出します
-	int (*will_detach)(ms_memmap_driver_t* driver);
-	// メモリマッパーセグメント選択レジスタ(port FCh,FDh,FEh,FFh) の値が変更された際に呼び出します
-	void (*did_update_memory_mapper)(ms_memmap_driver_t* driver, int page, uint8_t segment_num);
-	// 8ビットの読み出し処理
-	uint8_t (*read8)(ms_memmap_driver_t* memmap, uint16_t addr);
-	// 16ビットの読み出し処理
-	uint16_t (*read16)(ms_memmap_driver_t* memmap, uint16_t addr);
-	// 8ビットの書き込み処理
-	void (*write8)(ms_memmap_driver_t* memmap, uint16_t addr, uint8_t data);
-	// 16ビットの書き込み処理
-	void (*write16)(ms_memmap_driver_t* memmap, uint16_t addr, uint16_t data);
-
-	// タイプ
-	int type;
-	// 名称
-	const char* name;
-
-	// これを管理している memmap への参照
-	ms_memmap_t* memmap;
-	//
-	int attached_slot_base;
-	//
-	int attached_slot_ex;
-
-	// 64Kバイト空間を8Kバイト単位で区切ったポインタの配列
-	// このドライバが対応しているページのポインタのみセットされており、それ以外はNULLが入ります
-	// 動作中にポインタの値を書き換えた場合は、memmap->update_page_pointer(attached_slot, page_num)を呼び出してください
-	uint8_t* page8k_pointers[8];
-
-	// buffer (各ドライバが使用するバッファ領域)
-	uint8_t* buffer;
-
-} ms_memmap_driver_t;
-
-ms_memmap_t* ms_memmap_init();
+ms_memmap_t* ms_memmap_alloc();
+void ms_memmap_init(ms_memmap_t* instance);
 void ms_memmap_init_mac();
-void ms_memmap_deinit(ms_memmap_t* memmap);
+void ms_memmap_deinit(ms_memmap_t* instance);
 void ms_memmap_deinit_mac();
 void ms_memmap_set_main_mem( void *, int);
 
@@ -146,12 +105,13 @@ void ms_memmap_write16(uint16_t addr, uint16_t data);
 int filelength(int fh);
 
 // 最後に置く
-#include "ms_memmap_NOTHING.h"
-#include "ms_memmap_NORMALROM.h"
-#include "ms_memmap_MAINRAM.h"
-#include "ms_memmap_MEGAROM_GENERIC_8K.h"
-#include "ms_memmap_MEGAROM_ASCII_8K.h"
-#include "ms_memmap_MEGAROM_KONAMI.h"
-#include "ms_memmap_MEGAROM_KONAMI_SCC.h"
+// #include "ms_memmap_driver.h"
+// #include "ms_memmap_NOTHING.h"
+// #include "ms_memmap_NORMALROM.h"
+// #include "ms_memmap_MAINRAM.h"
+// #include "ms_memmap_MEGAROM_GENERIC_8K.h"
+// #include "ms_memmap_MEGAROM_ASCII_8K.h"
+// #include "ms_memmap_MEGAROM_KONAMI.h"
+// #include "ms_memmap_MEGAROM_KONAMI_SCC.h"
 
 #endif // _MS_MEMMAP_H_

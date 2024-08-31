@@ -97,21 +97,30 @@ void init_palette(ms_vdp_t* vdp);
 
 // Singleton instance
 ms_vdp_t* ms_vdp_shared = NULL;
+uint8_t ms_vdp_shared_initialized = 0;
 
-ms_vdp_t* ms_vdp_init() {
+ms_vdp_t* ms_vdp_alloc() {
 	if( ms_vdp_shared != NULL ) {
 		return ms_vdp_shared;
 	}
-
 	if ( (ms_vdp_shared = (ms_vdp_t*)new_malloc(sizeof(ms_vdp_t))) == NULL)
 	{
 		printf("メモリが確保できません\n");
 		return NULL;
 	}
+	return ms_vdp_shared;
+}
+
+void ms_vdp_init(ms_vdp_t* instance) {
+	if (instance == NULL || ms_vdp_shared_initialized) {
+		return;
+	}
+
 	if ( (ms_vdp_shared->vram = (uint8_t*)new_malloc(0x20000)) == NULL)
 	{
 		printf("メモリが確保できません\n");
-		return NULL;
+		ms_vdp_deinit(ms_vdp_shared);
+		return;
 	}
 	// X68000は 1スプライト(16x16)パターンあたり128バイト(uint32_tが32ワード)が必要
 	// MSXは 256個定義できるが、X68000は128個しか定義できないため、メモリ上に定義領域を作っておき
@@ -123,7 +132,8 @@ ms_vdp_t* ms_vdp_init() {
 	if ( (ms_vdp_shared->x68_pcg_buffer = (uint32_t*)new_malloc( 256 * 4 * 32 * sizeof(uint32_t))) == NULL)
 	{
 		printf("メモリが確保できません\n");
-		return NULL;
+		ms_vdp_deinit(ms_vdp_shared);
+		return;
 	}
 
 	// b7: F,  b6: 5S, b5: Collision, b4-b0: 衝突番号
@@ -163,7 +173,7 @@ ms_vdp_t* ms_vdp_init() {
 	// パレット初期化
 	init_palette(ms_vdp_shared);
 
-	return ms_vdp_shared;
+	return;
 }
 
 void ms_vdp_deinit(ms_vdp_t* vdp) {

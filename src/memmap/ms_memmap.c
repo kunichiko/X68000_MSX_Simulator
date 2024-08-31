@@ -4,9 +4,14 @@
 #include <stddef.h>
 #include <fcntl.h>
 #include "ms_memmap.h"
+#include "ms_memmap_driver.h"
+#include "ms_memmap_NOTHING.h"
+#include "ms_memmap_MAINRAM.h"
+
 #include "../ms_R800.h"
 
 ms_memmap_t* ms_memmap_shared = NULL;
+int8_t ms_memmap_shared_initialized = 0;
 
 void ms_memmap_update_page_pointer(ms_memmap_t* memmap, ms_memmap_driver_t* driver, int page8k);
 
@@ -16,7 +21,7 @@ void select_slot_ex_impl(ms_memmap_t* memmap, int slot_base, int page, int slot_
 /*
 	memmapモジュールの確保 & 初期化ルーチン
  */
-ms_memmap_t* ms_memmap_init() {
+ms_memmap_t* ms_memmap_alloc() {
 	if (ms_memmap_shared != NULL) {
 		return ms_memmap_shared;
 	}
@@ -25,25 +30,35 @@ ms_memmap_t* ms_memmap_init() {
 		printf("メモリが確保できません\n");
 		return NULL;
 	}
+	return ms_memmap_shared;
+}
+
+void ms_memmap_init(ms_memmap_t* instance) {
+	if (instance == NULL || ms_memmap_shared_initialized) {
+		return;
+	}
+	ms_memmap_shared_initialized = 1;
 
 	// メンバの初期化
-
 	ms_memmap_shared->update_page_pointer = ms_memmap_update_page_pointer;
 	ms_memmap_shared->current_ptr = ms_memmap_current_ptr;
 
-	ms_memmap_shared->mainram_driver = (ms_memmap_driver_MAINRAM_t*)ms_memmap_MAINRAM_init(ms_memmap_shared);
+	ms_memmap_shared->mainram_driver = ms_memmap_MAINRAM_alloc();
 	if( ms_memmap_shared->mainram_driver == NULL) {
 		printf("メインメモリが確保できません\n");
 		new_free(ms_memmap_shared);
-		return NULL;
+		return;
 	}
+	ms_memmap_MAINRAM_init(ms_memmap_shared->mainram_driver, ms_memmap_shared);
 
-	ms_memmap_shared->nothing_driver = (ms_memmap_driver_NOTHING_t*)ms_memmap_NOTHING_init(ms_memmap_shared);
+	ms_memmap_shared->nothing_driver = ms_memmap_NOTHING_alloc();
 	if( ms_memmap_shared->nothing_driver == NULL) {
 		printf("NOTHINGドライバが確保できません\n");
 		new_free(ms_memmap_shared);
-		return NULL;
+		return;
 	}
+	ms_memmap_NOTHING_init(ms_memmap_shared->nothing_driver, ms_memmap_shared);
+
 	int base, ex, page;
 	for(base = 0; base < 4; base++) {
 		for(ex = 0; ex < 4; ex++) {
@@ -60,7 +75,8 @@ ms_memmap_t* ms_memmap_init() {
 	if ( ms_memmap_attach_driver(ms_memmap_shared, (ms_memmap_driver_t*)ms_memmap_shared->mainram_driver, 3, 0) != 0) {
 		printf("メインメモリのアタッチに失敗しました\n");
 		ms_memmap_deinit(ms_memmap_shared);
-		return NULL;
+		new_free(ms_memmap_shared);
+		return;
 	}
 
 	// 現状で初期化
@@ -68,12 +84,14 @@ ms_memmap_t* ms_memmap_init() {
 		select_slot_base_impl(ms_memmap_shared, page, ms_memmap_shared->slot_sel[page]);
 	}
 
-	return ms_memmap_shared;
+	return;
 }
 
 void ms_memmap_deinit(ms_memmap_t* memmap) {
 	if( memmap->mainram_driver != NULL ) {
-		ms_memmap_deinit_MAINRAM((ms_memmap_driver_t*)memmap->mainram_driver);
+		memmap->mainram_driver->base.deinit( (ms_memmap_driver_t*)memmap->mainram_driver);
+		new_free(memmap->mainram_driver);
+		memmap->mainram_driver = NULL;
 	}
 	int base, ex, page;
 	for(base = 0; base < 4; base++) {
@@ -88,8 +106,6 @@ void ms_memmap_deinit(ms_memmap_t* memmap) {
 			}
 		}
 	}
-	new_free(memmap->mainram_driver);
-	new_free(memmap);
 }
 
 

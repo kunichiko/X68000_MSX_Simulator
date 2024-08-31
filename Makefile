@@ -1,6 +1,7 @@
 SRC_DIR = src
 VDP_DIR = $(SRC_DIR)/vdp
 MEMMAP_DIR = $(SRC_DIR)/memmap
+DISK_DIR = $(SRC_DIR)/disk
 BUILD_DIR = build
 EXE_DIR = exe
 
@@ -19,8 +20,8 @@ LDFLAGS = -lm -lbas -liocs -ldos
 #LD = m68k-xelf-ld.x
 #LD_OPTS = -L /Users/ohnaka/work/XEiJ/HFS/XGCC/LIB/
 
-ASFLAGS = -i $(SRC_DIR) -i $(VDP_DIR) -i $(MEMMAP_DIR) -i /Users/ohnaka/work/XEiJ/HFS/XGCC/INCLUDE/ -w0
-ASFLAGS_DEBUG = -d -s DEBUG -i $(SRC_DIR) -i $(VDP_DIR) -i $(MEMMAP_DIR) -i /Users/ohnaka/work/XEiJ/HFS/XGCC/INCLUDE/ -w0
+ASFLAGS = -i $(SRC_DIR) -i $(VDP_DIR) -i $(MEMMAP_DIR) -i ${DISK_DIR} -i /Users/ohnaka/work/XEiJ/HFS/XGCC/INCLUDE/ -w0
+ASFLAGS_DEBUG = -d -s DEBUG -i $(SRC_DIR) -i $(VDP_DIR) -i $(MEMMAP_DIR) -i ${DISK_DIR} -i /Users/ohnaka/work/XEiJ/HFS/XGCC/INCLUDE/ -w0
 
 # オブジェクトファイルのリストを変数にまとめる
 OBJS = $(BUILD_DIR)/ms.o \
@@ -35,6 +36,7 @@ OBJS = $(BUILD_DIR)/ms.o \
 		$(BUILD_DIR)/ms_memmap.o \
 		$(BUILD_DIR)/ms_memmap_mac.o \
 		$(BUILD_DIR)/ms_memmap_util.o \
+		$(BUILD_DIR)/ms_memmap_driver.o \
 		$(BUILD_DIR)/ms_memmap_NOTHING.o \
 		$(BUILD_DIR)/ms_memmap_MAINRAM.o \
 		$(BUILD_DIR)/ms_memmap_NORMALROM.o \
@@ -58,7 +60,10 @@ OBJS = $(BUILD_DIR)/ms.o \
 		$(BUILD_DIR)/ms_vdp_mode_GRAPHIC6.o \
 		$(BUILD_DIR)/ms_vdp_mode_GRAPHIC7.o \
 		$(BUILD_DIR)/ms_vdp_mode_SCREEN10.o \
-		$(BUILD_DIR)/ms_vdp_mode_SCREEN12.o
+		$(BUILD_DIR)/ms_vdp_mode_SCREEN12.o \
+		$(BUILD_DIR)/ms_disk_media.o \
+		$(BUILD_DIR)/ms_disk_media_sectorbase.o \
+		$(BUILD_DIR)/ms_disk_media_dskformat.o
 
 OBJS_DEBUG = $(BUILD_DIR)/ms_d.o \
 		$(BUILD_DIR)/ms_R800_mac_30_d.o \
@@ -72,6 +77,7 @@ OBJS_DEBUG = $(BUILD_DIR)/ms_d.o \
 		$(BUILD_DIR)/ms_memmap_d.o \
 		$(BUILD_DIR)/ms_memmap_mac_d.o \
 		$(BUILD_DIR)/ms_memmap_util_d.o \
+		$(BUILD_DIR)/ms_memmap_driver_d.o \
 		$(BUILD_DIR)/ms_memmap_NOTHING_d.o \
 		$(BUILD_DIR)/ms_memmap_MAINRAM_d.o \
 		$(BUILD_DIR)/ms_memmap_NORMALROM_d.o \
@@ -95,7 +101,10 @@ OBJS_DEBUG = $(BUILD_DIR)/ms_d.o \
 		$(BUILD_DIR)/ms_vdp_mode_GRAPHIC6_d.o \
 		$(BUILD_DIR)/ms_vdp_mode_GRAPHIC7_d.o \
 		$(BUILD_DIR)/ms_vdp_mode_SCREEN10_d.o \
-		$(BUILD_DIR)/ms_vdp_mode_SCREEN12_d.o
+		$(BUILD_DIR)/ms_vdp_mode_SCREEN12_d.o \
+		$(BUILD_DIR)/ms_disk_media_d.o \
+		$(BUILD_DIR)/ms_disk_media_sectorbase_d.o \
+		$(BUILD_DIR)/ms_disk_media_dskformat_d.o
 
 all: copy_to_target_all
 
@@ -171,6 +180,23 @@ ${BUILD_DIR}/%.o: $(MEMMAP_DIR)/%.has
 	rm $@.tmp
 
 ${BUILD_DIR}/%_d.o: $(MEMMAP_DIR)/%.has $(SRC_DIR)/ms.mac
+	$(AS) $(ASFLAGS_DEBUG) $< -o $@.tmp
+	x68k2elf.py $@.tmp $@
+	rm $@.tmp
+
+# Disk files
+${BUILD_DIR}/%.o: $(DISK_DIR)/%.c $(DISK_DIR)/ms_disk.h
+	$(CC) $(CFLAGS) $< -o $@
+
+${BUILD_DIR}/%_d.o: $(DISK_DIR)/%.c $(DISK_DIR)/ms_disk.h
+	$(CC) $(CFLAGS_DEBUG) $< -o $@
+
+${BUILD_DIR}/%.o: $(DISK_DIR)/%.has
+	$(AS) $(ASFLAGS) $< -o $@.tmp
+	x68k2elf.py $@.tmp $@
+	rm $@.tmp
+
+${BUILD_DIR}/%_d.o: $(DISK_DIR)/%.has $(SRC_DIR)/ms.mac
 	$(AS) $(ASFLAGS_DEBUG) $< -o $@.tmp
 	x68k2elf.py $@.tmp $@
 	rm $@.tmp

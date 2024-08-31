@@ -364,32 +364,35 @@ int main(int argc, char *argv[]) {
 	/*
 	 メモリシステムの初期化
 	 */
-	memmap = ms_memmap_init();
+	memmap = ms_memmap_alloc();
 	if (memmap == NULL)
 	{
 		printf("メモリシステムの初期化に失敗しました\n");
 		ms_exit();
 	}
+	ms_memmap_init(memmap);
 
 	/*
 	 VDPシステムの初期化
 	*/
-	vdp = ms_vdp_init();
+	vdp = ms_vdp_alloc();
 	if (vdp == NULL)
 	{
 		printf("VDPシステムの初期化に失敗しました\n");
 		ms_exit();
 	}
+	ms_vdp_init(vdp);
 
 	/*
 	 I/Oシステムの初期化
 	 */
-	iomap = ms_iomap_init(vdp);
+	iomap = ms_iomap_alloc();
 	if (iomap == NULL)
 	{
 		printf("I/Oシステムの初期化に失敗しました\n");
 		ms_exit();
 	}
+	ms_iomap_init(iomap, vdp);
 
 
 	printf("\n\n\n\n\n\n\n\n"); // TEXT画面を上に8ラインくらい上げているので、その分改行を入れる
@@ -483,12 +486,15 @@ void ms_exit() {
 	}
 	if ( vdp != NULL ) {
 		ms_vdp_deinit(vdp);
+		new_free(vdp);
 	}
 	if ( iomap != NULL ) {
 		ms_iomap_deinit(iomap);
+		new_free(iomap);
 	}
 	if ( memmap != NULL ) {
 		ms_memmap_deinit(memmap);
+		new_free(memmap);
 	}
 	exit(0);
 }
