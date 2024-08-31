@@ -125,9 +125,12 @@ const char *mainrom_cbios = "cbios_main_msx2_jp.rom";
 const char *cbioslogo = "cbios_logo_msx2.rom";
 const char *subrom_cbios = "cbios_sub.rom";
 
-char *mainrom_user = "MAINROM.ROM";
-char *subrom_user = "SUBROM.ROM";
-char *diskbios_user = "DISKBIOS.ROM";
+// char *mainrom_user = "MAINROM.ROM";
+// char *subrom_user = "SUBROM.ROM";
+// char *diskbios_user = "DISKBIOS.ROM";
+char *mainrom_user = "fs-a1f_basic-bios2.rom";
+char *subrom_user = "fs-a1f_msx2sub.rom";
+char *diskbios_user = "fs-a1f_disk.rom";
 
 int diskcount = 0;
 char *diskimages[16];

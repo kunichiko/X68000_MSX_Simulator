@@ -24,7 +24,8 @@
 
 #define TC8566AF_PHASE_IDLE 0
 #define TC8566AF_PHASE_COMMAND 1
-#define TC8566AF_PHASE_RESULT 2
+#define TC8566AF_PHASE_DATA_TRANSFER 2		// Execution Phase
+#define TC8566AF_PHASE_RESULT 3
 
 /**
  * @brief 
@@ -52,9 +53,14 @@ typedef struct ms_disk_controller_TC8566AF {
 	uint8_t command_params[8];
 	uint8_t command_params_index;
 	uint8_t command_params_rest;
+	uint16_t transfer_datas_rest;
 	uint8_t result_datas[8];
 	uint8_t result_datas_rest;
 	// drive status
+	uint8_t status0;
+	uint8_t status1;
+	uint8_t status2;
+	uint8_t status3;
 	uint8_t led1;
 	uint8_t led2;
 	uint8_t driveId;

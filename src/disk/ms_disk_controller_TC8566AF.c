@@ -25,6 +25,10 @@ THIS* ms_disk_controller_TC8566AF_alloc() {
 
 void ms_disk_controller_TC8566A_init(ms_disk_controller_TC8566AF_t* instance, ms_disk_container_t* container) {
 	ms_disk_drive_floppy_init(&instance->drive, container);
+
+	instance->status0 = 0;
+	instance->status1 = 0;
+	instance->status2 = 0;
 }
 
 void ms_disk_controller_TC8566A_deinit(ms_disk_controller_TC8566AF_t* instance) {
@@ -85,7 +89,7 @@ void _TC8556AF_reg3_write(THIS* d, uint8_t data) {
  * @return uint8_t 
  */
 uint8_t _TC8556AF_reg4_read(THIS* d) {
-	int request_for_master = 0;
+	int request_for_master = 1;
 	int data_input_output = 0;
 	int non_dma_mode = 0;
 	int fdc_busy = 0;
@@ -93,22 +97,179 @@ uint8_t _TC8556AF_reg4_read(THIS* d) {
 	switch(d->phase) {
 	case TC8566AF_PHASE_IDLE:
 		// Perform idle operation
+		printf("FDC(Idle): Rd#4:");
 		break;
 	case TC8566AF_PHASE_COMMAND:
+		printf("FDC(Comm): CMD:%02x Rd#4:", d->command);
 		// Perform d->command operation
 		fdc_busy = 1;
 		break;
-	case TC8566AF_PHASE_RESULT:
+	case TC8566AF_PHASE_DATA_TRANSFER:
+		printf("FDC(Trns): CMD:%02x Rd#4:", d->command);
 		fdc_busy = 1;
-		request_for_master = 1;
+		request_for_master = 0;
 		switch(d->command) {
 		case TC8566AF_CMD_READ_DATA:
 			// Perform read data operation
 			data_input_output = 1; // FDC -> Host
-			break;
+		break;
 		case TC8566AF_CMD_WRITE_DATA:
 			// Perform write data operation
 			data_input_output = 0; // Host -> FDC
+			break;
+		case TC8566AF_CMD_WRITE_DELETED_DATA:
+			// Perform write deleted data operation
+			data_input_output = 0; // Host -> FDC
+			break;
+		case TC8566AF_CMD_READ_DELETED_DATA:
+			// Perform read deleted data operation
+			data_input_output = 1; // FDC -> Host
+			break;
+		case TC8566AF_CMD_READ_DIAGNOSTIC:
+			// Perform read diagnostic operation
+			data_input_output = 1; // FDC -> Host
+			break;
+		case TC8566AF_CMD_READ_ID:
+			// Perform read ID operation
+			data_input_output = 1; // FDC -> Host
+			break;
+		case TC8566AF_CMD_FORMAT:
+			// Perform format operation
+			data_input_output = 0; // Host -> FDC
+			break;
+		case TC8566AF_CMD_SCAN_EQUAL:
+			// Perform scan equal operation
+			data_input_output = 0; // Host -> FDC ホストから書き込んだものとディスクの内容が一致しているかを比較する
+			break;
+		case TC8566AF_CMD_SCAN_LOW_OR_EQUAL:
+			// Perform scan low or equal operation
+			data_input_output = 0; // Host -> FDC ホストから書き込んだものとディスクの内容が一致しているかを比較する
+			break;
+		case TC8566AF_CMD_SCAN_HIGH_OR_EQUAL:
+			// Perform scan high or equal operation
+			data_input_output = 0; // Host -> FDC ホストから書き込んだものとディスクの内容が一致しているかを比較する
+			break;
+		case TC8566AF_CMD_SEEK:
+			// Perform seek operation
+			// TODO SEEKの向きがわからない
+			break;
+		case TC8566AF_CMD_RECALIBRATE:
+			// Perform recalibrate operation
+			// TODO SEEKの向きがわからない
+			break;
+		default:
+			printf("invalid\n");
+			break;
+		}
+		break;
+	case TC8566AF_PHASE_RESULT:
+		printf("FDC(Resl): CMD:%02x Rd#4:", d->command);
+		fdc_busy = 0;
+		request_for_master = 1;
+		data_input_output = 1; // FDC -> Host
+		switch(d->command) {
+		case TC8566AF_CMD_READ_DATA:
+			// Perform read data operation
+			break;
+		case TC8566AF_CMD_WRITE_DATA:
+			// Perform write data operation
+			break;
+		case TC8566AF_CMD_WRITE_DELETED_DATA:
+			// Perform write deleted data operation
+			break;
+		case TC8566AF_CMD_READ_DELETED_DATA:
+			// Perform read deleted data operation
+			break;
+		case TC8566AF_CMD_READ_DIAGNOSTIC:
+			// Perform read diagnostic operation
+			break;
+		case TC8566AF_CMD_READ_ID:
+			// Perform read ID operation
+			request_for_master = 0;
+			break;
+		case TC8566AF_CMD_FORMAT:
+			// Perform format operation
+			break;
+		case TC8566AF_CMD_SCAN_EQUAL:
+			// Perform scan equal operation
+			break;
+		case TC8566AF_CMD_SCAN_LOW_OR_EQUAL:
+			// Perform scan low or equal operation
+			break;
+		case TC8566AF_CMD_SCAN_HIGH_OR_EQUAL:
+			// Perform scan high or equal operation
+			break;
+		case TC8566AF_CMD_SEEK:
+			// Perform seek operation
+			break;
+		case TC8566AF_CMD_RECALIBRATE:
+			// Perform recalibrate operation
+			break;
+		case TC8566AF_CMD_SENSE_INTERRUPT_STATUS:
+			// Perform sense interrupt status operation
+			break;
+		case TC8566AF_CMD_SPECIFY:
+			// Perform specify operation
+			break;
+		case TC8566AF_CMD_SENSE_DEVICE_STATUS:
+			// Perform sense device status operation
+			break;
+		}
+	}
+
+	uint8_t ret = (request_for_master << 7) | (data_input_output << 6) | (non_dma_mode << 5) | (fdc_busy << 4) | (fdd_busy & 0x3);
+	printf("%02x\n", ret);
+	return ret;
+}
+
+/**
+ * @brief TC8566AFのレジスタ4に書き込む
+ * 
+ * 何も起こらない
+ * 
+ * @param d 
+ * @param data 
+ */
+void _TC8556AF_reg4_write(THIS* d, uint8_t data) {
+}
+
+/**
+ * @brief TC8566AFのレジスタ5を読む
+ * 
+ * データレジスタです
+ * 
+ * @param d 
+ * @return uint8_t 
+ */
+uint8_t _TC8556AF_reg5_read(THIS* d) {
+	uint8_t ret = 0;
+	switch(d->phase) {
+	case TC8566AF_PHASE_IDLE:
+		printf("FDC(Idle):          Rd#5:");
+		break;
+	case TC8566AF_PHASE_COMMAND:
+		printf("FDC(Comm): CMD:%02x Rd#5:", d->command);
+		break;
+	case TC8566AF_PHASE_DATA_TRANSFER:
+		printf("FDC(Trns): CMD:%02x Rd#5:", d->command);
+		if(d->transfer_datas_rest == 0) {
+			printf("Illegal state\n");
+			d->transfer_datas_rest = 1;
+		}
+		d->transfer_datas_rest--;
+		if (d->transfer_datas_rest == 0) {
+			d->result_datas_rest = 7;
+			d->phase = TC8566AF_PHASE_RESULT;
+		}
+		break;
+	case TC8566AF_PHASE_RESULT:	
+		printf("FDC(Resl): CMD:%02x Rd#5:", d->command);
+		switch(d->command) {
+		case TC8566AF_CMD_READ_DATA:
+			// Perform read data operation
+			break;
+		case TC8566AF_CMD_WRITE_DATA:
+			// Perform write data operation
 			break;
 		case TC8566AF_CMD_WRITE_DELETED_DATA:
 			// Perform write deleted data operation
@@ -142,39 +303,32 @@ uint8_t _TC8556AF_reg4_read(THIS* d) {
 			break;
 		case TC8566AF_CMD_SENSE_INTERRUPT_STATUS:
 			// Perform sense interrupt status operation
+			switch(d->result_datas_rest) {
+			case 2:
+				ret = d->status0;
+				d->status0 = 0; // reset
+				break;
+			case 1:
+				ret = 0; // TODO
+				break;
+			}
 			break;
 		case TC8566AF_CMD_SPECIFY:
 			// Perform specify operation
 			break;
 		case TC8566AF_CMD_SENSE_DEVICE_STATUS:
 			// Perform sense device status operation
+			ret = d->status3;
 			break;
 		}
+		d->result_datas_rest--;
+		if (d->result_datas_rest == 0) {
+			d->phase = TC8566AF_PHASE_IDLE;
+		}
+		break;
 	}
-	return 0;
-}
-
-/**
- * @brief TC8566AFのレジスタ4に書き込む
- * 
- * 何も起こらない
- * 
- * @param d 
- * @param data 
- */
-void _TC8556AF_reg4_write(THIS* d, uint8_t data) {
-}
-
-/**
- * @brief TC8566AFのレジスタ5を読む
- * 
- * データレジスタです
- * 
- * @param d 
- * @return uint8_t 
- */
-uint8_t _TC8556AF_reg5_read(THIS* d) {
-	return 0;
+	printf("%02x\n", ret);
+	return ret;
 }
 
 /**
@@ -216,6 +370,7 @@ uint8_t _TC8556AF_reg5_read(THIS* d) {
 void _TC8556AF_reg5_write(THIS* d, uint8_t value) {
 	switch(d->phase) {
 	case TC8566AF_PHASE_IDLE:
+		printf("FDC(Idle): Wr#5: %02x\n", value);
 		d->command_params_index = 0;
 		d->command_params_rest = 0;
 		d->result_datas_rest = 0;
@@ -258,6 +413,7 @@ void _TC8556AF_reg5_write(THIS* d, uint8_t value) {
 		} else if ((value & 0xff) == 0x08) {
 			d->command = TC8566AF_CMD_SENSE_INTERRUPT_STATUS;
 			d->command_params_rest = 0;
+			d->result_datas_rest = 2;
 			d->phase = TC8566AF_PHASE_RESULT; // Command Phase, Execution Phase がないので直接Result Phaseへ
 			return;
 		} else if ((value & 0xff) == 0x03) {
@@ -281,17 +437,68 @@ void _TC8556AF_reg5_write(THIS* d, uint8_t value) {
 		}
 		break;
 	case TC8566AF_PHASE_COMMAND:
+		printf("FDC(Comm): Wr#5: %02x\n", value);
 		d->command_params[d->command_params_index++] = value;
 		d->command_params_rest--;
 		if (d->command_params_rest == 0) {
-			// Execute
-			ms_fdc_execute_TC8566AF(d);
-			d->phase = TC8566AF_PHASE_RESULT;
+			switch(d->command) {
+			case TC8566AF_CMD_READ_DATA:
+				d->transfer_datas_rest = 128 << d->command_params[4] & 0x07; // CHRNのNによって変わる
+				break;
+			case TC8566AF_CMD_SPECIFY:
+				// Result Phaseなしで終了
+				printf("FDC: Comm to Idle phase\n");
+				d->phase = TC8566AF_PHASE_IDLE;
+				break;
+			case TC8566AF_CMD_RECALIBRATE:
+				// TODO: リキャリブレートをここで実行
+				d->status0 |= 0x20; // Seek End
+				d->status0 |= 0x08; // Not ready (データが読めるようになるまでは、Not Readyで誤魔化す
+				printf("FDC: Comm to Idle phase\n");
+				d->phase = TC8566AF_PHASE_IDLE;
+				break;
+			case TC8566AF_CMD_SENSE_DEVICE_STATUS:
+				// TODO: デバイスステータス実行
+				d->status3 = (d->command_params[0] & 0x07) | //
+					(1 * 0x08) | // Two side
+					(1 * 0x10) | // Track 0
+					(1 * 0x20) | // Ready
+					(1 * 0x40) | // Write Protect
+					(0 * 0x80); // Fault
+				printf("FDC: Comm to Rslt phase\n");
+				d->phase = TC8566AF_PHASE_RESULT;
+				break;
+			case TC8566AF_CMD_SEEK:
+				// TODO: シーク実行
+				d->status3 = (d->command_params[0] & 0x03) | //
+					(1 * 0x08) | // Two side
+					(1 * 0x10) | // Track 0
+					(1 * 0x20) | // Ready
+					(1 * 0x40) | // Write Protect
+					(0 * 0x80); // Fault
+				// TODO: d->command_params[1] に指定されたトラックに移動
+				d->status0 |= 0x20; // Seek End
+				d->status0 |= 0x08; // Not ready (データが読めるようになるまでは、Not Readyで誤魔化す
+				printf("FDC: Comm to Rslt phase\n");
+				d->phase = TC8566AF_PHASE_IDLE;
+				break;
+			default:
+				// Execute
+				printf("FDC: Comm to Trns phase\n");
+				ms_fdc_execute_TC8566AF(d);
+				d->phase = TC8566AF_PHASE_DATA_TRANSFER;
+			}
 		}
 		break;
+	case TC8566AF_PHASE_DATA_TRANSFER:
+		printf("FDC(Tran): Wr#5: %02x\n", value);
+		// Perform data transfer operation
+		break;
 	case TC8566AF_PHASE_RESULT:
+		printf("FDC(Rslt): Wr#5: %02x\n", value);
 		switch(d->command) {
-
+		default:
+			break;
 		}
 		break;
 	}
