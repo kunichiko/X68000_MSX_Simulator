@@ -24,4 +24,7 @@ ms_disk_media_dskformat_t* ms_disk_media_dskformat_alloc();
 void ms_disk_media_dskformat_init(ms_disk_media_dskformat_t* instance, char* file_path);
 void ms_disk_media_dskformat_deinit(ms_disk_media_dskformat_t* instance);
 
+void ms_disk_media_dskformat_read_sector(ms_disk_media_t* instance, uint32_t sector_id, ms_sector_t* sector);
+void ms_disk_media_dskformat_write_sector(ms_disk_media_t* instance, uint32_t sector_id, ms_sector_t* sector);
+
 #endif
