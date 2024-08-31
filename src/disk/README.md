@@ -105,6 +105,7 @@ MS.Xではまず、TC8566AFベースのFDCをエミュレーションするこ�
 			* 継承: ms_disk_media_dmkformat型
 * 挿入スロット
 	* ms_disk_container型
+		* 複数のメディアをグルーピングして入れ替えるために使用します
 		* 継承: ms_disck_container_floppy型
 * ディスクドライブ
 	* ms_disk_drive型

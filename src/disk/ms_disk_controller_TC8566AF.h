@@ -3,6 +3,29 @@
 
 #include <stdint.h>
 
+#include "ms_disk_drive_floppy.h"
+
+#define TC8566AF_CMD_READ_DATA 0x06
+#define TC8566AF_CMD_WRITE_DATA 0x05
+#define TC8566AF_CMD_WRITE_DELETED_DATA 0x09
+#define TC8566AF_CMD_READ_DELETED_DATA 0x0c
+#define TC8566AF_CMD_READ_DIAGNOSTIC 0x02
+#define TC8566AF_CMD_READ_ID 0x0a
+#define TC8566AF_CMD_FORMAT 0x0d
+#define TC8566AF_CMD_SCAN_EQUAL 0x11
+#define TC8566AF_CMD_SCAN_LOW_OR_EQUAL 0x19
+#define TC8566AF_CMD_SCAN_HIGH_OR_EQUAL 0x1d
+#define TC8566AF_CMD_SEEK 0x0f
+#define TC8566AF_CMD_RECALIBRATE 0x07
+#define TC8566AF_CMD_SENSE_INTERRUPT_STATUS 0x08
+#define TC8566AF_CMD_SPECIFY 0x03
+#define TC8566AF_CMD_SENSE_DEVICE_STATUS 0x04
+#define TC8566AF_CMD_INVALID 0xff
+
+#define TC8566AF_PHASE_IDLE 0
+#define TC8566AF_PHASE_COMMAND 1
+#define TC8566AF_PHASE_RESULT 2
+
 /**
  * @brief 
  * 	Address	R/W	Feature
@@ -21,7 +44,7 @@ typedef struct ms_disk_controller_TC8566AF {
 	void (*write_reg5)(struct ms_disk_controller_TC8566AF* d, uint8_t data);
 
 	// references
-	
+	ms_disk_drive_floppy_t drive;
 
 	// registers
 	uint8_t phase;
@@ -37,5 +60,10 @@ typedef struct ms_disk_controller_TC8566AF {
 	uint8_t driveId;
 } ms_disk_controller_TC8566AF_t;
 
+ms_disk_controller_TC8566AF_t* ms_disk_controller_TC8566AF_alloc();
+void ms_disk_controller_TC8566A_init(ms_disk_controller_TC8566AF_t* instance, ms_disk_container_t* container);
+void ms_disk_controller_TC8566A_deinit(ms_disk_controller_TC8566AF_t* instance);
+
+void ms_fdc_execute_TC8566AF(ms_disk_controller_TC8566AF_t* d);
 
 #endif

@@ -12,6 +12,7 @@
 #include "ms_memmap_MEGAROM_ASCII_8K.h"
 #include "ms_memmap_MEGAROM_KONAMI.h"
 #include "ms_memmap_MEGAROM_KONAMI_SCC.h"
+#include "../disk/ms_disk_bios_Panasonic.h"
 
 extern ms_memmap_t* ms_memmap_shared;
 
@@ -263,7 +264,7 @@ void allocateAndSetROM(const char *romFileName, int kind, int slot_base, int slo
 				ms_exit();
 				return;
 			}
-			ms_memmap_NORMALROM_init(driver, ms_memmap_shared, crt_buff, 16 * 1024);
+			ms_memmap_NORMALROM_init(driver, ms_memmap_shared, crt_buff, page + i);
 		
 			if (ms_memmap_attach_driver(ms_memmap_shared, (ms_memmap_driver_t*)driver, slot_base, slot_ex) != 0) {
 				printf("メモリマッピングに失敗しました。\n");
@@ -275,6 +276,64 @@ void allocateAndSetROM(const char *romFileName, int kind, int slot_base, int slo
 	} else {
 		printf("ファイルが認識できませんでした\n");
 		ms_exit();
+	}
+ 	close( crt_fh);
+}
+
+void allocateAndSetDISKBIOSROM(const char *romFileName, int diskcount, char* diskimages[]) {
+	int crt_fh;
+	int crt_length;
+	uint8_t *crt_buff;
+	int i;
+
+	crt_fh = open( romFileName, O_RDONLY | O_BINARY);
+	if (crt_fh == -1) {
+		printf("ファイルが開けません. %s\n", romFileName);
+		ms_exit();
+		return;
+	}
+	crt_length = filelength(crt_fh);
+	if(crt_length == -1) {
+		printf("ファイルの長さが取得できません。\n");
+		ms_exit();
+		return;
+	}
+	if(crt_length != 16*1024) {
+		printf("ファイルサイズが不正です。\n");
+		ms_exit();
+		return;
+	}
+
+	// 16Kバイト読み込んでROMにセット
+	if( ( crt_buff = (uint8_t*)new_malloc( 16 * 1024) ) == NULL) {
+		printf("メモリが確保できません。\n");
+		ms_exit();
+		return;
+	}
+	read( crt_fh, crt_buff, 16 * 1024);
+
+	// ディスクコンテナの初期化
+	ms_disk_container_t* disk_container = ms_disk_container_alloc();
+	if (disk_container == NULL) {
+		printf("メモリが確保できません。\n");
+		ms_exit();
+		return;
+	}
+	ms_disk_container_init(disk_container, diskcount, diskimages);
+
+	ms_memmap_driver_DISKBIOS_PANASONIC_t* driver = ms_disk_bios_Panasonic_alloc();
+	if (driver == NULL) {
+		printf("メモリが確保できません。\n");
+		ms_exit();
+		return;
+	}
+	ms_disk_bios_Panasonic_init(driver, ms_memmap_shared, crt_buff, 16 * 1024, disk_container);
+	
+	// スロット3-2にアタッチ
+	if (ms_memmap_attach_driver(ms_memmap_shared, (ms_memmap_driver_t*)driver, 3, 2) != 0) {
+		printf("メモリマッピングに失敗しました。\n");
+		ms_exit();
+		return;
 	}
  	close( crt_fh);
 }

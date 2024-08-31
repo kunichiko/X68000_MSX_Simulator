@@ -14,7 +14,23 @@
 #include <stdint.h>
 #include <stddef.h>
 #include <fcntl.h>
+#include "ms_disk_controller_TC8566AF.h"
 #include "../memmap/ms_memmap.h"
+
+#define THIS ms_disk_controller_TC8566AF_t
+
+THIS* ms_disk_controller_TC8566AF_alloc() {
+	return (THIS*)new_malloc(sizeof(ms_disk_controller_TC8566AF_t));
+}
+
+void ms_disk_controller_TC8566A_init(ms_disk_controller_TC8566AF_t* instance, ms_disk_container_t* container) {
+	ms_disk_drive_floppy_init(&instance->drive, container);
+}
+
+void ms_disk_controller_TC8566A_deinit(ms_disk_controller_TC8566AF_t* instance) {
+
+}
+
 
 /**
  * @brief 
@@ -26,7 +42,7 @@
  * @param d 
  * @param data 
  */
-void _TC8556AF_reg2_write(ms_memmap_driver_DISKBIOS_PANASONIC_t* d, uint8_t data) {
+void _TC8556AF_reg2_write(THIS* d, uint8_t data) {
 	d->led1 = (data >> 4) & 0x01;
 	d->led2 = (data >> 5) & 0x01;
 	d->driveId = data & 0x07;
@@ -40,7 +56,7 @@ void _TC8556AF_reg2_write(ms_memmap_driver_DISKBIOS_PANASONIC_t* d, uint8_t data
  * @param d 
  * @param data 
  */
-void _TC8556AF_reg3_write(ms_memmap_driver_DISKBIOS_PANASONIC_t* d, uint8_t data) {
+void _TC8556AF_reg3_write(THIS* d, uint8_t data) {
 }
 
 /**
@@ -68,69 +84,69 @@ void _TC8556AF_reg3_write(ms_memmap_driver_DISKBIOS_PANASONIC_t* d, uint8_t data
  * @param d 
  * @return uint8_t 
  */
-uint8_t _TC8556AF_reg4_read(ms_memmap_driver_DISKBIOS_PANASONIC_t* d) {
+uint8_t _TC8556AF_reg4_read(THIS* d) {
 	int request_for_master = 0;
 	int data_input_output = 0;
 	int non_dma_mode = 0;
 	int fdc_busy = 0;
 	int fdd_busy = 0;
 	switch(d->phase) {
-	case DISKBIOS_PANASONIC_PHASE_IDLE:
+	case TC8566AF_PHASE_IDLE:
 		// Perform idle operation
 		break;
-	case DISKBIOS_PANASONIC_PHASE_COMMAND:
+	case TC8566AF_PHASE_COMMAND:
 		// Perform d->command operation
 		fdc_busy = 1;
 		break;
-	case DISKBIOS_PANASONIC_PHASE_RESULT:
+	case TC8566AF_PHASE_RESULT:
 		fdc_busy = 1;
 		request_for_master = 1;
 		switch(d->command) {
-		case DISKBIOS_PANASONIC_CMD_READ_DATA:
+		case TC8566AF_CMD_READ_DATA:
 			// Perform read data operation
 			data_input_output = 1; // FDC -> Host
 			break;
-		case DISKBIOS_PANASONIC_CMD_WRITE_DATA:
+		case TC8566AF_CMD_WRITE_DATA:
 			// Perform write data operation
 			data_input_output = 0; // Host -> FDC
 			break;
-		case DISKBIOS_PANASONIC_CMD_WRITE_DELETED_DATA:
+		case TC8566AF_CMD_WRITE_DELETED_DATA:
 			// Perform write deleted data operation
 			break;
-		case DISKBIOS_PANASONIC_CMD_READ_DELETED_DATA:
+		case TC8566AF_CMD_READ_DELETED_DATA:
 			// Perform read deleted data operation
 			break;
-		case DISKBIOS_PANASONIC_CMD_READ_DIAGNOSTIC:
+		case TC8566AF_CMD_READ_DIAGNOSTIC:
 			// Perform read diagnostic operation
 			break;
-		case DISKBIOS_PANASONIC_CMD_READ_ID:
+		case TC8566AF_CMD_READ_ID:
 			// Perform read ID operation
 			break;
-		case DISKBIOS_PANASONIC_CMD_FORMAT:
+		case TC8566AF_CMD_FORMAT:
 			// Perform format operation
 			break;
-		case DISKBIOS_PANASONIC_CMD_SCAN_EQUAL:
+		case TC8566AF_CMD_SCAN_EQUAL:
 			// Perform scan equal operation
 			break;
-		case DISKBIOS_PANASONIC_CMD_SCAN_LOW_OR_EQUAL:
+		case TC8566AF_CMD_SCAN_LOW_OR_EQUAL:
 			// Perform scan low or equal operation
 			break;
-		case DISKBIOS_PANASONIC_CMD_SCAN_HIGH_OR_EQUAL:
+		case TC8566AF_CMD_SCAN_HIGH_OR_EQUAL:
 			// Perform scan high or equal operation
 			break;
-		case DISKBIOS_PANASONIC_CMD_SEEK:
+		case TC8566AF_CMD_SEEK:
 			// Perform seek operation
 			break;
-		case DISKBIOS_PANASONIC_CMD_RECALIBRATE:
+		case TC8566AF_CMD_RECALIBRATE:
 			// Perform recalibrate operation
 			break;
-		case DISKBIOS_PANASONIC_CMD_SENSE_INTERRUPT_STATUS:
+		case TC8566AF_CMD_SENSE_INTERRUPT_STATUS:
 			// Perform sense interrupt status operation
 			break;
-		case DISKBIOS_PANASONIC_CMD_SPECIFY:
+		case TC8566AF_CMD_SPECIFY:
 			// Perform specify operation
 			break;
-		case DISKBIOS_PANASONIC_CMD_SENSE_DEVICE_STATUS:
+		case TC8566AF_CMD_SENSE_DEVICE_STATUS:
 			// Perform sense device status operation
 			break;
 		}
@@ -146,7 +162,7 @@ uint8_t _TC8556AF_reg4_read(ms_memmap_driver_DISKBIOS_PANASONIC_t* d) {
  * @param d 
  * @param data 
  */
-void _TC8556AF_reg4_write(ms_memmap_driver_DISKBIOS_PANASONIC_t* d, uint8_t data) {
+void _TC8556AF_reg4_write(THIS* d, uint8_t data) {
 }
 
 /**
@@ -157,7 +173,7 @@ void _TC8556AF_reg4_write(ms_memmap_driver_DISKBIOS_PANASONIC_t* d, uint8_t data
  * @param d 
  * @return uint8_t 
  */
-uint8_t _TC8556AF_reg5_read(ms_memmap_driver_DISKBIOS_PANASONIC_t* d) {
+uint8_t _TC8556AF_reg5_read(THIS* d) {
 	return 0;
 }
 
@@ -197,83 +213,83 @@ uint8_t _TC8556AF_reg5_read(ms_memmap_driver_DISKBIOS_PANASONIC_t* d) {
  * @param d 
  * @param data 
  */
-void _TC8556AF_reg5_write(ms_memmap_driver_DISKBIOS_PANASONIC_t* d, uint8_t value) {
+void _TC8556AF_reg5_write(THIS* d, uint8_t value) {
 	switch(d->phase) {
-	case DISKBIOS_PANASONIC_PHASE_IDLE:
+	case TC8566AF_PHASE_IDLE:
 		d->command_params_index = 0;
 		d->command_params_rest = 0;
 		d->result_datas_rest = 0;
 		if ((value & 0x1f) == 0x06) {
-			d->command = DISKBIOS_PANASONIC_CMD_READ_DATA;
+			d->command = TC8566AF_CMD_READ_DATA;
 			d->command_params_rest = 8;	// flag, c, h, r, n, eot, gpl, dtl
 		} else if ((value & 0x3f) == 0x05) {
-			d->command = DISKBIOS_PANASONIC_CMD_WRITE_DATA;
+			d->command = TC8566AF_CMD_WRITE_DATA;
 			d->command_params_rest = 8;	// flag, c, h, r, n, eot, gpl, dtl
 		} else if ((value & 0x3f) == 0x09) {
-			d->command = DISKBIOS_PANASONIC_CMD_WRITE_DELETED_DATA;
+			d->command = TC8566AF_CMD_WRITE_DELETED_DATA;
 			d->command_params_rest = 8;	// flag, c, h, r, n, eot, gpl, dtl
 		} else if ((value & 0x1f) == 0x0c) {
-			d->command = DISKBIOS_PANASONIC_CMD_READ_DELETED_DATA;
+			d->command = TC8566AF_CMD_READ_DELETED_DATA;
 			d->command_params_rest = 8;	// flag, c, h, r, n, eot, gpl, dtl
 		} else if ((value & 0xbf) == 0x02) {
-			d->command = DISKBIOS_PANASONIC_CMD_READ_DIAGNOSTIC;
+			d->command = TC8566AF_CMD_READ_DIAGNOSTIC;
 			d->command_params_rest = 8;	// flag, c, h, r, n, eot, gpl, dtl
 		} else if ((value & 0xbf) == 0x0a) {
-			d->command = DISKBIOS_PANASONIC_CMD_READ_ID;
+			d->command = TC8566AF_CMD_READ_ID;
 			d->command_params_rest = 1;	// flag
 		} else if ((value & 0xbf) == 0x0d) {
-			d->command = DISKBIOS_PANASONIC_CMD_FORMAT;
+			d->command = TC8566AF_CMD_FORMAT;
 			d->command_params_rest = 5;	// flag, n, sc, gpl, d
 		} else if ((value & 0x1f) == 0x11) {
-			d->command = DISKBIOS_PANASONIC_CMD_SCAN_EQUAL;
+			d->command = TC8566AF_CMD_SCAN_EQUAL;
 			d->command_params_rest = 8;	// flag, c, h, r, n, eot, gpl, stp
 		} else if ((value & 0x1f) == 0x19) {
-			d->command = DISKBIOS_PANASONIC_CMD_SCAN_LOW_OR_EQUAL;
+			d->command = TC8566AF_CMD_SCAN_LOW_OR_EQUAL;
 			d->command_params_rest = 8;	// flag, c, h, r, n, eot, gpl, stp
 		} else if ((value & 0x1f) == 0x1d) {
-			d->command = DISKBIOS_PANASONIC_CMD_SCAN_HIGH_OR_EQUAL;
+			d->command = TC8566AF_CMD_SCAN_HIGH_OR_EQUAL;
 			d->command_params_rest = 8;	// flag, c, h, r, n, eot, gpl, stp
 		} else if ((value & 0xff) == 0x0f) {
-			d->command = DISKBIOS_PANASONIC_CMD_SEEK;
+			d->command = TC8566AF_CMD_SEEK;
 			d->command_params_rest = 2;	// flag, ncn
 		} else if ((value & 0xff) == 0x07) {
-			d->command = DISKBIOS_PANASONIC_CMD_RECALIBRATE;
+			d->command = TC8566AF_CMD_RECALIBRATE;
 			d->command_params_rest = 1;	// flag
 		} else if ((value & 0xff) == 0x08) {
-			d->command = DISKBIOS_PANASONIC_CMD_SENSE_INTERRUPT_STATUS;
+			d->command = TC8566AF_CMD_SENSE_INTERRUPT_STATUS;
 			d->command_params_rest = 0;
-			d->phase = DISKBIOS_PANASONIC_PHASE_RESULT; // Command Phase, Execution Phase ‚ª‚È‚¢‚Ì‚Å’¼ÚResult Phase‚Ö
+			d->phase = TC8566AF_PHASE_RESULT; // Command Phase, Execution Phase ‚ª‚È‚¢‚Ì‚Å’¼ÚResult Phase‚Ö
 			return;
 		} else if ((value & 0xff) == 0x03) {
-			d->command = DISKBIOS_PANASONIC_CMD_SPECIFY;
+			d->command = TC8566AF_CMD_SPECIFY;
 			d->command_params_rest = 2;	// srt/hut, hlt/nd
 		} else if ((value & 0xff) == 0x04) {
-			d->command = DISKBIOS_PANASONIC_CMD_SENSE_DEVICE_STATUS;
+			d->command = TC8566AF_CMD_SENSE_DEVICE_STATUS;
 			d->command_params_rest = 1;	// flag
 		} else {
 			// invalid command
-			d->command = DISKBIOS_PANASONIC_CMD_INVALID;
-			d->phase = DISKBIOS_PANASONIC_PHASE_RESULT; // Command Phase, Execution Phase ‚ª‚È‚¢‚Ì‚Å’¼ÚResult Phase‚Ö
+			d->command = TC8566AF_CMD_INVALID;
+			d->phase = TC8566AF_PHASE_RESULT; // Command Phase, Execution Phase ‚ª‚È‚¢‚Ì‚Å’¼ÚResult Phase‚Ö
 			return;
 		}
 
 		// Command Phase ‚ÖˆÚs
-		d->phase = DISKBIOS_PANASONIC_PHASE_COMMAND;
+		d->phase = TC8566AF_PHASE_COMMAND;
 		if (d->command_params_rest == 0) {
 			// ˆÙíó‘Ô
 			printf("Command Phase ‚Å command_params_rest ‚ª 0 ‚Å‚·\n");
 		}
 		break;
-	case DISKBIOS_PANASONIC_PHASE_COMMAND:
+	case TC8566AF_PHASE_COMMAND:
 		d->command_params[d->command_params_index++] = value;
 		d->command_params_rest--;
 		if (d->command_params_rest == 0) {
 			// Execute
-			ms_fdc_execute_DISKBIOS_PANASONIC(d);
-			d->phase = DISKBIOS_PANASONIC_PHASE_RESULT;
+			ms_fdc_execute_TC8566AF(d);
+			d->phase = TC8566AF_PHASE_RESULT;
 		}
 		break;
-	case DISKBIOS_PANASONIC_PHASE_RESULT:
+	case TC8566AF_PHASE_RESULT:
 		switch(d->command) {
 
 		}
@@ -281,54 +297,55 @@ void _TC8556AF_reg5_write(ms_memmap_driver_DISKBIOS_PANASONIC_t* d, uint8_t valu
 	}
 }
 
-void ms_fdc_execute_DISKBIOS_PANASONIC(ms_memmap_driver_DISKBIOS_PANASONIC_t* d) {
-		switch(d->command) {
-		case DISKBIOS_PANASONIC_CMD_READ_DATA:
-			// Perform read data operation
-			data_input_output = 1; // FDC -> Host
-			break;
-		case DISKBIOS_PANASONIC_CMD_WRITE_DATA:
-			// Perform write data operation
-			data_input_output = 0; // Host -> FDC
-			break;
-		case DISKBIOS_PANASONIC_CMD_WRITE_DELETED_DATA:
-			// Perform write deleted data operation
-			break;
-		case DISKBIOS_PANASONIC_CMD_READ_DELETED_DATA:
-			// Perform read deleted data operation
-			break;
-		case DISKBIOS_PANASONIC_CMD_READ_DIAGNOSTIC:
-			// Perform read diagnostic operation
-			break;
-		case DISKBIOS_PANASONIC_CMD_READ_ID:
-			// Perform read ID operation
-			break;
-		case DISKBIOS_PANASONIC_CMD_FORMAT:
-			// Perform format operation
-			break;
-		case DISKBIOS_PANASONIC_CMD_SCAN_EQUAL:
-			// Perform scan equal operation
-			break;
-		case DISKBIOS_PANASONIC_CMD_SCAN_LOW_OR_EQUAL:
-			// Perform scan low or equal operation
-			break;
-		case DISKBIOS_PANASONIC_CMD_SCAN_HIGH_OR_EQUAL:
-			// Perform scan high or equal operation
-			break;
-		case DISKBIOS_PANASONIC_CMD_SEEK:
-			// Perform seek operation
-			break;
-		case DISKBIOS_PANASONIC_CMD_RECALIBRATE:
-			// Perform recalibrate operation
-			break;
-		case DISKBIOS_PANASONIC_CMD_SENSE_INTERRUPT_STATUS:
-			// Perform sense interrupt status operation
-			break;
-		case DISKBIOS_PANASONIC_CMD_SPECIFY:
-			// Perform specify operation
-			break;
-		case DISKBIOS_PANASONIC_CMD_SENSE_DEVICE_STATUS:
-			// Perform sense device status operation
-			break;
-		}
+void ms_fdc_execute_TC8566AF(THIS* d) {
+	int data_input_output = 0;
+	switch(d->command) {
+	case TC8566AF_CMD_READ_DATA:
+		// Perform read data operation
+		data_input_output = 1; // FDC -> Host
+		break;
+	case TC8566AF_CMD_WRITE_DATA:
+		// Perform write data operation
+		data_input_output = 0; // Host -> FDC
+		break;
+	case TC8566AF_CMD_WRITE_DELETED_DATA:
+		// Perform write deleted data operation
+		break;
+	case TC8566AF_CMD_READ_DELETED_DATA:
+		// Perform read deleted data operation
+		break;
+	case TC8566AF_CMD_READ_DIAGNOSTIC:
+		// Perform read diagnostic operation
+		break;
+	case TC8566AF_CMD_READ_ID:
+		// Perform read ID operation
+		break;
+	case TC8566AF_CMD_FORMAT:
+		// Perform format operation
+		break;
+	case TC8566AF_CMD_SCAN_EQUAL:
+		// Perform scan equal operation
+		break;
+	case TC8566AF_CMD_SCAN_LOW_OR_EQUAL:
+		// Perform scan low or equal operation
+		break;
+	case TC8566AF_CMD_SCAN_HIGH_OR_EQUAL:
+		// Perform scan high or equal operation
+		break;
+	case TC8566AF_CMD_SEEK:
+		// Perform seek operation
+		break;
+	case TC8566AF_CMD_RECALIBRATE:
+		// Perform recalibrate operation
+		break;
+	case TC8566AF_CMD_SENSE_INTERRUPT_STATUS:
+		// Perform sense interrupt status operation
+		break;
+	case TC8566AF_CMD_SPECIFY:
+		// Perform specify operation
+		break;
+	case TC8566AF_CMD_SENSE_DEVICE_STATUS:
+		// Perform sense device status operation
+		break;
+	}
 }

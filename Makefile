@@ -63,7 +63,12 @@ OBJS = $(BUILD_DIR)/ms.o \
 		$(BUILD_DIR)/ms_vdp_mode_SCREEN12.o \
 		$(BUILD_DIR)/ms_disk_media.o \
 		$(BUILD_DIR)/ms_disk_media_sectorbase.o \
-		$(BUILD_DIR)/ms_disk_media_dskformat.o
+		$(BUILD_DIR)/ms_disk_media_dskformat.o \
+		$(BUILD_DIR)/ms_disk_container.o \
+		$(BUILD_DIR)/ms_disk_drive.o \
+		$(BUILD_DIR)/ms_disk_drive_floppy.o \
+		$(BUILD_DIR)/ms_disk_controller_TC8566AF.o \
+		$(BUILD_DIR)/ms_disk_bios_Panasonic.o
 
 OBJS_DEBUG = $(BUILD_DIR)/ms_d.o \
 		$(BUILD_DIR)/ms_R800_mac_30_d.o \
@@ -104,7 +109,12 @@ OBJS_DEBUG = $(BUILD_DIR)/ms_d.o \
 		$(BUILD_DIR)/ms_vdp_mode_SCREEN12_d.o \
 		$(BUILD_DIR)/ms_disk_media_d.o \
 		$(BUILD_DIR)/ms_disk_media_sectorbase_d.o \
-		$(BUILD_DIR)/ms_disk_media_dskformat_d.o
+		$(BUILD_DIR)/ms_disk_media_dskformat_d.o \
+		$(BUILD_DIR)/ms_disk_container_d.o \
+		$(BUILD_DIR)/ms_disk_drive_d.o \
+		$(BUILD_DIR)/ms_disk_drive_floppy_d.o \
+		$(BUILD_DIR)/ms_disk_controller_TC8566AF_d.o \
+		$(BUILD_DIR)/ms_disk_bios_Panasonic_d.o
 
 all: copy_to_target_all
 

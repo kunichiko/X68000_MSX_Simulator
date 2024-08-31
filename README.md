@@ -130,10 +130,21 @@ C-BIOSではなく、実機のROMを使いたい場合は、自分でダンプ�
 の２つをご用意ください。このファイルがある場合は、C-BIOSではなくこちらを優先して利用しますので、BASICを試すことができます。
 BASICを使わず、ゲームなどを起動するだけであれば C-BIOSのままで問題ありません。
 
-メインROMとサブROMは -m、-s オプションで明示的に変更することも可能です。
+メインROMとサブROMは -rm、-rs オプションで明示的に変更することも可能です。
 
 ```
-> ms.x -r GAME.ROM -m MY_MAINROM.ROM -s MY_SUBROM.ROM
+> ms.x -r GAME.ROM -rm MY_MAINROM.ROM -rs MY_SUBROM.ROM
+```
+
+## フロッピーディスクのサポート
+
+C-BIOSはDISK BIOSをサポートしていませんので、フロッピーディスクが必要な場合はPanasonic系の実機のDISK BIOSを抽出し、 `-rd` オプションで指定する必要があります。
+
+また、使用するディスクイメージ(.DSK)も引数で指定しておく必要があります。
+
+
+```
+> ms.x -r GAME.ROM -rm MY_MAINROM.ROM -rs MY_SUBROM.ROM -rd MY_DISKBIOS.ROM DISKIMAGE1.DSK DISKIMAGE2.DSK
 ```
 
 ## ウェイトの調整

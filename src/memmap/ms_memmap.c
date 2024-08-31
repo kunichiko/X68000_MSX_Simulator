@@ -138,7 +138,7 @@ int ms_memmap_attach_driver(ms_memmap_t* memmap, ms_memmap_driver_t* driver, con
 	int page;
 	for(page = 0; page < 4; page++) {
 		if ( ((driver->page8k_pointers[page*2+0] !=  NULL) || (driver->page8k_pointers[page*2+1] !=  NULL)) && //
-			 memmap->attached_driver[slot_base][slot_ex_fallback][page]->type != ROM_TYPE_NOTHING) {
+			memmap->attached_driver[slot_base][slot_ex_fallback][page]->type != ROM_TYPE_NOTHING) {
 			conflict = 1;
 			break;
 		}

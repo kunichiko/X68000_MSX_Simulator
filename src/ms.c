@@ -91,7 +91,7 @@ volatile extern unsigned short interrupt_history_wr;
 volatile extern unsigned short interrupt_history_rd;
 
 void printHelpAndExit(char* progname) {
-	fprintf(stderr, "Usage: %s  [-w MAX_WAIT] [-m MAINROM_PATH] [-s SUBROM_PATH] [-r1 ROM_PATH for slot 1][,KIND] [-r2 ROM_PATH for slot 2][,KIND] [-rNM ROM_PATH for slot N page M]\n", progname);
+	fprintf(stderr, "Usage: %s  [-w MAX_WAIT] [-rm MAINROM_PATH] [-rs SUBROM_PATH] [-rd DISKBIOS_PATH] [-r1 ROM_PATH for slot 1][,KIND] [-r2 ROM_PATH for slot 2][,KIND] [-rNM ROM_PATH for slot N page M] [IMAGE1.DSK] [IMAGE2.DSK]..\n", progname);
 	fprintf(stderr, " KIND is ROM type:\n");
 	fprintf(stderr, "    NOR: Normal ROM, G8K: GENERIC 8K, A8K: ASCII 8K, A16: ASCII 16K, KON: Konami, SCC: Konami SCC\n");
 	fprintf(stderr, " --vsrate vsync rate (1-60)\n");
@@ -127,6 +127,10 @@ const char *subrom_cbios = "cbios_sub.rom";
 
 char *mainrom_user = "MAINROM.ROM";
 char *subrom_user = "SUBROM.ROM";
+char *diskbios_user = "DISKBIOS.ROM";
+
+int diskcount = 0;
+char *diskimages[16];
 
 char* separate_rom_kind(char* path, int* kind) {
 	char* p = strchr(path, ',');
@@ -231,7 +235,51 @@ int main(int argc, char *argv[]) {
 			}
 			break;
 		case 'r': // -rNN オプション
-			if (strlen(optarg) == 1 && isdigit(optarg[0]) ) {
+			if (strlen(optarg) == 1 && !isdigit(optarg[0]) ) {
+				// -r に数字以外が続く場合
+				switch(optarg[0]) {
+				case 'm':
+					// メインROMの指定
+					if (argv[optind] != NULL)
+					{
+						mainrom_user = argv[optind++];
+					}
+					else
+					{
+						printf("ROMファイル名が指定されていません\n");
+						ms_exit();
+					}
+					break;
+				case 's':
+					// サブROMの指定
+					if (argv[optind] != NULL)
+					{
+						subrom_user = argv[optind++];
+					}
+					else
+					{
+						printf("ROMファイル名が指定されていません\n");
+						ms_exit();
+					}
+					break;
+				case 'd':
+					// ディスクBIOSの指定
+					if (argv[optind] != NULL)
+					{
+						diskbios_user = argv[optind++];
+					}
+					else
+					{
+						printf("ROMファイル名が指定されていません\n");
+						ms_exit();
+					}
+					break;
+				default:
+					printf("不明なオプションです\n");
+					printHelpAndExit(argv[0]);
+					break;
+				}
+			} else if (strlen(optarg) == 1 && isdigit(optarg[0]) ) {
 				// -r に数字が1桁続く場合
 				int slot = atoi(optarg);
 				if ( slot >= 1 && slot <= 2) {
@@ -349,6 +397,13 @@ int main(int argc, char *argv[]) {
 		default: /* '?' */
 			printHelpAndExit(argv[0]);
 			break;
+		}
+	}
+
+    // getoptのループが終了した後、通常の引数を処理する
+	for (i = optind; i < argc; i++) {
+		if (strcasestr(argv[i], ".dsk") != 0) {
+			diskimages[diskcount++] = argv[i];
 		}
 	}
 
@@ -850,6 +905,14 @@ void set_system_roms() {
 		printf("指定されたBIOS ROMが見つかりました。%s と %sを使用します。\n", mainrom_user, subrom_user);
 		allocateAndSetROM(mainrom_user, ROM_TYPE_NORMAL_ROM, 0x00, -1, 0);
 		allocateAndSetROM(subrom_user, ROM_TYPE_NORMAL_ROM, 0x03, 1, 0);
+		if (file_exists(diskbios_user)) {
+			printf("指定されたディスクBIOS ROMが見つかりました。%sを使用します。\n", diskbios_user);
+			int i;
+			for(i=0;i<diskcount;i++) {
+				printf("ディスクイメージ %d: %s\n", i, diskimages[i]);
+			}
+			allocateAndSetDISKBIOSROM(diskbios_user, diskcount, diskimages);
+		}
     } else {
         // Load default CBIOS ROMs
 		printf("CBIOS ROMを使用します。\n");
