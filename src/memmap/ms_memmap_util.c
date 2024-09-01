@@ -327,7 +327,7 @@ void allocateAndSetDISKBIOSROM(const char *romFileName, int diskcount, char* dis
 		ms_exit();
 		return;
 	}
-	ms_disk_bios_Panasonic_init(driver, ms_memmap_shared, crt_buff, 16 * 1024, disk_container);
+	ms_disk_bios_Panasonic_init(driver, ms_memmap_shared, crt_buff, disk_container);
 	
 	// スロット3-2にアタッチ
 	if (ms_memmap_attach_driver(ms_memmap_shared, (ms_memmap_driver_t*)driver, 3, 2) != 0) {

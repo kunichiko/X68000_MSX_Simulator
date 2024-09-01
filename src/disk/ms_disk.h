@@ -36,6 +36,13 @@ typedef struct ms_disk_raw_track {
 	uint8_t data[6250];
 } ms_disk_raw_track_t;
 
+typedef struct ms_disk_sector {
+	uint8_t track;
+	uint8_t head;		// FDD‚Ìê‡‚Í side
+	uint8_t sector;
+	uint8_t deleted;
+	uint8_t data[512];
+} ms_disk_sector_t;
 
 
 #include "ms_disk_drive.h"

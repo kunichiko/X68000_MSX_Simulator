@@ -6,6 +6,13 @@
 #include "ms_disk.h"
 #include "ms_disk_drive_floppy.h"
 
+
+static void set_motor(ms_disk_drive_floppy_t* d, uint8_t motoron);
+static void set_side(ms_disk_drive_floppy_t* d, uint8_t side);
+static void seek(ms_disk_drive_floppy_t* d, uint32_t track_no);
+static void get_next_sector(ms_disk_drive_floppy_t* d, ms_disk_sector_t* sector_buffer);
+
+
 /*
 	Šm•Ûƒ‹[ƒ`ƒ“
  */
@@ -28,7 +35,20 @@ void ms_disk_drive_floppy_init(ms_disk_drive_floppy_t* instance, ms_disk_contain
 	instance->base.flush_track = (ms_disk_drive_flush_track_t)ms_disk_drive_floppy_flush_track;
 	instance->base.is_disk_changed = (ms_disk_drive_is_disk_changed_t)ms_disk_drive_floppy_is_disk_changed;
 	//
+	instance->set_motor = set_motor;
+	instance->set_side = set_side;
+	instance->seek = seek;
+	instance->get_next_sector = get_next_sector;
+
+	//
 	instance->container = container;
+	instance->is_double_sided = 1;
+	instance->is_write_protected = 1;
+	instance->is_disk_inserted = 1;
+	instance->is_track00 = 1;
+
+	//
+	instance->_present_cylinder_number = 0;
 
 	return;
 }
@@ -52,4 +72,21 @@ void ms_disk_drive_floppy_flush_track(ms_disk_drive_floppy_t* d) {
 
 uint8_t ms_disk_drive_floppy_is_disk_changed(ms_disk_drive_floppy_t* d) {
 	return d->container->is_disk_changed(d->container);
+}
+
+
+static void set_motor(ms_disk_drive_floppy_t* d, uint8_t motoron) {
+
+}
+
+static void set_side(ms_disk_drive_floppy_t* d, uint8_t side) {
+
+}
+
+static void seek(ms_disk_drive_floppy_t* d, uint32_t track_no) {
+
+}
+
+static void get_next_sector(ms_disk_drive_floppy_t* d, ms_disk_sector_t* sector_buffer) {
+
 }

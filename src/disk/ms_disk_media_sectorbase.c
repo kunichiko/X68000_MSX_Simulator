@@ -173,7 +173,7 @@ void ms_disk_media_sectorbase_write_track(ms_disk_media_t* media, uint32_t track
 	int offset = 0;
 	uint8_t* track = raw_track->data;
 
-	// 本当は、raw_trackのバイト列をでコードして、ID addr mark を見つける必要があるが、
+	// 本当は、raw_trackのバイト列をデコードして、ID addr mark を見つける必要があるが、
 	// ひとまず固定アドレスで抽出する
 	uint16_t CRC;
 	int i;

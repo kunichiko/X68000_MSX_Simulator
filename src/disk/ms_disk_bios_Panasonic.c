@@ -18,7 +18,7 @@ ms_memmap_driver_DISKBIOS_PANASONIC_t* ms_disk_bios_Panasonic_alloc() {
 /*
 	初期化ルーチン
  */
-void ms_disk_bios_Panasonic_init(ms_memmap_driver_DISKBIOS_PANASONIC_t* instance, ms_memmap_t* memmap, uint8_t* buffer, uint32_t length, ms_disk_container_t* container) {
+void ms_disk_bios_Panasonic_init(ms_memmap_driver_DISKBIOS_PANASONIC_t* instance, ms_memmap_t* memmap, uint8_t* buffer, ms_disk_container_t* container) {
 	if (instance == NULL) {
 		return;
 	}
@@ -35,18 +35,28 @@ void ms_disk_bios_Panasonic_init(ms_memmap_driver_DISKBIOS_PANASONIC_t* instance
 	instance->base.write8 = ms_memmap_write8_DISKBIOS_PANASONIC;
 	instance->base.write16 = ms_memmap_write16_DISKBIOS_PANASONIC;
 
-	instance->base.buffer = buffer;
-	instance->length = length;
+	// FDCはスロット3-2に配置されているが、他のページは0が読めるようにしておき
+	// 他のページでもFDCのレジスタだけは読み書きできるようにしなければいけないらしい
+	uint8_t* zero_buffer = (uint8_t*)new_malloc( 8*1024 );
+	if(zero_buffer == NULL) {
+		printf("メモリが確保できません。\n");
+		return;
+	}
+	int i;
+	for(i = 0; i<8*1024; i++) {
+		zero_buffer[i] = 0x00;
+	}
+	instance->zero_buffer = zero_buffer;
 
 	int page8k = 0;
 	for(; page8k < 2; page8k++) {
-		instance->base.page8k_pointers[page8k] = NULL;
+		instance->base.page8k_pointers[page8k] = zero_buffer;
 	}
 	for(; page8k < 4; page8k++) {
 		instance->base.page8k_pointers[page8k] = instance->base.buffer + ((page8k-2) * 0x2000);
 	}
 	for(; page8k < 8; page8k++) {
-		instance->base.page8k_pointers[page8k] = NULL;
+		instance->base.page8k_pointers[page8k] = zero_buffer;
 	}
 
 	// FDCの初期化
@@ -88,10 +98,10 @@ uint8_t ms_memmap_read8_DISKBIOS_PANASONIC(ms_memmap_driver_t* driver, uint16_t 
 			return 0xff;
 		case 0x3ffa:
 			// レジスタ4 を参照
-			return _TC8556AF_reg4_read(d);
+			return d->fdc.read_reg4(&d->fdc);
 		case 0x3ffb:
 			// レジスタ5 を参照
-			return _TC8556AF_reg5_read(d);
+			return d->fdc.read_reg5(&d->fdc);
 		default:
 			return 0xff;
 		}
@@ -117,19 +127,19 @@ void ms_memmap_write8_DISKBIOS_PANASONIC(ms_memmap_driver_t* driver, uint16_t ad
 		switch(local_addr) {
 		case 0x3ff8:
 			// レジスタ2 を更新
-			_TC8556AF_reg2_write(d, data);
+			d->fdc.write_reg2(&d->fdc, data);
 			break;
 		case 0x3ff9:
 			// レジスタ3 を更新
-			_TC8556AF_reg3_write(d, data);
+			d->fdc.write_reg3(&d->fdc, data);
 			break;
 		case 0x3ffa:
 			// レジスタ4 を更新
-			_TC8556AF_reg4_write(d, data);
+			d->fdc.write_reg4(&d->fdc, data);
 			break;
 		case 0x3ffb:
 			// レジスタ5 を更新
-			_TC8556AF_reg5_write(d, data);
+			d->fdc.write_reg5(&d->fdc, data);
 			break;
 		}
 	}
