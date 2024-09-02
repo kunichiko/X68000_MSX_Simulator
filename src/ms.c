@@ -172,6 +172,10 @@ char* separate_rom_kind(char* path, int* kind) {
 			例：-r11 GAME1.ROM	: スロット1-ページ1にGAME1.ROMをセット				
 */
 int main(int argc, char *argv[]) {
+#ifdef DEBUG
+	debug_log_level = MS_LOG_INFO;
+#endif
+
 	int i, j;
 	char *cartridge_path_slot1 = NULL; // カートリッジのパス
 	int cartridge_kind_slot1 = -1; // カートリッジの種類

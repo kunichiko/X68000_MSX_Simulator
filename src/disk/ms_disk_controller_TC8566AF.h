@@ -93,6 +93,12 @@ typedef struct ms_disk_controller_TC8566AF {
 	uint8_t status2;
 	uint8_t status3;
 	uint8_t driveId;
+
+	// buffer
+	ms_disk_sector_t sector_buffer[9];	// 最大9セクタ(1週分)のバッファ
+	int sector_buffer_count;			// バッファに入っているセクタ数
+	int sector_buffer_index;
+	int sector_buffer_byte_offset;		// 今読み書きしているセクタのバイトオフセット
 } ms_disk_controller_TC8566AF_t;
 
 ms_disk_controller_TC8566AF_t* ms_disk_controller_TC8566AF_alloc();

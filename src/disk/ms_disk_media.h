@@ -20,6 +20,7 @@ typedef struct ms_disk_media {
 	void (*write_track)(ms_disk_media_t* media, uint32_t track_no, uint8_t side, ms_disk_raw_track_t* raw_track);
 	// properties
 	char* name;
+	uint8_t is_write_protected;
 } ms_disk_media_t;
 
 ms_disk_media_t* ms_disk_media_alloc();

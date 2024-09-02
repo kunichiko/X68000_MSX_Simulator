@@ -39,7 +39,8 @@ void ms_disk_media_sectorbase_deinit(ms_disk_media_sectorbase_t* instance) {
 void _write_data_to_track(int count, uint8_t data, uint8_t* track, int* offset) {
 	int i;
 	for(i=0; i<count; i++) {
-		track[*offset++] = data;
+		track[*offset] = data;
+		(*offset)++;
 	}
 }
 

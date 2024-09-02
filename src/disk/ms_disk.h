@@ -42,6 +42,8 @@ typedef struct ms_disk_sector {
 	uint8_t sector;
 	uint8_t deleted;
 	uint8_t data[512];
+	uint16_t crc;
+	uint16_t crc_expected;
 } ms_disk_sector_t;
 
 #endif

@@ -8,8 +8,8 @@
 #include "ms_disk_media_dskformat.h"
 #include "../ms.h"
 
-static void _read_track(ms_disk_container_t* d, uint32_t track_no, uint8_t side, ms_disk_raw_track_t* raw_track);
-static void _write_track(ms_disk_container_t* d, uint32_t track_no, uint8_t side, ms_disk_raw_track_t* raw_track);
+static uint8_t _read_track(ms_disk_container_t* d, uint32_t track_no, uint8_t side, ms_disk_raw_track_t* raw_track);
+static uint8_t _write_track(ms_disk_container_t* d, uint32_t track_no, uint8_t side, ms_disk_raw_track_t* raw_track);
 static void _flush_track(ms_disk_container_t* d);
 static void _eject_disk(ms_disk_container_t* d);
 static void _change_disk(ms_disk_container_t* d, int disk_no);
@@ -69,20 +69,28 @@ void ms_disk_container_deinit(ms_disk_container_t* instance) {
 }
 
 
-static void _read_track(ms_disk_container_t* d, uint32_t track_no, uint8_t side, ms_disk_raw_track_t* raw_track) {
+static uint8_t _read_track(ms_disk_container_t* d, uint32_t track_no, uint8_t side, ms_disk_raw_track_t* raw_track) {
 	ms_disk_media_t* current = d->current_disk;
 	if (current == NULL) {
-		return;
+		return 0; // ¸”s
 	}
 	current->read_track(current, track_no, side, raw_track);
+
+	return 1; // ¬Œ÷
 }
 
-static void _write_track(ms_disk_container_t* d, uint32_t track_no, uint8_t side, ms_disk_raw_track_t* raw_track) {
+static uint8_t _write_track(ms_disk_container_t* d, uint32_t track_no, uint8_t side, ms_disk_raw_track_t* raw_track) {
 	ms_disk_media_t* current = d->current_disk;
 	if (current == NULL) {
-		return;
+		return 0; // ¸”s
+	}
+	if (current->is_write_protected) {
+		MS_LOG(MS_LOG_INFO, "Disk is write protected\n");
+		return 0; // ¸”s
 	}
 	current->write_track(current, track_no, side, raw_track);
+
+	return 1; // ¬Œ÷
 }
 
 static void _flush_track(ms_disk_container_t* d) {

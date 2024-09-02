@@ -10,8 +10,8 @@ typedef struct ms_disk_container ms_disk_container_t;
 typedef struct ms_disk_container {
 	void (*deinit)(ms_disk_container_t* drive);	// baseクラスだけ deinitを持つ (子クラスはオーバーライドする)
 	// methods
-	void (*read_track)(ms_disk_container_t* d, uint32_t track_no, uint8_t side, ms_disk_raw_track_t* raw_track);
-	void (*write_track)(ms_disk_container_t* d, uint32_t track_no, uint8_t side, ms_disk_raw_track_t* raw_track);
+	uint8_t (*read_track)(ms_disk_container_t* d, uint32_t track_no, uint8_t side, ms_disk_raw_track_t* raw_track);
+	uint8_t (*write_track)(ms_disk_container_t* d, uint32_t track_no, uint8_t side, ms_disk_raw_track_t* raw_track);
 	void (*flush_track)(ms_disk_container_t* d);
 	void (*eject_disk)(ms_disk_container_t* d);
 	void (*change_disk)(ms_disk_container_t* d, int disk_no);

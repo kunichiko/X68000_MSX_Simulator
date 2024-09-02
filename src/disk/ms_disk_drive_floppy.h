@@ -15,6 +15,8 @@ typedef struct ms_disk_drive_floppy {
 	void (*set_motor)(ms_disk_drive_floppy_t* d, uint8_t motoron);
 	void (*set_side)(ms_disk_drive_floppy_t* d, uint8_t side);
 	void (*seek)(ms_disk_drive_floppy_t* d, uint32_t track_no);
+	uint8_t (*is_disk_inserted)(ms_disk_drive_floppy_t* d);
+
 	/**
 	 * @brief 現在のヘッド位置から、次のセクタを取得します
 	 * 
@@ -22,7 +24,7 @@ typedef struct ms_disk_drive_floppy {
 	 * ディスクの回転位置を計算して、今ヘッドが刺している位置のセクタを取得する必要がありますが、
 	 * ひとまず簡易的に、シークされたトラックの先頭から順にセクタを取得するようにします。
 	 */
-	void (*get_next_sector)(ms_disk_drive_floppy_t* d, ms_disk_sector_t* sector_buffer);
+	uint8_t (*get_next_sector)(ms_disk_drive_floppy_t* d, ms_disk_sector_t* sector_buffer);
 
 	// properties
 
@@ -32,7 +34,6 @@ typedef struct ms_disk_drive_floppy {
 	uint8_t is_track00;
 	uint8_t is_double_sided;
 	uint8_t is_write_protected;
-	uint8_t is_disk_inserted;
 
 	// private properties
 	uint8_t _present_cylinder_number;	//PCN
@@ -46,10 +47,5 @@ typedef struct ms_disk_drive_floppy {
 ms_disk_drive_floppy_t* ms_disk_drive_floppy_alloc();
 void ms_disk_drive_floppy_init(ms_disk_drive_floppy_t* instance, ms_disk_container_t* container);
 void ms_disk_drive_floppy_deinit(ms_disk_drive_floppy_t* instance);
-
-void ms_disk_drive_floppy_read_track(ms_disk_drive_floppy_t* d, uint32_t track_no, uint8_t side, ms_disk_raw_track_t* raw_track);
-void ms_disk_drive_floppy_write_track(ms_disk_drive_floppy_t* d, uint32_t track_no, uint8_t side, ms_disk_raw_track_t* raw_track);
-void ms_disk_drive_floppy_flush_track(ms_disk_drive_floppy_t* d);
-uint8_t ms_disk_drive_floppy_is_disk_changed(ms_disk_drive_floppy_t* d);
 
 #endif
