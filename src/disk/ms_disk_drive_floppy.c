@@ -44,7 +44,7 @@ void ms_disk_drive_floppy_init(ms_disk_drive_floppy_t* instance, ms_disk_contain
 	instance->container = container;
 	instance->is_double_sided = 1;
 	instance->is_write_protected = 1;
-	instance->is_disk_inserted = 1;
+	instance->is_disk_inserted = 0;
 	instance->is_track00 = 1;
 
 	//

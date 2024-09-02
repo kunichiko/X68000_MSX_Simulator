@@ -2,6 +2,7 @@
 #define MS_DISK_H
 
 #include <stdint.h>
+#include "../ms.h"
 
 /**
  * @brief フロッピーディスクの生のトラックデータを扱う構造体です。

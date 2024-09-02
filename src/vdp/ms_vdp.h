@@ -2,6 +2,7 @@
 #define MS_VDP_H
 
 #include <stdint.h>
+#include "../ms.h"
 
 // extern uint16_t * const X68_GR_PAL;
 // extern uint16_t * const X68_TX_PAL;

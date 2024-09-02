@@ -44,7 +44,7 @@ void update_vdp_sprite_area(ms_vdp_t* vdp) {
 	vdp->cmd_ny_sprite_start = Y_start;
 	vdp->cmd_ny_sprite_end = Y_end;
 
-	//printf("update_vdp_sprite_area: %d - %d\n", Y_start, Y_end);
+	//MS_LOG(MS_LOG_DEBUG,"update_vdp_sprite_area: %d - %d\n", Y_start, Y_end);
 }
 
 void rewrite_sprite_if_needed(ms_vdp_t* vdp) {
@@ -224,10 +224,10 @@ void cmd_PSET_exe(ms_vdp_t* vdp, uint16_t x, uint16_t y, uint8_t color, uint8_t 
 	LINE
 */
 void cmd_LINE(ms_vdp_t* vdp, uint8_t cmd, uint8_t logiop) {
-	if(0) {
-		printf("LINE START****\n");
-		printf("  sx=0x%03x, sy=0x%03x\n", vdp->sx, vdp->sy);
-		printf("  nx=0x%03x, ny=0x%03x\n", vdp->nx, vdp->ny);
+	if(MS_LOG_DEBUG_ENABLED) {
+		MS_LOG(MS_LOG_DEBUG,"LINE START****\n");
+		MS_LOG(MS_LOG_DEBUG,"  sx=0x%03x, sy=0x%03x\n", vdp->sx, vdp->sy);
+		MS_LOG(MS_LOG_DEBUG,"  nx=0x%03x, ny=0x%03x\n", vdp->nx, vdp->ny);
 	}
 
 	int	crt_width = vdp->ms_vdp_current_mode->crt_width;
@@ -274,10 +274,10 @@ void cmd_LINE(ms_vdp_t* vdp, uint8_t cmd, uint8_t logiop) {
 */
 void cmd_LMMM(ms_vdp_t* vdp, uint8_t cmd, uint8_t logiop) {
 	if (0) {
-		printf("LMMM START****\n");
-		printf("  sx=0x%03x, sy=0x%03x\n", vdp->sx, vdp->sy);
-		printf("  dx=0x%03x, dy=0x%03x\n", vdp->dx, vdp->dy);
-		printf("  nx=0x%03x, ny=0x%03x\n", vdp->nx, vdp->ny);
+		MS_LOG(MS_LOG_DEBUG,"LMMM START****\n");
+		MS_LOG(MS_LOG_DEBUG,"  sx=0x%03x, sy=0x%03x\n", vdp->sx, vdp->sy);
+		MS_LOG(MS_LOG_DEBUG,"  dx=0x%03x, dy=0x%03x\n", vdp->dx, vdp->dy);
+		MS_LOG(MS_LOG_DEBUG,"  nx=0x%03x, ny=0x%03x\n", vdp->nx, vdp->ny);
 	}
 
 	int	crt_width = vdp->ms_vdp_current_mode->crt_width;
@@ -351,7 +351,7 @@ void cmd_LMMC_exe(ms_vdp_t* vdp, uint8_t value);
 
 void cmd_LMMC(ms_vdp_t* vdp, uint8_t cmd, uint8_t logiop) {
 	if (0) {
-		printf("LMMC STAR********\n");
+		MS_LOG(MS_LOG_DEBUG,"LMMC STAR********\n");
 	}
 
 	int mod;
@@ -368,7 +368,7 @@ void cmd_LMMC(ms_vdp_t* vdp, uint8_t cmd, uint8_t logiop) {
 }
 
 void cmd_LMMC_exe(ms_vdp_t* vdp, uint8_t value) {
-	//printf("LMMC exe: %02x, nx count=%03x, ny count=%03x\n", value, vdp->cmd_nx_count, vdp->cmd_ny_count);
+	//MS_LOG(MS_LOG_DEBUG,"LMMC exe: %02x, nx count=%03x, ny count=%03x\n", value, vdp->cmd_nx_count, vdp->cmd_ny_count);
 	if(vdp->cmd_ny_count == 0 && vdp->cmd_nx_count == 0) {
 		vdp->s02 &= 0xfe;	// CEビットをクリア
 		vdp->cmd_current = 0;
@@ -439,7 +439,7 @@ void cmd_LMMC_exe(ms_vdp_t* vdp, uint8_t value) {
 */
 void cmd_HMMV(ms_vdp_t* vdp, uint8_t cmd) {
 	if (0) {
-		printf("HMMV START********\n");
+		MS_LOG(MS_LOG_DEBUG,"HMMV START********\n");
 	}
 	// 高速化のためのキャッシュ
 	int	crt_width = vdp->ms_vdp_current_mode->crt_width;
@@ -497,9 +497,7 @@ void cmd_HMMV(ms_vdp_t* vdp, uint8_t cmd) {
 }
 
 void cmd_YMMM(ms_vdp_t* vdp, uint8_t cmd) {
-	if(0) {
-		printf("YMMM START********\n");
-	}
+	MS_LOG(MS_LOG_DEBUG,"YMMM START********\n");
 	// 高速化のためのキャッシュ
 	int	crt_width = vdp->ms_vdp_current_mode->crt_width;
 	int dots_per_byte = vdp->ms_vdp_current_mode->dots_per_byte;
@@ -564,10 +562,7 @@ void cmd_YMMM(ms_vdp_t* vdp, uint8_t cmd) {
 }
 
 void cmd_HMMM(ms_vdp_t* vdp, uint8_t cmd) {
-	if(0) {
-		printf("HMMM START****\n");
-	}
-
+	MS_LOG(MS_LOG_DEBUG,"HMMM START****\n");
 	// 高速化のためのキャッシュ
 	int	crt_width = vdp->ms_vdp_current_mode->crt_width;
 	int dots_per_byte = vdp->ms_vdp_current_mode->dots_per_byte;
@@ -636,7 +631,7 @@ static uint8_t debug_count = 0;
 
 void cmd_HMMC(ms_vdp_t* vdp, uint8_t cmd) {
 	if (0) {
-		printf("HMMC START********\n");
+		MS_LOG(MS_LOG_DEBUG,"HMMC START********\n");
 	}
 
 	int	crt_width = vdp->ms_vdp_current_mode->crt_width;
@@ -654,7 +649,7 @@ void cmd_HMMC(ms_vdp_t* vdp, uint8_t cmd) {
 }
 
 void cmd_HMMC_exe(ms_vdp_t* vdp, uint8_t value) {
-	//printf("HMMC exe G4: %02x, nx count=%03x, ny count=%03x\n", value, vdp->cmd_nx_count, vdp->cmd_ny_count);
+	//MS_LOG(MS_LOG_DEBUG,"HMMC exe G4: %02x, nx count=%03x, ny count=%03x\n", value, vdp->cmd_nx_count, vdp->cmd_ny_count);
 	if(vdp->cmd_ny_count == 0 && vdp->cmd_nx_count == 0) {
 		vdp->s02 &= 0xfe;	// CEビットをクリア
 		vdp->cmd_current = 0;

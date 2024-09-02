@@ -76,7 +76,6 @@ unsigned short host_rate = 1;
 volatile extern unsigned short ms_vdp_interrupt_tick;
 volatile extern unsigned short ms_vdp_vsync_rate;
 volatile extern unsigned int int_block_count;
-volatile extern unsigned short debug_log_level;
 volatile extern unsigned short host_delay;
 volatile extern unsigned int int_skip_counter;
 volatile extern unsigned int int_exec_counter;
@@ -719,7 +718,13 @@ int emuLoop(unsigned int pc, unsigned int counter) {
 
 	if (f6KeyHit && !f6KeyHitLast)
 	{
-		debug_log_level = (debug_log_level + 1) & 0x3;
+		if( shiftKeyHit) {
+			// シフトキーと同時押しの場合は、デバッグログレベルを下げる
+			debug_log_level = max(0, debug_log_level - 1);
+		} else {
+			// それ以外の場合は、デバッグログレベルを上げる
+			debug_log_level = min(3, debug_log_level + 1);
+		}
 		printf("デバッグログレベル=%d\n", debug_log_level);
 	}
 	f6KeyHitLast = f6KeyHit;

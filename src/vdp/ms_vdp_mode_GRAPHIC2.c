@@ -80,16 +80,16 @@ void write_vram_GRAPHIC2(ms_vdp_t* vdp, uint8_t data) {
 }
 
 void update_palette_GRAPHIC2(ms_vdp_t* vdp) {
-	printf("update_palette_GRAPHIC2\n");
+	MS_LOG(MS_LOG_DEBUG,"update_palette_GRAPHIC2\n");
 	update_palette_DEFAULT(vdp);
 }
 
 static uint32_t last_pnametbl_baddr = 0xffffffff;
 
 void update_pnametbl_baddr_GRAPHIC2(ms_vdp_t* vdp) {
-	printf("update_pnametbl_baddr_GRAPHIC2\n");
+	MS_LOG(MS_LOG_DEBUG,"update_pnametbl_baddr_GRAPHIC2\n");
     update_pnametbl_baddr_DEFAULT(vdp);
-	printf("  %06x -> %06x\n", last_pnametbl_baddr, vdp->pnametbl_baddr);
+	MS_LOG(MS_LOG_DEBUG,"  %06x -> %06x\n", last_pnametbl_baddr, vdp->pnametbl_baddr);
 	if (last_pnametbl_baddr != vdp->pnametbl_baddr) {
 		last_pnametbl_baddr = vdp->pnametbl_baddr;
 		_refresh_GRAPHIC2(vdp);
@@ -99,9 +99,9 @@ void update_pnametbl_baddr_GRAPHIC2(ms_vdp_t* vdp) {
 static uint32_t last_colortbl_baddr = 0xffffffff;
 
 void update_colortbl_baddr_GRAPHIC2(ms_vdp_t* vdp) {
-	printf("update_colortbl_baddr_GRAPHIC2\n");
+	MS_LOG(MS_LOG_DEBUG,"update_colortbl_baddr_GRAPHIC2\n");
 	update_colortbl_baddr_DEFAULT(vdp);
-	printf("  %06x -> %06x\n", last_colortbl_baddr, vdp->colortbl_baddr);
+	MS_LOG(MS_LOG_DEBUG,"  %06x -> %06x\n", last_colortbl_baddr, vdp->colortbl_baddr);
 	if (last_colortbl_baddr != vdp->colortbl_baddr) {
 		last_colortbl_baddr = vdp->colortbl_baddr;
 		_refresh_GRAPHIC2(vdp);
@@ -111,9 +111,9 @@ void update_colortbl_baddr_GRAPHIC2(ms_vdp_t* vdp) {
 static uint32_t last_pgentbl_baddr = 0xffffffff;
 
 void update_pgentbl_baddr_GRAPHIC2(ms_vdp_t* vdp) {
-	printf("update_pgentbl_baddr_GRAPHIC2\n");
+	MS_LOG(MS_LOG_DEBUG,"update_pgentbl_baddr_GRAPHIC2\n");
 	update_pgentbl_baddr_DEFAULT(vdp);
-	printf("  %06x -> %06x\n", last_pgentbl_baddr, vdp->pgentbl_baddr);
+	MS_LOG(MS_LOG_DEBUG,"  %06x -> %06x\n", last_pgentbl_baddr, vdp->pgentbl_baddr);
 	if (last_pgentbl_baddr != vdp->pgentbl_baddr) {
 		last_pgentbl_baddr = vdp->pgentbl_baddr;
 		_refresh_GRAPHIC2(vdp);
@@ -121,12 +121,12 @@ void update_pgentbl_baddr_GRAPHIC2(ms_vdp_t* vdp) {
 }
 
 void update_sprattrtbl_baddr_GRAPHIC2(ms_vdp_t* vdp) {
-	printf("update sprattrtbl baddr GR2\n");
+	MS_LOG(MS_LOG_DEBUG,"update sprattrtbl baddr GR2\n");
     update_sprattrtbl_baddr_MODE1(vdp);
 }
 
 void update_sprpgentbl_baddr_GRAPHIC2(ms_vdp_t* vdp) {
-	printf("update sprpgentbl baddr GR2\n");
+	MS_LOG(MS_LOG_DEBUG,"update sprpgentbl baddr GR2\n");
     update_sprpgentbl_baddr_MODE1(vdp);
 }
 

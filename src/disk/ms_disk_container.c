@@ -7,8 +7,6 @@
 #include "ms_disk_container.h"
 #include "ms_disk_media_dskformat.h"
 
-#define min(a, b) ((a) < (b) ? (a) : (b))
-
 /*
 	Šm•Ûƒ‹[ƒ`ƒ“
  */

@@ -114,7 +114,7 @@ char* get_mode_name_GRAPHIC4(ms_vdp_t* vdp) {
 }
 
 void vdp_command_exec_GRAPHIC4(ms_vdp_t* vdp, uint8_t cmd) {
-	//printf("GRAPHIC4: vdp_command_exec: %02x\n", cmd);
+	//MS_LOG(MS_LOG_DEBUG,"GRAPHIC4: vdp_command_exec: %02x\n", cmd);
 	vdp_command_exec(vdp, cmd);
 }
 

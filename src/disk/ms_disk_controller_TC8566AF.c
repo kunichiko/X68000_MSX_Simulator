@@ -14,6 +14,7 @@
 #include <stdint.h>
 #include <stddef.h>
 #include <fcntl.h>
+#include "../ms.h"
 #include "ms_disk_controller_TC8566AF.h"
 #include "../memmap/ms_memmap.h"
 
@@ -153,7 +154,7 @@ static void _TC8556AF_reg2_write(THIS* d, uint8_t data) {
 	d->drive[0].set_motor(&d->drive[0], (data >> 4) & 0x01);
 
 	d->driveId = data & 0x03;
-	printf("FDC Wr#2: %02x\n", data);
+	MS_LOG(1, "FDC Wr#2: %02x\n", data);
 }
 
 /**
@@ -202,7 +203,7 @@ static uint8_t _TC8556AF_reg4_read(THIS* d) {
 				(ndm_req << 5) | //
 				(d->fdc_busy << 4) | //
 				(d->fdd_busy & 0x3);
-	printf("FDC Rd#4: %02x\n", ret);
+	MS_LOG(1, "FDC Rd#4: %02x\n", ret);
 	return ret;
 }
 
@@ -231,16 +232,16 @@ static uint8_t _TC8556AF_reg5_read(THIS* d) {
 	TC8566AF_command_t* command = &d->commands[d->command];
 	switch(phase) {
 	case TC8566AF_PHASE_IDLE:
-		printf("FDC(Idle): Rd#5:\n");
+		MS_LOG(1, "FDC(Idle): Rd#5:\n");
 		break;
 	case TC8566AF_PHASE_COMMAND:
-		printf("FDC(Comm): CMD:\n %s Rd#5:\n", command->name);
+		MS_LOG(1, "FDC(Comm): CMD:\n %s Rd#5:\n", command->name);
 		break;
 	case TC8566AF_PHASE_DATA_TRANSFER:
-		printf("FDC(Trns): CMD: rest=%d\n %s Rd#5:\n", d->transfer_datas_rest, command->name);
+		MS_LOG(1, "FDC(Trns): CMD: rest=%d\n %s Rd#5:\n", d->transfer_datas_rest, command->name);
 		trans_read_func_t read = command->trans_read;
 		if (read == NULL) {
-			printf("***Trans read not implemented\n");
+			MS_LOG(1, "***Trans read not implemented\n");
 			end_command(d);
 		} else {
 			uint8_t finished = 0;
@@ -255,10 +256,10 @@ static uint8_t _TC8556AF_reg5_read(THIS* d) {
 		}
 		break;
 	case TC8566AF_PHASE_RESULT:
-		printf("FDC(Resl): CMD:\n %s Rd#5:\n", command->name);
+		MS_LOG(1, "FDC(Resl): CMD:\n %s Rd#5:\n", command->name);
 		result_func_t result = command->result_phase;
 		if (result == NULL) {
-			printf("***Result not implemented\n");
+			MS_LOG(1, "***Result not implemented\n");
 			end_command(d);
 		} else {
 			uint8_t finished = 0;
@@ -270,7 +271,7 @@ static uint8_t _TC8556AF_reg5_read(THIS* d) {
 		}
 		break;	
 	}
-	printf("  -> ret: %02x\n", ret);
+	MS_LOG(1, "  -> ret: %02x\n", ret);
 	return ret;
 }
 
@@ -354,7 +355,7 @@ void _TC8556AF_reg5_write(THIS* d, uint8_t value) {
 		d->command_byte_index = 1;
 
 		command = &d->commands[cmd]; // cmd = 0 ‚È‚ç INVALID ‚ª“ü‚é
-		printf("FDC(Idle): Accept\n %s Wr#5: %02x\n", command->name, value);
+		MS_LOG(1, "FDC(Idle): Accept\n %s Wr#5: %02x\n", command->name, value);
 		if( command->command_byte_count == 1) {
 			d->request_for_master = 0;
 			execute(d);
@@ -364,7 +365,7 @@ void _TC8556AF_reg5_write(THIS* d, uint8_t value) {
 		break;
 	case TC8566AF_PHASE_COMMAND:
 		command = &d->commands[d->command];
-		printf("FDC(Comm): Wr#5:\n %s[%d] = %02x\n", command->name, d->command_byte_index, value);
+		MS_LOG(1, "FDC(Comm): Wr#5:\n %s[%d] = %02x\n", command->name, d->command_byte_index, value);
 		d->command_byte_value[d->command_byte_index++] = value;
 		if (d->command_byte_index == command->command_byte_count) {
 			execute(d);
@@ -372,9 +373,9 @@ void _TC8556AF_reg5_write(THIS* d, uint8_t value) {
 		break;
 	case TC8566AF_PHASE_DATA_TRANSFER:
 		command = &d->commands[d->command];
-		printf("FDC(Trns): %s Wr#5: %02x\n", command->name, value);
+		MS_LOG(1, "FDC(Trns): %s Wr#5: %02x\n", command->name, value);
 		if( command->trans_write == NULL) {
-			printf("invalid write. igonre\n");
+			MS_LOG(1, "invalid write. igonre\n");
 		} else {
 			uint8_t finished = 0;
 			command->trans_write(d, value, &finished);
@@ -389,8 +390,8 @@ void _TC8556AF_reg5_write(THIS* d, uint8_t value) {
 		break;
 	case TC8566AF_PHASE_RESULT:
 		command = &d->commands[d->command];
-		printf("FDC(Rslt): %s Wr#5: %02x\n", command->name, value);
-		printf("invalid result. ignore\n");  // result phase ‚Í read only
+		MS_LOG(1, "FDC(Rslt): %s Wr#5: %02x\n", command->name, value);
+		MS_LOG(1, "invalid result. ignore\n");  // result phase ‚Í read only
 		break;		
 	}
 }
@@ -736,7 +737,7 @@ static void sense_device_status_exec(THIS* d) {
 
 ********************************************************* */
 static void invalid_exec(THIS* d) {
-	printf("invalid command\n");
+	MS_LOG(1, "invalid command\n");
 }
 
 
@@ -782,7 +783,7 @@ static uint8_t chrn_result(THIS* d, uint8_t* finished) {
 		*finished = 1;
 		break;
 	default:
-		printf("invalid result index: %d\n", d->result_byte_index);
+		MS_LOG(1, "invalid result index: %d\n", d->result_byte_index);
 		*finished = 1;
 		break;
 	}
@@ -801,7 +802,7 @@ static uint8_t sense_interrupt_status_result(THIS* d, uint8_t* finished) {
 		*finished = 1;
 		break;
 	default:
-		printf("invalid result index: %d\n", d->result_byte_index);
+		MS_LOG(1, "invalid result index: %d\n", d->result_byte_index);
 		*finished = 1;
 		break;
 	}
@@ -816,7 +817,7 @@ static uint8_t sense_device_status_result(THIS* d, uint8_t* finished) {
 		*finished = 1;
 		break;
 	default:
-		printf("invalid result index: %d\n", d->result_byte_index);
+		MS_LOG(1, "invalid result index: %d\n", d->result_byte_index);
 		*finished = 1;
 		break;
 	}
@@ -831,7 +832,7 @@ static uint8_t st0_result(THIS* d, uint8_t* finished) {
 		*finished = 1;
 		break;
 	default:
-		printf("invalid result index: %d\n", d->result_byte_index);
+		MS_LOG(1, "invalid result index: %d\n", d->result_byte_index);
 		*finished = 1;
 		break;
 	}

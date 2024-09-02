@@ -105,7 +105,7 @@ ms_vdp_t* ms_vdp_alloc() {
 	}
 	if ( (ms_vdp_shared = (ms_vdp_t*)new_malloc(sizeof(ms_vdp_t))) == NULL)
 	{
-		printf("メモリが確保できません\n");
+		MS_LOG(MS_LOG_INFO,"メモリが確保できません\n");
 		return NULL;
 	}
 	return ms_vdp_shared;
@@ -118,7 +118,7 @@ void ms_vdp_init(ms_vdp_t* instance) {
 
 	if ( (ms_vdp_shared->vram = (uint8_t*)new_malloc(0x20000)) == NULL)
 	{
-		printf("メモリが確保できません\n");
+		MS_LOG(MS_LOG_INFO,"メモリが確保できません\n");
 		ms_vdp_deinit(ms_vdp_shared);
 		return;
 	}
@@ -131,7 +131,7 @@ void ms_vdp_init(ms_vdp_t* instance) {
 	//  * => 256 * 4 * 32 * 4バイト = 128KB
 	if ( (ms_vdp_shared->x68_pcg_buffer = (uint32_t*)new_malloc( 256 * 4 * 32 * sizeof(uint32_t))) == NULL)
 	{
-		printf("メモリが確保できません\n");
+		MS_LOG(MS_LOG_INFO,"メモリが確保できません\n");
 		ms_vdp_deinit(ms_vdp_shared);
 		return;
 	}
@@ -230,7 +230,7 @@ void init_palette(ms_vdp_t* vdp) {
 void ms_vdp_set_mode(ms_vdp_t* vdp, int mode) {
 	vdp->ms_vdp_current_mode = ms_vdp_mode_table[mode];
 	if (vdp->ms_vdp_current_mode == NULL) {
-		printf("Unknown VDP mode: %d\n", mode);
+		MS_LOG(MS_LOG_INFO,"Unknown VDP mode: %d\n", mode);
 		vdp->ms_vdp_current_mode = &ms_vdp_DEFAULT;
 	}
 	vdp->ms_vdp_current_mode->update_resolution(vdp);
@@ -240,7 +240,7 @@ void ms_vdp_set_mode(ms_vdp_t* vdp, int mode) {
 		X68_GRAM[i] = 0;
 	}
 	vdp->ms_vdp_current_mode->init(vdp);
-	printf("VDP Mode: %s\n", vdp->ms_vdp_current_mode->get_mode_name(vdp));
+	MS_LOG(MS_DEBUG_INFO,"VDP Mode: %s\n", vdp->ms_vdp_current_mode->get_mode_name(vdp));
 
 	// スプライトの初期化処理
 	vdp->sprite_refresh_flag |= SPRITE_REFRESH_FLAG_PGEN;
