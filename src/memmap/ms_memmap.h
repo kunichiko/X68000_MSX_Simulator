@@ -2,6 +2,7 @@
 #define _MS_MEMMAP_H_
 
 #include <stdint.h>
+#include "../disk/ms_disk_container.h"
 
 #define ROM_TYPE_NOTHING			0
 #define ROM_TYPE_MAPPER_RAM			1
@@ -95,7 +96,7 @@ void ms_memmap_set_main_mem( void *, int);
 int ms_memmap_attach_driver(ms_memmap_t* memmap, ms_memmap_driver_t* driver, int slot_base, int slot_ex);
 
 void allocateAndSetROM(const char *romFileName, int kind, int slot_base, int slot_ex, int page);
-void allocateAndSetDISKBIOSROM(const char *romFileName, int diskcount, char* diskimages[]);
+void allocateAndSetDISKBIOSROM(const char *romFileName, ms_disk_container_t* disk_container);
 void allocateAndSetROM_Cartridge(const char* romFileName, int slot_base, int kind);
 
 uint8_t ms_memmap_read8(uint16_t addr);

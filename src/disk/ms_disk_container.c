@@ -6,6 +6,14 @@
 #include "ms_disk.h"
 #include "ms_disk_container.h"
 #include "ms_disk_media_dskformat.h"
+#include "../ms.h"
+
+static void _read_track(ms_disk_container_t* d, uint32_t track_no, uint8_t side, ms_disk_raw_track_t* raw_track);
+static void _write_track(ms_disk_container_t* d, uint32_t track_no, uint8_t side, ms_disk_raw_track_t* raw_track);
+static void _flush_track(ms_disk_container_t* d);
+static void _eject_disk(ms_disk_container_t* d);
+static void _change_disk(ms_disk_container_t* d, int disk_no);
+static uint8_t _is_disk_changed(ms_disk_container_t* d);
 
 /*
 	確保ルーチン
@@ -27,11 +35,12 @@ ms_disk_container_t* ms_disk_container_alloc() {
 	}
 	// メソッドの登録
 	instance->deinit = ms_disk_container_deinit;
-	instance->read_track = ms_disk_container_read_track;
-	instance->write_track = ms_disk_container_write_track;
-	instance->flush_track = ms_disk_container_flush_track;
-	instance->change_disk = ms_disk_container_change_disk;
-	instance->is_disk_changed = ms_disk_container_is_disk_changed;
+	instance->read_track = _read_track;
+	instance->write_track = _write_track;
+	instance->flush_track = _flush_track;
+	instance->eject_disk = _eject_disk;
+	instance->change_disk = _change_disk;
+	instance->is_disk_changed = _is_disk_changed;
 
 	// ディスクのロード (最大16枚まで)
 	if (argc > 0) {
@@ -60,7 +69,7 @@ void ms_disk_container_deinit(ms_disk_container_t* instance) {
 }
 
 
-void ms_disk_container_read_track(ms_disk_container_t* d, uint32_t track_no, uint8_t side, ms_disk_raw_track_t* raw_track) {
+static void _read_track(ms_disk_container_t* d, uint32_t track_no, uint8_t side, ms_disk_raw_track_t* raw_track) {
 	ms_disk_media_t* current = d->current_disk;
 	if (current == NULL) {
 		return;
@@ -68,7 +77,7 @@ void ms_disk_container_read_track(ms_disk_container_t* d, uint32_t track_no, uin
 	current->read_track(current, track_no, side, raw_track);
 }
 
-void ms_disk_container_write_track(ms_disk_container_t* d, uint32_t track_no, uint8_t side, ms_disk_raw_track_t* raw_track) {
+static void _write_track(ms_disk_container_t* d, uint32_t track_no, uint8_t side, ms_disk_raw_track_t* raw_track) {
 	ms_disk_media_t* current = d->current_disk;
 	if (current == NULL) {
 		return;
@@ -76,19 +85,32 @@ void ms_disk_container_write_track(ms_disk_container_t* d, uint32_t track_no, ui
 	current->write_track(current, track_no, side, raw_track);
 }
 
-void ms_disk_container_flush_track(ms_disk_container_t* d) {
+static void _flush_track(ms_disk_container_t* d) {
 
 }
 
-void ms_disk_container_change_disk(ms_disk_container_t* d, int disk_no) {
+static void _eject_disk(ms_disk_container_t* d) {
+	d->current_disk = NULL;
+	d->disk_changed = 1;
+	MS_LOG(MS_LOG_INFO, "Disk ejected.\n");
+}
+
+static void _change_disk(ms_disk_container_t* d, int disk_no) {
 	if (disk_no < 0 || disk_no >= d->disk_count) {
+		MS_LOG(MS_LOG_INFO, "Unknown disk number: %d\n", disk_no);
 		return;
 	}
-	d->current_disk = d->disk_set[disk_no];
-	d->disk_changed = 1;
+	ms_disk_media_t* disk = d->disk_set[disk_no];
+	if (disk == NULL) {
+		_eject_disk(d);
+	} else {
+		d->current_disk = disk;
+		d->disk_changed = 1;
+		MS_LOG(MS_LOG_INFO, "Disk changed to %d : \"%s\"\n", disk_no, disk->name);
+	}
 }
 
-uint8_t ms_disk_container_is_disk_changed(ms_disk_container_t* d) {
+static uint8_t _is_disk_changed(ms_disk_container_t* d) {
 	uint8_t ret = d->disk_changed;
 	d->disk_changed = 0;
 	return ret;

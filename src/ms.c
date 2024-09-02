@@ -23,6 +23,7 @@
 #include "ms_iomap.h"
 #include "memmap/ms_memmap.h"
 #include "vdp/ms_vdp.h"
+#include "disk/ms_disk_container.h"
 
 void ms_exit( void);
 
@@ -39,6 +40,9 @@ ms_vdp_t* vdp = NULL;  // ms_vdp_shared と同じになるはず
 int psg_initialized = 0;
 int ms_psg_init( void);
 void ms_psg_deinit(void);
+
+// Disk関連
+ms_disk_container_t* disk_container = NULL;
 
 /*
   SlotにROMをセットします。
@@ -538,6 +542,10 @@ void ms_exit() {
 
 	_iocs_crtmod(0x10);
 
+	if( disk_container != NULL ) {
+		ms_disk_container_deinit(disk_container);
+		new_free(disk_container);
+	}
 	if ( psg_initialized ) {
 		ms_psg_deinit();
 	}
@@ -565,10 +573,11 @@ void ms_exit() {
 	- MSXデータパック p12 「2.5 キーボード」 参照
  */
 unsigned short KEY_MAP[][8] = {
+	//   BIT0  BIT1  BIT2  BIT3  BIT4  BIT5  BIT6  BIT7
 	//0 [    ][ESC ][1   ][2   ][3   ][4   ][5   ][6   ] 
-	{   0xf00,0x704,0x002,0x004,0x008,0x010,0x020,0x040},
+	{   0xf00,0xf10,0xf11,0xf12,0xf13,0xf14,0xf15,0xf16},
 	//1 [7   ][8   ][9   ][0   ][-   ][^   ][\   ][BS  ] 
-	{   0x080,0x101,0x102,0x001,0x104,0x108,0x110,0x720},
+	{   0xf17,0xf18,0xf19,0x001,0x104,0x108,0x110,0x720},
 	//2 [TAB ][Q   ][W   ][E   ][R   ][T   ][Y   ][U   ] 
 	{   0x708,0x440,0x510,0x304,0x480,0x502,0x540,0x504},
 	//3 [I   ][O   ][P   ][@   ][ [  ][RET ][ A  ][ S  ] 
@@ -593,8 +602,8 @@ unsigned short KEY_MAP[][8] = {
 	{   0xf00,0x710,0xf00,0xf00,0xf00,0xf00,0xf00,0xf00},
 	//d [ F6 ][ F7 ][ F8 ][ F9 ][ F10][    ][    ][    ]  F6=DebugLevel
 	{   0xffc,0xf00,0xf00,0xf00,0xf00,0xf00,0xf00,0xf00},
-	//e [SHFT][CTRL][OPT1][OPT2][    ][    ][    ][    ]  OPT1=GRAPH
-	{   0xff0,0x602,0x604,0xf00,0xf00,0xf00,0xf00,0xf00},
+	//e [SHFT][CTRL][OPT1][OPT2][    ][    ][    ][    ]  OPT1=Disk Change
+	{   0xff0,0x602,0xff8,0xff9,0xf00,0xf00,0xf00,0xf00},
 	//f [    ][    ][    ][    ][    ][    ][    ][    ]
 	{   0xf00,0xf00,0xf00,0xf00,0xf00,0xf00,0xf00,0xf00}
 };
@@ -609,16 +618,18 @@ void sync_keyboard_leds();
 
 int emuLoop(unsigned int pc, unsigned int counter) {
 	static int emuLoopCounter = 0;
+	static uint8_t last_bitsns[16];
+
 	int i,j;
 	unsigned short map;
 	unsigned char X, Y;
 	int hitkey = 0;
-	int shiftKeyHit = 0;
+	int shiftKeyPress = 0;
 	int cursorKeyHit = 0; // 1=LEFT, 2=UP, 3=DOWN, 4=RIGHT
-	static int f6KeyHit = 0, f6KeyHitLast = 0;
-	static int kigoKeyHit = 0, kigoKeyHitLast = 0;
-	static int helpKeyHit = 0, helpKeyHitLast = 0;
-	static int shiftAndCursorKeyHit = 0, shiftAndCursorKeyHitLast = 0;
+	int f6KeyHit = 0;
+	int kigoKeyHit = 0;
+	int helpKeyHit = 0;
+	int disk_change = -1; // 0=Eject, 1=Disk1, 2=Disk2, 3=Disk3, 4=Disk4
 
 	emuLoopCounter++;
 
@@ -632,10 +643,6 @@ int emuLoop(unsigned int pc, unsigned int counter) {
 
 	sync_keyboard_leds();
 
-	kigoKeyHit = 0;
-	helpKeyHit = 0;
-	f6KeyHit = 0;
-
 	for ( i = 0x00; i < 0x0f; i++)
 	{
 		KEYSNS_tbl_ptr[i] = 0xff;
@@ -648,52 +655,173 @@ int emuLoop(unsigned int pc, unsigned int counter) {
 		}
 		//int v = _iocs_bitsns(i);
 		int v = ((uint8_t*)0x800)[i];	// IOCS BITSNSのワークエリア直接参照
-		for ( j = 0; j < 8; j++)
-		{
-			if ((v & 1) == 1)
-			{
+		int mask = 1;
+		for ( j = 0; j < 8; j++) {
+			if (v & mask) {
 				hitkey = 1;
 				map = KEY_MAP[i][j];
 				Y = (map & 0xf00) >> 8;
 				X = (map & 0xff);
 				if (Y == 0xf)
 				{
+					int opt1_pressed = ((uint8_t*)0x800)[0xe] & 0x04;
 					// 特殊キー
 					switch (X)
 					{
+					// *********************************************
+					// 0x10-0x1f: Disk Change (Opt.1のPressが必要)
+					case 0x10: // ESCキー 0x704 (Eject)
+						if(opt1_pressed) {
+							if( !(last_bitsns[i] & mask)) { // edge detect
+								disk_change = 0;
+							}
+						} else {
+							Y = 0x7;
+							X = 0x04;
+						}
+						break;
+					case 0x11: // 1キー 0x002 (Disk1)
+						if(opt1_pressed) {
+							if( !(last_bitsns[i] & mask)) { // edge detect
+								disk_change = 1;
+							}
+						} else {
+							Y = 0x0;
+							X = 0x02;
+						}
+						break;
+					case 0x12: // 2キー 0x004 (Disk2)
+						if(opt1_pressed) {
+							if( !(last_bitsns[i] & mask)) { // edge detect
+								disk_change = 2;
+							}
+						} else {
+							Y = 0x0;
+							X = 0x04;
+						}
+						break;
+					case 0x13: // 3キー 0x008 (Disk3)
+						if(opt1_pressed) {
+							if( !(last_bitsns[i] & mask)) { // edge detect
+								disk_change = 3;
+							}
+						} else {
+							Y = 0x0;
+							X = 0x08;
+						}
+						break;
+					case 0x14: // 4キー 0x010 (Disk4)
+						if(opt1_pressed) {
+							if( !(last_bitsns[i] & mask)) { // edge detect
+								disk_change = 4;
+							}
+						} else {
+							Y = 0x0;
+							X = 0x10;
+						}
+						break;
+					case 0x15: // 5キー 0x020 (Disk5)
+						if(opt1_pressed) {
+							if( !(last_bitsns[i] & mask)) { // edge detect
+								disk_change = 5;
+							}
+						} else {
+							Y = 0x0;
+							X = 0x20;
+						}
+						break;
+					case 0x16: // 6キー 0x040 (Disk6)
+						if(opt1_pressed) {
+							if( !(last_bitsns[i] & mask)) { // edge detect
+								disk_change = 6;
+							}
+						} else {
+							Y = 0x0;
+							X = 0x40;
+						}
+						break;
+					case 0x17: // 7キー 0x080 (Disk7)
+						if(opt1_pressed) {
+							if( !(last_bitsns[i] & mask)) { // edge detect
+								disk_change = 7;
+							}
+						} else {
+							Y = 0x0;
+							X = 0x80;
+						}
+						break;
+					case 0x18: // 8キー 0x101 (Disk8)
+						if(opt1_pressed) {
+							if( !(last_bitsns[i] & mask)) { // edge detect
+								disk_change = 8;
+							}
+						} else {
+							Y = 0x1;
+							X = 0x01;
+						}
+						break;
+					case 0x19: // 9キー 0x102 (Disk9)
+						if(opt1_pressed) {
+							if( !(last_bitsns[i] & mask)) { // edge detect
+								disk_change = 9;
+							}
+						} else {
+							Y = 0x1;
+							X = 0x02;
+						}
+						break;
+					// *********************************************
 					case 0xf0: // SHIFTキー 0x601
 						Y = 0x6;
 						X = 0x01;
-						shiftKeyHit = 1;
+						shiftKeyPress = 1;
 						break;
 					case 0xf1: // LEFTキー 0x810
 						Y = 0x8; 
 						X = 0x10;
-						cursorKeyHit = 1;
+						if(!(last_bitsns[i] & mask)) { // edge detect
+							cursorKeyHit = 1;
+						}
 						break;
 					case 0xf2: // UPキー 0x820
 						Y = 0x8; 
 						X = 0x20;
-						cursorKeyHit = 2;
+						if(!(last_bitsns[i] & mask)) { // edge detect
+							cursorKeyHit = 2;
+						}
 						break;
 					case 0xf3: // DOWNキー 0x840
 						Y = 0x8; 
 						X = 0x40;
-						cursorKeyHit = 3;
+						if(!(last_bitsns[i] & mask)) { // edge detect
+							cursorKeyHit = 3;
+						}
 						break;
 					case 0xf4: // RIGHTキー 0x880
 						Y = 0x8; 
 						X = 0x80;
-						cursorKeyHit = 4;
+						if(!(last_bitsns[i] & mask)) { // edge detect
+							cursorKeyHit = 4;
+						}
+						break;
+					case 0xf8: // OPT.1
+						break;
+					case 0xf9: // OPT.2
 						break;
 					case 0xfc: // F6キーを押すと、デバッグレベル変更
-						f6KeyHit = 1;
+						if(!(last_bitsns[i] & mask)) { // edge detect
+							f6KeyHit = 1;
+						}
 						break;
 					case 0xfd: // 記号キーを押すと、PC周辺のメモリダンプ
-						kigoKeyHit = 1;
+						if(!(last_bitsns[i] & mask)) { // edge detect
+							kigoKeyHit = 1;
+						}
 						break;
 					case 0xfe: // HELPキーを押すとテキスト表示切り替え
-						helpKeyHit = 1;
+						if(!(last_bitsns[i] & mask)) { // edge detect
+							helpKeyHit = 1;
+						}
 						break;
 					case 0xff: // 登録キーによる終了
 						_setTextPlane(1);
@@ -706,19 +834,17 @@ int emuLoop(unsigned int pc, unsigned int counter) {
 					KEYSNS_tbl_ptr[Y] &= ~X;
 				}
 			}
-			v >>= 1;
+			mask <<= 1;
 		}
 	}
-
 	if (hitkey)
 	{
 		// 文字入力を読み捨てて、キーバッファを空にする
 		_dos_kflushio(0xff);
 	}
 
-	if (f6KeyHit && !f6KeyHitLast)
-	{
-		if( shiftKeyHit) {
+	if (f6KeyHit) {
+		if(shiftKeyPress) {
 			// シフトキーと同時押しの場合は、デバッグログレベルを下げる
 			debug_log_level = max(0, debug_log_level - 1);
 		} else {
@@ -727,29 +853,34 @@ int emuLoop(unsigned int pc, unsigned int counter) {
 		}
 		printf("デバッグログレベル=%d\n", debug_log_level);
 	}
-	f6KeyHitLast = f6KeyHit;
 
-	if (kigoKeyHit && !kigoKeyHitLast)
-	{
+	if (kigoKeyHit) {
 		printf("\n");
 		printf("loop count=%08d\ncycle=%08ld wait=%ld\n", emuLoopCounter, cpu_cycle_last, cpu_cycle_wait);
 		printf("COUNTER=%08x, inttick=%08d\n", counter, ms_vdp_interrupt_tick);
 		dump(pc >> 16, pc & 0x1fff);
 	}
-	kigoKeyHitLast = kigoKeyHit;
 
-	if (helpKeyHit && !helpKeyHitLast)
-	{
+	if (helpKeyHit) {
 		_toggleTextPlane();
 	}
-	helpKeyHitLast = helpKeyHit;
 
-	shiftAndCursorKeyHit = shiftKeyHit && cursorKeyHit;
-	if (shiftAndCursorKeyHit && !shiftAndCursorKeyHitLast)
-	{
+	if (shiftKeyPress && cursorKeyHit ) {
 		_moveTextPlane(cursorKeyHit);
 	}
-	shiftAndCursorKeyHitLast = shiftAndCursorKeyHit;
+
+	if( disk_change == 0) {
+		printf("ディスクを排出します\n");
+		disk_container->eject_disk(disk_container);
+	} else if (disk_change > 0) {
+		printf("ディスクを変更します\n");
+		disk_container->change_disk(disk_container, disk_change - 1);
+	}
+
+	for(i=0;i<16;i++) {
+		last_bitsns[i] = ((uint8_t*)0x800)[i];	// IOCS BITSNSのワークエリア直接参照し、一つ前の値を覚えておく
+	}
+
 	return 0;
 }
 
@@ -919,7 +1050,16 @@ void set_system_roms() {
 			for(i=0;i<diskcount;i++) {
 				printf("ディスクイメージ %d: %s\n", i, diskimages[i]);
 			}
-			allocateAndSetDISKBIOSROM(diskbios_user, diskcount, diskimages);
+			// ディスクコンテナの初期化
+			disk_container = ms_disk_container_alloc();
+			if (disk_container == NULL) {
+				printf("メモリが確保できません。\n");
+				ms_exit();
+				return;
+			}
+			ms_disk_container_init(disk_container, diskcount, diskimages);
+
+			allocateAndSetDISKBIOSROM(diskbios_user, disk_container);
 		}
     } else {
         // Load default CBIOS ROMs

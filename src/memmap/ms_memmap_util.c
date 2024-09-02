@@ -280,7 +280,7 @@ void allocateAndSetROM(const char *romFileName, int kind, int slot_base, int slo
  	close( crt_fh);
 }
 
-void allocateAndSetDISKBIOSROM(const char *romFileName, int diskcount, char* diskimages[]) {
+void allocateAndSetDISKBIOSROM(const char *romFileName, ms_disk_container_t* disk_container) {
 	int crt_fh;
 	int crt_length;
 	uint8_t *crt_buff;
@@ -311,15 +311,6 @@ void allocateAndSetDISKBIOSROM(const char *romFileName, int diskcount, char* dis
 		return;
 	}
 	read( crt_fh, crt_buff, 16 * 1024);
-
-	// ディスクコンテナの初期化
-	ms_disk_container_t* disk_container = ms_disk_container_alloc();
-	if (disk_container == NULL) {
-		printf("メモリが確保できません。\n");
-		ms_exit();
-		return;
-	}
-	ms_disk_container_init(disk_container, diskcount, diskimages);
 
 	ms_memmap_driver_DISKBIOS_PANASONIC_t* driver = ms_disk_bios_Panasonic_alloc();
 	if (driver == NULL) {

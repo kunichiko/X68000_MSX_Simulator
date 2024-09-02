@@ -12,7 +12,7 @@ AS = run68 /Users/ohnaka/work/XEiJ/HFS/HAS/HAS060.X
 LD = $(CROSS)gcc
 
 CFLAGS = -g -std=gnu90 -c -m68000 -O2 -finput-charset=CP932
-CFLAGS_DEBUG = -g -std=gnu90 -c -m68000 -finput-charset=CP932
+CFLAGS_DEBUG = -g -std=gnu90 -c -m68000 -DDEBUG -finput-charset=CP932
 LDFLAGS = -lm -lbas -liocs -ldos
 
 #GCC_OPTS = -c -O -g -finput-charset=CP932

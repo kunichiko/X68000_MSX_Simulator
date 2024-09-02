@@ -3,6 +3,7 @@
 
 #include <stdint.h>
 #include "ms_disk.h"
+#include "ms_disk_media.h"
 
 typedef struct ms_disk_media_sectorbase ms_disk_media_sectorbase_t;
 
@@ -29,7 +30,7 @@ typedef struct ms_disk_media_sectorbase {
 
 
 ms_disk_media_sectorbase_t* ms_disk_media_sectorbase_alloc();
-void ms_disk_media_sectorbase_init(ms_disk_media_sectorbase_t* instance);
+void ms_disk_media_sectorbase_init(ms_disk_media_sectorbase_t* instance, char* name);
 void ms_disk_media_sectorbase_deinit(ms_disk_media_sectorbase_t* instance);
 
 

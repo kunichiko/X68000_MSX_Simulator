@@ -18,12 +18,12 @@ ms_disk_media_sectorbase_t* ms_disk_media_sectorbase_alloc() {
 /*
 	初期化ルーチン
  */
-void ms_disk_media_sectorbase_init(ms_disk_media_sectorbase_t* instance) {
+void ms_disk_media_sectorbase_init(ms_disk_media_sectorbase_t* instance, char* name) {
 	if (instance == NULL) {
 		return;
 	}
 	// baseクラスの初期化
-	ms_disk_media_init(&instance->base);
+	ms_disk_media_init(&instance->base, name);
 	// メソッドの登録
 	instance->base.deinit = (void (*)(ms_disk_media_t*))ms_disk_media_sectorbase_deinit; //override
 	instance->base.read_track = ms_disk_media_sectorbase_read_track; //override

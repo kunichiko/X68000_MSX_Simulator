@@ -18,7 +18,7 @@ void ms_disk_media_dskformat_init(ms_disk_media_dskformat_t* instance, char* fil
 		return;
 	}
 	// baseクラスの初期化
-	ms_disk_media_sectorbase_init(&instance->base);
+	ms_disk_media_sectorbase_init(&instance->base, file_path);
 	// メソッドの登録
 	instance->base.base.deinit =  (void (*)(ms_disk_media_t*))ms_disk_media_dskformat_deinit; //override
 	instance->base.read_sector = ms_disk_media_dskformat_read_sector; //override

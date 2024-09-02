@@ -240,7 +240,7 @@ void ms_vdp_set_mode(ms_vdp_t* vdp, int mode) {
 		X68_GRAM[i] = 0;
 	}
 	vdp->ms_vdp_current_mode->init(vdp);
-	MS_LOG(MS_DEBUG_INFO,"VDP Mode: %s\n", vdp->ms_vdp_current_mode->get_mode_name(vdp));
+	MS_LOG(MS_LOG_INFO,"VDP Mode: %s\n", vdp->ms_vdp_current_mode->get_mode_name(vdp));
 
 	// スプライトの初期化処理
 	vdp->sprite_refresh_flag |= SPRITE_REFRESH_FLAG_PGEN;

@@ -3,6 +3,8 @@
 
 #include <stdint.h>
 #include "ms_disk.h"
+#include "ms_disk_media.h"
+#include "ms_disk_media_sectorbase.h"
 
 typedef struct ms_disk_media_dskformat ms_disk_media_dskformat_t;
 

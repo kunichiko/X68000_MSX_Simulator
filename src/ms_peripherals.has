@@ -245,8 +245,6 @@ set_RTC_mode:
 	rts	
 
 write_RTC_reg:
-	rts				* RTCの書き換えは怖いので無効化
-
 	andi.w	#$000f,d0		* 上位バイトをクリア
 	move.b	RTCR_13,d3
 	andi.w	#%00000011,d3
