@@ -36,8 +36,8 @@ void ms_disk_bios_Panasonic_init(ms_memmap_driver_DISKBIOS_PANASONIC_t* instance
 	instance->base.write8 = ms_memmap_write8_DISKBIOS_PANASONIC;
 	instance->base.write16 = ms_memmap_write16_DISKBIOS_PANASONIC;
 
-	// FDCはスロット3-2に配置されているが、他のページは0が読めるようにしておき
-	// 他のページでもFDCのレジスタだけは読み書きできるようにしなければいけないらしい
+	// FDCのROMはスロット3-2に配置されているが、他のページは値0x00が読めるようにしておき
+	// それらのページでもFDCのレジスタだけは読み書きできるようにしなければいけないらしい
 	uint8_t* zero_buffer = (uint8_t*)new_malloc( 8*1024 );
 	if(zero_buffer == NULL) {
 		printf("メモリが確保できません。\n");
@@ -123,10 +123,10 @@ uint8_t ms_memmap_read8_DISKBIOS_PANASONIC(ms_memmap_driver_t* driver, uint16_t 
  */
 void ms_memmap_write8_DISKBIOS_PANASONIC(ms_memmap_driver_t* driver, uint16_t addr, uint8_t data) {
 	ms_memmap_driver_DISKBIOS_PANASONIC_t* d = (ms_memmap_driver_DISKBIOS_PANASONIC_t*)driver;
-	int local_addr = addr & 0x3fff;
-	if ( local_addr >= 0x3ff0) {
+	addr &= 0x3fff;
+	if ((addr & 0x3ff0) == 0x3ff0) {
 		// Memory mapped DISK I/O
-		switch(local_addr) {
+		switch(addr) {
 		case 0x3ff8:
 			// レジスタ2 を更新
 			d->fdc.write_reg2(&d->fdc, data);

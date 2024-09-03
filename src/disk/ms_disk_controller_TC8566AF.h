@@ -98,10 +98,10 @@ typedef struct ms_disk_controller_TC8566AF {
 	uint16_t _rqm_delay_count;			// RQMが立つまでの遅延カウンタ
 
 	// buffer
-	ms_disk_sector_t sector_buffer[9];	// 最大9セクタ(1週分)のバッファ
-	int sector_buffer_count;			// バッファに入っているセクタ数
-	int sector_buffer_index;
+	int sector_buffer_ready;
+	ms_disk_sector_t sector_buffer;
 	int sector_buffer_byte_offset;		// 今読み書きしているセクタのバイトオフセット
+	int sector_buffer_serach_count;
 } ms_disk_controller_TC8566AF_t;
 
 ms_disk_controller_TC8566AF_t* ms_disk_controller_TC8566AF_alloc();

@@ -26,9 +26,6 @@ void ms_disk_media_dskformat_init(ms_disk_media_dskformat_t* instance, char* fil
 
 	// プロパティの初期化
 	instance->base.base.is_write_protected = 1; // デフォルトはライトプロテクト
-	instance->base.sectors_per_track = 9;
-	instance->base.heads = 2;
-	instance->base.tracks = 80;
 	instance->file_path = file_path;
 	instance->file_handle = open(file_path, O_RDONLY | O_BINARY); // ひとまずリードオンリー
 	if (instance->file_handle == -1) {
@@ -36,7 +33,12 @@ void ms_disk_media_dskformat_init(ms_disk_media_dskformat_t* instance, char* fil
 		ms_exit();
 		return;
 	}
-	instance->file_size = filelength(instance->file_handle);
+	uint32_t file_size = filelength(instance->file_handle);
+
+	instance->file_size	= file_size;
+	instance->base.sectors_per_track = 9;
+	instance->base.heads = file_size <= 512*9*80 ? 1 : 2;
+	instance->base.tracks = (file_size / instance->base.heads) / 9 / 512;
 	return;
 }
 
