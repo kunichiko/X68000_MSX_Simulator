@@ -627,9 +627,9 @@ static uint8_t read_data_transfer(THIS* d, uint8_t* finished) {
 			to_result_phase(d);
 		}
 		d->sector_buffer_byte_offset = 0;
-		d->_rqm_delay_count = 100;	// RQMが立つまでの遅延を長めに設定
+		d->_rqm_delay_count = 10;	// RQMが立つまでの遅延を長めに設定
 	} else {
-		d->_rqm_delay_count = 10;	// RQMが立つまでの遅延を設定
+		d->_rqm_delay_count = 1;	// RQMが立つまでの遅延を設定
 	}
 	d->request_for_master = 0;	// RQMを一度0にするが、ステータスを読むと1に戻るようになっている
 	return ret;
