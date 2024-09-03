@@ -27,6 +27,8 @@ void ms_disk_media_dskformat_init(ms_disk_media_dskformat_t* instance, char* fil
 	// プロパティの初期化
 	instance->base.base.is_write_protected = 1; // デフォルトはライトプロテクト
 	instance->base.sectors_per_track = 9;
+	instance->base.heads = 2;
+	instance->base.tracks = 80;
 	instance->file_path = file_path;
 	instance->file_handle = open(file_path, O_RDONLY | O_BINARY); // ひとまずリードオンリー
 	if (instance->file_handle == -1) {

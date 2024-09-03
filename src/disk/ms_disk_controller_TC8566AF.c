@@ -126,6 +126,8 @@ void ms_disk_controller_TC8566A_init(THIS* instance, ms_disk_container_t* contai
 
 	instance->request_for_master = 1;
 	instance->non_dma_mode = 1; // MSXはDMAを使わない
+
+	instance->_rqm_delay_count = 0;
 }
 
 void ms_disk_controller_TC8566A_deinit(THIS* instance) {
@@ -161,12 +163,35 @@ static void _TC8556AF_reg2_write(THIS* d, uint8_t data) {
  * @brief TC8566AFのレジスタ3に書き込む
  * 
  * 0x3FF9 - レジスタ3 (コントロールレジスタ1)
- * 何も起こらない
+ * ステータスレジスタ
+ * Bit-7	Bit-6	Bit-5	Bit-4	Bit-3	Bit-2	Bit-1	Bit-0
+ * ENB6		C6		ENB4	C4		ENB2	SBM		ENB0	FDCTC
  * 
+ * * ENB6: ENABLE C6
+ * 		* 1にすると、C6の値は D6 になる
+ * 		* 0にすると、C6の値は C6(bit6) になる(?)
+ * * ENB4: ENABLE C4
+ * 		* 1にすると、C4の値は D4 になる
+ * 		* 0にすると、C4の値は C4(bit4) になる(?)
+ * * ENB2: ENABLE C2
+ * 		* 1にすると、C2の値は D2 になる(?)
+ * * SBM: STANDBY MODE
+ * 		* 1にすると、FDCはスタンバイモードになる(?)
+ * * ENB0: ENABLE C0
+ * 		* 1にすると、C0の値は D0 になる(?)
+ * * FDCTC: FDC Terminal Count
+ * 		* Non-DMAモードで1をセットすると、データ転送が中断する
  * @param d 
  * @param data 
  */
 static void _TC8556AF_reg3_write(THIS* d, uint8_t data) {
+	MS_LOG( MS_LOG_DEBUG, "FDC: write reg3(control#1): %02x\n", data);
+	if (data & 0x01) {
+		// FDCTCが1になったら転送を中断する
+		if(d->phase == TC8566AF_PHASE_DATA_TRANSFER) {
+			to_result_phase(d);
+		}
+	}
 }
 
 /**
@@ -203,7 +228,15 @@ static uint8_t _TC8556AF_reg4_read(THIS* d) {
 				(ndm_req << 5) | //
 				(d->fdc_busy << 4) | //
 				(d->fdd_busy & 0x3);
-	MS_LOG(MS_LOG_DEBUG, "FDC Rd#4: %02x\n", ret);
+
+	// RQM(FDXのバッファが使えるかどうか)に 0 を返却したとしても、次に読んだら1になるようにする
+	if( d->_rqm_delay_count > 0 ) {
+		d->_rqm_delay_count--;
+	} else {
+		d->request_for_master = 1;	// RQM
+	}
+
+	MS_LOG(MS_LOG_TRACE, "FDC Rd#4: %02x\n", ret);
 	return ret;
 }
 
@@ -238,7 +271,7 @@ static uint8_t _TC8556AF_reg5_read(THIS* d) {
 		MS_LOG(MS_LOG_DEBUG, "FDC(Comm): CMD:\n %s Rd#5:\n", command->name);
 		break;
 	case TC8566AF_PHASE_DATA_TRANSFER:
-		MS_LOG(MS_LOG_DEBUG, "FDC(Trns): CMD: rest=%d\n %s Rd#5:\n", d->transfer_datas_rest, command->name);
+		MS_LOG(MS_LOG_TRACE, "FDC(Trns): CMD: rest=%d\n %s Rd#5:\n", d->transfer_datas_rest, command->name);
 		trans_read_func_t read = command->trans_read;
 		if (read == NULL) {
 			MS_LOG(MS_LOG_DEBUG, "***Trans read not implemented\n");
@@ -254,6 +287,7 @@ static uint8_t _TC8556AF_reg5_read(THIS* d) {
 				}
 			}
 		}
+		MS_LOG(MS_LOG_TRACE, "  -> ret: %02x\n", ret);
 		break;
 	case TC8566AF_PHASE_RESULT:
 		MS_LOG(MS_LOG_DEBUG, "FDC(Resl): CMD:\n %s Rd#5:\n", command->name);
@@ -269,9 +303,10 @@ static uint8_t _TC8556AF_reg5_read(THIS* d) {
 				end_command(d);
 			}
 		}
+		MS_LOG(MS_LOG_DEBUG, "  -> ret: %02x\n", ret);
+		d->request_for_master = 0;	// RQMを一度0にするが、ステータスを読むと1に戻るようになっている
 		break;	
 	}
-	MS_LOG(MS_LOG_DEBUG, "  -> ret: %02x\n", ret);
 	return ret;
 }
 
@@ -406,7 +441,8 @@ void end_command(THIS* d) {
 void execute(THIS* d) {
 	TC8566AF_command_t* command = &d->commands[d->command];
 	exec_func_t exec = command->execution_phase;
-	exec(d);
+	exec(d);	// 実行
+
 	if( command->trans_read != NULL) {
 		d->phase = TC8566AF_PHASE_DATA_TRANSFER;
 		d->data_input_output = 1;  // FDC -> Host
@@ -525,7 +561,7 @@ static void read_data_exec(THIS* d) {
 	// プロテクトの再現をする場合はそのタイミングなども合わせる必要がありますが、
 	// ここでは単にデータを読み込むだけとします
 
-	// ディスクを最大2週させ、該当のセクタを探しバッファする
+	// ディスクを最大2周させ、該当のセクタを探しバッファする
 	ms_disk_sector_t sector_buffer;
 	d->sector_buffer_count = 0;
 	int i;
@@ -544,7 +580,9 @@ static void read_data_exec(THIS* d) {
 			}
 		} else {
 			// 異なる場合はスキップ
-			MS_LOG(MS_LOG_DEBUG, "Skip: %d %d %d\n", sector_buffer.track, sector_buffer.head, sector_buffer.sector);
+			MS_LOG(MS_LOG_DEBUG, "Skip: %d %d %d (expect: %d %d %d)\n", //
+			 sector_buffer.track, sector_buffer.head, sector_buffer.sector, //
+			 d->value_C, d->value_H, d->value_R);
 		}
 	}
 	d->sector_buffer_index = 0;
@@ -552,20 +590,28 @@ static void read_data_exec(THIS* d) {
 
 	// d->transfer_datas_rest = (d->value_EOT - d->value_R + 1) * (128 << d->value_N); // TODO ひとまず決め打ち
 	d->transfer_datas_rest = d->sector_buffer_count * (128 << d->value_N);
+	MS_LOG(MS_LOG_DEBUG, "FDC: READ DATA Trns rest=%d\n", d->transfer_datas_rest);
 }
 
 static uint8_t read_data_transfer(THIS* d, uint8_t* finished) {
 	uint8_t ret = 0;
 	d->transfer_datas_rest -= 1;
 	if( d->transfer_datas_rest <= 0) {
+		MS_LOG(MS_LOG_DEBUG, "FDC: READ DATA Trns rest=%d\n", d->transfer_datas_rest);
 		to_result_phase(d);
 	}
 	// read data from disk
 	ret = d->sector_buffer[d->sector_buffer_index].data[d->sector_buffer_byte_offset++];
 	if ( d->sector_buffer_byte_offset == 512 ) {
+		// 1セクタ分読み込み終わった
+		MS_LOG(MS_LOG_DEBUG, "FDC: READ DATA Trns rest=%d\n", d->transfer_datas_rest);
 		d->sector_buffer_index++;
 		d->sector_buffer_byte_offset = 0;
+		d->_rqm_delay_count = 100;	// RQMが立つまでの遅延を長めに設定
+	} else {
+		d->_rqm_delay_count = 10;	// RQMが立つまでの遅延を設定
 	}
+	d->request_for_master = 0;	// RQMを一度0にするが、ステータスを読むと1に戻るようになっている
 	return ret;
 }
 
@@ -633,8 +679,9 @@ static uint8_t read_diagnostic_transfer(THIS* d, uint8_t* finished) {
 
 ********************************************************* */
 static void read_id_exec(THIS* d) {
-
+	MS_LOG( MS_LOG_INFO, "read_id_exec not implemented\n");
 }
+
 static uint8_t read_id_transfer(THIS* d, uint8_t* finished) {
 	to_result_phase(d);
 }
@@ -645,7 +692,7 @@ static uint8_t read_id_transfer(THIS* d, uint8_t* finished) {
 
 ********************************************************* */
 static void format_exec(THIS* d) {
-
+	MS_LOG( MS_LOG_INFO, "format_exec not implemented\n");
 }
 
 static void format_transfer(THIS* d, uint8_t data, uint8_t* finished) {
@@ -658,7 +705,7 @@ static void format_transfer(THIS* d, uint8_t data, uint8_t* finished) {
 
 ********************************************************* */
 static void scan_equal_exec(THIS* d) {
-
+	MS_LOG( MS_LOG_INFO, "scan_equal_exec not implemented\n");
 }
 
 static void scan_equal_transfer(THIS* d, uint8_t data, uint8_t* finished) {
@@ -671,7 +718,7 @@ static void scan_equal_transfer(THIS* d, uint8_t data, uint8_t* finished) {
 
 ********************************************************* */
 static void scan_low_or_equal_exec(THIS* d) {
-
+	MS_LOG( MS_LOG_INFO, "scan_low_or_equal_exec not implemented\n");
 }
 
 static void scan_low_or_equal_transfer(THIS* d, uint8_t data, uint8_t* finished) {
@@ -684,7 +731,7 @@ static void scan_low_or_equal_transfer(THIS* d, uint8_t data, uint8_t* finished)
 
 ********************************************************* */
 static void scan_high_or_equal_exec(THIS* d) {
-
+	MS_LOG( MS_LOG_INFO, "scan_high_or_equal_exec not implemented\n");
 }
 
 static void scan_high_or_equal_transfer(THIS* d, uint8_t data, uint8_t* finished) {
@@ -694,16 +741,43 @@ static void scan_high_or_equal_transfer(THIS* d, uint8_t data, uint8_t* finished
 /*********************************************************
 
 	SEEK
+ 			 Bit-7	Bit-6	Bit-5	Bit-4	Bit-3	Bit-2	Bita-1	Bit-0
+  	CMD[0]	0		0		0		0		1		1		1		1
+  	CMD[1]	X		X		X		X		X		X		US1		US0
+	CMD[2]	NCN7	NCN6	NCN5	NCN4	NCN3	NCN2	NCN1	NCN0
+
+	* US1, US0: ユニット選択
+	* NCN7-0: シーク先のシリンダ番号
 
 ********************************************************* */
 static void seek_exec(THIS* d) {
-	ms_disk_drive_floppy_t* drive = &d->drive[d->driveId];
+	// status 0
+	// b7-6	: IC(Interrupt Code) = 00 = 正常終了
+	// b5	: Seek End
+	// b4	: EC (Equipment Check)
+	// b3	: Not Ready
+	// b2	: Head Address
+	// b1-0	: Drive select
+	d->status0 = 0;
+
+	uint8_t HS = (d->command_byte_value[1] & 0x04) >> 2;
+	uint8_t DS = d->command_byte_value[1] & 0x03;
+	uint8_t ncn = d->command_byte_value[2];
+
+	ms_disk_drive_floppy_t* drive = &d->drive[DS];
 	if (drive->container == NULL) {
 		// ドライブが存在しない
 		d->status0 |= 0b10000000; // b7-6 = 10 (Invalid command)
+	} else {
+		// シーク実行
+		drive->seek(drive, ncn);
 	}
-	d->status0 |= 0x20; // Seek End
-	d->status0 |= 0x08; // Not ready (データが読めるようになるまでは、Not Readyで誤魔化す)
+
+	// result
+	d->status0 |= 0x20; 		// Seek End
+	d->status0 |= HS << 2;		// Head Address
+	d->status0 |= DS;		// 今回シークしたドライブをセット
+
 	uint8_t is_disk_inserted = drive->is_disk_inserted(drive);
 	d->status3 = //
 		(0 * 0x80) | // Fault
@@ -711,18 +785,55 @@ static void seek_exec(THIS* d) {
 		(is_disk_inserted * 0x20) | // Ready
 		(drive->is_track00 * 0x10) | // Track 0
 		(drive->is_double_sided * 0x08) | // Two side
-		(d->value_HS * 0x04) | // Head select
-		(d->value_DS); // Drive select
+		(HS * 0x04) |	 // Head select
+		(DS);			 // 今回シークしたドライブをセット
 }
 
 /*********************************************************
 
 	RECALIBRATE
 
+ 			 Bit-7	Bit-6	Bit-5	Bit-4	Bit-3	Bit-2	Bita-1	Bit-0
+  	CMD[0]	0		0		0		0		0		1		1		1
+  	CMD[1]	X		X		X		X		X		X		US1		US0
+
 ********************************************************* */
 static void recalibrate_exec(THIS* d) {
-	d->status0 |= 0x20; // Seek End
-	d->status0 |= 0x08; // Not ready (データが読めるようになるまでは、Not Readyで誤魔化す)
+	// status 0
+	// b7-6	: IC(Interrupt Code) = 00 = 正常終了
+	// b5	: Seek End
+	// b4	: EC (Equipment Check)
+	// b3	: Not Ready
+	// b2	: Head Address
+	// b1-0	: Drive select
+	d->status0 = 0;
+
+	uint8_t HS = (d->command_byte_value[1] & 0x04) >> 2;
+	uint8_t DS = d->command_byte_value[1] & 0x03;
+
+	ms_disk_drive_floppy_t* drive = &d->drive[DS];
+	if (drive->container == NULL) {
+		// ドライブが存在しない
+		d->status0 |= 0b10000000; // b7-6 = 10 (Invalid command)
+	} else {
+		// Track0までシーク実行
+		drive->seek(drive, 0);
+	}
+
+	// result
+	d->status0 |= 0x20; 		// Seek End
+	d->status0 |= HS << 2;		// Head Address
+	d->status0 |= DS;		// 今回シークしたドライブをセット
+
+	uint8_t is_disk_inserted = drive->is_disk_inserted(drive);
+	d->status3 = //
+		(0 * 0x80) | // Fault
+		(drive->is_write_protected * 0x40) | // Write Protect
+		(is_disk_inserted * 0x20) | // Ready
+		(drive->is_track00 * 0x10) | // Track 0
+		(drive->is_double_sided * 0x08) | // Two side
+		(HS * 0x04) |	 // Head select
+		(DS);			 // 今回シークしたドライブをセット
 }
 
 /*********************************************************
@@ -731,7 +842,8 @@ static void recalibrate_exec(THIS* d) {
 
 ********************************************************* */
 static void sense_interrupt_status_exec(THIS* d) {
-
+	// 何もすることはないので空でOK
+	MS_LOG( MS_LOG_INFO, "FDC: SENSE INTERRUPT STATUS\n");
 }
 
 /*********************************************************
@@ -740,7 +852,12 @@ static void sense_interrupt_status_exec(THIS* d) {
 
 ********************************************************* */
 static void specify_exec(THIS* d) {
-
+	// 何もすることはないので空でOK
+	uint8_t SRT = (d->command_byte_value[1] & 0xf0) >> 4;
+	uint8_t HUT = (d->command_byte_value[1] & 0x0f);
+	uint8_t HLT = (d->command_byte_value[2] & 0xfe) >> 1;
+	uint8_t ND = (d->command_byte_value[2] & 0x01);
+	MS_LOG( MS_LOG_INFO, "FDC: SPECIFY\n SRT=%d, HUT=%d, HLT=%d, ND=%d\n", SRT, HUT, HLT, ND);
 }
 
 /*********************************************************
@@ -772,7 +889,7 @@ static void sense_device_status_exec(THIS* d) {
 
 ********************************************************* */
 static void invalid_exec(THIS* d) {
-	MS_LOG(MS_LOG_DEBUG, "invalid command\n");
+	MS_LOG( MS_LOG_INFO, "invalid command\n");
 }
 
 
@@ -802,23 +919,20 @@ static uint8_t chrn_result(THIS* d, uint8_t* finished) {
 		ret = d->status2;
 		break;
 	case 3:
-		ret = d->status3;
-		break;
-	case 4:
 		ret = d->value_C;
 		break;
-	case 5:
+	case 4:
 		ret = d->value_H;
 		break;
-	case 6:
+	case 5:
 		ret = d->value_R;
 		break;
-	case 7:
+	case 6:
 		ret = d->value_N;
 		*finished = 1;
 		break;
 	default:
-		MS_LOG(MS_LOG_DEBUG, "invalid result index: %d\n", d->result_byte_index);
+		MS_LOG (MS_LOG_DEBUG, "invalid result index: %d\n", d->result_byte_index);
 		*finished = 1;
 		break;
 	}
@@ -837,7 +951,7 @@ static uint8_t sense_interrupt_status_result(THIS* d, uint8_t* finished) {
 		*finished = 1;
 		break;
 	default:
-		MS_LOG(MS_LOG_DEBUG, "invalid result index: %d\n", d->result_byte_index);
+		MS_LOG( MS_LOG_DEBUG, "invalid result index: %d\n", d->result_byte_index);
 		*finished = 1;
 		break;
 	}
@@ -852,7 +966,7 @@ static uint8_t sense_device_status_result(THIS* d, uint8_t* finished) {
 		*finished = 1;
 		break;
 	default:
-		MS_LOG(MS_LOG_DEBUG, "invalid result index: %d\n", d->result_byte_index);
+		MS_LOG( MS_LOG_DEBUG, "invalid result index: %d\n", d->result_byte_index);
 		*finished = 1;
 		break;
 	}
@@ -867,7 +981,7 @@ static uint8_t st0_result(THIS* d, uint8_t* finished) {
 		*finished = 1;
 		break;
 	default:
-		MS_LOG(MS_LOG_DEBUG, "invalid result index: %d\n", d->result_byte_index);
+		MS_LOG( MS_LOG_DEBUG, "invalid result index: %d\n", d->result_byte_index);
 		*finished = 1;
 		break;
 	}

@@ -116,7 +116,7 @@ static uint8_t _get_next_sector(ms_disk_drive_floppy_t* d, ms_disk_sector_t* sec
 			return 0; // 失敗
 		}
 		d->_track_buffer_ready = 1;
-		d->_present_sector_number = 0;
+		d->_present_sector_number = 1;
 	}
 
 	// TODO 本当はここでトラックの生データを解析してセクタを取得するが、ここでは決めうちで読み出す
@@ -124,8 +124,12 @@ static uint8_t _get_next_sector(ms_disk_drive_floppy_t* d, ms_disk_sector_t* sec
 	sector_buffer->head = d->_present_side_number;
 	sector_buffer->sector = d->_present_sector_number;
 	int offset = 80+12+3+1+50; // track header size
-	offset += 658 * sector_buffer->sector; // sector position
+	offset += 658 * (sector_buffer->sector-1); // sector position
 	offset += 12; // sector header size
+	offset += 4 + 4; // id addr mark & id data
+	offset += 2; // CRC
+	offset += 22 + 12; // gap2 + sync
+	offset += 3 + 1; // data mark
 	int i;
 	for(i=0; i<512; i++) {
 		sector_buffer->data[i] = d->_track_buffer.data[offset++];
@@ -135,7 +139,8 @@ static uint8_t _get_next_sector(ms_disk_drive_floppy_t* d, ms_disk_sector_t* sec
 
 	// 次のセクタへ
 	d->_present_sector_number++;
-	if(d->_present_sector_number >= 9) {
+	if(d->_present_sector_number > 9) {
 		d->_present_sector_number = 0;
 	}
+	return 1; // 成功
 }

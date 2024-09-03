@@ -94,6 +94,9 @@ typedef struct ms_disk_controller_TC8566AF {
 	uint8_t status3;
 	uint8_t driveId;
 
+	//
+	uint16_t _rqm_delay_count;			// RQMが立つまでの遅延カウンタ
+
 	// buffer
 	ms_disk_sector_t sector_buffer[9];	// 最大9セクタ(1週分)のバッファ
 	int sector_buffer_count;			// バッファに入っているセクタ数

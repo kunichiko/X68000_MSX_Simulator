@@ -125,8 +125,6 @@ void ms_disk_media_sectorbase_read_track(ms_disk_media_t* media, uint32_t track_
 	uint16_t CRC;
 	int i,j;
 	for(i=0; i<instance->sectors_per_track; i++, sector_id++) {
-		instance->read_sector(media, sector_id, &sector);
-
 		_write_data_to_track(12, 0x00, track, &offset);	// sync
 		_write_data_to_track( 3, 0xa1, track, &offset);	// ID addr mark (1)
 		_write_data_to_track( 1, 0xfe, track, &offset);	// ID addr mark (2)
@@ -145,7 +143,7 @@ void ms_disk_media_sectorbase_read_track(ms_disk_media_t* media, uint32_t track_
 		_write_data_to_track( 3, 0xa1, track, &offset);	// data mark (1)
 		_write_data_to_track( 1, 0xfb, track, &offset);	// data mark (2)
 
-		instance->read_sector(media, sector_id + i, &sector);
+		instance->read_sector(media, sector_id, &sector);
 		memcpy(raw_track->data + offset, &sector, 512);
 		for(j=0; j<512; j++) {
 			_write_data_to_track(1, sector[j], track, &offset);

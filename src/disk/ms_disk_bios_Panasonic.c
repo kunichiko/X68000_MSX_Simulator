@@ -3,6 +3,7 @@
 #include <stdint.h>
 #include <stddef.h>
 #include <fcntl.h>
+#include "../ms.h"
 #include "../memmap/ms_memmap.h"
 #include "ms_disk_bios_Panasonic.h"
 
@@ -103,6 +104,7 @@ uint8_t ms_memmap_read8_DISKBIOS_PANASONIC(ms_memmap_driver_t* driver, uint16_t 
 			// レジスタ5 を参照
 			return d->fdc.read_reg5(&d->fdc);
 		default:
+			MS_LOG(MS_LOG_INFO, "DISKBIOS_PANASONIC: read8: unknown addr: %04x\n", addr);
 			return 0xff;
 		}
 	} else {
@@ -140,6 +142,9 @@ void ms_memmap_write8_DISKBIOS_PANASONIC(ms_memmap_driver_t* driver, uint16_t ad
 		case 0x3ffb:
 			// レジスタ5 を更新
 			d->fdc.write_reg5(&d->fdc, data);
+			break;
+		default:
+			MS_LOG(MS_LOG_INFO, "DISKBIOS_PANASONIC: write8: unknown addr: %04x\n", addr);
 			break;
 		}
 	}
