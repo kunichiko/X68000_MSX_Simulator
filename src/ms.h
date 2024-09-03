@@ -18,6 +18,7 @@
 #define MS_LOG(level, ...)
 #endif
 #define MS_LOG_NONE 0
+#define MS_LOG_ERROR 1
 #define MS_LOG_INFO 1
 #define MS_LOG_DEBUG 2
 #define MS_LOG_TRACE 3

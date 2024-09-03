@@ -79,23 +79,25 @@ uint32_t get_vram_address(ms_vdp_t* vdp, uint32_t x, uint32_t y, int* mod) {
 		if (mod != NULL) {
 			*mod = x & 0x01;
 		}
-		return (y&0x3ff)*128 + x/2;
+		return (y&0x3ff)*128 + (x&0xff)/2;
 	case CRT_MODE_GRAPHIC5:
 		if (mod != NULL) {
 			*mod = x & 0x03;
 		}
-		return (y&0x3ff)*128 + x/4;
+		return (y&0x3ff)*128 + (x&0x1ff)/4;
 	case CRT_MODE_GRAPHIC6:
 		if (mod != NULL) {
 			*mod = x & 0x01;
 		}
-		return (y&0x3ff)*256 + x/2;
+		return (y&0x3ff)*256 + (x&0x1ff)/2;
 	case CRT_MODE_GRAPHIC7:
 		if (mod != NULL) {
 			*mod = 0;
 		}
-		return (y&0x3ff)*256 + x;
+		return (y&0x3ff)*256 + (x&0xff);
 	}
+	MS_LOG(MS_LOG_ERROR,"get_vram_address: unknown CRT mode\n");
+	return 0;
 }
 
 /*
@@ -273,12 +275,10 @@ void cmd_LINE(ms_vdp_t* vdp, uint8_t cmd, uint8_t logiop) {
 	LMMM
 */
 void cmd_LMMM(ms_vdp_t* vdp, uint8_t cmd, uint8_t logiop) {
-	if (0) {
-		MS_LOG(MS_LOG_DEBUG,"LMMM START****\n");
-		MS_LOG(MS_LOG_DEBUG,"  sx=0x%03x, sy=0x%03x\n", vdp->sx, vdp->sy);
-		MS_LOG(MS_LOG_DEBUG,"  dx=0x%03x, dy=0x%03x\n", vdp->dx, vdp->dy);
-		MS_LOG(MS_LOG_DEBUG,"  nx=0x%03x, ny=0x%03x\n", vdp->nx, vdp->ny);
-	}
+	MS_LOG(MS_LOG_DEBUG,"LMMM START****\n");
+	MS_LOG(MS_LOG_DEBUG,"  sx=0x%03x, sy=0x%03x\n", vdp->sx, vdp->sy);
+	MS_LOG(MS_LOG_DEBUG,"  dx=0x%03x, dy=0x%03x\n", vdp->dx, vdp->dy);
+	MS_LOG(MS_LOG_DEBUG,"  nx=0x%03x, ny=0x%03x\n", vdp->nx, vdp->ny);
 
 	int	crt_width = vdp->ms_vdp_current_mode->crt_width;
 	int dots_per_byte = vdp->ms_vdp_current_mode->dots_per_byte;
@@ -438,9 +438,11 @@ void cmd_LMMC_exe(ms_vdp_t* vdp, uint8_t value) {
 	HMMV
 */
 void cmd_HMMV(ms_vdp_t* vdp, uint8_t cmd) {
-	if (0) {
-		MS_LOG(MS_LOG_DEBUG,"HMMV START********\n");
-	}
+	MS_LOG(MS_LOG_DEBUG,"HMMV START********\n");
+	MS_LOG(MS_LOG_DEBUG,"  sx=0x%03x, sy=0x%03x\n", vdp->sx, vdp->sy);
+	MS_LOG(MS_LOG_DEBUG,"  dx=0x%03x, dy=0x%03x\n", vdp->dx, vdp->dy);
+	MS_LOG(MS_LOG_DEBUG,"  nx=0x%03x, ny=0x%03x\n", vdp->nx, vdp->ny);
+
 	// 高速化のためのキャッシュ
 	int	crt_width = vdp->ms_vdp_current_mode->crt_width;
 	int dots_per_byte = vdp->ms_vdp_current_mode->dots_per_byte;
@@ -563,6 +565,10 @@ void cmd_YMMM(ms_vdp_t* vdp, uint8_t cmd) {
 
 void cmd_HMMM(ms_vdp_t* vdp, uint8_t cmd) {
 	MS_LOG(MS_LOG_DEBUG,"HMMM START****\n");
+	MS_LOG(MS_LOG_DEBUG,"  sx=0x%03x, sy=0x%03x\n", vdp->sx, vdp->sy);
+	MS_LOG(MS_LOG_DEBUG,"  dx=0x%03x, dy=0x%03x\n", vdp->dx, vdp->dy);
+	MS_LOG(MS_LOG_DEBUG,"  nx=0x%03x, ny=0x%03x\n", vdp->nx, vdp->ny);
+
 	// 高速化のためのキャッシュ
 	int	crt_width = vdp->ms_vdp_current_mode->crt_width;
 	int dots_per_byte = vdp->ms_vdp_current_mode->dots_per_byte;
@@ -630,9 +636,9 @@ void cmd_HMMC_exe(ms_vdp_t* vdp, uint8_t value);
 static uint8_t debug_count = 0;
 
 void cmd_HMMC(ms_vdp_t* vdp, uint8_t cmd) {
-	if (0) {
-		MS_LOG(MS_LOG_DEBUG,"HMMC START********\n");
-	}
+	MS_LOG(MS_LOG_DEBUG,"HMMC START********\n");
+	MS_LOG(MS_LOG_DEBUG,"  dx=0x%03x, dy=0x%03x\n", vdp->dx, vdp->dy);
+	MS_LOG(MS_LOG_DEBUG,"  nx=0x%03x, ny=0x%03x\n", vdp->nx, vdp->ny);
 
 	int	crt_width = vdp->ms_vdp_current_mode->crt_width;
 	int dots_per_byte = vdp->ms_vdp_current_mode->dots_per_byte;
@@ -712,6 +718,7 @@ void cmd_HMMC_exe(ms_vdp_t* vdp, uint8_t value) {
 
 
 void vdp_command_exec(ms_vdp_t* vdp, uint8_t cmd) {
+	MS_LOG(MS_LOG_DEBUG,"vdp_command_exec: %02x\n", cmd);
 	uint8_t command = (cmd & 0b11110000) >> 4;
 	int logiop = cmd & 0b00001111;
 	switch(command){

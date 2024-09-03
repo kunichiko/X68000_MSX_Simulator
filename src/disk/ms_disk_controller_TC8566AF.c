@@ -550,9 +550,8 @@ void decode_cmd_chrn(THIS* d) {
 static uint8_t read_data_setup(THIS* d);
 
 static void read_data_exec(THIS* d) {
-	MS_LOG( MS_LOG_INFO, "FDC READ DATA\n");
+	MS_LOG( MS_LOG_DEBUG, "FDC READ DATA\n");
 	decode_cmd_chrn(d);
-	// TODO: read data from disk
 	ms_disk_drive_floppy_t* drive = &d->drive[d->driveId];
 
 	if ( d->value_R > d->value_EOT) {
@@ -607,7 +606,7 @@ static uint8_t read_data_setup(THIS* d) {
 
 static uint8_t read_data_transfer(THIS* d, uint8_t* finished) {
 	if(d->sector_buffer_byte_offset == 0) {
-		MS_LOG( MS_LOG_INFO, "FDC READ: C:%d H:%d R:%d\n", d->sector_buffer.track, d->sector_buffer.head, d->sector_buffer.sector);
+		MS_LOG( MS_LOG_DEBUG, "FDC READ: C:%d H:%d R:%d\n", d->sector_buffer.track, d->sector_buffer.head, d->sector_buffer.sector);
 	}
 
 	uint8_t ret = 0;
@@ -933,7 +932,7 @@ static uint8_t chrn_result(THIS* d, uint8_t* finished) {
 	switch(d->result_byte_index) {
 	case 0:
 		TC8566AF_command_t* command = &d->commands[d->command];
-		MS_LOG (MS_LOG_INFO, "CHRN result: C:%d H:%d R:%d N:%d (%s)\n", d->value_C, d->value_H, d->value_R, d->value_N, command->name);
+		MS_LOG (MS_LOG_DEBUG, "CHRN result: C:%d H:%d R:%d N:%d (%s)\n", d->value_C, d->value_H, d->value_R, d->value_N, command->name);
 		ret = d->status0;
 		break;
 	case 1:

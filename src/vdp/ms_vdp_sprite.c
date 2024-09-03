@@ -541,7 +541,7 @@ void ms_vdp_sprite_vsync_draw(ms_vdp_t* vdp) {
 		int visible_sprite_planes = 0;
 		plNum = 0;
 		int x,y,ec = 0;
-		if ( (vdp->r08 & 0x01) == 0 ) {
+		if ( (vdp->r08 & 0x02) == 0 ) {
 			// スプライト非表示ではない時
 			for(;plNum<32;plNum++) {
 				y = sprattr[plNum*SAT_SIZE+0];
