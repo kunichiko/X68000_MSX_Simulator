@@ -181,7 +181,7 @@ typedef struct ms_vdp {
 	uint8_t cmd_current;
 	uint8_t cmd_logiop;
 	uint8_t cmd_arg;
-	uint16_t cmd_vram_addr;
+	uint32_t cmd_vram_addr;
 	uint16_t cmd_vram_addr_mod;		// 論理転送時、vram_addrの1バイト内の位置 GRAPHIC4,6の場合は 0,1、GRAPHIC5の場合は 0,1,2,3
 	uint16_t cmd_nx_count;
 	uint16_t cmd_ny_count;

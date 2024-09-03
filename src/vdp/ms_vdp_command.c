@@ -89,12 +89,12 @@ uint32_t get_vram_address(ms_vdp_t* vdp, uint32_t x, uint32_t y, int* mod) {
 		if (mod != NULL) {
 			*mod = x & 0x01;
 		}
-		return (y&0x3ff)*256 + (x&0x1ff)/2;
+		return (y&0x1ff)*256 + (x&0x1ff)/2;
 	case CRT_MODE_GRAPHIC7:
 		if (mod != NULL) {
 			*mod = 0;
 		}
-		return (y&0x3ff)*256 + (x&0xff);
+		return (y&0x1ff)*256 + (x&0xff);
 	}
 	MS_LOG(MS_LOG_ERROR,"get_vram_address: unknown CRT mode\n");
 	return 0;
@@ -269,6 +269,71 @@ void cmd_LINE(ms_vdp_t* vdp, uint8_t cmd, uint8_t logiop) {
 	}
 }
 
+/*
+	LMMV
+*/
+void cmd_LMMV(ms_vdp_t* vdp, uint8_t cmd, uint8_t logiop) {
+	MS_LOG(MS_LOG_DEBUG,"LMMV START****\n");
+	MS_LOG(MS_LOG_DEBUG,"  dx=0x%03x, dy=0x%03x\n", vdp->dx, vdp->dy);
+	MS_LOG(MS_LOG_DEBUG,"  nx=0x%03x, ny=0x%03x\n", vdp->nx, vdp->ny);
+
+	int	crt_width = vdp->ms_vdp_current_mode->crt_width;
+	int dots_per_byte = vdp->ms_vdp_current_mode->dots_per_byte;
+	int bits_per_dot = vdp->ms_vdp_current_mode->bits_per_dot;
+	uint8_t DIX = vdp->cmd_arg & 0x04;
+	uint8_t DIY = vdp->cmd_arg & 0x08;
+	uint16_t nx = vdp->nx == 0 ? crt_width : vdp->nx;
+	uint16_t ny = vdp->ny;
+	uint8_t clr = vdp->clr & ((1<<vdp->ms_vdp_current_mode->bits_per_dot)-1);
+
+	vdp->cmd_current = cmd;
+	vdp->cmd_arg = vdp->arg;
+	int dst_mod;
+	uint32_t dst_vram_addr = get_vram_address(vdp, vdp->dx, vdp->dy, &dst_mod);
+	uint32_t dst_vram_addr_mod = dst_vram_addr * dots_per_byte + dst_mod;
+
+	int x,y,i;
+	for(y=0; y < ny; y++) {
+		dst_vram_addr = dst_vram_addr_mod / dots_per_byte;
+		dst_mod = dst_vram_addr_mod % dots_per_byte;
+		uint16_t* gram = to_gram(vdp, dst_vram_addr, dst_mod);
+		for(x=0; x < nx; x+=1) {	// 1ドットずつ処理
+			dst_vram_addr = dst_vram_addr_mod / dots_per_byte;
+			dst_mod = dst_vram_addr_mod % dots_per_byte;
+			// VRAMからデータを読み出す
+			uint8_t dst = read_vram_logical(vdp, dst_vram_addr, dst_mod);
+			// 論理演算実行
+			dst = logical_operation(dst, clr, logiop);
+			// VRAMに書き込む
+			write_vram_logical(vdp, dst_vram_addr, dst_mod, dst);
+			// GRAMに書き込む
+			*gram = dst;
+			if(crt_width == 256) gram[256*512] = dst;
+			// DIXに従ってVRAMアドレスを更新
+			if (DIX == 0) {
+				// DIX=0の時
+				dst_vram_addr_mod += 1;
+				gram++;
+			} else {
+				// DIX=1の時
+				dst_vram_addr_mod -= 1;
+				gram--;
+			}
+		}
+		if ( DIX == 0 ) {		// DIX
+			dst_vram_addr_mod -= vdp->nx;
+		} else {
+			dst_vram_addr_mod += vdp->nx;
+		}
+		if ( DIY == 0 ) {		// DIY
+			dst_vram_addr_mod += crt_width;
+			vdp->dy += 1;						// DYは書き換わる
+		} else {
+			dst_vram_addr_mod -= crt_width;
+			vdp->dy -= 1;						// DYは書き換わる
+		}
+	}
+}
 
 
 /*
@@ -326,19 +391,23 @@ void cmd_LMMM(ms_vdp_t* vdp, uint8_t cmd, uint8_t logiop) {
 				gram--;
 			}
 		}
-		if ( (vdp->cmd_arg & 0x4) == 0 ) {
+		if ( (vdp->cmd_arg & 0x4) == 0 ) {		// DIX
 			src_vram_addr_mod -= vdp->nx;
 			dst_vram_addr_mod -= vdp->nx;
 		} else {
 			src_vram_addr_mod += vdp->nx;
 			dst_vram_addr_mod += vdp->nx;
 		}
-		if ( (vdp->cmd_arg & 0x8) == 0 ) {
+		if ( (vdp->cmd_arg & 0x8) == 0 ) {		// DIY
 			src_vram_addr_mod += crt_width;
 			dst_vram_addr_mod += crt_width;
+			vdp->sy += 1;						// DYは書き換わる
+			vdp->dy += 1;						// DYは書き換わる
 		} else {
 			src_vram_addr_mod -= crt_width;
 			dst_vram_addr_mod -= crt_width;
+			vdp->sy -= 1;						// DYは書き換わる
+			vdp->dy -= 1;						// DYは書き換わる
 		}
 	}
 }
@@ -350,9 +419,7 @@ void cmd_LMMM(ms_vdp_t* vdp, uint8_t cmd, uint8_t logiop) {
 void cmd_LMMC_exe(ms_vdp_t* vdp, uint8_t value);
 
 void cmd_LMMC(ms_vdp_t* vdp, uint8_t cmd, uint8_t logiop) {
-	if (0) {
-		MS_LOG(MS_LOG_DEBUG,"LMMC STAR********\n");
-	}
+	MS_LOG(MS_LOG_DEBUG,"LMMC STAR********\n");
 
 	int mod;
 	vdp->cmd_current = cmd;
@@ -368,7 +435,7 @@ void cmd_LMMC(ms_vdp_t* vdp, uint8_t cmd, uint8_t logiop) {
 }
 
 void cmd_LMMC_exe(ms_vdp_t* vdp, uint8_t value) {
-	//MS_LOG(MS_LOG_DEBUG,"LMMC exe: %02x, nx count=%03x, ny count=%03x\n", value, vdp->cmd_nx_count, vdp->cmd_ny_count);
+	MS_LOG(MS_LOG_DEBUG,"LMMC exe: %02x, nx count=%03x, ny count=%03x\n", value, vdp->cmd_nx_count, vdp->cmd_ny_count);
 	if(vdp->cmd_ny_count == 0 && vdp->cmd_nx_count == 0) {
 		vdp->s02 &= 0xfe;	// CEビットをクリア
 		vdp->cmd_current = 0;
@@ -412,15 +479,17 @@ void cmd_LMMC_exe(ms_vdp_t* vdp, uint8_t value) {
 		vdp->ny--;			// NYは更新される？
 		if(vdp->cmd_ny_count > 0) {
 			vdp->cmd_nx_count = vdp->nx;
-			if ( (vdp->cmd_arg & 0x4) == 0 ) {
+			if ( (vdp->cmd_arg & 0x4) == 0 ) {		// DIX
 				vaddr_mod -= vdp->nx;
 			} else {
 				vaddr_mod += vdp->nx;
 			}
-			if ( (vdp->cmd_arg & 0x8) == 0 ) {
+			if ( (vdp->cmd_arg & 0x8) == 0 ) {		// DIY
 				vaddr_mod += crt_width;
+				vdp->dy += 1;						// DYは書き換わる
 			} else {
 				vaddr_mod -= crt_width;
+				vdp->dy -= 1;						// DYは書き換わる
 			}
 		} else {
 			// 全部終わったらCEビットをクリア
@@ -439,7 +508,6 @@ void cmd_LMMC_exe(ms_vdp_t* vdp, uint8_t value) {
 */
 void cmd_HMMV(ms_vdp_t* vdp, uint8_t cmd) {
 	MS_LOG(MS_LOG_DEBUG,"HMMV START********\n");
-	MS_LOG(MS_LOG_DEBUG,"  sx=0x%03x, sy=0x%03x\n", vdp->sx, vdp->sy);
 	MS_LOG(MS_LOG_DEBUG,"  dx=0x%03x, dy=0x%03x\n", vdp->dx, vdp->dy);
 	MS_LOG(MS_LOG_DEBUG,"  nx=0x%03x, ny=0x%03x\n", vdp->nx, vdp->ny);
 
@@ -490,8 +558,10 @@ void cmd_HMMV(ms_vdp_t* vdp, uint8_t cmd) {
 		}
 		if ( DIY == 0 ) {
 			dst_vram_addr += crt_width / dots_per_byte;
+			vdp->dy += 1;						// DYは書き換わる
 		} else {
 			dst_vram_addr -= crt_width / dots_per_byte;
+			vdp->dy -= 1;						// DYは書き換わる
 		}
 	}
 
@@ -554,9 +624,13 @@ void cmd_YMMM(ms_vdp_t* vdp, uint8_t cmd) {
 		if ( DIY == 0 ) {
 			src_vram_addr += crt_width / dots_per_byte;
 			dst_vram_addr += crt_width / dots_per_byte;
+			vdp->sy += 1;						// DYは書き換わる
+			vdp->dy += 1;						// DYは書き換わる
 		} else {
 			src_vram_addr -= crt_width / dots_per_byte;
 			dst_vram_addr -= crt_width / dots_per_byte;
+			vdp->sy -= 1;						// DYは書き換わる
+			vdp->dy -= 1;						// DYは書き換わる
 		}
 	}
 
@@ -620,9 +694,13 @@ void cmd_HMMM(ms_vdp_t* vdp, uint8_t cmd) {
 		if ( DIY == 0 ) {
 			src_vram_addr += crt_width / dots_per_byte;
 			dst_vram_addr += crt_width / dots_per_byte;
+			vdp->sy += 1;						// DYは書き換わる
+			vdp->dy += 1;						// DYは書き換わる
 		} else {
 			src_vram_addr -= crt_width / dots_per_byte;
 			dst_vram_addr -= crt_width / dots_per_byte;
+			vdp->sy -= 1;						// DYは書き換わる
+			vdp->dy -= 1;						// DYは書き換わる
 		}
 	}
 	rewrite_sprite_if_needed(vdp);
@@ -703,8 +781,10 @@ void cmd_HMMC_exe(ms_vdp_t* vdp, uint8_t value) {
 			}
 			if ( (vdp->cmd_arg & 0x8) == 0 ) {		// DIY
 				vaddr += crt_width / dots_per_byte;
+				vdp->dy += 1;						// DYは書き換わる
 			} else {
 				vaddr -= crt_width / dots_per_byte;
+				vdp->dy -= 1;						// DYは書き換わる
 			}
 		} else {
 			// 全部終わったらCEビットをクリア
@@ -732,8 +812,9 @@ void vdp_command_exec(ms_vdp_t* vdp, uint8_t cmd) {
 	case 0b0111: // LINE
 		cmd_LINE(vdp, command, logiop);
 		break;
-	// case 0b1000: // LMMV
-	// 	break;
+	case 0b1000: // LMMV
+		cmd_LMMV(vdp, command, logiop);
+		break;
 	case 0b1001: // LMMM
 		cmd_LMMM(vdp, command, logiop);
 		break;

@@ -874,11 +874,11 @@ int emuLoop(unsigned int pc, unsigned int counter) {
 	}
 
 	if( disk_change == 0) {
-		printf("ディスクを排出します\n");
 		disk_container->eject_disk(disk_container);
+		printf("Disk ejected\n");
 	} else if (disk_change > 0) {
-		printf("ディスクを変更します\n");
 		disk_container->change_disk(disk_container, disk_change - 1);
+		printf("Disk changed: %s\n", disk_container->current_disk->name);
 	}
 
 	for(i=0;i<16;i++) {
