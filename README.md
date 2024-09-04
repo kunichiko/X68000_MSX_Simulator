@@ -21,7 +21,7 @@ But I decided to make it public for my memorial.
 > pxctl -c b
 ```
 
-実行は exe フォルダの下で行います。exe フォルダ以下にはCBIOSのROMファイルがおいてありますので、そのまま起動することができます(まだ画面が崩れたりしますが)。一方、CBIOSにはBASICが入っていないので、なんらかのゲームのROMイメージなどを使用しないと何もできません。
+実行は exe フォルダの下で行います。exe フォルダ以下にはCBIOSのROMファイルがおいてありますので、そのまま起動することができます。一方、CBIOSにはBASICが入っていないので、なんらかのゲームのROMイメージなどを使用しないと何もできません。
 
 ROM起動のゲームを起動したい場合は、実機などでROMを吸い出し、以下のようにして起動してください。
 
@@ -54,7 +54,7 @@ ROMの種類は自動判別しますが、現在サポートしているのは�
 ```
 
 
-また、 `-r1` や `-r2` を使うと、アタッチするスロットを明示的に指定することが可能です。例えば、スロット1に [TINY SLOT CHECKER for MSX](https://www.tiny-yarou.com/slotchecker.html) の ROMをセットし、スロット2にゲームのROMをセットしたいる場合は、以下のようにして起動します。
+また、 `-r1` や `-r2` を使うと、アタッチするスロットを明示的に指定することが可能です。例えば、スロット1に [TINY SLOT CHECKER for MSX](https://www.tiny-yarou.com/slotchecker.html) の ROMをセットし、スロット2にゲームのROMをセットしたい場合は、以下のようにして起動します。
 
 ```
 > ms.x -r1 TNSLCK.ROM -r2 GAME.ROM,NOR
@@ -88,6 +88,69 @@ https://www.msxblue.com/manual/romdatabase.htm
 
 将来的にはこのデータベースファイルを使って、ROMの自動判別を行うようにしたいです。
 
+## BIOSの差し替え
+
+C-BIOSではなく、実機のROMを使いたい場合は、自分でダンプするなどしてご用意ください。
+
+* MAINROM.ROM - メインROM 32KB
+* SUBROM.ROM - サブROM 16KB
+
+の２つをご用意いただき、-rm、-rs オプションで指定してください。
+常用する場合は、後述する `MS.INI` ファイルに書いておくと便利です。
+
+```
+> ms.x -r GAME.ROM -rm MY_MAINROM.ROM -rs MY_SUBROM.ROM
+```
+
+## フロッピーディスクのサポート
+
+C-BIOSはDISK BIOSをサポートしていませんので、フロッピーディスクが必要な場合はPanasonic系の実機のDISK BIOSを抽出し、 `-rd` オプションで指定する必要があります。
+
+例えば、FS-A1FのBIOSを使いたい場合は、以下のように指定します。
+
+```
+> ms.x -rm fs-a1f_basic-bios2.rom -rs fs-a1f_msx2sub.rom -rd fs-a1f_disk.rom DISKIMAGE1.DSK DISKIMAGE2.DSK
+```
+
+上記の通り、使用したいディスクイメージ(.DSK)も引数で指定しておいてください。最大9個まで指定できます。
+ディスクの切り替えは `OPT.1` + [数字] キーで行うことができます。数字キーはテンキーではなく、QWERTYの上の数字です。
+
+後述する `MS.INI` ファイルを使い、以下のようにしておくと、いちいちオプションを指定しなくても良いため便利です。
+
+```
+mainrom=fs-a1f_basic-bios2.rom
+subrom=fs-a1f_msx2sub.rom 
+diskrom=fs-a1f_disk.rom
+diskimage=DISKIMAGE1.DSK
+```
+
+### アクセスランプ
+
+以下のキーボードLEDをアクセスランプとして使っています。
+
+* FDD1 - 「コード入力」
+* FDD2 - 「ローマ字」
+
+## MS.INIファイル
+BIOSROM、DISK BIOS、ディスクイメージ、カートリッジROMの指定などを `MS.INI` ファイルに書いておくことができます。
+`MS.INI` ファイルは **カレントディレクトリ** から読み込みますので、例えば、ゲームのROMイメージがあるディレクトリに `MS.INI` ファイルを置いておくと、そのディレクトリで `ms.x` を実行するだけで、自動的に設定が読み込まれる、といった使い方が可能です。
+
+MS.INIファイルの書式は以下のとおりです。最低限、mainromとsubromの指定がないと起動できませんのでご注意ください。
+
+```
+mainrom=MY_MAINROM.ROM
+subrom=MY_SUBROM.ROM
+diskrom=MY_DISKROM.ROM
+cart1=GAME1.ROM
+cart2=OTHER.ROM
+; ディスクイメージを最大9個まで指定できます(書いた順番にセットされます)
+diskimage=DISKIMAGE1.DSK
+diskimage=DISKIMAGE2.DSK
+diskimage=DISKIMAGE3.DSK
+```
+
+行頭を `;` もしくは `#` にするとその行はコメントとして扱われます。
+
 ## 起動後の操作
 
 * HELPキー
@@ -98,6 +161,10 @@ https://www.msxblue.com/manual/romdatabase.htm
 	* MS.X を終了します
 * 記号キー
 	* デバッグ情報を出力します
+* F6キー
+	* ms_debug.x を使っている場合のみ有効です
+	* F6キーを押すと、ログレベルが上がります
+	* SHIFT + F6キーを押すと、ログレベルが下がります
 
 ## 制限
 
@@ -119,22 +186,6 @@ https://www.msxblue.com/manual/romdatabase.htm
 	* まだ実装していません
 * サウンドがおかしい
 	* まだ適当です
-
-## BIOSの差し替え
-
-C-BIOSではなく、実機のROMを使いたい場合は、自分でダンプするなどしてご用意ください。
-
-* MAINROM.ROM - メインROM 32KB
-* SUBROM.ROM - サブROM 16KB
-
-の２つをご用意ください。このファイルがある場合は、C-BIOSではなくこちらを優先して利用しますので、BASICを試すことができます。
-BASICを使わず、ゲームなどを起動するだけであれば C-BIOSのままで問題ありません。
-
-メインROMとサブROMは -m、-s オプションで明示的に変更することも可能です。
-
-```
-> ms.x -r GAME.ROM -m MY_MAINROM.ROM -s MY_SUBROM.ROM
-```
 
 ## ウェイトの調整
 

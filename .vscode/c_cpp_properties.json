@@ -5,6 +5,7 @@
             "includePath": [
                 ".",
                 "${workspaceFolder}/**",
+                "/opt/homebrew/Cellar/elf2x68k/20240716/m68k-elf/include",
                 "/opt/homebrew/Cellar/elf2x68k/20240716/m68k-elf/include/**",
                 "/opt/homebrew/Cellar/elf2x68k/20240716/**"
             ],
@@ -19,7 +20,10 @@
             "compilerArgs": [
                 "-c",
                 "-m68000"
-            ]
+            ],
+            "browse": {
+                "path": []
+            }
         },
         {
             "name": "Mac",

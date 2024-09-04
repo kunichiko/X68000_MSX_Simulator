@@ -2,6 +2,7 @@
 #define MS_MEMMAP_NORMALROM_H
 
 #include "ms_memmap.h"
+#include "ms_memmap_driver.h"
 
 /*
 */
@@ -9,9 +10,10 @@ typedef struct ms_memmap_driver_NORMALROM {
 	ms_memmap_driver_t base;
 } ms_memmap_driver_NORMALROM_t;
 
-ms_memmap_driver_t* ms_memmap_NORMALROM_init(ms_memmap_t* memmap, uint8_t* buffer, int page);
+ms_memmap_driver_NORMALROM_t* ms_memmap_NORMALROM_alloc();
+void ms_memmap_NORMALROM_init(ms_memmap_driver_NORMALROM_t* instance, ms_memmap_t* memmap, uint8_t* buffer, int page);
+void ms_memmap_NORMALROM_deinit(ms_memmap_driver_NORMALROM_t* instance);
 
-void ms_memmap_deinit_NORMALROM(ms_memmap_driver_t* driver);
 void ms_memmap_did_attach_NORMALROM(ms_memmap_driver_t* driver);
 int ms_memmap_will_detach_NORMALROM(ms_memmap_driver_t* driver);
 

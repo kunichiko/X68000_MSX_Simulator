@@ -9,18 +9,29 @@
 char* driver_name_NOTHING = "NOTHING";
 
 /*
-	確保 & 初期化ルーチン
+	確保ルーチン
  */
-ms_memmap_driver_t* ms_memmap_NOTHING_init(ms_memmap_t* memmap) {
-	ms_memmap_driver_NOTHING_t* instance;
-	instance = (ms_memmap_driver_NOTHING_t*)new_malloc(sizeof(ms_memmap_driver_NOTHING_t));
+ms_memmap_driver_NOTHING_t* ms_memmap_NOTHING_alloc() {
+	return (ms_memmap_driver_NOTHING_t*)new_malloc(sizeof(ms_memmap_driver_NOTHING_t));
+}
+
+/*
+	初期化ルーチン
+ */
+void ms_memmap_NOTHING_init(ms_memmap_driver_NOTHING_t* instance, ms_memmap_t* memmap) {
 	if (instance == NULL) {
-		return NULL;
+		return;
 	}
-	instance->base.memmap = memmap;
+	uint8_t* buffer = (uint8_t*)new_malloc( 8*1024 );
+	if(buffer == NULL) {
+		printf("メモリが確保できません。\n");
+		return;
+	}
+	ms_memmap_driver_init(&instance->base, memmap, buffer);
+
 	instance->base.type = ROM_TYPE_NOTHING;
 	instance->base.name = driver_name_NOTHING;
-	instance->base.deinit = ms_memmap_deinit_NOTHING;
+	//instance->base.deinit = ms_memmap_NOTHING_deinit; オーバーライド不要
 	instance->base.did_attach = ms_memmap_did_attach_NOTHING;
 	instance->base.will_detach = ms_memmap_will_detach_NOTHING;
 	instance->base.did_update_memory_mapper = ms_memmap_did_update_memory_mapper_NOTHING;
@@ -29,12 +40,6 @@ ms_memmap_driver_t* ms_memmap_NOTHING_init(ms_memmap_t* memmap) {
 	instance->base.write8 = ms_memmap_write8_NOTHING;
 	instance->base.write16 = ms_memmap_write16_NOTHING;
 
-	instance->base.buffer = (uint8_t*)new_malloc( 8*1024 );
-	if(instance->base.buffer == NULL) {
-		printf("メモリが確保できません。\n");
-		ms_memmap_deinit_NOTHING((ms_memmap_driver_t*)instance);
-		return NULL;
-	}
 	int i;
 	for(i = 0; i<8*1024; i++) {
 		instance->base.buffer[i] = 0xff;
@@ -45,13 +50,7 @@ ms_memmap_driver_t* ms_memmap_NOTHING_init(ms_memmap_t* memmap) {
 		instance->base.page8k_pointers[page8k] = instance->base.buffer; // 重なっていて良い
 	}
 
-	return (ms_memmap_driver_t*)instance;
-}
-
-void ms_memmap_deinit_NOTHING(ms_memmap_driver_t* driver) {
-	ms_memmap_driver_NOTHING_t* d = (ms_memmap_driver_NOTHING_t*)driver;
-	new_free(d->base.buffer);
-	new_free(d);
+	return;
 }
 
 void ms_memmap_did_attach_NOTHING(ms_memmap_driver_t* driver) {

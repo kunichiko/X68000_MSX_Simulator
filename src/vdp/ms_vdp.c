@@ -97,21 +97,30 @@ void init_palette(ms_vdp_t* vdp);
 
 // Singleton instance
 ms_vdp_t* ms_vdp_shared = NULL;
+uint8_t ms_vdp_shared_initialized = 0;
 
-ms_vdp_t* ms_vdp_init() {
+ms_vdp_t* ms_vdp_alloc() {
 	if( ms_vdp_shared != NULL ) {
 		return ms_vdp_shared;
 	}
-
 	if ( (ms_vdp_shared = (ms_vdp_t*)new_malloc(sizeof(ms_vdp_t))) == NULL)
 	{
-		printf("メモリが確保できません\n");
+		MS_LOG(MS_LOG_INFO,"メモリが確保できません\n");
 		return NULL;
 	}
+	return ms_vdp_shared;
+}
+
+void ms_vdp_init(ms_vdp_t* instance) {
+	if (instance == NULL || ms_vdp_shared_initialized) {
+		return;
+	}
+
 	if ( (ms_vdp_shared->vram = (uint8_t*)new_malloc(0x20000)) == NULL)
 	{
-		printf("メモリが確保できません\n");
-		return NULL;
+		MS_LOG(MS_LOG_INFO,"メモリが確保できません\n");
+		ms_vdp_deinit(ms_vdp_shared);
+		return;
 	}
 	// X68000は 1スプライト(16x16)パターンあたり128バイト(uint32_tが32ワード)が必要
 	// MSXは 256個定義できるが、X68000は128個しか定義できないため、メモリ上に定義領域を作っておき
@@ -122,8 +131,9 @@ ms_vdp_t* ms_vdp_init() {
 	//  * => 256 * 4 * 32 * 4バイト = 128KB
 	if ( (ms_vdp_shared->x68_pcg_buffer = (uint32_t*)new_malloc( 256 * 4 * 32 * sizeof(uint32_t))) == NULL)
 	{
-		printf("メモリが確保できません\n");
-		return NULL;
+		MS_LOG(MS_LOG_INFO,"メモリが確保できません\n");
+		ms_vdp_deinit(ms_vdp_shared);
+		return;
 	}
 
 	// b7: F,  b6: 5S, b5: Collision, b4-b0: 衝突番号
@@ -163,7 +173,7 @@ ms_vdp_t* ms_vdp_init() {
 	// パレット初期化
 	init_palette(ms_vdp_shared);
 
-	return ms_vdp_shared;
+	return;
 }
 
 void ms_vdp_deinit(ms_vdp_t* vdp) {
@@ -220,17 +230,33 @@ void init_palette(ms_vdp_t* vdp) {
 void ms_vdp_set_mode(ms_vdp_t* vdp, int mode) {
 	vdp->ms_vdp_current_mode = ms_vdp_mode_table[mode];
 	if (vdp->ms_vdp_current_mode == NULL) {
-		printf("Unknown VDP mode: %d\n", mode);
+		MS_LOG(MS_LOG_INFO,"Unknown VDP mode: %d\n", mode);
 		vdp->ms_vdp_current_mode = &ms_vdp_DEFAULT;
 	}
 	vdp->ms_vdp_current_mode->update_resolution(vdp);
 	// GRAMクリア
+	uint32_t words = 0;
+	switch(vdp->ms_vdp_current_mode->bits_per_dot) {
+	case 2:
+	case 4:
+		// 4色, 16色
+		words = X68_GRAM_LEN;
+		break;
+	case 8:
+		// 256色
+		words = X68_GRAM_LEN / 2;
+		break;
+	case 16:
+		// 65536色
+		words = X68_GRAM_LEN / 4;
+		break;
+	}
 	int i;
-	for(i=0;i<X68_GRAM_LEN;i++) {
+	for(i=0;i<words;i++) {
 		X68_GRAM[i] = 0;
 	}
 	vdp->ms_vdp_current_mode->init(vdp);
-	printf("VDP Mode: %s\n", vdp->ms_vdp_current_mode->get_mode_name(vdp));
+	MS_LOG(MS_LOG_INFO,"VDP Mode: %s\n", vdp->ms_vdp_current_mode->get_mode_name(vdp));
 
 	// スプライトの初期化処理
 	vdp->sprite_refresh_flag |= SPRITE_REFRESH_FLAG_PGEN;
@@ -284,7 +310,7 @@ void update_resolution_COMMON(ms_vdp_t* vdp, unsigned int res, unsigned int colo
 	CRTR_06	= crtc_values[m][6];
 	CRTR_07	= crtc_values[m][7];
 	CRTR_08	= crtc_values[m][8];
-	CRTR_20 = ((color&0x3) << 10) | 0x10 | ((res&0x1) << 2) | (res&0x1);
+	CRTR_20 = ((color&0x3) << 8) | 0x10 | ((res&0x1) << 2) | (res&0x1);
 	SPCON_HTOTAL = crtc_values[m][9];
 	SPCON_HDISP = crtc_values[m][10];
 	SPCON_VSISP = crtc_values[m][11];
@@ -325,7 +351,7 @@ void ms_vdp_vsync_draw(ms_vdp_t* vdp) {
 		// スプライトサイズ(8x8 or 16x16)が変化
 		vdp->sprite_refresh_flag |= SPRITE_REFRESH_FLAG_PGEN;
 	}
-	if ( (vdp->r08 & 0x01) != (last_vdp_R8 & 0x01) ) {
+	if ( (vdp->r08 & 0x02) != (last_vdp_R8 & 0x02) ) {
 		// スプライト表示 ON/OFFフラグが変化
 		vdp->sprite_refresh_flag |= SPRITE_REFRESH_FLAG_COORD;
 	}

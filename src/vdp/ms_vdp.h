@@ -2,6 +2,7 @@
 #define MS_VDP_H
 
 #include <stdint.h>
+#include "../ms.h"
 
 // extern uint16_t * const X68_GR_PAL;
 // extern uint16_t * const X68_TX_PAL;
@@ -180,7 +181,7 @@ typedef struct ms_vdp {
 	uint8_t cmd_current;
 	uint8_t cmd_logiop;
 	uint8_t cmd_arg;
-	uint16_t cmd_vram_addr;
+	uint32_t cmd_vram_addr;
 	uint16_t cmd_vram_addr_mod;		// 論理転送時、vram_addrの1バイト内の位置 GRAPHIC4,6の場合は 0,1、GRAPHIC5の場合は 0,1,2,3
 	uint16_t cmd_nx_count;
 	uint16_t cmd_ny_count;
@@ -263,10 +264,11 @@ typedef struct ms_vdp_mode {
 	int bits_per_dot; // 1ドットあたりのビット数 (VDPコマンド用)
 } ms_vdp_mode_t;
 
-ms_vdp_t* ms_vdp_init();
-void ms_vdp_deinit(ms_vdp_t* vdp);
-void ms_vdp_set_mode(ms_vdp_t* vdp, int mode);
+ms_vdp_t* ms_vdp_alloc();
+void ms_vdp_init(ms_vdp_t* instance);
+void ms_vdp_deinit(ms_vdp_t* instance);
 
+void ms_vdp_set_mode(ms_vdp_t* vdp, int mode);
 void ms_vdp_vsync_draw(ms_vdp_t* vdp);
 
 void write_sprite_pattern(ms_vdp_t* vdp, int offset, uint32_t pattern, int32_t old_pattern);

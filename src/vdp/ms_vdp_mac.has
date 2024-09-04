@@ -1315,10 +1315,10 @@ set_MULTICOLOR_mac:
 	movea.l	ms_vdp_shared,a5		* ms_vdp_t へのポインタを取得
 
 	move.w	CRTR_20,d0			* CRT レジスタの設定
-	andi.w	#%1111100011111111,d0		* 16色モードに
+	andi.w	#%11111000_11111111,d0		* 16色モードに
 	move.w	d0,CRTR_20
 	move.w	VCRR_00,d0			* ビデオコントロールレジスタの設定
-	andi.w	#%1111111111111000,d0		* 16色モードに
+	andi.w	#%11111111_11111000,d0		* 16色モードに
 	move.w	d0,VCRR_00
 
 	lea.l	$EB8000,a0			* バックドロップ用のＢＧを設定
@@ -1340,10 +1340,10 @@ set_GRAPHIC1_mac:
 	movea.l	ms_vdp_shared,a5		* ms_vdp_t へのポインタを取得
 
 	move.w	CRTR_20,d0			* CRT レジスタの設定
-	andi.w	#%1111100011111111,d0		* 16色モードに
+	andi.w	#%11111000_11111111,d0		* 16色モードに
 	move.w	d0,CRTR_20
 	move.w	VCRR_00,d0			* ビデオコントロールレジスタの設定
-	andi.w	#%1111111111111000,d0		* 16色モードに
+	andi.w	#%11111111_11111000,d0		* 16色モードに
 	move.w	d0,VCRR_00
 
 	move.w	#1,offset_ms_vdp_gr_active(a5)
@@ -1357,10 +1357,10 @@ set_GRAPHIC2_mac:
 	movea.l	ms_vdp_shared,a5		* ms_vdp_t へのポインタを取得
 
 	move.w	CRTR_20,d0			* CRT レジスタの設定
-	andi.w	#%1111100011111111,d0		* 16色モードに
+	andi.w	#%11111000_11111111,d0		* 16色モードに
 	move.w	d0,CRTR_20
 	move.w	VCRR_00,d0			* ビデオコントロールレジスタの設定
-	andi.w	#%1111111111111000,d0		* 16色モードに
+	andi.w	#%11111111_11111000,d0		* 16色モードに
 	move.w	d0,VCRR_00
 
 	move.w	#1,offset_ms_vdp_gr_active(a5)
@@ -1374,10 +1374,10 @@ set_GRAPHIC4_mac:
 	movea.l	ms_vdp_shared,a5		* ms_vdp_t へのポインタを取得
 
 	move.w	CRTR_20,d0			* CRT レジスタの設定
-	andi.w	#%1111100011111111,d0		* 16色モードに
+	andi.w	#%11111000_11111111,d0		* 16色モードに
 	move.w	d0,CRTR_20
 	move.w	VCRR_00,d0			* ビデオコントロールレジスタの設定
-	andi.w	#%1111111111111000,d0		* 16色モードに
+	andi.w	#%11111111_11111000,d0		* 16色モードに
 	move.w	d0,VCRR_00
 
 	move.l	offset_ms_vdp_pnametbl_baddr(a5),d1
@@ -1398,10 +1398,10 @@ set_GRAPHIC5_mac:
 	movea.l	ms_vdp_shared,a5		* ms_vdp_t へのポインタを取得
 
 	move.w	CRTR_20,d0			* CRT レジスタの設定
-	andi.w	#%1111100011111111,d0		* 16色モードに
+	andi.w	#%11111000_11111111,d0		* 16色モードに
 	move.w	d0,CRTR_20
 	move.w	VCRR_00,d0			* ビデオコントロールレジスタの設定
-	andi.w	#%1111111111111000,d0		* 16色モードに
+	andi.w	#%11111111_11111000,d0		* 16色モードに
 	move.w	d0,VCRR_00
 
 	move.l	offset_ms_vdp_pnametbl_baddr(a5),d1
@@ -1421,10 +1421,10 @@ set_GRAPHIC6_mac:
 	movea.l	ms_vdp_shared,a5		* ms_vdp_t へのポインタを取得
 
 	move.w	CRTR_20,d0			* CRT レジスタの設定
-	andi.w	#%1111100011111111,d0		* 16色モードに
+	andi.w	#%11111000_11111111,d0		* 16色モードに
 	move.w	d0,CRTR_20
 	move.w	VCRR_00,d0			* ビデオコントロールレジスタの設定
-	andi.w	#%1111111111111000,d0		* 16色モードに
+	andi.w	#%11111111_11111000,d0		* 16色モードに
 	move.w	d0,VCRR_00
 
 	move.l	offset_ms_vdp_pnametbl_baddr(a5),d1
@@ -1443,12 +1443,12 @@ set_GRAPHIC7_mac:
 	movea.l	ms_vdp_shared,a5		* ms_vdp_t へのポインタを取得
 
 	move.w	CRTR_20,d0			* CRT レジスタの設定
-	andi.w	#%1111100011111111,d0		* 256色モードに
-	ori.w	#%0000000100000000,d0
+	andi.w	#%11111000_11111111,d0		* 256色モードに
+	ori.w	#%00000001_00000000,d0
 	move.w	d0,CRTR_20
 	move.w	VCRR_00,d0			* ビデオコントロールレジスタの設定
-	andi.w	#%1111111111111000,d0		* 256色モードに
-	ori.w	#%0000000000000001,d0
+	andi.w	#%11111111_11111000,d0		* 256色モードに
+	ori.w	#%00000000_00000001,d0
 	move.w	d0,VCRR_00
 
 	move.l	offset_ms_vdp_pnametbl_baddr(a5),d1
@@ -1576,7 +1576,8 @@ s_GRAPHIC4:					* SCREEN 5 は,16色256*256モードを使う
 
 s_GRAPHIC5:					* SCREEN 6 は,16色512*512モードを使う
 	movea.l	ms_vdp_shared,a5		* ms_vdp_t へのポインタを取得
-	lsl.l	#3,d1
+	; d1 = VRAMアドレス
+	lsl.l	#3,d1				* 1バイトが4ピクセル → GRAMの8バイト
 	move.l	d1,d0
 	andi.w	#%00000000_00000011_11111111,d1
 	add.l	d0,d0				* 縦方向は一ラインおきになる
@@ -1588,17 +1589,38 @@ s_GRAPHIC5:					* SCREEN 6 は,16色512*512モードを使う
 	rts
 
 *
-*	ＳＣＲＥＥＮ７，８はちょうど同じになる
+*	ＳＣＲＥＥＮ７ (512x424)
 *
 s_GRAPHIC6:
-s_GRAPHIC7:
 	movea.l	ms_vdp_shared,a5		* ms_vdp_t へのポインタを取得
-	lsl.l	#2,d1
+	; d1 = VRAMアドレス
+	lsl.l	#2,d1				* 1バイトが2ピクセル → GRAMの4バイト
 	move.l	d1,d0
 	andi.w	#%00000000_00000011_11111111,d1
 	add.l	d0,d0				* 縦方向は一ラインおきになる
 	andi.l	#%00001111_11111000_00000000,d0
 	or.w	d1,d0
+	add.l	#$c00000,d0
+	move.l	d0,offset_ms_vdp_gram_addr(a5)
+
+	rts
+
+*
+*	ＳＣＲＥＥＮ８ (256x212)
+*
+s_GRAPHIC7:
+	movea.l	ms_vdp_shared,a5		* ms_vdp_t へのポインタを取得
+	; d1 = VRAMアドレス
+	lsl.l	#1,d1				* 1バイトが1ピクセル → GRAMの2バイト
+	move.l	d1,d0
+	andi.w	#%00000000_00000001_11111110,d1 * X: 実画面は512で1024バイトあるが、左半分しか使っていないので512バイト
+	add.l	d0,d0
+	move.l	d0,d2
+	andi.l	#%00000011_11111100_00000000,d0 * Y: 右半分を使っていないので1ビットずらす
+	lsl.l	#1,d2				* X68000の実画面は縦512ピクセルなので、ページを跨ぐと、1024 * 512 バイト単位
+	andi.l	#%00001000_00000000_00000000,d2	* d2: ページのアドレスオフセット
+	or.w	d1,d0
+	or.l	d2,d0
 	add.l	#$c00000,d0
 	move.l	d0,offset_ms_vdp_gram_addr(a5)
 

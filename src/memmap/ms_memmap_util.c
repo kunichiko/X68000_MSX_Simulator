@@ -4,6 +4,15 @@
 #include <stddef.h>
 #include <fcntl.h>
 #include "ms_memmap.h"
+#include "ms_memmap_driver.h"
+#include "ms_memmap_NOTHING.h"
+#include "ms_memmap_NORMALROM.h"
+#include "ms_memmap_MAINRAM.h"
+#include "ms_memmap_MEGAROM_GENERIC_8K.h"
+#include "ms_memmap_MEGAROM_ASCII_8K.h"
+#include "ms_memmap_MEGAROM_KONAMI.h"
+#include "ms_memmap_MEGAROM_KONAMI_SCC.h"
+#include "../disk/ms_disk_bios_Panasonic.h"
 
 extern ms_memmap_t* ms_memmap_shared;
 
@@ -72,35 +81,43 @@ void allocateAndSetROM_Cartridge(const char *romFileName, int slot_base, int kin
 			break;
 		case ROM_TYPE_MEGAROM_GENERIC_8K:
 			// GENERIC 8K メガロム
-			driver = ms_memmap_MEGAROM_GENERIC_8K_init(ms_memmap_shared, crt_buff, crt_length);
+			ms_memmap_driver_MEGAROM_GENERIC_8K_t* g8k = ms_memmap_MEGAROM_GENERIC_8K_alloc();
+			driver = (ms_memmap_driver_t*)g8k;
 			if( driver == NULL) {
 				printf("MEGAROM GENERIC 8Kの初期化に失敗しました\n");
 				return;
 			}
+			ms_memmap_MEGAROM_GENERIC_8K_init(g8k, ms_memmap_shared, crt_buff, crt_length);
 			break;
 		case ROM_TYPE_MEGAROM_ASCII_8K:
 			// ASCII 8K メガロム
-			driver = ms_memmap_MEGAROM_ASCII_8K_init(ms_memmap_shared, crt_buff, crt_length);
+			ms_memmap_driver_MEGAROM_ASCII_8K_t* a8k = ms_memmap_MEGAROM_ASCII_8K_alloc();
+			driver = (ms_memmap_driver_t*)a8k;
 			if( driver == NULL) {
 				printf("MEGAROM 8Kの初期化に失敗しました\n");
 				return;
 			}
+			ms_memmap_MEGAROM_ASCII_8K_init(a8k, ms_memmap_shared, crt_buff, crt_length);
 			break;
 		case ROM_TYPE_MEGAROM_KONAMI:
 			// MEGAROM KONAMIとしてロードする
-			driver = ms_memmap_MEGAROM_KONAMI_init(ms_memmap_shared, crt_buff, crt_length);
+			ms_memmap_driver_MEGAROM_KONAMI_t* kon = ms_memmap_MEGAROM_KONAMI_alloc();
+			driver = (ms_memmap_driver_t*)kon;
 			if( driver == NULL) {
 				printf("MEGAROM KONAMIの初期化に失敗しました\n");
 				return;
 			}
+			ms_memmap_MEGAROM_KONAMI_init(kon, ms_memmap_shared, crt_buff, crt_length);
 			break;
 		case ROM_TYPE_MEGAROM_KONAMI_SCC:
 			// MEGAROM KONAMI SCCとしてロードする
-			driver = ms_memmap_MEGAROM_KONAMI_SCC_init(ms_memmap_shared, crt_buff, crt_length);
+			ms_memmap_driver_MEGAROM_KONAMI_SCC_t* scc = ms_memmap_MEGAROM_KONAMI_SCC_alloc();
+			driver = (ms_memmap_driver_t*)scc;
 			if( driver == NULL) {
 				printf("MEGAROM KONAMI SCCの初期化に失敗しました\n");
 				return;
 			}
+			ms_memmap_MEGAROM_KONAMI_SCC_init(scc, ms_memmap_shared, crt_buff, crt_length);
 			break;
 		default:
 			break;
@@ -109,6 +126,7 @@ void allocateAndSetROM_Cartridge(const char *romFileName, int slot_base, int kin
 		if ( ms_memmap_attach_driver(ms_memmap_shared, driver, slot_base, -1) != 0) {
 			printf("ドライバのアタッチに失敗しました\n");
 			driver->deinit(driver);
+			new_free(driver);
 			return;
 		}
 	}
@@ -210,9 +228,6 @@ int detect_rom_type(uint8_t* buffer, int length) {
 
 void allocateAndSetROM(const char *romFileName, int kind, int slot_base, int slot_ex, int page) {
 	int crt_fh;
-	int crt_length;
-	uint8_t *crt_buff;
-	int i;
 
 	crt_fh = open( romFileName, O_RDONLY | O_BINARY);
 	if (crt_fh == -1) {
@@ -220,6 +235,14 @@ void allocateAndSetROM(const char *romFileName, int kind, int slot_base, int slo
 		ms_exit();
 		return;
 	}
+	allocateAndSetROMwithHandle(crt_fh, kind, slot_base, slot_ex, page);
+}
+
+void allocateAndSetROMwithHandle(int crt_fh, int kind, int slot_base, int slot_ex, int page) {
+	int crt_length;
+	uint8_t *crt_buff;
+	int i;
+
 	crt_length = filelength(crt_fh);
 	if(crt_length == -1) {
 		printf("ファイルの長さが取得できません。\n");
@@ -240,13 +263,15 @@ void allocateAndSetROM(const char *romFileName, int kind, int slot_base, int slo
 			}
 			read( crt_fh, crt_buff, 16 * 1024);
 
-			ms_memmap_driver_t* driver = ms_memmap_NORMALROM_init(ms_memmap_shared, crt_buff, page + i);
+			ms_memmap_driver_NORMALROM_t* driver = ms_memmap_NORMALROM_alloc();
 			if (driver == NULL) {
 				printf("メモリが確保できません。\n");
 				ms_exit();
 				return;
 			}
-			if (ms_memmap_attach_driver(ms_memmap_shared, driver, slot_base, slot_ex) != 0) {
+			ms_memmap_NORMALROM_init(driver, ms_memmap_shared, crt_buff, page + i);
+		
+			if (ms_memmap_attach_driver(ms_memmap_shared, (ms_memmap_driver_t*)driver, slot_base, slot_ex) != 0) {
 				printf("メモリマッピングに失敗しました。\n");
 				ms_exit();
 				return;
@@ -256,6 +281,55 @@ void allocateAndSetROM(const char *romFileName, int kind, int slot_base, int slo
 	} else {
 		printf("ファイルが認識できませんでした\n");
 		ms_exit();
+	}
+ 	close( crt_fh);
+}
+
+void allocateAndSetDISKBIOSROM(const char *romFileName, ms_disk_container_t* disk_container) {
+	int crt_fh;
+	int crt_length;
+	uint8_t *crt_buff;
+	int i;
+
+	crt_fh = open( romFileName, O_RDONLY | O_BINARY);
+	if (crt_fh == -1) {
+		printf("ファイルが開けません. %s\n", romFileName);
+		ms_exit();
+		return;
+	}
+	crt_length = filelength(crt_fh);
+	if(crt_length == -1) {
+		printf("ファイルの長さが取得できません。\n");
+		ms_exit();
+		return;
+	}
+	if(crt_length != 16*1024) {
+		printf("ファイルサイズが不正です。\n");
+		ms_exit();
+		return;
+	}
+
+	// 16Kバイト読み込んでROMにセット
+	if( ( crt_buff = (uint8_t*)new_malloc( 16 * 1024) ) == NULL) {
+		printf("メモリが確保できません。\n");
+		ms_exit();
+		return;
+	}
+	read( crt_fh, crt_buff, 16 * 1024);
+
+	ms_memmap_driver_DISKBIOS_PANASONIC_t* driver = ms_disk_bios_Panasonic_alloc();
+	if (driver == NULL) {
+		printf("メモリが確保できません。\n");
+		ms_exit();
+		return;
+	}
+	ms_disk_bios_Panasonic_init(driver, ms_memmap_shared, crt_buff, disk_container);
+	
+	// スロット3-2にアタッチ
+	if (ms_memmap_attach_driver(ms_memmap_shared, (ms_memmap_driver_t*)driver, 3, 2) != 0) {
+		printf("メモリマッピングに失敗しました。\n");
+		ms_exit();
+		return;
 	}
  	close( crt_fh);
 }

@@ -7,7 +7,8 @@
 typedef struct ms_iomap {
 } ms_iomap_t;
 
-ms_iomap_t* ms_iomap_init(ms_vdp_t* vdp);
-void ms_iomap_deinit(ms_iomap_t* iomap);
+ms_iomap_t* ms_iomap_alloc();
+void ms_iomap_init(ms_iomap_t* instance, ms_vdp_t* vdp);
+void ms_iomap_deinit(ms_iomap_t* instance);
 
 #endif
