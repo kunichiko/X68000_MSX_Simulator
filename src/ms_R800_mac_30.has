@@ -343,8 +343,8 @@ do_wait:
 ;
 ;
 debug_log_pc:
-	cmp.w	#1,debug_log_level
-	bge	@f				* ログレベルが１以上の時
+	cmp.w	#3,debug_log_level
+	bge	@f				* ログレベルが3以上の時
 	rts
 @@:	link	a6,#-2
 	movem.l	d0-d7/a0-a6,-(sp)
@@ -512,17 +512,20 @@ debug_log_pc:
 	DOS	__PRINT
 	lea.l	4(sp),sp
 
-	move.w	#$d,d1
-	IOCS	__BITSNS
+;	move.w	#$d,d1
+;	IOCS	__BITSNS
+	; BITSNSのワークエリアを直接参照
+	move.b	$80d,d0			* F6    : bit0
+	and.b	$80e,d0			* SHIFT : bit0
+	andi.b	#%00000001,d0		* F6とSHIFTの両方が押されているか？
 	move.b	cpu_pc_f6_flg,d1
 	lsl.b	#1,d1
-	andi.b	#1,d0
 	or.b	d0,d1			* b1:前回、b0:今回
 	move.b	d1,cpu_pc_f6_flg
 	cmp.b	#%01,d1
 	bne	9f
-	* F6が押されたらこの場でログレベルを落とす
-	move.w	#0,debug_log_level
+	* SHIFT+F6が押されたらこの場でログレベルを一つ戻す(ここで調べないと止まらなくなるため)
+	sub.w	#1,debug_log_level
 
 9:	movem.l	(sp)+,d0-d7/a0-a6
 	unlk	a6
@@ -7778,8 +7781,8 @@ print_debug_out:
 ; @@:	cmp.l	#no_port_OUT_2,a0
 ; 	bne	@f
 ; 	rts
-@@:	cmp.w	#1,debug_log_level
-	bge	@f				* ログレベルが１以上の時
+@@:	cmp.w	#3,debug_log_level
+	bge	@f				* ログレベルが3以上の時
 	rts
 @@:	movem.l	d0-d3/a0-a3,-(sp)
 	move.b	d0,d1

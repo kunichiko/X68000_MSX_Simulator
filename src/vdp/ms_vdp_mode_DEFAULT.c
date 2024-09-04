@@ -188,7 +188,7 @@ char* get_mode_name_DEFAULT(ms_vdp_t* vdp) {
 }
 
 void vdp_command_exec_DEFAULT(ms_vdp_t* vdp, uint8_t cmd) {
-	printf("%sのVDPコマンド0x%02xはまだ未実装です。\n", vdp->ms_vdp_current_mode->get_mode_name(vdp), cmd);
+	MS_LOG(MS_LOG_INFO,"%sのVDPコマンド0x%02xはまだ未実装です。\n", vdp->ms_vdp_current_mode->get_mode_name(vdp), cmd);
 	// 念の為CEビットをクリア
 	vdp->s02 &= 0xfe;
 }

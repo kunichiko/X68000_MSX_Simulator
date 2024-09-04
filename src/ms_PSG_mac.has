@@ -640,6 +640,7 @@ w_PSG_R15:
 	move.b	d1,d0
 	andi.b	#%10000000,d0		* bit7: かなLEDの状態
 	lsr.b	#7,d0			* フラグを保存して、VSYNC期間に反映させる
+	eori.b	#%00000001,d0		* ビット反転
 	move.b	d0,_ms_peripherals_led_kana
 
 	* R15のbit6に書き込んだ値で、ジョイスティックポート1と2の選択が切り替わる(0:JOY1, 1:JOY2)

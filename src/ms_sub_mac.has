@@ -228,9 +228,22 @@ _new_read_210:
 	DOS	__EXIT
 
 
+;
+;	LED ON/OFF
+;
+;	bit 0:	かな
+;	bit 1:	ローマ字
+;	bit 2:	コード入力
+;	bit 3:	CAPS
+;	bit 4:	INS
+;	bit 5:	ひらがな
+;	bit 6:	全角	
+;
+;	on = 1, off = 0
+;
 ms_iocs_ledctrl:
 	move.l	4(sp),d1	* led key code
-	move.l	8(sp),d2	* on = 1, off = 0
+	move.l	8(sp),d2
 	move.b	#$06,d0
 	trap	#15
 	rts

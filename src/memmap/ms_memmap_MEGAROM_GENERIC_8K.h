@@ -2,6 +2,7 @@
 #define MS_MEMMAP_MEGAROM_GENERIC_8K_H
 
 #include "ms_memmap.h"
+#include "ms_memmap_driver.h"
 
 #define MEGAROM_GENERIC_8K_SIZE (128*1024)
 
@@ -14,9 +15,10 @@ typedef struct ms_memmap_driver_MEGAROM_GENERIC_8K {
 	int selected_segment[4];	// Page0-3のそれぞれのセグメント選択状態
 } ms_memmap_driver_MEGAROM_GENERIC_8K_t;
 
-ms_memmap_driver_t* ms_memmap_MEGAROM_GENERIC_8K_init(ms_memmap_t* memmap, const uint8_t* buffer, uint32_t length);
+ms_memmap_driver_MEGAROM_GENERIC_8K_t* ms_memmap_MEGAROM_GENERIC_8K_alloc();
+void ms_memmap_MEGAROM_GENERIC_8K_init(ms_memmap_driver_MEGAROM_GENERIC_8K_t* instance, ms_memmap_t* memmap, uint8_t* buffer, uint32_t length);
+void ms_memmap_MEGAROM_GENERIC_8K_deinit(ms_memmap_driver_MEGAROM_GENERIC_8K_t* instance);
 
-void ms_memmap_deinit_MEGAROM_GENERIC_8K(ms_memmap_driver_t* driver);
 void ms_memmap_did_attach_MEGAROM_GENERIC_8K(ms_memmap_driver_t* driver);
 int ms_memmap_will_detach_MEGAROM_GENERIC_8K(ms_memmap_driver_t* driver);
 

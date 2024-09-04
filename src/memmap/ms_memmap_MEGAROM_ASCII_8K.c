@@ -4,24 +4,33 @@
 #include <stddef.h>
 #include <fcntl.h>
 #include "ms_memmap.h"
+#include "ms_memmap_MEGAROM_ASCII_8K.h"
 
 char* driver_name_MEGAROM_ASCII_8K = "MEGAROM_ASCII_8K";
 
 void _select_bank_ascii_8K(ms_memmap_driver_MEGAROM_ASCII_8K_t* d, int page, int bank);
 
 /*
-	確保 & 初期化ルーチン
+	確保ルーチン
  */
-ms_memmap_driver_t* ms_memmap_MEGAROM_ASCII_8K_init(ms_memmap_t* memmap, const uint8_t* buffer, uint32_t length) {
-	ms_memmap_driver_MEGAROM_ASCII_8K_t* instance;
-	instance = (ms_memmap_driver_MEGAROM_ASCII_8K_t*)new_malloc(sizeof(ms_memmap_driver_MEGAROM_ASCII_8K_t));
+ms_memmap_driver_MEGAROM_ASCII_8K_t* ms_memmap_MEGAROM_ASCII_8K_alloc() {
+	return (ms_memmap_driver_MEGAROM_ASCII_8K_t*)new_malloc(sizeof(ms_memmap_driver_MEGAROM_ASCII_8K_t));
+}
+
+/*
+	初期化ルーチン
+ */
+void ms_memmap_MEGAROM_ASCII_8K_init(ms_memmap_driver_MEGAROM_ASCII_8K_t* instance, ms_memmap_t* memmap, uint8_t* buffer, uint32_t length) {
 	if (instance == NULL) {
-		return NULL;
+		return;
 	}
-	instance->base.memmap = memmap;
+
+	ms_memmap_driver_init(&instance->base, memmap, buffer);
+
+	// プロパティやメソッドの登録
 	instance->base.type = ROM_TYPE_MEGAROM_ASCII_8K;
 	instance->base.name = driver_name_MEGAROM_ASCII_8K;
-	instance->base.deinit = ms_memmap_deinit_MEGAROM_ASCII_8K;
+	//instance->base.deinit = ms_memmap_MEGAROM_ASCII_8K_deinit; オーバーライド不要
 	instance->base.did_attach = ms_memmap_did_attach_MEGAROM_ASCII_8K;
 	instance->base.will_detach = ms_memmap_will_detach_MEGAROM_ASCII_8K;
 	instance->base.did_update_memory_mapper = ms_memmap_did_update_memory_mapper_MEGAROM_ASCII_8K;
@@ -42,13 +51,7 @@ ms_memmap_driver_t* ms_memmap_MEGAROM_ASCII_8K_init(ms_memmap_t* memmap, const u
 	for(page8k = 2; page8k < 6; page8k++) {
 		_select_bank_ascii_8K(instance, page8k, 0);	// ASCII 8Kメガロムの場合、初期値は0
 	}
-	return (ms_memmap_driver_t*)instance;
-}
-
-void ms_memmap_deinit_MEGAROM_ASCII_8K(ms_memmap_driver_t* driver) {
-	ms_memmap_driver_MEGAROM_ASCII_8K_t* d = (ms_memmap_driver_MEGAROM_ASCII_8K_t*)driver;
-	new_free(d->base.buffer);
-	new_free(d);
+	return;
 }
 
 void ms_memmap_did_attach_MEGAROM_ASCII_8K(ms_memmap_driver_t* driver) {

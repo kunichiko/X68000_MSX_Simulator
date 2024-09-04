@@ -4,24 +4,33 @@
 #include <stddef.h>
 #include <fcntl.h>
 #include "ms_memmap.h"
+#include "ms_memmap_MEGAROM_KONAMI_SCC.h"
 
 char* driver_name_MEGAROM_KONAMI_SCC = "MEGAROM_KONAMI_SCC";
 
 void _select_bank_KONAMI_SCC(ms_memmap_driver_MEGAROM_KONAMI_SCC_t* d, int rom_page, int bank);
 
 /*
-	確保 & 初期化ルーチン
+	確保ルーチン
  */
-ms_memmap_driver_t* ms_memmap_MEGAROM_KONAMI_SCC_init(ms_memmap_t* memmap, const uint8_t* buffer, uint32_t length) {
-	ms_memmap_driver_MEGAROM_KONAMI_SCC_t* instance;
-	instance = (ms_memmap_driver_MEGAROM_KONAMI_SCC_t*)new_malloc(sizeof(ms_memmap_driver_MEGAROM_KONAMI_SCC_t));
+ms_memmap_driver_MEGAROM_KONAMI_SCC_t* ms_memmap_MEGAROM_KONAMI_SCC_alloc() {
+	return (ms_memmap_driver_MEGAROM_KONAMI_SCC_t*)new_malloc(sizeof(ms_memmap_driver_MEGAROM_KONAMI_SCC_t));
+}
+
+/*
+	初期化ルーチン
+ */
+void ms_memmap_MEGAROM_KONAMI_SCC_init(ms_memmap_driver_MEGAROM_KONAMI_SCC_t* instance, ms_memmap_t* memmap, uint8_t* buffer, uint32_t length) {
 	if (instance == NULL) {
-		return NULL;
+		return;
 	}
-	instance->base.memmap = memmap;
+
+	ms_memmap_driver_init(&instance->base, memmap, buffer);
+
+	// プロパティやメソッドの登録
 	instance->base.type = ROM_TYPE_MEGAROM_KONAMI_SCC;
 	instance->base.name = driver_name_MEGAROM_KONAMI_SCC;
-	instance->base.deinit = ms_memmap_deinit_MEGAROM_KONAMI_SCC;
+	//instance->base.deinit = ms_memmap_MEGAROM_KONAMI_SCC_deinit; オーバーライド不要
 	instance->base.did_attach = ms_memmap_did_attach_MEGAROM_KONAMI_SCC;
 	instance->base.will_detach = ms_memmap_will_detach_MEGAROM_KONAMI_SCC;
 	instance->base.did_update_memory_mapper = ms_memmap_did_update_memory_mapper_MEGAROM_KONAMI_SCC;
@@ -43,13 +52,7 @@ ms_memmap_driver_t* ms_memmap_MEGAROM_KONAMI_SCC_init(ms_memmap_t* memmap, const
 		_select_bank_KONAMI_SCC(instance, page8k, page8k-2);	// KONAMI SCCメガロムの場合、初期値は0,1,2,3
 	}
 
-	return (ms_memmap_driver_t*)instance;
-}
-
-void ms_memmap_deinit_MEGAROM_KONAMI_SCC(ms_memmap_driver_t* driver) {
-	ms_memmap_driver_MEGAROM_KONAMI_SCC_t* d = (ms_memmap_driver_MEGAROM_KONAMI_SCC_t*)driver;
-	new_free(d->base.buffer);
-	new_free(d);
+	return;
 }
 
 void ms_memmap_did_attach_MEGAROM_KONAMI_SCC(ms_memmap_driver_t* driver) {

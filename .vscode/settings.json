@@ -18,7 +18,8 @@
 		"ms_vdp.h": "c",
 		"compare": "c",
 		"ms_z80_tests_cmp": "c",
-		"type_traits": "c"
+		"type_traits": "c",
+		"typeinfo": "c"
 	},
     "files.encoding": "shiftjis",
     "editor.detectIndentation": false,

@@ -9,18 +9,30 @@
 char* driver_name_MAINRAM = "MAINRAM";
 
 /*
-	確保 & 初期化ルーチン
+	確保ルーチン
  */
-ms_memmap_driver_t* ms_memmap_MAINRAM_init(ms_memmap_t* memmap) {
-	ms_memmap_driver_MAINRAM_t* instance;
-	instance = (ms_memmap_driver_MAINRAM_t*)new_malloc(sizeof(ms_memmap_driver_MAINRAM_t));
+ms_memmap_driver_MAINRAM_t* ms_memmap_MAINRAM_alloc() {
+	return (ms_memmap_driver_MAINRAM_t*)new_malloc(sizeof(ms_memmap_driver_MAINRAM_t));
+}
+
+/*
+	初期化ルーチン
+ */
+void ms_memmap_MAINRAM_init(ms_memmap_driver_MAINRAM_t* instance, ms_memmap_t* memmap) {
 	if (instance == NULL) {
-		return NULL;
+		return;
 	}
-	instance->base.memmap = memmap;
+	uint8_t* buffer = (uint8_t*)new_malloc( MAINRAM_SIZE );
+	if(buffer == NULL) {
+		printf("メモリが確保できません。\n");
+		return;
+	}
+	ms_memmap_driver_init(&instance->base, memmap, buffer);
+
+	// プロパティやメソッドの登録
 	instance->base.type = ROM_TYPE_MAPPER_RAM;
 	instance->base.name = driver_name_MAINRAM;
-	instance->base.deinit = ms_memmap_deinit_MAINRAM;
+	//instance->base.deinit = ms_memmap_MAINRAM_deinit; オーバーライド不要
 	instance->base.did_attach = ms_memmap_did_attach_MAINRAM;
 	instance->base.will_detach = ms_memmap_will_detach_MAINRAM;
 	instance->base.did_update_memory_mapper = ms_memmap_did_update_memory_mapper_MAINRAM;
@@ -29,12 +41,6 @@ ms_memmap_driver_t* ms_memmap_MAINRAM_init(ms_memmap_t* memmap) {
 	instance->base.write8 = ms_memmap_write8_MAINRAM;
 	instance->base.write16 = ms_memmap_write16_MAINRAM;
 
-	instance->base.buffer = (uint8_t*)new_malloc( MAINRAM_SIZE );
-	if(instance->base.buffer == NULL) {
-		printf("メモリが確保できません。\n");
-		ms_memmap_deinit_MAINRAM((ms_memmap_driver_t*)instance);
-		return NULL;
-	}
 	//
 	instance->num_segments = MAINRAM_SIZE / (16*1024);
 	instance->selected_segment[0] = 3;
@@ -47,13 +53,7 @@ ms_memmap_driver_t* ms_memmap_MAINRAM_init(ms_memmap_t* memmap) {
 		instance->base.page8k_pointers[page8k] = instance->base.buffer + (page8k * 0x2000);
 	}
 
-	return (ms_memmap_driver_t*)instance;
-}
-
-void ms_memmap_deinit_MAINRAM(ms_memmap_driver_t* driver) {
-	ms_memmap_driver_MAINRAM_t* d = (ms_memmap_driver_MAINRAM_t*)driver;
-	new_free(d->base.buffer);
-	new_free(d);
+	return;
 }
 
 void ms_memmap_did_attach_MAINRAM(ms_memmap_driver_t* driver) {

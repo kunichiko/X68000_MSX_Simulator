@@ -210,10 +210,11 @@ void write_sprite_attribute_256(ms_vdp_t* vdp, int offset, uint32_t attribute, i
 	uint8_t* pattr = vdp->vram + vdp->sprattrtbl_baddr;
 	switch(type) {
 		case 0: // Y座標
-			// Y=208の対応のため、Y座標の208の値が変化したら、スプライトの再配置を行う
-			if ( attribute == 208 || old_attribute == 208) {
+			// Y=208/216の対応のため、Y座標の208/216の値が変化したら、スプライトの再配置を行う
+			int HY = (vdp->ms_vdp_current_mode->sprite_mode & 0x3) == 1 ? 208 : 216;
+			if ( attribute == HY || old_attribute == HY) {
 				vdp->sprite_refresh_flag |= SPRITE_REFRESH_FLAG_COORD;
-				if (old_attribute != 208 ) {
+				if (old_attribute != HY ) {
 					for(i=plNum;i<32;i++) {
 					//	X68_SSR[i*SSR_UNIT+3] = 0;	// スプライト非表示
 					}
@@ -380,8 +381,9 @@ void write_sprite_attribute_512(ms_vdp_t* vdp, int offset, uint32_t attribute, i
 
 	switch(type) {
 		case 0: // Y座標
-			// Y=208の対応のため、Y座標の208の値が変化したら、スプライトの再配置を行う
-			if ( attribute == 208 || old_attribute == 208) {
+			// Y=208/216の対応のため、Y座標の208/216の値が変化したら、スプライトの再配置を行う
+			int HY = (vdp->ms_vdp_current_mode->sprite_mode & 0x3) == 1 ? 208 : 216;
+			if ( attribute == HY || old_attribute == HY) {
 				vdp->sprite_refresh_flag |= SPRITE_REFRESH_FLAG_COORD;
 			}
 			uint8_t scroll_offset = vdp->r23; // 縦スクロール量
@@ -535,18 +537,19 @@ void ms_vdp_sprite_vsync_draw(ms_vdp_t* vdp) {
 	}
 	if (flag & SPRITE_REFRESH_FLAG_COORD) {
 		// スプライトアトリビュートテーブルのみの更新
+		int HY = (vdp->ms_vdp_current_mode->sprite_mode & 0x3) == 1 ? 208 : 216;
 		uint8_t* sprattr = vram + vdp->sprattrtbl_baddr;
 		uint8_t* sprcolr = vram + vdp->sprcolrtbl_baddr;
 		uint8_t scroll_offset = vdp->r23; // 縦スクロール量
 		int visible_sprite_planes = 0;
 		plNum = 0;
 		int x,y,ec = 0;
-		if ( (vdp->r08 & 0x01) == 0 ) {
+		if ( (vdp->r08 & 0x02) == 0 ) {
 			// スプライト非表示ではない時
 			for(;plNum<32;plNum++) {
 				y = sprattr[plNum*SAT_SIZE+0];
 				x = sprattr[plNum*SAT_SIZE+1];
-				if ( y == 208) {
+				if ( y == HY) {
 					// このプレーン以降は描画しない
 					break;
 				}
