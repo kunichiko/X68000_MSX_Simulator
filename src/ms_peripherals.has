@@ -184,6 +184,7 @@ w_port_AA:
 	move.b	d1,d0
 	andi.w	#%01000000,d0		* ビット６は CAPS ランプの制御
 	lsr.w	#6,d0			* フラグを保存して、VSYNC期間に反映させる
+	eori.w	#%00000001,d0		* ビット反転
 	move.b	d0,_ms_peripherals_led_caps
 	rts
 

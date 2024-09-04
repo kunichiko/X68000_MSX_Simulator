@@ -52,7 +52,7 @@ ms_disk_container_t* ms_disk_container_alloc() {
 			instance->disk_set[i] = (ms_disk_media_t*)disk;
 		}
 		instance->disk_count = argc;
-		instance->change_disk(instance, 0);
+		instance->change_disk(instance, 0);		// 1枚目のディスクをセット
 	}
 
 	return;

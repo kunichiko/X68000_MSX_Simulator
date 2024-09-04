@@ -69,6 +69,20 @@ ms_vdp_mode_t ms_vdp_GRAPHIC7 = {
 
 int init_GRAPHIC7(ms_vdp_t* vdp) {
 	set_GRAPHIC7_mac();
+	update_vdp_sprite_area(vdp);
+	// X68000の 256色を MSXの256色に割り当てる
+	int i,r,g,b;
+	for(i = 0;i<256;i++) {
+		// 5bit RGB
+		int g = (i & 0b11100000) >> 3;
+		int r = (i & 0b00011100);
+		int b = (i & 0b00000011) << 3;
+		g = g | (g>>3);
+		r = r | (r>>3);
+		b = b | (b>>2) | (b>>4);
+		X68_GR_PAL[i] = (g << 11) | (r << 6) | b << 1;
+	}
+	return 0;
 }
 
 uint8_t read_vram_GRAPHIC7(ms_vdp_t* vdp) {
@@ -84,7 +98,10 @@ void update_palette_GRAPHIC7(ms_vdp_t* vdp) {
 }
 
 void update_pnametbl_baddr_GRAPHIC7(ms_vdp_t* vdp) {
-    update_pnametbl_baddr_GRAPHIC6(vdp);
+	vdp->pnametbl_baddr = (vdp->_r02 << 11) & 0x10000;
+	// 256色モードの場合は2画面しかないが、この時は、(b3,b2), (b1,b0) をペアでセットします
+	vdp->gr_active = 0x3 << (vdp->pnametbl_baddr >> 15);
+	update_VCRR_02();
 }
 
 void update_colortbl_baddr_GRAPHIC7(ms_vdp_t* vdp) {
@@ -104,6 +121,7 @@ void update_sprpgentbl_baddr_GRAPHIC7(ms_vdp_t* vdp) {
 }
 
 void update_r7_color_GRAPHIC7(ms_vdp_t* vdp, uint8_t data) {
+	update_r7_color_DEFAULT(vdp, data);
 }
 
 char* get_mode_name_GRAPHIC7(ms_vdp_t* vdp) {
@@ -123,5 +141,5 @@ void vdp_command_write_GRAPHIC7(ms_vdp_t* vdp, uint8_t value) {
 }
 
 void update_resolution_GRAPHIC7(ms_vdp_t* vdp) {
-	update_resolution_COMMON(vdp, 0, 1, 0); // 512, 256色, BG不使用
+	update_resolution_COMMON(vdp, 0, 1, 0); // 256, 256色, BG不使用
 }

@@ -228,9 +228,6 @@ int detect_rom_type(uint8_t* buffer, int length) {
 
 void allocateAndSetROM(const char *romFileName, int kind, int slot_base, int slot_ex, int page) {
 	int crt_fh;
-	int crt_length;
-	uint8_t *crt_buff;
-	int i;
 
 	crt_fh = open( romFileName, O_RDONLY | O_BINARY);
 	if (crt_fh == -1) {
@@ -238,6 +235,14 @@ void allocateAndSetROM(const char *romFileName, int kind, int slot_base, int slo
 		ms_exit();
 		return;
 	}
+	allocateAndSetROMwithHandle(crt_fh, kind, slot_base, slot_ex, page);
+}
+
+void allocateAndSetROMwithHandle(int crt_fh, int kind, int slot_base, int slot_ex, int page) {
+	int crt_length;
+	uint8_t *crt_buff;
+	int i;
+
 	crt_length = filelength(crt_fh);
 	if(crt_length == -1) {
 		printf("ファイルの長さが取得できません。\n");

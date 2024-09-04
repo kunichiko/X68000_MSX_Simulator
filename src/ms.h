@@ -39,4 +39,22 @@ volatile extern unsigned short debug_log_level;
 extern uint8_t ms_peripherals_led_caps;
 extern uint8_t ms_peripherals_led_kana;
 
+extern uint8_t ms_fdd_led_1;
+extern uint8_t ms_fdd_led_2;
+
+typedef struct ms_init_params {
+	uint8_t* buf;
+	uint8_t* mainrom;
+	uint8_t* subrom;
+	uint8_t* diskrom;
+	uint8_t* cartridge_path_slot1;
+	int cartridge_kind_slot1;
+	uint8_t* cartridge_path_slot2;
+	int cartridge_kind_slot2;
+	uint8_t* slot_path[4][4];
+	int diskcount;
+	char* diskimages[16];
+	uint32_t max_wait;
+} ms_init_params_t;
+
 #endif // MS_H

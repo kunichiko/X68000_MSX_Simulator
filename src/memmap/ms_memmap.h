@@ -96,6 +96,7 @@ void ms_memmap_set_main_mem( void *, int);
 int ms_memmap_attach_driver(ms_memmap_t* memmap, ms_memmap_driver_t* driver, int slot_base, int slot_ex);
 
 void allocateAndSetROM(const char *romFileName, int kind, int slot_base, int slot_ex, int page);
+void allocateAndSetROMwithHandle(int fh, int kind, int slot_base, int slot_ex, int page);
 void allocateAndSetDISKBIOSROM(const char *romFileName, ms_disk_container_t* disk_container);
 void allocateAndSetROM_Cartridge(const char* romFileName, int slot_base, int kind);
 

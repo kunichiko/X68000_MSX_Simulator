@@ -155,6 +155,9 @@ static void _TC8556AF_reg2_write(THIS* d, uint8_t data) {
 	d->drive[1].set_motor(&d->drive[1], (data >> 5) & 0x01);
 	d->drive[0].set_motor(&d->drive[0], (data >> 4) & 0x01);
 
+	ms_fdd_led_2 = (data >> 5) & 0x01;
+	ms_fdd_led_1 = (data >> 4) & 0x01;
+
 	d->driveId = data & 0x03;
 	MS_LOG(MS_LOG_DEBUG, "FDC Wr#2: %02x\n", data);
 }

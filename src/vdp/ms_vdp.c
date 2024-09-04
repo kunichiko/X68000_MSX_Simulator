@@ -235,8 +235,24 @@ void ms_vdp_set_mode(ms_vdp_t* vdp, int mode) {
 	}
 	vdp->ms_vdp_current_mode->update_resolution(vdp);
 	// GRAMクリア
+	uint32_t words = 0;
+	switch(vdp->ms_vdp_current_mode->bits_per_dot) {
+	case 2:
+	case 4:
+		// 4色, 16色
+		words = X68_GRAM_LEN;
+		break;
+	case 8:
+		// 256色
+		words = X68_GRAM_LEN / 2;
+		break;
+	case 16:
+		// 65536色
+		words = X68_GRAM_LEN / 4;
+		break;
+	}
 	int i;
-	for(i=0;i<X68_GRAM_LEN;i++) {
+	for(i=0;i<words;i++) {
 		X68_GRAM[i] = 0;
 	}
 	vdp->ms_vdp_current_mode->init(vdp);
@@ -294,7 +310,7 @@ void update_resolution_COMMON(ms_vdp_t* vdp, unsigned int res, unsigned int colo
 	CRTR_06	= crtc_values[m][6];
 	CRTR_07	= crtc_values[m][7];
 	CRTR_08	= crtc_values[m][8];
-	CRTR_20 = ((color&0x3) << 10) | 0x10 | ((res&0x1) << 2) | (res&0x1);
+	CRTR_20 = ((color&0x3) << 8) | 0x10 | ((res&0x1) << 2) | (res&0x1);
 	SPCON_HTOTAL = crtc_values[m][9];
 	SPCON_HDISP = crtc_values[m][10];
 	SPCON_VSISP = crtc_values[m][11];

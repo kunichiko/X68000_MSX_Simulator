@@ -85,8 +85,7 @@ void update_palette_GRAPHIC6(ms_vdp_t* vdp) {
 }
 
 void update_pnametbl_baddr_GRAPHIC6(ms_vdp_t* vdp) {
-	update_pnametbl_baddr_DEFAULT(vdp);
-	vdp->pnametbl_baddr &= 0x10000;
+	vdp->pnametbl_baddr = (vdp->_r02 << 11) & 0x10000;
 	vdp->gr_active = 1 << (vdp->pnametbl_baddr >> 16);
 	update_VCRR_02();
 }

@@ -174,21 +174,34 @@ inline uint8_t read_vram_logical(ms_vdp_t* vdp, uint32_t vaddr, uint16_t vamod) 
 	value = (value >> ((dots_per_byte-1-vamod)*bits_per_dot)) & ((1<<bits_per_dot)-1);
 	return value;
 }
-
-inline void write_vram_logical(ms_vdp_t* vdp, uint32_t vaddr, uint16_t vamod, uint8_t value) {
+/**
+ * @brief VRAMに論理転送します
+ * 
+ * @param vdp 
+ * @param vaddr 
+ * @param vamod 
+ * @param value 
+ * @return uint8_t 論理ピクセルの書き換えが起こった場合1、起らなかった場合0
+ */
+inline uint8_t write_vram_logical(ms_vdp_t* vdp, uint32_t vaddr, uint16_t vamod, uint8_t value) {
 	int bits_per_dot = vdp->ms_vdp_current_mode->bits_per_dot;
 	// VRAMマスクパターン
 	// GRAPHIC4: 0b11111111_00001111
 	// GRAPHIC5: 0b11111111_00111111
 	// GRAPHIC6: 0b11111111_00001111
 	// GRAPHIC7: 0b11111111_00000000
-	uint16_t mask = ~(((1<<bits_per_dot)-1) << (8-(bits_per_dot)));
-	uint8_t tmp = vdp->vram[vaddr];
-	tmp = tmp & (mask >> (vamod*bits_per_dot));
-	tmp = tmp + (value << ((8-(vamod+1)*bits_per_dot)));
-	vdp->vram[vaddr] = tmp;
-	//vdp->vram[vaddr] = (vdp->vram[vaddr] & (mask >> (vamod*bits_per_dot))) //
-	//		+ (dst << ((8-(vamod+1)*bits_per_dot)));}
+	uint16_t mask = ~(((1<<bits_per_dot)-1) << (8-(bits_per_dot)));	// 初期位置は一番左のピクセル
+	mask >>= vamod*bits_per_dot;							// 書き換える場所に000が来るようにシフト
+	uint8_t src = vdp->vram[vaddr];
+	uint8_t val = value << ((8-(vamod+1)*bits_per_dot));	// 書き込む値をビット位置に合わせる
+	if ((src & ~mask) == val) {
+		// 変更がないなら書き換えない
+		return 0;
+	}
+	uint8_t dst = src & mask;
+	dst |= val;
+	vdp->vram[vaddr] = dst;
+	return 1;
 }
 
 
@@ -213,13 +226,12 @@ void cmd_PSET_exe(ms_vdp_t* vdp, uint16_t x, uint16_t y, uint8_t color, uint8_t 
 	dst = logical_operation(dst, color, logiop);
 
 	// VRAMに書き込む
-	write_vram_logical(vdp, vaddr, vamod, dst);
-
-	// GRAMに書き込む
-	uint16_t* gram = to_gram(vdp, vaddr, vamod);
-	gram[0] = dst;
-	if(vdp->ms_vdp_current_mode->crt_width == 256) gram[256*512] = dst;
-
+	if( write_vram_logical(vdp, vaddr, vamod, dst) ) {
+		// GRAMに書き込む
+		uint16_t* gram = to_gram(vdp, vaddr, vamod);
+		gram[0] = dst;
+		if(vdp->ms_vdp_current_mode->crt_width == 256) gram[256*512] = dst;
+	}
 }
 
 /*
@@ -283,7 +295,7 @@ void cmd_LMMV(ms_vdp_t* vdp, uint8_t cmd, uint8_t logiop) {
 	uint8_t DIX = vdp->cmd_arg & 0x04;
 	uint8_t DIY = vdp->cmd_arg & 0x08;
 	uint16_t nx = vdp->nx == 0 ? crt_width : vdp->nx;
-	uint16_t ny = vdp->ny;
+	uint16_t ny = vdp->ny == 0 ? crt_width : vdp->ny;
 	uint8_t clr = vdp->clr & ((1<<vdp->ms_vdp_current_mode->bits_per_dot)-1);
 
 	vdp->cmd_current = cmd;
@@ -305,10 +317,11 @@ void cmd_LMMV(ms_vdp_t* vdp, uint8_t cmd, uint8_t logiop) {
 			// 論理演算実行
 			dst = logical_operation(dst, clr, logiop);
 			// VRAMに書き込む
-			write_vram_logical(vdp, dst_vram_addr, dst_mod, dst);
-			// GRAMに書き込む
-			*gram = dst;
-			if(crt_width == 256) gram[256*512] = dst;
+			if( write_vram_logical(vdp, dst_vram_addr, dst_mod, dst) ) {
+				// GRAMに書き込む
+				*gram = dst;
+				if(crt_width == 256) gram[256*512] = dst;
+			}
 			// DIXに従ってVRAMアドレスを更新
 			if (DIX == 0) {
 				// DIX=0の時
@@ -374,10 +387,11 @@ void cmd_LMMM(ms_vdp_t* vdp, uint8_t cmd, uint8_t logiop) {
 			// 論理演算実行
 			dst = logical_operation(dst, src, logiop);
 			// VRAMに書き込む
-			write_vram_logical(vdp, dst_vram_addr, dst_mod, dst);
-			// GRAMに書き込む
-			*gram = dst;
-			if(vdp->ms_vdp_current_mode->crt_width == 256) gram[256*512] = dst;
+			if(write_vram_logical(vdp, dst_vram_addr, dst_mod, dst)) {
+				// GRAMに書き込む
+				*gram = dst;
+				if(vdp->ms_vdp_current_mode->crt_width == 256) gram[256*512] = dst;
+			}
 			// DIXに従ってVRAMアドレスを更新
 			if ((vdp->cmd_arg & 0x04) == 0) {
 				// DIX=0の時
@@ -459,11 +473,11 @@ void cmd_LMMC_exe(ms_vdp_t* vdp, uint8_t value) {
 	dst = logical_operation(dst, value, logiop);
 
 	// VRAMに書き込む
-	write_vram_logical(vdp, vaddr, vamod, dst);
-
-	// GRAMに書き込む
-	*gram = dst;
-	if(vdp->ms_vdp_current_mode->crt_width == 256) gram[256*512] = dst;
+	if(write_vram_logical(vdp, vaddr, vamod, dst)){
+		// GRAMに書き込む
+		*gram = dst;
+		if(vdp->ms_vdp_current_mode->crt_width == 256) gram[256*512] = dst;
+	}
 
 	vdp->s02 |= 0x80;				// TRビットをセット
 	vdp->cmd_nx_count-=1;
@@ -529,7 +543,7 @@ void cmd_HMMV(ms_vdp_t* vdp, uint8_t cmd) {
 	int x,y,i;
 	for(y=0; y < ny; y++) {
 		uint16_t* gram = to_gram(vdp, dst_vram_addr, 0);
-		for(x=0;x < nx; x+=2) {
+		for(x=0;x < nx; x+=dots_per_byte) {
 			uint8_t data = clr;
 			// VRAMに書き込む
 			if( vram[dst_vram_addr] != data ) {

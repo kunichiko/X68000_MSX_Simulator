@@ -25,7 +25,13 @@
 #include "vdp/ms_vdp.h"
 #include "disk/ms_disk_container.h"
 
+ms_init_params_t init_param;
+ms_init_params_t user_param;
+
+// プロトタイプ宣言
 void ms_exit( void);
+uint8_t load_user_param();
+int search_open(const char *filename, int flag);
 
 // メモリ関連
 ms_memmap_t* memmap = NULL;
@@ -69,6 +75,7 @@ void ms_memmap_register_rom( void* address, int kind, int slot, int page);
 
 int emuLoop(unsigned int pc, unsigned int counter);
 
+char base_dir[256];
 void set_system_roms(void);
 
 void _toggleTextPlane(void);
@@ -114,29 +121,7 @@ void printHelpAndExit(char* progname) {
 	exit(EXIT_FAILURE);
 }
 
-static unsigned char *MainROM1;
-static unsigned char *MainROM2;
-static unsigned char *SUBROM;
-static unsigned char *SLOT1_1;
-static unsigned char *SLOT1_2;
-static unsigned char *ROM;
-
-uint32_t max_wait = 0xffffffff;
 int disablekey = 0;
-
-const char *mainrom_cbios = "cbios_main_msx2_jp.rom";
-const char *cbioslogo = "cbios_logo_msx2.rom";
-const char *subrom_cbios = "cbios_sub.rom";
-
-// char *mainrom_user = "MAINROM.ROM";
-// char *subrom_user = "SUBROM.ROM";
-// char *diskbios_user = "DISKBIOS.ROM";
-char *mainrom_user = "fs-a1f_basic-bios2.rom";
-char *subrom_user = "fs-a1f_msx2sub.rom";
-char *diskbios_user = "fs-a1f_disk.rom";
-
-int diskcount = 0;
-char *diskimages[16];
 
 char* separate_rom_kind(char* path, int* kind) {
 	char* p = strchr(path, ',');
@@ -158,6 +143,8 @@ char* separate_rom_kind(char* path, int* kind) {
 		} else {
 			*kind = -1;
 		}
+	} else {
+		*kind = -1;
 	}
 	return path;
 }
@@ -175,13 +162,20 @@ int main(int argc, char *argv[]) {
 #ifdef DEBUG
 	debug_log_level = MS_LOG_INFO;
 #endif
+	// argv[0]から、実行ファイル名を取り除き、ディレクトリ名を取得
+	// そのディレクトリをベースディレクトリとして設定
+	strncpy(base_dir, argv[0], sizeof(base_dir) - 1);
+    base_dir[sizeof(base_dir) - 1] = '\0'; // 文字列の終端を保証
+	char *last_separator = strrchr(base_dir, '\\');
+	if (last_separator != NULL) {
+		// 最後の \ は残す
+		*(last_separator+1) = '\0';
+	} else {
+        printf("ディレクトリ名の取得に失敗しました\n");
+        return 1;
+    }
 
 	int i, j;
-	char *cartridge_path_slot1 = NULL; // カートリッジのパス
-	int cartridge_kind_slot1 = -1; // カートリッジの種類
-	char *cartridge_path_slot2 = NULL; // カートリッジのパス
-	int cartridge_kind_slot2 = -1; // カートリッジの種類
-	char *slot_path[4][4]; // 個々のスロットにセットするROMのパス
 	int opt;
     const char* optstring = "hm:s:w:r:" ; // optstringを定義します
     const struct option longopts[] = {
@@ -204,12 +198,38 @@ int main(int argc, char *argv[]) {
 		ms_exit();
 	}
 
-	for (i = 0; i < 4; i++) {
-		for (j = 0; j < 4; j++) {
-			slot_path[i][j] = NULL;
+	// デフォルトの初期化
+	init_param.buf = NULL;
+	init_param.diskrom = NULL;
+	for(i=0;i<4;i++) {
+		for(j=0;j<4;j++) {
+			init_param.slot_path[i][j] = NULL;
 		}
 	}
+	init_param.cartridge_path_slot1 = NULL;
+	init_param.cartridge_kind_slot1 = -1;
+	init_param.cartridge_path_slot2 = NULL;
+	init_param.cartridge_kind_slot2 = -1;
+	init_param.max_wait = 0xffffffff;
+	init_param.diskcount = 0;
+	for(i=0;i<16;i++) {
+		init_param.diskimages[i] = NULL;
+	}
 
+	// ユーザー設定ファイルの読み込み
+	if( load_user_param() ) {
+		// 読み込みに成功した場合は、デフォルトの設定をユーザー設定で上書き
+		init_param = user_param;
+	}
+
+	// システムROMファイルのチェック
+	if( init_param.mainrom == NULL || init_param.subrom == NULL) {
+		init_param.mainrom = "cbios_main_msx2_jp.rom";
+		init_param.subrom = "cbios_sub.rom";
+		init_param.slot_path[0][2] = "cbios_logo_msx2.rom";
+	}
+
+	// その他ワークエリアの初期化
 	for(i=0;i<32;i++) {
 		interrupt_history_ptr[i].int_tick = 0;
 		interrupt_history_ptr[i].process_type = 0;
@@ -229,19 +249,19 @@ int main(int argc, char *argv[]) {
 		case 'm': // -m オプション
 			if (optarg != NULL)
 			{
-				mainrom_user = optarg;
+				init_param.mainrom = optarg;
 			}
 			break;
 		case 'w': // -w オプション
 			if (optarg != NULL)
 			{
-				max_wait = atoi(optarg);
+				init_param.max_wait = atoi(optarg);
 			}
 			break;
 		case 's': // -s オプション
 			if (optarg != NULL)
 			{
-				subrom_user = optarg;
+				init_param.subrom = optarg;
 			}
 			break;
 		case 'r': // -rNN オプション
@@ -252,7 +272,7 @@ int main(int argc, char *argv[]) {
 					// メインROMの指定
 					if (argv[optind] != NULL)
 					{
-						mainrom_user = argv[optind++];
+						init_param.mainrom = argv[optind++];
 					}
 					else
 					{
@@ -264,7 +284,7 @@ int main(int argc, char *argv[]) {
 					// サブROMの指定
 					if (argv[optind] != NULL)
 					{
-						subrom_user = argv[optind++];
+						init_param.subrom = argv[optind++];
 					}
 					else
 					{
@@ -276,7 +296,7 @@ int main(int argc, char *argv[]) {
 					// ディスクBIOSの指定
 					if (argv[optind] != NULL)
 					{
-						diskbios_user = argv[optind++];
+						init_param.diskrom = argv[optind++];
 					}
 					else
 					{
@@ -297,11 +317,11 @@ int main(int argc, char *argv[]) {
 					if (argv[optind] != NULL)
 					{
 						if (slot == 1) {
-							cartridge_path_slot1 = argv[optind++];
-							cartridge_path_slot1 = separate_rom_kind(cartridge_path_slot1, &cartridge_kind_slot1);
+							init_param.cartridge_path_slot1 = argv[optind++];
+							init_param.cartridge_path_slot1 = separate_rom_kind(init_param.cartridge_path_slot1, &init_param.cartridge_kind_slot1);
 						} else {
-							cartridge_path_slot2 = argv[optind++];
-							cartridge_path_slot2 = separate_rom_kind(cartridge_path_slot2, &cartridge_kind_slot2);
+							init_param.cartridge_path_slot2 = argv[optind++];
+							init_param.cartridge_path_slot2 = separate_rom_kind(init_param.cartridge_path_slot2, &init_param.cartridge_kind_slot2);
 						}
 					}
 					else
@@ -322,7 +342,7 @@ int main(int argc, char *argv[]) {
 					// 次の引数（ROMファイル名）を取得
 					if (argv[optind] != NULL)
 					{
-						slot_path[slot][page] = argv[optind++];
+						init_param.slot_path[slot][page] = argv[optind++];
 					}
 					else
 					{
@@ -338,8 +358,8 @@ int main(int argc, char *argv[]) {
 				// 次の引数（ROMファイル名）を取得
 				if (optarg != NULL)
 				{
-					cartridge_path_slot1 = optarg;
-					cartridge_path_slot1 = separate_rom_kind(cartridge_path_slot1, &cartridge_kind_slot1);
+					init_param.cartridge_path_slot1 = optarg;
+					init_param.cartridge_path_slot1 = separate_rom_kind(init_param.cartridge_path_slot1, &init_param.cartridge_kind_slot1);
 				}
 				else
 				{
@@ -411,9 +431,14 @@ int main(int argc, char *argv[]) {
 	}
 
     // getoptのループが終了した後、通常の引数を処理する
+	// init_param.diskcountはこの時点で 1以上になっていることもあるので注意
 	for (i = optind; i < argc; i++) {
 		if (strcasestr(argv[i], ".dsk") != 0) {
-			diskimages[diskcount++] = argv[i];
+			init_param.diskimages[init_param.diskcount++] = argv[i];
+			if(init_param.diskcount >= 16) {
+				printf("ディスクイメージの数が多すぎます\n");
+				ms_exit();
+			}
 		}
 	}
 
@@ -487,22 +512,27 @@ int main(int argc, char *argv[]) {
 
 	for ( i = 0; i < 4; i++) {
 		for ( j = 0; j < 4; j++) {
-			if ( slot_path[i][j] != NULL) {
-				printf("スロット%d-ページ%dにROMをセットします: %s\n", i, j, slot_path[i][j]);
-				allocateAndSetROM(slot_path[i][j], ROM_TYPE_NORMAL_ROM, i, -1, j);
+			if ( init_param.slot_path[i][j] != NULL) {
+				printf("スロット%d-ページ%dにROMをセットします: %s\n", i, j, init_param.slot_path[i][j]);
+				int fh = search_open(init_param.slot_path[i][j], O_BINARY | O_RDONLY);
+				if ( fh == -1) {
+					printf("ファイルが開けません. %s\n", init_param.slot_path[i][j]);
+				} else {
+					allocateAndSetROMwithHandle(fh, ROM_TYPE_NORMAL_ROM, i, -1, j);
+				}
 			}
 		}
 	}
 
 	// サイズを自動判別してROMをセット
-	if (cartridge_path_slot1 != NULL) {
-		allocateAndSetROM_Cartridge(cartridge_path_slot1, 1, cartridge_kind_slot1);
+	if (init_param.cartridge_path_slot1 != NULL) {
+		printf("Cartridge slot 1: %s\n", init_param.cartridge_path_slot1);
+		allocateAndSetROM_Cartridge(init_param.cartridge_path_slot1, 1, init_param.cartridge_kind_slot1);
 	}
-	if (cartridge_path_slot2 != NULL) {
-		allocateAndSetROM_Cartridge(cartridge_path_slot2, 2, cartridge_kind_slot2);
+	if (init_param.cartridge_path_slot2 != NULL) {
+		printf("Cartridge slot 2: %s\n", init_param.cartridge_path_slot2);
+		allocateAndSetROM_Cartridge(init_param.cartridge_path_slot2, 2, init_param.cartridge_kind_slot2);
 	}
-
-	printf("X680x0 MSXシミュレーター with elf2x68k\n");
 
 	printf("VSYNCレート=%d, ホスト処理レート=%d\n", ms_vdp_vsync_rate, host_rate);
 	printf("VSYNC計測中...\n");
@@ -532,7 +562,7 @@ int main(int argc, char *argv[]) {
 	write_port_A8(0);
 
 	if (1) {
-		ms_cpu_emulate(emuLoop, max_wait);
+		ms_cpu_emulate(emuLoop, init_param.max_wait);
 	} else {
 		debugger();
 	}
@@ -564,6 +594,9 @@ void ms_exit() {
 	if ( memmap != NULL ) {
 		ms_memmap_deinit(memmap);
 		new_free(memmap);
+	}
+	if( user_param.buf != NULL) {
+		new_free(user_param.buf);
 	}
 	exit(0);
 }
@@ -934,19 +967,22 @@ void dump(unsigned int page, unsigned int pc_8k) {
 }
 
 static uint8_t keyboard_led_counter = 0;
-static uint8_t last_led_caps = 0;
-static uint8_t last_led_kana = 0;
+static uint8_t last_led_val = 0;
+
+uint8_t ms_fdd_led_1;
+uint8_t ms_fdd_led_2;
 
 void sync_keyboard_leds() {
 	if (keyboard_led_counter == 0) {
 		keyboard_led_counter = 3;
-		if( last_led_caps != ms_peripherals_led_caps) {
-			ms_iocs_ledctrl(0x3, ms_peripherals_led_caps);
-			last_led_caps = ms_peripherals_led_caps;
-		}
-		if( last_led_kana != ms_peripherals_led_kana) {
-			ms_iocs_ledctrl(0x0, ms_peripherals_led_kana);
-			last_led_kana = ms_peripherals_led_kana;
+		uint8_t led_val = 0;
+		led_val |= ms_peripherals_led_caps ? 0b00001000 : 0;	// CAPS
+		led_val |= ms_peripherals_led_kana ? 0b00000001 : 0;	// KANA
+		led_val |= ms_fdd_led_1            ? 0b00000100 : 0;	// CODE
+		led_val |= ms_fdd_led_2            ? 0b00000010 : 0;	// ROME
+		if( last_led_val != led_val) {
+			ms_iocs_ledctrl(led_val, ms_peripherals_led_caps);
+			last_led_val = led_val;
 		}
 	} else {
 		keyboard_led_counter--;
@@ -1033,26 +1069,51 @@ void _setTextPlane(int textPlaneMode) {
 	}
 }
 
-int file_exists(const char *filename) {
-    FILE *file = fopen(filename, "r");
-    if (file) {
-        fclose(file);
-        return 1;
+
+int search_open(const char *filename, int flag) {
+	if(filename == NULL) {
+		return -1;
+	}
+    int fh = open(filename, flag);
+    if (fh != -1) {
+        return fh;
     }
-    return 0;
+	// ベースディレクトリも検索
+	char base_filename[256];
+	sprintf(base_filename, "%s%s", base_dir, filename);
+	fh = open(base_filename, flag);
+	if (fh != -1) {
+		return fh;
+	}
+    return -1;
+}
+
+int file_exists(const char *filename) {
+	if(filename == NULL) {
+		return 0;
+	}
+	int fh = open(filename, O_RDONLY);
+	if (fh != -1) {
+		close(fh);
+		return 1;
+	}
+	return 0;
 }
 
 void set_system_roms() {
-	if (file_exists(mainrom_user) && file_exists(subrom_user)) {
+	int fh_mainrom = search_open(init_param.mainrom, O_BINARY | O_RDONLY);
+	int fh_subrom = search_open(init_param.subrom, O_BINARY | O_RDONLY);
+	if (fh_mainrom != -1 && fh_subrom != -1) {
 		// Load user-provided ROMs
-		printf("指定されたBIOS ROMが見つかりました。%s と %sを使用します。\n", mainrom_user, subrom_user);
-		allocateAndSetROM(mainrom_user, ROM_TYPE_NORMAL_ROM, 0x00, -1, 0);
-		allocateAndSetROM(subrom_user, ROM_TYPE_NORMAL_ROM, 0x03, 1, 0);
-		if (file_exists(diskbios_user)) {
-			printf("指定されたディスクBIOS ROMが見つかりました。%sを使用します。\n", diskbios_user);
+		printf("MAIN ROM: %s\n", init_param.mainrom);
+		printf(" SUB ROM: %s\n", init_param.subrom);
+		allocateAndSetROMwithHandle(fh_mainrom, ROM_TYPE_NORMAL_ROM, 0x00, -1, 0);
+		allocateAndSetROMwithHandle(fh_subrom, ROM_TYPE_NORMAL_ROM, 0x03, 1, 0);
+		if (file_exists(init_param.diskrom)) {
+			printf("DISK ROM: %s\n", init_param.diskrom);
 			int i;
-			for(i=0;i<diskcount;i++) {
-				printf("ディスクイメージ %d: %s\n", i, diskimages[i]);
+			for(i=0;i<init_param.diskcount;i++) {
+				printf(" Load disk [%d] : %s\n", i, init_param.diskimages[i]);
 			}
 			// ディスクコンテナの初期化
 			disk_container = ms_disk_container_alloc();
@@ -1061,18 +1122,130 @@ void set_system_roms() {
 				ms_exit();
 				return;
 			}
-			ms_disk_container_init(disk_container, diskcount, diskimages);
+			ms_disk_container_init(disk_container, init_param.diskcount, init_param.diskimages);
 
-			allocateAndSetDISKBIOSROM(diskbios_user, disk_container);
+			allocateAndSetDISKBIOSROM(init_param.diskrom, disk_container);
 		}
     } else {
+		if (fh_mainrom != -1) {
+			close(fh_mainrom);
+		}
+		if (fh_subrom != -1) {
+			close(fh_subrom);
+		}
         // Load default CBIOS ROMs
-		printf("CBIOS ROMを使用します。\n");
-		allocateAndSetROM(mainrom_cbios, ROM_TYPE_NORMAL_ROM, 0x00, -1, 0);
-		allocateAndSetROM(cbioslogo, ROM_TYPE_NORMAL_ROM, 0x00, -1, 2);
-		allocateAndSetROM(subrom_cbios, ROM_TYPE_NORMAL_ROM, 0x03, 1, 0);
+		printf("BIOS ROMが見つかりません。ファイルを確認してください。\n");
+		printf(" BIOS ROM: %s\n", init_param.mainrom);
+		printf(" SUB ROM : %s\n", init_param.subrom);
+		ms_exit();
+		return;
     }
 }
+
+/**
+ * @brief MS.INI ファイルを読み込み、初期化パラメータを設定します
+ * 
+ * @return uint8_t ロードできた場合1、失敗した場合0
+ */
+uint8_t load_user_param() {
+	int fh = search_open("MS.INI", O_RDONLY); // TEXT MODE で開く
+	if(fh == -1) {
+		printf("MS.INI ファイルを開けませんでした。\n");
+		return 0;
+	}
+	int size = filelength(fh);
+	user_param.buf = (uint8_t*)new_malloc(size + 1);
+	if(user_param.buf == NULL) {
+		printf("メモリが確保できません。\n");
+		close(fh);
+		return 0;
+	}
+	read(fh, user_param.buf, size);
+	close(fh);
+	user_param.buf[size] = '\0';
+
+	user_param.diskcount = 0;
+	// 1行ずつ読みながらパラメータを設定
+	// Read each line from the MS.INI file
+	int pos = 0;
+	while (pos < size) {
+		while(pos<size) {
+			if( user_param.buf[pos] == '\n' || user_param.buf[pos] == '\r') {
+				// 連続する改行をスキップ
+				pos++;
+			} else {
+				break;
+			}
+		}
+		if(pos >= size) {
+			break;
+		}
+		char* line = user_param.buf + pos;
+		while(pos<size && user_param.buf[pos] != '\n') {
+			pos++;
+		}
+		user_param.buf[pos++] = '\0';
+
+		// 行がコメント行かどうかをチェック
+		if (line[0] == ';' || line[0] == '#') {
+			continue;
+		}
+
+		// Parse the line to extract the parameter and value
+		char* param = strtok(line, "=");
+		char* value = strtok(NULL, "=");
+
+		// Check if the parameter is "mainrom"
+		if (strcmp(param, "mainrom") == 0) {
+			user_param.mainrom = value;
+		}
+		// Check if the parameter is "subrom"
+		else if (strcmp(param, "subrom") == 0) {
+			user_param.subrom = value;
+		}
+		// Check if the parameter is "diskrom"
+		else if (strcmp(param, "diskrom") == 0) {
+			user_param.diskrom = value;
+		}
+		// Check if the parameter starts with "slot"
+		else if (strncmp(param, "slot", 4) == 0) {
+			// Extract the slot number and page number from the parameter
+			int slot = param[4] - '0';
+			int page = param[6] - '0';
+
+			// Set the ROM path for the specified slot and page
+			user_param.slot_path[slot][page] = value;
+		}
+		// Check if the parameter starts with "r"
+		else if (strncmp(param, "r", 1) == 0) {
+			// Extract the slot number and page number from the parameter
+			int slot = param[1] - '0';
+			int page = param[2] - '0';
+
+			// Set the ROM path for the specified slot and page
+			user_param.slot_path[slot][page] = value;
+		}
+		// Check if the parameter is "cart1"
+		else if (strcmp(param, "cart1") == 0) {
+			user_param.cartridge_path_slot1 = separate_rom_kind(value, &user_param.cartridge_kind_slot1);
+		}
+		// Check if the parameter is "cart2"
+		else if (strcmp(param, "cart2") == 0) {
+			user_param.cartridge_path_slot2 = separate_rom_kind(value, &user_param.cartridge_kind_slot2);
+		}
+		// Check if the parameter is "diskimage"
+		else if (strcmp(param, "diskimage") == 0) {
+			if(user_param.diskcount >= 16) {
+				printf("ディスクイメージの数が多すぎます\n");
+			} else {
+				user_param.diskimages[user_param.diskcount++] = value;
+			}
+		}
+	}
+
+	return 1;
+}
+
 
 extern int filelength(int fh);
 
