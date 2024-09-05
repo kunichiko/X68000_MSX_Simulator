@@ -174,8 +174,10 @@ ms_psg_init:
 ;	* PSGはCH.A、CH.B、CH.Cの3つに割り当て可能だが、OPMは1つしかないので、どれか一つがONならノイズを出す
 ;	* PSGのノイズ音源は1つなのでそれで問題はない
 ;	* もしPSGで複数のチャンネルのノイズをオンにすると音量が変わるのであれば、それはCH8のC2のTLで調整可能
-;
-;
+;	* PSGのノイズは、ノイズ音を各チャンネルの値にXORして出力しているらしく、必ずしも複数のチャンネルで鳴らした時に
+;	* 音量が変わるとは限らないらしい。なので、3つのチャンネルのうち、ノイズが鳴っているうち最も音量が大きいものを
+;	* ノイズの音量として使うのが良いと思われる
+
 	move.w	#$40,d1
 	move.w	#3-1,d3				* PSG CH.A,B,Cの３パートにＰＳＧ音色をセット
 
@@ -218,16 +220,7 @@ ms_psg_init:
 
 
 	; 共通項目のセット
-	lea.l	PSG_data_common,a0
-
-	move.b	1(a0),d2			* FB
-	lsl.b	#3,d2
-	or.b	 (a0),d2			* AL:接続アルゴリズム = CON (テーブルには4が書かれているので4番が使われる)
-	w_OPM	d2,#$20
-	w_OPM	d2,#$21
-	w_OPM	d2,#$22
-
-	w_OPM	4(a0),#$1b			* WF
+	w_OPM	#$00,#$1b			* WF
 
 	w_OPM	#$00,#$18
 	w_OPM	#$00,#$19			* AMD
@@ -644,53 +637,64 @@ PSG_refresh:
 	lea.l	volume_tbl,a0
 
 	; ノイズ音量を調整する
+	; ノイズが鳴っているチャンネルの音量が最も大きいものをノイズ音量として使う
 	clr.w	d1
 	; CH.A
 	btst.l	#3,d0
 	bne	@f			* ノイズ音量は0でONなので、1なら鳴ってない
 	move.b	PSG_R08,d2
 	andi.w	#$000f,d2		* TODO エンベロープがノイズに与える影響を調べる
-	add.w	d2,d1
+	cmp.w	d2,d1
+	bge	@f
+	move.w	d2,d1
 	; CH.B
 @@:	btst.l	#4,d0
 	bne	@f			* ノイズ音量は0でONなので、1なら鳴ってない
 	move.b	PSG_R09,d2
 	andi.w	#$000f,d2		* TODO エンベロープがノイズに与える影響を調べる
-	add.w	d2,d1
+	cmp.w	d2,d1
+	bge	@f
+	move.w	d2,d1
 	; CH.C
 @@:	btst.l	#5,d0
 	bne	@f			* ノイズ音量は0でONなので、1なら鳴ってない
 	move.b	PSG_R09,d2
 	andi.w	#$000f,d2		* TODO エンベロープがノイズに与える影響を調べる
-	add.w	d2,d1
+	cmp.w	d2,d1
+	bge	@f
+	move.w	d2,d1
 @@:
-	lsr.w	#2,d1			* 3つの音量を平均化するために3で割りたいが1/4で誤魔化す
-	w_OPM	0(a0,d1.w),#$7f		* テーブルを引いて TL をセット (SLOT32=CH8のC2)
+	move.b	0(a0,d1.w),d0		* テーブルを引く
+	add.w	#60,d0			* 音量調整（ちょっと下げる）https://github.com/digital-sound-antiques/vgm-conv/blob/ed541fae6b30ad80569363ab5e7d15fcb4774e18/src/converter/ay8910-to-opm-coverter.ts#L91
+	btst.l	#7,d0
+	beq	@f
+	move.w	#127,d0
+@@:	w_OPM	d0,#$7f			* TL をセット (SLOT32=CH8のC2)
 
 	; CH.A
 	clr.w	d1			* Volume:0
 	move.b	PSG_R08,d1		* PSGの音量を取得
-	btst.l	#4,d1			* b4が1の時はエンベロープモードだが、サポートしていないので音量8として扱う
+	btst.l	#4,d1			* b4が1の時はエンベロープモードだが、サポートしていないので音量10として扱う
 	beq	1f
-	moveq.l	#8,d1			* 本当はエンベロープモードの設定
+	moveq.l	#10,d1			* 本当はエンベロープモードの設定
 1:	andi.w	#$000f,d1		* PSGの音量を取得
 	w_OPM	0(a0,d1.w),#$70		* テーブルを引いて TL をセット
 
 	; CH.B
 	clr.w	d1			* Volume:0
 	move.b	PSG_R09,d1		* PSGの音量を取得
-	btst.l	#4,d1			* b4が1の時はエンベロープモードだが、サポートしていないので音量8として扱う
+	btst.l	#4,d1			* b4が1の時はエンベロープモードだが、サポートしていないので音量10として扱う
 	beq	1f
-	moveq.l	#8,d1			* 本当はエンベロープモードの設定
+	moveq.l	#10,d1			* 本当はエンベロープモードの設定
 1:	andi.w	#$000f,d1		* PSGの音量を取得
 	w_OPM	0(a0,d1.w),#$71		* テーブルを引いて TL をセット
 
 	; CH.C
 	clr.w	d1			* Volume:0
 	move.b	PSG_R10,d1		* PSGの音量を取得
-	btst.l	#4,d1			* b4が1の時はエンベロープモードだが、サポートしていないので音量8として扱う
+	btst.l	#4,d1			* b4が1の時はエンベロープモードだが、サポートしていないので音量10として扱う
 	beq	1f
-	moveq.l	#8,d1			* 本当はエンベロープモードの設定
+	moveq.l	#10,d1			* 本当はエンベロープモードの設定
 1:	andi.w	#$000f,d1		* PSGの音量を取得
 	w_OPM	0(a0,d1.w),#$72		* テーブルを引いて TL をセット
 
@@ -833,13 +837,14 @@ PSG_data:
 	.dc.b	31,  0,  0, 15,  0,127,  0,  2,  0,  0,  0
 	.dc.b	31,  0,  0, 15,  0,127,  0,  1,  0,  0,  0
 
-PSG_data_common:
+PSG_data_common: ; 使ってない
 *		AL  FB  OM PAN  WF  SY  SP PMD AMD PMS AMS	（AL:接続アルゴリズム = CON)
 	.dc.b	 4,  7, 15,  3,  0,  0,  0,  0,  0,  0,  0
 
 volume_tbl:
+* https://github.com/digital-sound-antiques/vgm-conv/blob/main/src/converter/ay8910-to-opm-coverter.ts#L6
 *		  0   1   2   3   4   5   6   7   8   9   a   b   c   d   e   f
-	.dc.b	127, 37, 34, 32, 29, 26, 24, 21, 18, 16, 13, 10,  8,  5,  2,  0
+	.dc.b	127, 62, 56, 52, 46, 42, 36, 32, 28, 24, 20, 16, 12,  8,  4,  0
 
 note_tbl:
 	.dc.b	$0,$1,$2,$4,$5,$6,$8,$9,$a,$c,$d,$e,$0,$0,$0,$0

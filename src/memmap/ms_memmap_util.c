@@ -130,6 +130,7 @@ void allocateAndSetROM_Cartridge(const char *romFileName, int slot_base, int kin
 			return;
 		}
 	}
+	printf(" Loaded %s\n", driver->name);
 }
 
 /*
