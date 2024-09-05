@@ -102,6 +102,20 @@ C-BIOSではなく、実機のROMを使いたい場合は、自分でダンプ�
 > ms.x -r GAME.ROM -rm MY_MAINROM.ROM -rs MY_SUBROM.ROM
 ```
 
+### 漢字ROMのサポート
+
+ゲームによっては「要漢字ROM」というものがあり、これは漢字ROMが必要なゲームです。漢字ROMは以下のように指定します。
+
+```
+> ms.x -rk fs-a1f_kanjifont.rom
+```
+
+* 第一水準までの漢字ROMは 128KB
+* 第二水準を持つ漢字ROMは 256KB
+
+となります。
+
+
 ## フロッピーディスクのサポート
 
 C-BIOSはDISK BIOSをサポートしていませんので、フロッピーディスクが必要な場合はPanasonic系の実機のDISK BIOSを抽出し、 `-rd` オプションで指定する必要があります。
@@ -141,6 +155,7 @@ MS.INIファイルの書式は以下のとおりです。最低限、mainromとs
 mainrom=MY_MAINROM.ROM
 subrom=MY_SUBROM.ROM
 diskrom=MY_DISKROM.ROM
+kanjirom=fs-a1f_kanjifont.rom
 cart1=GAME1.ROM
 cart2=OTHER.ROM
 ; ディスクイメージを最大9個まで指定できます(書いた順番にセットされます)

@@ -47,6 +47,7 @@ typedef struct ms_init_params {
 	uint8_t* mainrom;
 	uint8_t* subrom;
 	uint8_t* diskrom;
+	uint8_t* kanjirom;
 	uint8_t* cartridge_path_slot1;
 	int cartridge_kind_slot1;
 	uint8_t* cartridge_path_slot2;

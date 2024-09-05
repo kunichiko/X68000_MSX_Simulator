@@ -24,6 +24,7 @@
 #include "memmap/ms_memmap.h"
 #include "vdp/ms_vdp.h"
 #include "disk/ms_disk_container.h"
+#include "peripheral/ms_kanjirom12.h"
 
 ms_init_params_t init_param;
 ms_init_params_t user_param;
@@ -101,7 +102,7 @@ volatile extern unsigned short interrupt_history_wr;
 volatile extern unsigned short interrupt_history_rd;
 
 void printHelpAndExit(char* progname) {
-	fprintf(stderr, "Usage: %s  [-w MAX_WAIT] [-rm MAINROM_PATH] [-rs SUBROM_PATH] [-rd DISKBIOS_PATH] [-r1 ROM_PATH for slot 1][,KIND] [-r2 ROM_PATH for slot 2][,KIND] [-rNM ROM_PATH for slot N page M] [IMAGE1.DSK] [IMAGE2.DSK]..\n", progname);
+	fprintf(stderr, "Usage: %s  [-w MAX_WAIT] [-rm MAINROM] [-rs SUBROM] [-rd DISKBIOS] [-rk KANJIROM] [-r1 ROM_PATH for slot 1][,KIND] [-r2 ROM_PATH for slot 2][,KIND] [-rNM ROM_PATH for slot N page M] [IMAGE1.DSK] [IMAGE2.DSK]..\n", progname);
 	fprintf(stderr, " KIND is ROM type:\n");
 	fprintf(stderr, "    NOR: Normal ROM, G8K: GENERIC 8K, A8K: ASCII 8K, A16: ASCII 16K, KON: Konami, SCC: Konami SCC\n");
 	fprintf(stderr, " --vsrate vsync rate (1-60)\n");
@@ -201,6 +202,7 @@ int main(int argc, char *argv[]) {
 	// デフォルトの初期化
 	init_param.buf = NULL;
 	init_param.diskrom = NULL;
+	init_param.kanjirom = NULL;
 	for(i=0;i<4;i++) {
 		for(j=0;j<4;j++) {
 			init_param.slot_path[i][j] = NULL;
@@ -304,6 +306,17 @@ int main(int argc, char *argv[]) {
 						ms_exit();
 					}
 					break;
+				case 'k':
+					// 漢字ROMの指定
+					if (argv[optind] != NULL)
+					{
+						init_param.kanjirom = argv[optind++];
+					}
+					else
+					{
+						printf("ROMファイル名が指定されていません\n");
+						ms_exit();
+					}
 				default:
 					printf("不明なオプションです\n");
 					printHelpAndExit(argv[0]);
@@ -499,6 +512,18 @@ int main(int argc, char *argv[]) {
 		ms_exit();
 	}
 
+	/*
+	 漢字ROMのセット
+	 */
+	if (init_param.kanjirom != NULL) {
+		ms_kanjirom12_t* k12 = ms_kanjirom12_alloc();
+		if (k12 == NULL) {
+			printf("漢字ROMの初期化に失敗しました\n");
+			ms_exit();
+		}
+		ms_kanjirom12_init(k12, init_param.kanjirom);
+		printf("KANJIROM: %s\n", init_param.kanjirom);
+	}
 
 	/*
 	 SYSTEM ROMのセット
@@ -1206,6 +1231,10 @@ uint8_t load_user_param() {
 		// Check if the parameter is "diskrom"
 		else if (strcmp(param, "diskrom") == 0) {
 			user_param.diskrom = value;
+		}
+		// Check if the parameter is "kanjirom"
+		else if (strcmp(param, "kanjirom") == 0) {
+			user_param.kanjirom = value;
 		}
 		// Check if the parameter starts with "slot"
 		else if (strncmp(param, "slot", 4) == 0) {

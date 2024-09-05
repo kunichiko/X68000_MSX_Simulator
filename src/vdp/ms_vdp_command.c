@@ -235,6 +235,62 @@ void cmd_PSET_exe(ms_vdp_t* vdp, uint16_t x, uint16_t y, uint8_t color, uint8_t 
 }
 
 /*
+	SRCH
+*/
+void cmd_SRCH(ms_vdp_t* vdp, uint8_t cmd) {
+	int mod;
+	uint32_t vram_addr;
+	int i;
+	int sx = vdp->sx;
+	uint8_t color = vdp->clr & ((1<<vdp->ms_vdp_current_mode->bits_per_dot)-1);
+	int	crt_width = vdp->ms_vdp_current_mode->crt_width;
+	uint8_t DIX = vdp->cmd_arg & 0x04;
+	uint8_t EQ = vdp->cmd_arg & 0x02;
+
+	if(MS_LOG_DEBUG_ENABLED) {
+		MS_LOG(MS_LOG_DEBUG,"SRCH START****\n");
+		MS_LOG(MS_LOG_DEBUG,"  sx=0x%03x, sy=0x%03x\n", vdp->sx, vdp->sy);
+		MS_LOG(MS_LOG_DEBUG,"  dix=0x%02x, eq=0x%1x clr=0x%02x\n", DIX, EQ, vdp->clr);
+	}
+
+	vdp->s02 = 0x00;
+	while(1) {
+		vram_addr = get_vram_address(vdp, sx, vdp->sy, &mod);
+		uint8_t src = read_vram_logical(vdp, vram_addr, mod);
+		if (EQ == 0) { // 0 = 境界色を発見したときに実行を終了する。
+			if (src == color) {
+				vdp->s02 = 0x10;
+				vdp->s08 = (sx & 0xff);
+				vdp->s09 = (sx & 0xff00) >> 8;
+				break;
+			}
+		} else { // 1 = 境界色以外を発見したときに実行を終了する。
+			if (src != color) {
+				vdp->s02 = 0x10;
+				vdp->s08 = (sx & 0xff);
+				vdp->s09 = (sx & 0xff00) >> 8;
+				break;
+			}
+		}
+		// DIXに従ってVRAMアドレスを更新
+		if (DIX == 0) {
+			// DIX=0の時
+			if(sx == crt_width-1) {
+				break;
+			}
+			sx++;
+		} else {
+			// DIX=1の時
+			if (sx == 0) {
+				break;
+			}
+			sx--;
+		}
+	}
+
+}
+
+/*
 	LINE
 */
 void cmd_LINE(ms_vdp_t* vdp, uint8_t cmd, uint8_t logiop) {
@@ -280,6 +336,7 @@ void cmd_LINE(ms_vdp_t* vdp, uint8_t cmd, uint8_t logiop) {
 		}
 	}
 }
+
 
 /*
 	LMMV
@@ -533,6 +590,7 @@ void cmd_HMMV(ms_vdp_t* vdp, uint8_t cmd) {
 	uint8_t DIX = vdp->cmd_arg & 0x04;
 	uint8_t DIY = vdp->cmd_arg & 0x08;
 	uint16_t nx = vdp->nx == 0 ? crt_width : vdp->nx; // TODO ドラクエ2でNX=0が使われている
+	nx &= ~(dots_per_byte-1);	// 1行のドット数をdots_per_byteの倍数にする
 	uint16_t ny = vdp->ny;
 	uint8_t clr = vdp->clr;
 
@@ -664,6 +722,9 @@ void cmd_HMMM(ms_vdp_t* vdp, uint8_t cmd) {
 	uint8_t* vram = vdp->vram;
 	uint8_t DIX = vdp->cmd_arg & 0x04;
 	uint8_t DIY = vdp->cmd_arg & 0x08;
+	uint16_t nx = vdp->nx == 0 ? crt_width : vdp->nx; // TODO ドラクエ2でNX=0が使われている
+	nx &= ~(dots_per_byte-1);	// 1行のドット数をdots_per_byteの倍数にする
+	uint16_t ny = vdp->ny;
 
 	vdp->cmd_current = cmd;
 	vdp->cmd_arg = vdp->arg;
@@ -671,9 +732,9 @@ void cmd_HMMM(ms_vdp_t* vdp, uint8_t cmd) {
 	uint32_t dst_vram_addr = get_vram_address(vdp, vdp->dx, vdp->dy, NULL);
 
 	int x,y,i;
-	for(y=0; y < vdp->ny; y++) {
+	for(y=0; y < ny; y++) {
 		uint16_t* gram = to_gram(vdp, dst_vram_addr, 0);
-		for(x=0; x < vdp->nx; x+=dots_per_byte) {	// dots_per_byte ドットずつ処理
+		for(x=0; x < nx; x+=dots_per_byte) {	// dots_per_byte ドットずつ処理
 			uint8_t data = vram[src_vram_addr];
 			// VRAMに書き込む
 			if( vram[dst_vram_addr] != data ) {
@@ -699,11 +760,11 @@ void cmd_HMMM(ms_vdp_t* vdp, uint8_t cmd) {
 			}
 		}
 		if ( DIX == 0 ) {
-			src_vram_addr -= vdp->nx / dots_per_byte;
-			dst_vram_addr -= vdp->nx / dots_per_byte;
+			src_vram_addr -= nx / dots_per_byte;
+			dst_vram_addr -= nx / dots_per_byte;
 		} else {
-			src_vram_addr += vdp->nx / dots_per_byte;
-			dst_vram_addr += vdp->nx / dots_per_byte;
+			src_vram_addr += nx / dots_per_byte;
+			dst_vram_addr += nx / dots_per_byte;
 		}
 		if ( DIY == 0 ) {
 			src_vram_addr += crt_width / dots_per_byte;
@@ -821,8 +882,9 @@ void vdp_command_exec(ms_vdp_t* vdp, uint8_t cmd) {
 	case 0b0101: // PSET
 		cmd_PSET(vdp, command, logiop);
 		break;
-	// case 0b0110: // SRCH
-	// 	break;
+	case 0b0110: // SRCH
+		cmd_SRCH(vdp, command);
+		break;
 	case 0b0111: // LINE
 		cmd_LINE(vdp, command, logiop);
 		break;
