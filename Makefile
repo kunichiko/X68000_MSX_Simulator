@@ -2,6 +2,7 @@ SRC_DIR = src
 VDP_DIR = $(SRC_DIR)/vdp
 MEMMAP_DIR = $(SRC_DIR)/memmap
 DISK_DIR = $(SRC_DIR)/disk
+PERIPHERAL_DIR = $(SRC_DIR)/peripheral
 BUILD_DIR = build
 EXE_DIR = exe
 
@@ -20,8 +21,8 @@ LDFLAGS = -lm -lbas -liocs -ldos
 #LD = m68k-xelf-ld.x
 #LD_OPTS = -L /Users/ohnaka/work/XEiJ/HFS/XGCC/LIB/
 
-ASFLAGS = -i $(SRC_DIR) -i $(VDP_DIR) -i $(MEMMAP_DIR) -i ${DISK_DIR} -i /Users/ohnaka/work/XEiJ/HFS/XGCC/INCLUDE/ -w0
-ASFLAGS_DEBUG = -d -s DEBUG -i $(SRC_DIR) -i $(VDP_DIR) -i $(MEMMAP_DIR) -i ${DISK_DIR} -i /Users/ohnaka/work/XEiJ/HFS/XGCC/INCLUDE/ -w0
+ASFLAGS = -i $(SRC_DIR) -i $(VDP_DIR) -i $(MEMMAP_DIR) -i ${DISK_DIR} -i ${PERIPHERAL_DIR} -i /Users/ohnaka/work/XEiJ/HFS/XGCC/INCLUDE/ -w0
+ASFLAGS_DEBUG = -d -s DEBUG -i $(SRC_DIR) -i $(VDP_DIR) -i $(MEMMAP_DIR) -i ${DISK_DIR} -i ${PERIPHERAL_DIR} -i /Users/ohnaka/work/XEiJ/HFS/XGCC/INCLUDE/ -w0
 
 # オブジェクトファイルのリストを変数にまとめる
 OBJS = $(BUILD_DIR)/ms.o \
@@ -33,6 +34,7 @@ OBJS = $(BUILD_DIR)/ms.o \
 		$(BUILD_DIR)/ms_sub_mac.o \
 		$(BUILD_DIR)/ms_peripherals.o \
 		$(BUILD_DIR)/ms_PSG_mac.o \
+		$(BUILD_DIR)/ms_kanjirom12.o \
 		$(BUILD_DIR)/ms_memmap.o \
 		$(BUILD_DIR)/ms_memmap_mac.o \
 		$(BUILD_DIR)/ms_memmap_util.o \
@@ -79,6 +81,7 @@ OBJS_DEBUG = $(BUILD_DIR)/ms_d.o \
 		$(BUILD_DIR)/ms_sub_mac_d.o \
 		$(BUILD_DIR)/ms_peripherals_d.o \
 		$(BUILD_DIR)/ms_PSG_mac_d.o \
+		$(BUILD_DIR)/ms_kanjirom12_d.o \
 		$(BUILD_DIR)/ms_memmap_d.o \
 		$(BUILD_DIR)/ms_memmap_mac_d.o \
 		$(BUILD_DIR)/ms_memmap_util_d.o \
@@ -207,6 +210,23 @@ ${BUILD_DIR}/%.o: $(DISK_DIR)/%.has
 	rm $@.tmp
 
 ${BUILD_DIR}/%_d.o: $(DISK_DIR)/%.has $(SRC_DIR)/ms.mac
+	$(AS) $(ASFLAGS_DEBUG) $< -o $@.tmp
+	x68k2elf.py $@.tmp $@
+	rm $@.tmp
+
+# Peripheral files
+${BUILD_DIR}/%.o: $(PERIPHERAL_DIR)/%.c
+	$(CC) $(CFLAGS) $< -o $@
+
+${BUILD_DIR}/%_d.o: $(PERIPHERAL_DIR)/%.c
+	$(CC) $(CFLAGS_DEBUG) $< -o $@
+
+${BUILD_DIR}/%.o: $(PERIPHERAL_DIR)/%.has
+	$(AS) $(ASFLAGS) $< -o $@.tmp
+	x68k2elf.py $@.tmp $@
+	rm $@.tmp
+
+${BUILD_DIR}/%_d.o: $(PERIPHERAL_DIR)/%.has $(SRC_DIR)/ms.mac
 	$(AS) $(ASFLAGS_DEBUG) $< -o $@.tmp
 	x68k2elf.py $@.tmp $@
 	rm $@.tmp

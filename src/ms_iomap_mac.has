@@ -39,6 +39,9 @@
 	.xref	read_vdp_0,	read_vdp_1,	read_vdp_2,	read_vdp_3
 	.xref	write_vdp_0,	write_vdp_1,	write_vdp_2,	write_vdp_3
 
+	.xref	read_kanji_D9,	read_kanji_DB
+	.xref	write_kanji_D8,	write_kanji_D9,	write_kanji_DA,	write_kanji_DB
+
 	.xref	HEX
 
 	.data
@@ -115,7 +118,7 @@ ms_io_input_table:
 *	d
 	.dc.l	no_port_IN_2,	no_port_IN_2,	no_port_IN_2,	no_port_IN_2
 	.dc.l	no_port_IN_2,	no_port_IN_2,	no_port_IN_2,	no_port_IN_2
-	.dc.l	no_port_IN_2,	no_port_IN_2,	no_port_IN_2,	no_port_IN_2
+	.dc.l	no_port_IN_2,	read_kanji_D9,	no_port_IN_2,	read_kanji_DB
 	.dc.l	no_port_IN,	no_port_IN,	no_port_IN,	no_port_IN
 *	e
 	.dc.l	no_port_IN,	no_port_IN,	no_port_IN,	no_port_IN
@@ -198,7 +201,7 @@ ms_io_output_table:
 *	d
 	.dc.l	no_port_OUT_2,	no_port_OUT_2,	no_port_OUT_2,	no_port_OUT_2
 	.dc.l	no_port_OUT_2,	no_port_OUT_2,	no_port_OUT_2,	no_port_OUT_2
-	.dc.l	no_port_OUT_2,	no_port_OUT_2,	no_port_OUT_2,	no_port_OUT_2
+	.dc.l	write_kanji_D8,	write_kanji_D9,	write_kanji_DA,	write_kanji_DB
 	.dc.l	no_port_OUT,	no_port_OUT,	no_port_OUT,	no_port_OUT
 *	e
 	.dc.l	no_port_OUT,	no_port_OUT,	no_port_OUT,	no_port_OUT
