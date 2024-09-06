@@ -854,7 +854,8 @@ PSG_data_common: ; 使ってない
 volume_tbl:
 * https://github.com/digital-sound-antiques/vgm-conv/blob/main/src/converter/ay8910-to-opm-coverter.ts#L6
 *		  0   1   2   3   4   5   6   7   8   9   a   b   c   d   e   f
-	.dc.b	127, 62, 56, 52, 46, 42, 36, 32, 28, 24, 20, 16, 12,  8,  4,  0
+*	.dc.b	127, 62, 56, 52, 46, 42, 36, 32, 28, 24, 20, 16, 12,  8,  4,  0
+	.dc.b	127, 70, 64, 60, 54, 50, 44, 40, 36, 32, 28, 24, 20, 16, 12,  8	* ノイズとのバランス調整のため、+8する
 
 noise_volume_tbl:
 * https://github.com/digital-sound-antiques/vgm-conv/blob/780a20ed505e23eb21aa9c6ce3f349029718b5a0/src/converter/ay8910-to-opm-coverter.ts#L7C1-L8C1

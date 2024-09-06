@@ -984,7 +984,7 @@ void dump(unsigned int page, unsigned int pc_8k) {
 
 	pc = (page << 13) | (pc_8k & 0x1fff);
 	pcbase = (pc & 0xfff0);
-	printf("PAGE=%04x, PC=%04x, EXEC=%04d SKIP=%04d (+%04d)\n", page, (pc&0xffff), int_exec_counter, current_int_skip_counter,current_int_skip_counter - last_int_skip_counter);
+	printf("PC=%04x, EXEC=%04d SKIP=%04d (+%04d)\n", page, (pc&0xffff), int_exec_counter, current_int_skip_counter,current_int_skip_counter - last_int_skip_counter);
 	last_int_skip_counter = current_int_skip_counter;
 	for (i = -1; i < 2; i++)
 	{

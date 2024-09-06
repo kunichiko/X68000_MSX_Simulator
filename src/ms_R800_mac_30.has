@@ -3444,8 +3444,10 @@ DI:	move.b	#0,interrupt_enable
 	.dc.w	4			* サイクル数
 	.dc.w	1-1			* 命令語長-1
 EI:	move.b	#1,interrupt_enable	* 割り込みを許可
-	move.w	#2,cpu_yield		* 2サイクル後に割り込み判定をかける
-	rts
+	cmpi.b	#0,ms_cpu_int
+	beq	@f
+	move.w	#2,cpu_yield		* 外部割り込み要求がある場合は2サイクル後に割り込み判定をかける
+@@:	rts
 
 ;---------------------------------------------------------------------------------------
 RST_XXH	macro	value
