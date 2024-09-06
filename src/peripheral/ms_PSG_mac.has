@@ -202,7 +202,7 @@ ms_psg_init:
 
 	; ノイズオペレータのセット
 	move.w	#$47,d1
-	lea.l	PSG_data,a0
+	lea.l	PSG_noise_data,a0
 	;M1
 	bsr	SLOT_set			* M1 セット
 	;C1
@@ -237,7 +237,7 @@ ms_psg_init:
 	w_OPM	#%00_111_100,#$20		* CH1の L/R enableを OFFにする(b7,b6) (b5-3はFL、b2-0はAL=CON)
 	w_OPM	#%00_111_100,#$21		* CH2の L/R enableを OFFにする(b7,b6) (b5-3はFL、b2-0はAL=CON)
 	w_OPM	#%00_111_100,#$22		* CH3の L/R enableを OFFにする(b7,b6) (b5-3はFL、b2-0はAL=CON)
-	w_OPM	#%00_111_111,#$27		* CH8の L/R enableを OFFにする(b7,b6) (b5-3はFL、b2-0はAL=CON)
+	w_OPM	#%00_111_100,#$27		* CH8の L/R enableを OFFにする(b7,b6) (b5-3はFL、b2-0はAL=CON)
 
 	w_OPM	#%0_1111_000,#$08		* CH1: キーオン(OP.4-1すべてON)
 	w_OPM	#%0_1111_001,#$08		* CH2: キーオン(OP.4-1すべてON)
@@ -293,6 +293,11 @@ ms_psg_deinit:
 	w_OPM	#%00000001,#$08		* キーオフ
 	w_OPM	#%00000010,#$08		* キーオフ
 	w_OPM	#%00000111,#$08		* キーオフ
+
+	w_OPM	#%00_111_100,#$20	* CH1の L/R enableを OFFにする(b7,b6)
+	w_OPM	#%00_111_100,#$21	* CH1の L/R enableを OFFにする(b7,b6)
+	w_OPM	#%00_111_100,#$22	* CH1の L/R enableを OFFにする(b7,b6)
+	w_OPM	#%00_111_100,#$27	* CH1の L/R enableを OFFにする(b7,b6)
 
 	rts
 
@@ -588,56 +593,44 @@ w_PSG_R06:
 ; キーオン/オフ
 w_PSG_R07:
 	move.b	d1,PSG_R07
-	bra	PSG_refresh
 
-; CH.A 音量設定
-w_PSG_R08:
-	move.b	d1,PSG_R08
-	bra	PSG_refresh
-; CH.B 音量設定
-w_PSG_R09:
-	move.b	d1,PSG_R09
-	bra	PSG_refresh
-; CH.C 音量設定
-w_PSG_R10:
-	move.b	d1,PSG_R10
-	bra	PSG_refresh
-
-PSG_refresh:
+	; PSGサウンドの発音
 	; キーのON/OFFは L-ch enable/R-ch enable で行う
-	move.b	PSG_R07,d0
-	btst.l	#0,d0			* 0: 出力、1: 非出力
+
+	btst.l	#0,d1			* 0: 出力、1: 非出力
 	beq	1f
 	w_OPM	#%00_111_100,#$20	* CH1の L/R enableを OFFにする(b7,b6) (b5-3はFL、b2-0はAL=CON)
 	bra	@f
 1:	w_OPM	#%11_111_100,#$20	* CH1の L/R enableを ONにする(b7,b6) (b5-3はFL、b2-0はAL=CON)
 
-@@:	btst.l	#1,d0			* 0: 出力、1: 非出力
+@@:	btst.l	#1,d1			* 0: 出力、1: 非出力
 	beq	1f
 	w_OPM	#%00_111_100,#$21	* CH1の L/R enableを OFFにする(b7,b6) (b5-3はFL、b2-0はAL=CON)
 	bra	@f
 1:	w_OPM	#%11_111_100,#$21	* CH1の L/R enableを ONにする(b7,b6) (b5-3はFL、b2-0はAL=CON)
 
-@@:	btst.l	#2,d0			* 0: 出力、1: 非出力
+@@:	btst.l	#2,d1			* 0: 出力、1: 非出力
 	beq	1f
 	w_OPM	#%00_111_100,#$22	* CH1の L/R enableを OFFにする(b7,b6) (b5-3はFL、b2-0はAL=CON)
 	bra	@f
 1:	w_OPM	#%11_111_100,#$22	* CH1の L/R enableを ONにする(b7,b6) (b5-3はFL、b2-0はAL=CON)
 
-	; ノイズ
-@@:	andi.b	#%00_111_000,d0		* ノイズ出力
-	cmpi.b	#%00_111_000,d0
+	; PSGノイズの発音
+@@:	andi.b	#%00_111_000,d1		* ノイズ出力
+	cmpi.b	#%00_111_000,d1
 	bne	1f
-	w_OPM	#%00_111_111,#$27	* CH8の L/R enableを OFFにする(b7,b6) (b5-3はFL、b2-0はAL=CON)
+	w_OPM	#%00_111_100,#$27	* CH8の L/R enableを OFFにする(b7,b6) (b5-3はFL、b2-0はAL=CON)
 	bra	@f
-1:	w_OPM	#%11_111_111,#$27	* CH8の L/R enableを ONにする(b7,b6) (b5-3はFL、b2-0はAL=CON)
+1:	w_OPM	#%11_111_100,#$27	* CH8の L/R enableを ONにする(b7,b6) (b5-3はFL、b2-0はAL=CON)
 @@:
+	rts
 
-	; 音量はTLで調整する
-	lea.l	volume_tbl,a0
-
-	; ノイズ音量を調整する
+; ノイズの音量設定
+update_noise_volume:
 	; ノイズが鳴っているチャンネルの音量が最も大きいものをノイズ音量として使う
+	; 音量はTLで調整する
+	move.b	PSG_R07,d0
+	lea.l	noise_volume_tbl,a0
 	clr.w	d1
 	; CH.A
 	btst.l	#3,d0
@@ -658,46 +651,56 @@ PSG_refresh:
 	; CH.C
 @@:	btst.l	#5,d0
 	bne	@f			* ノイズ音量は0でONなので、1なら鳴ってない
-	move.b	PSG_R09,d2
+	move.b	PSG_R10,d2
 	andi.w	#$000f,d2		* TODO エンベロープがノイズに与える影響を調べる
 	cmp.w	d2,d1
 	bge	@f
 	move.w	d2,d1
 @@:
-	move.b	0(a0,d1.w),d0		* テーブルを引く
-	add.w	#60,d0			* 音量調整（ちょっと下げる）https://github.com/digital-sound-antiques/vgm-conv/blob/ed541fae6b30ad80569363ab5e7d15fcb4774e18/src/converter/ay8910-to-opm-coverter.ts#L91
-	btst.l	#7,d0
-	beq	@f
-	move.w	#127,d0
-@@:	w_OPM	d0,#$7f			* TL をセット (SLOT32=CH8のC2)
+	w_OPM	0(a0,d1.w),#$7f		* テーブルを引いてTL をセット (SLOT32=CH8のC2)
 
-	; CH.A
-	clr.w	d1			* Volume:0
-	move.b	PSG_R08,d1		* PSGの音量を取得
+	rts
+
+; CH.A 音量設定
+w_PSG_R08:
+	move.b	d1,PSG_R08
+	; 音量はTLで調整する
+	lea.l	volume_tbl,a0
 	btst.l	#4,d1			* b4が1の時はエンベロープモードだが、サポートしていないので音量10として扱う
 	beq	1f
-	moveq.l	#10,d1			* 本当はエンベロープモードの設定
+	moveq.l	#10,d1
 1:	andi.w	#$000f,d1		* PSGの音量を取得
 	w_OPM	0(a0,d1.w),#$70		* テーブルを引いて TL をセット
 
-	; CH.B
-	clr.w	d1			* Volume:0
-	move.b	PSG_R09,d1		* PSGの音量を取得
+	bsr	update_noise_volume
+	rts
+
+; CH.B 音量設定
+w_PSG_R09:
+	move.b	d1,PSG_R09
+	; 音量はTLで調整する
+	lea.l	volume_tbl,a0
 	btst.l	#4,d1			* b4が1の時はエンベロープモードだが、サポートしていないので音量10として扱う
 	beq	1f
-	moveq.l	#10,d1			* 本当はエンベロープモードの設定
+	moveq.l	#10,d1
 1:	andi.w	#$000f,d1		* PSGの音量を取得
 	w_OPM	0(a0,d1.w),#$71		* テーブルを引いて TL をセット
 
-	; CH.C
-	clr.w	d1			* Volume:0
-	move.b	PSG_R10,d1		* PSGの音量を取得
+	bsr	update_noise_volume
+	rts
+
+; CH.C 音量設定
+w_PSG_R10:
+	move.b	d1,PSG_R10
+	; 音量はTLで調整する
+	lea.l	volume_tbl,a0
 	btst.l	#4,d1			* b4が1の時はエンベロープモードだが、サポートしていないので音量10として扱う
 	beq	1f
-	moveq.l	#10,d1			* 本当はエンベロープモードの設定
+	moveq.l	#10,d1
 1:	andi.w	#$000f,d1		* PSGの音量を取得
 	w_OPM	0(a0,d1.w),#$72		* テーブルを引いて TL をセット
 
+	bsr	update_noise_volume
 	rts
 
 w_PSG_R11:
@@ -832,10 +835,17 @@ tone_tbl_end:
 
 PSG_data:
 *		AR 1DR 2DR  RR 1DL  TL  RS MUL DT1 DT2 AME    ＰＳＧ
-	.dc.b	31,  0,  0, 15,  0, 27,  0,  2,  0,  0,  0
-	.dc.b	31,  0,  0, 15,  0, 00,  0,  1,  0,  0,  0
-	.dc.b	31,  0,  0, 15,  0,127,  0,  2,  0,  0,  0
-	.dc.b	31,  0,  0, 15,  0,127,  0,  1,  0,  0,  0
+	.dc.b	31,  0,  0,  0,  0, 27,  0,  2,  0,  0,  0	* M1
+	.dc.b	31,  0,  0,  0,  0,127,  0,  1,  0,  0,  0	* C1	(レジスタの並び順じゃないので注意)
+	.dc.b	31,  0,  0, 15,  0,127,  0,  2,  0,  0,  0	* M2	TL=127は消音(OPを使わない)
+	.dc.b	31,  0,  0, 15,  0,127,  0,  1,  0,  0,  0	* C2	TL=127は消音(OPを使わない)
+
+PSG_noise_data:
+*		AR 1DR 2DR  RR 1DL  TL  RS MUL DT1 DT2 AME    ＰＳＧ Noise
+	.dc.b	31,  0,  0, 15,  0,127,  0,  2,  0,  0,  0	* M1
+	.dc.b	31,  0,  0, 15,  0,127,  0,  1,  0,  0,  0	* C1
+	.dc.b	31,  0,  0, 15,  0,127,  0,  2,  0,  0,  0	* M2
+	.dc.b	31,  0,  0,  0,  0,127,  0,  0,  0,  0,  0	* C2
 
 PSG_data_common: ; 使ってない
 *		AL  FB  OM PAN  WF  SY  SP PMD AMD PMS AMS	（AL:接続アルゴリズム = CON)
@@ -845,6 +855,12 @@ volume_tbl:
 * https://github.com/digital-sound-antiques/vgm-conv/blob/main/src/converter/ay8910-to-opm-coverter.ts#L6
 *		  0   1   2   3   4   5   6   7   8   9   a   b   c   d   e   f
 	.dc.b	127, 62, 56, 52, 46, 42, 36, 32, 28, 24, 20, 16, 12,  8,  4,  0
+
+noise_volume_tbl:
+* https://github.com/digital-sound-antiques/vgm-conv/blob/780a20ed505e23eb21aa9c6ce3f349029718b5a0/src/converter/ay8910-to-opm-coverter.ts#L7C1-L8C1
+*		  0   1   2   3   4   5   6   7   8   9   a   b   c   d   e   f
+	.dc.b	127,126,125,124,123,122,121,120,116,112,105, 96, 82, 64, 37,  0
+
 
 note_tbl:
 	.dc.b	$0,$1,$2,$4,$5,$6,$8,$9,$a,$c,$d,$e,$0,$0,$0,$0

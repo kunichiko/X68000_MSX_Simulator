@@ -26,6 +26,7 @@
 #include "disk/ms_disk_container.h"
 #include "peripheral/ms_kanjirom12.h"
 
+ms_init_params_t default_param;
 ms_init_params_t init_param;
 ms_init_params_t user_param;
 
@@ -119,10 +120,13 @@ void printHelpAndExit(char* progname) {
 	fprintf(stderr, "    disable key input for performance test.\n");
 //	fprintf(stderr, " --debuglevel N\n");
 //	fprintf(stderr, "    0: None, 1: Info, 2: Debug, 3: Fine.\n");
+	fprintf(stderr, " --safe\n");
+	fprintf(stderr, "    safe mode. disable reading MS.INI.\n");
 	exit(EXIT_FAILURE);
 }
 
 int disablekey = 0;
+int safemode = 0;
 
 char* separate_rom_kind(char* path, int* kind) {
 	char* p = strchr(path, ',');
@@ -186,6 +190,7 @@ int main(int argc, char *argv[]) {
         {   "hostrate", required_argument,           0, 'C' },
         {  "hostdelay", required_argument,           0, 'D' },
 		{ "disablekey",       no_argument, &disablekey,  1  },
+		{       "safe",       no_argument,   &safemode,  1  },
         {            0,                 0,           0,  0  }, // termination
     };
 	const struct option* longopt;
@@ -200,35 +205,31 @@ int main(int argc, char *argv[]) {
 	}
 
 	// デフォルトの初期化
-	init_param.buf = NULL;
-	init_param.diskrom = NULL;
-	init_param.kanjirom = NULL;
+	default_param.buf = NULL;
+	default_param.diskrom = NULL;
+	default_param.kanjirom = NULL;
 	for(i=0;i<4;i++) {
 		for(j=0;j<4;j++) {
-			init_param.slot_path[i][j] = NULL;
+			default_param.slot_path[i][j] = NULL;
 		}
 	}
-	init_param.cartridge_path_slot1 = NULL;
-	init_param.cartridge_kind_slot1 = -1;
-	init_param.cartridge_path_slot2 = NULL;
-	init_param.cartridge_kind_slot2 = -1;
-	init_param.max_wait = 0xffffffff;
-	init_param.diskcount = 0;
+	default_param.cartridge_path_slot1 = NULL;
+	default_param.cartridge_kind_slot1 = -1;
+	default_param.cartridge_path_slot2 = NULL;
+	default_param.cartridge_kind_slot2 = -1;
+	default_param.max_wait = 0x7fffffff;
+	default_param.diskcount = 0;
 	for(i=0;i<16;i++) {
-		init_param.diskimages[i] = NULL;
+		default_param.diskimages[i] = NULL;
 	}
+	default_param.mainrom = "cbios_main_msx2_jp.rom";
+	default_param.subrom = "cbios_sub.rom";
+	default_param.slot_path[0][2] = "cbios_logo_msx2.rom";
 
 	// ユーザー設定ファイルの読み込み
 	if( load_user_param() ) {
 		// 読み込みに成功した場合は、デフォルトの設定をユーザー設定で上書き
 		init_param = user_param;
-	}
-
-	// システムROMファイルのチェック
-	if( init_param.mainrom == NULL || init_param.subrom == NULL) {
-		init_param.mainrom = "cbios_main_msx2_jp.rom";
-		init_param.subrom = "cbios_sub.rom";
-		init_param.slot_path[0][2] = "cbios_logo_msx2.rom";
 	}
 
 	// その他ワークエリアの初期化
@@ -244,6 +245,12 @@ int main(int argc, char *argv[]) {
 		switch (opt)
 		{
 		case 0: // フラグがセットされた場合
+			// もしセーフモードだったら、デフォルトのパラメータに戻す
+			if (safemode) {
+				printf("セーフモードで起動します。続行する場合は何かキーを押してください。\n");
+				_iocs_b_keyinp();
+				init_param = default_param;
+			}
 			break;
 		case 'h': // -h オプション
 			printHelpAndExit(argv[0]);
@@ -661,7 +668,7 @@ unsigned short KEY_MAP[][8] = {
 	//b [XF4 ][XF5 ][KANA][ROME][CODE][CAPS][INS ][HIRA]
 	{   0xf00,0xf00,0x610,0xf00,0xf00,0xf00,0x804,0xf00},
 	//c [ZENK][BRAK][COPY][ F1 ][ F2 ][ F3 ][ F4 ][ F5 ]  BRAK=STOP
-	{   0xf00,0x710,0xf00,0xf00,0xf00,0xf00,0xf00,0xf00},
+	{   0xf00,0x710,0xf00,0x620,0x640,0x680,0x701,0x702},
 	//d [ F6 ][ F7 ][ F8 ][ F9 ][ F10][    ][    ][    ]  F6=DebugLevel
 	{   0xffc,0xf00,0xf00,0xf00,0xf00,0xf00,0xf00,0xf00},
 	//e [SHFT][CTRL][OPT1][OPT2][    ][    ][    ][    ]  OPT1=Disk Change
@@ -1173,6 +1180,8 @@ void set_system_roms() {
  * @return uint8_t ロードできた場合1、失敗した場合0
  */
 uint8_t load_user_param() {
+	user_param = default_param;
+
 	int fh = search_open("MS.INI", O_RDONLY); // TEXT MODE で開く
 	if(fh == -1) {
 		printf("MS.INI ファイルを開けませんでした。\n");
@@ -1223,6 +1232,10 @@ uint8_t load_user_param() {
 		// Check if the parameter is "mainrom"
 		if (strcmp(param, "mainrom") == 0) {
 			user_param.mainrom = value;
+			if( user_param.slot_path[0][2] == default_param.slot_path[0][2] ) {
+				// C-BIOSのロゴを外す
+				user_param.slot_path[0][2] = NULL;
+			}
 		}
 		// Check if the parameter is "subrom"
 		else if (strcmp(param, "subrom") == 0) {
