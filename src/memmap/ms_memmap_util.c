@@ -77,7 +77,9 @@ void allocateAndSetROM_Cartridge(const char *romFileName, int slot_base, int kin
 	}
 	switch(kind) {
 		case ROM_TYPE_NORMAL_ROM:
-			allocateAndSetROM(romFileName, ROM_TYPE_NORMAL_ROM, slot_base, -1, 1);
+			if( allocateAndSetROM(romFileName, ROM_TYPE_NORMAL_ROM, slot_base, -1, 1) ) {
+				printf(" Loaded %s\n", romFileName);
+			}
 			break;
 		case ROM_TYPE_MEGAROM_GENERIC_8K:
 			// GENERIC 8K メガロム
@@ -129,6 +131,7 @@ void allocateAndSetROM_Cartridge(const char *romFileName, int slot_base, int kin
 			new_free(driver);
 			return;
 		}
+		printf(" Loaded %s\n", driver->name);
 	}
 }
 
@@ -226,19 +229,19 @@ int detect_rom_type(uint8_t* buffer, int length) {
 	return ROM_TYPE_MEGAROM_GENERIC_8K;
 }
 
-void allocateAndSetROM(const char *romFileName, int kind, int slot_base, int slot_ex, int page) {
+int allocateAndSetROM(const char *romFileName, int kind, int slot_base, int slot_ex, int page) {
 	int crt_fh;
 
 	crt_fh = open( romFileName, O_RDONLY | O_BINARY);
 	if (crt_fh == -1) {
 		printf("ファイルが開けません. %s\n", romFileName);
 		ms_exit();
-		return;
+		return 0;
 	}
-	allocateAndSetROMwithHandle(crt_fh, kind, slot_base, slot_ex, page);
+	return allocateAndSetROMwithHandle(crt_fh, kind, slot_base, slot_ex, page);
 }
 
-void allocateAndSetROMwithHandle(int crt_fh, int kind, int slot_base, int slot_ex, int page) {
+int allocateAndSetROMwithHandle(int crt_fh, int kind, int slot_base, int slot_ex, int page) {
 	int crt_length;
 	uint8_t *crt_buff;
 	int i;
@@ -247,7 +250,7 @@ void allocateAndSetROMwithHandle(int crt_fh, int kind, int slot_base, int slot_e
 	if(crt_length == -1) {
 		printf("ファイルの長さが取得できません。\n");
 		ms_exit();
-		return;
+		return 0;
 	}
 
 	// 16Kバイトずつ読み込んでROMにセット
@@ -259,7 +262,7 @@ void allocateAndSetROMwithHandle(int crt_fh, int kind, int slot_base, int slot_e
 			if( ( crt_buff = (uint8_t*)new_malloc( 16 * 1024) ) == NULL) {
 				printf("メモリが確保できません。\n");
 				ms_exit();
-				return;
+				return 0;
 			}
 			read( crt_fh, crt_buff, 16 * 1024);
 
@@ -267,22 +270,23 @@ void allocateAndSetROMwithHandle(int crt_fh, int kind, int slot_base, int slot_e
 			if (driver == NULL) {
 				printf("メモリが確保できません。\n");
 				ms_exit();
-				return;
+				return 0;
 			}
 			ms_memmap_NORMALROM_init(driver, ms_memmap_shared, crt_buff, page + i);
 		
 			if (ms_memmap_attach_driver(ms_memmap_shared, (ms_memmap_driver_t*)driver, slot_base, slot_ex) != 0) {
 				printf("メモリマッピングに失敗しました。\n");
 				ms_exit();
-				return;
+				return 0;
 			}
 			crt_length -= 16 * 1024;
 		}
 	} else {
 		printf("ファイルが認識できませんでした\n");
-		ms_exit();
+		return 0;
 	}
  	close( crt_fh);
+	return 1;
 }
 
 void allocateAndSetDISKBIOSROM(const char *romFileName, ms_disk_container_t* disk_container) {

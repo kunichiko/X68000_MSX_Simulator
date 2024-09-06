@@ -253,7 +253,7 @@ cpu_cycle_last:			* C側に見せている値(デバッグ表示中に重くなって値が変わるのを回
 cpu_cycle_wait:
 	.dc.l	0
 cpu_cycle_wait_max:
-	.dc.l	$ffffffff
+	.dc.l	$7fffffff
 emu_counter:
 	.dc.l	0
 emu_counter_latch:
@@ -705,13 +705,13 @@ calc_wait_fast:
 	add.l	cpu_cycle_wait,d1
 	bcc	1f
 	; オーバーフローした場合(ないと思うが)
-	move.l	#$ffffffff,d1
+	move.l	#$7fffffff,d1
 1:	cmp.w	#1,d0
 	beq	1f
 	add.l	#16,d1
 	bcc	1f
 	; オーバーフローした場合(ないと思うが)
-	move.l	#$ffffffff,d1
+	move.l	#$7fffffff,d1
 1:	cmp.l	cpu_cycle_wait_max,d1
 	bcs	1f
 	move.l	cpu_cycle_wait_max,d1
@@ -3444,7 +3444,10 @@ DI:	move.b	#0,interrupt_enable
 	.dc.w	4			* サイクル数
 	.dc.w	1-1			* 命令語長-1
 EI:	move.b	#1,interrupt_enable	* 割り込みを許可
-	rts
+	cmpi.b	#0,ms_cpu_int
+	beq	@f
+	move.w	#2,cpu_yield		* 外部割り込み要求がある場合は2サイクル後に割り込み判定をかける
+@@:	rts
 
 ;---------------------------------------------------------------------------------------
 RST_XXH	macro	value
