@@ -7788,18 +7788,18 @@ print_debug_out:
 	bge	@f				* ログレベルが3以上の時
 	rts
 @@:	movem.l	d0-d3/a0-a3,-(sp)
-	move.b	d0,d1
+	move.b	d0,d2
 	lsr.w	#4,d0
 	lea.l	HEX,a0
-	move.b	(a0,d0.w),debug_out_number+0
-	andi.w	#$0f,d1
-	move.b	(a0,d1.w),debug_out_number+1
-	move.w	d1,d0
-	lsr.w	#4,d0
+	move.b	(a0,d0.w),debug_out_number+0	* ポート番号の上位4bit
+	andi.w	#$0f,d2
+	move.b	(a0,d2.w),debug_out_number+1	* ポート番号の下位4bit
+	move.w	d1,d2
+	lsr.w	#4,d1
 	lea.l	HEX,a0
-	move.b	(a0,d0.w),debug_out_value+0
-	andi.w	#$0f,d1
-	move.b	(a0,d1.w),debug_out_value+1
+	move.b	(a0,d1.w),debug_out_value+0	* 書き込む値の上位4bit
+	andi.w	#$0f,d2
+	move.b	(a0,d2.w),debug_out_value+1	* 書き込む値の下位4bit
 
 	pea.l	debug_out_msg
 	DOS	__PRINT

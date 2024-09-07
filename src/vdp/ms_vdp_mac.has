@@ -980,9 +980,13 @@ w_R0:	move.b	d1,offset_ms_vdp_r00(a5)
 ;
 w_R1:	move.b	d1,offset_ms_vdp_r01(a5)
 
-	bsr	update_VCRR_02
+	bsr	update_VCRR_02		* 画面の表示非表示を反映
 
-	move.b	d1,d0			* スプライトのサイズ, 0の時 8x8, 1の時 16x16
+	btst.l	#5,d1			* VDP IE0 (R#1のbit5) をみて、割り込みが許可されているかを調べる
+	bne	@f
+	move.b	#0,ms_vdp_int		* IE0が0の時は割り込み要求フラグをクリア
+
+@@:	move.b	d1,d0			* スプライトのサイズ, 0の時 8x8, 1の時 16x16
 	andi.b	#%00000010,d0
 	lsr.b	#1,d0
 	move.b	d0,offset_ms_vdp_sprite_size(a5)
