@@ -67,7 +67,7 @@ ms_vdp_mode_t ms_vdp_GRAPHIC4 = {
 int init_GRAPHIC4(ms_vdp_t* vdp) {
 	set_GRAPHIC4_mac();
 	update_palette_GRAPHIC4(vdp);
-	update_vdp_sprite_area(vdp);
+	ms_vdp_update_sprite_area(vdp);
 }
 
 uint8_t read_vram_GRAPHIC4(ms_vdp_t* vdp) {
@@ -85,8 +85,29 @@ void update_palette_GRAPHIC4(ms_vdp_t* vdp) {
 void update_pnametbl_baddr_GRAPHIC4(ms_vdp_t* vdp) {
 	update_pnametbl_baddr_DEFAULT(vdp);
 	vdp->pnametbl_baddr &= 0x18000;
-	vdp->gr_active = 1 << (vdp->pnametbl_baddr >> 15);
-	update_VCRR_02();
+	switch(vdp->pnametbl_baddr >> 15) {
+	case 0:
+		vdp->gr_active = 0b0001;
+		vdp->gr_active_interlace = 0b0001;
+		break;
+	case 1:
+		vdp->gr_active = 0b0010;
+		vdp->gr_active_interlace = 0b0010;		// GRAPHIC4のインターレースモードはまだ未対応
+		break;
+	case 2:
+		vdp->gr_active = 0b0100;
+		vdp->gr_active_interlace = 0b0100;
+		break;
+	case 3:
+		vdp->gr_active = 0b1000;
+		vdp->gr_active_interlace = 0b1000;		// GRAPHIC4のインターレースモードはまだ未対応
+		break;
+	default:
+		vdp->gr_active = 0b0001;
+		vdp->gr_active_interlace = 0b0001;		// GRAPHIC4のインターレースモードはまだ未対応
+		break;
+	}
+	ms_vdp_update_visibility(vdp);
 }
 
 void update_colortbl_baddr_GRAPHIC4(ms_vdp_t* vdp) {
@@ -127,5 +148,5 @@ void vdp_command_write_GRAPHIC4(ms_vdp_t* vdp, uint8_t value) {
 }
 
 void update_resolution_GRAPHIC4(ms_vdp_t* vdp) {
-	update_resolution_COMMON(vdp, 0, 0, 0); // 256, 16色, BG不使用
+	ms_vdp_update_resolution_COMMON(vdp, 0, 0, 0); // 256, 16色, BG不使用
 }

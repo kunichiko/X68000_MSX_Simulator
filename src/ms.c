@@ -24,6 +24,7 @@
 #include "memmap/ms_memmap.h"
 #include "vdp/ms_vdp.h"
 #include "disk/ms_disk_container.h"
+#include "peripheral/ms_rtc.h"
 #include "peripheral/ms_kanjirom12.h"
 
 ms_init_params_t default_param;
@@ -40,6 +41,9 @@ ms_memmap_t* memmap = NULL;
 
 // I/O関連
 ms_iomap_t* iomap = NULL;
+
+// RTC関連
+ms_rtc_t* rtc = NULL;
 
 // VDP関連
 ms_vdp_t* vdp = NULL;  // ms_vdp_shared と同じになるはず
@@ -165,6 +169,8 @@ char* separate_rom_kind(char* path, int* kind) {
 */
 int main(int argc, char *argv[]) {
 #ifdef DEBUG
+	debug_log_level = MS_LOG_DEBUG;
+#else 
 	debug_log_level = MS_LOG_INFO;
 #endif
 	// argv[0]から、実行ファイル名を取り除き、ディレクトリ名を取得
@@ -230,6 +236,9 @@ int main(int argc, char *argv[]) {
 	if( load_user_param() ) {
 		// 読み込みに成功した場合は、デフォルトの設定をユーザー設定で上書き
 		init_param = user_param;
+	} else {
+		// 読み込みに失敗した場合は、デフォルトの設定を使用
+		init_param = default_param;
 	}
 
 	// その他ワークエリアの初期化
@@ -474,36 +483,32 @@ int main(int argc, char *argv[]) {
 	/*
 	 メモリシステムの初期化
 	 */
-	memmap = ms_memmap_alloc();
+	memmap = ms_memmap_shared_instance();
 	if (memmap == NULL)
 	{
 		printf("メモリシステムの初期化に失敗しました\n");
 		ms_exit();
 	}
-	ms_memmap_init(memmap);
 
 	/*
 	 VDPシステムの初期化
 	*/
-	vdp = ms_vdp_alloc();
+	vdp = ms_vdp_shared_instance();
 	if (vdp == NULL)
 	{
 		printf("VDPシステムの初期化に失敗しました\n");
 		ms_exit();
 	}
-	ms_vdp_init(vdp);
 
 	/*
 	 I/Oシステムの初期化
 	 */
-	iomap = ms_iomap_alloc();
+	iomap = ms_iomap_shared_instance();
 	if (iomap == NULL)
 	{
 		printf("I/Oシステムの初期化に失敗しました\n");
 		ms_exit();
 	}
-	ms_iomap_init(iomap, vdp);
-
 
 	printf("\n\n\n\n\n\n\n\n"); // TEXT画面を上に8ラインくらい上げているので、その分改行を入れる
 	printf("[[ MSX Simulator MS.X]]\n");
@@ -520,6 +525,17 @@ int main(int argc, char *argv[]) {
 	}
 
 	/*
+	 RTCの初期化
+	 */
+	rtc = ms_rtc_alloc();
+	if (rtc == NULL)
+	{
+		printf("RTCの初期化に失敗しました\n");
+		ms_exit();
+	}
+	ms_rtc_init(rtc, iomap);
+
+	/*
 	 漢字ROMのセット
 	 */
 	if (init_param.kanjirom != NULL) {
@@ -528,7 +544,7 @@ int main(int argc, char *argv[]) {
 			printf("漢字ROMの初期化に失敗しました\n");
 			ms_exit();
 		}
-		ms_kanjirom12_init(k12, init_param.kanjirom);
+		ms_kanjirom12_init(k12, iomap, init_param.kanjirom);
 		printf("KANJIROM: %s\n", init_param.kanjirom);
 	}
 
@@ -611,24 +627,30 @@ void ms_exit() {
 	if( disk_container != NULL ) {
 		ms_disk_container_deinit(disk_container);
 		new_free(disk_container);
+		//disk_container = NULL;
 	}
 	if ( psg_initialized ) {
 		ms_psg_deinit();
 	}
 	if ( vdp != NULL ) {
-		ms_vdp_deinit(vdp);
-		new_free(vdp);
+		ms_vdp_shared_deinit();	// singletonは deinit内部でfreeされる
+		vdp = NULL;
+	}
+	if ( rtc != NULL ) {
+		ms_rtc_deinit(rtc, iomap); // singletonは deinit内部でfreeされる
+		rtc = NULL;
 	}
 	if ( iomap != NULL ) {
-		ms_iomap_deinit(iomap);
-		new_free(iomap);
+		ms_iomap_shared_deinit(); // singletonは deinit内部でfreeされる
+		iomap = NULL;
 	}
 	if ( memmap != NULL ) {
-		ms_memmap_deinit(memmap);
-		new_free(memmap);
+		ms_memmap_shared_deinit(); // singletonは deinit内部でfreeされる
+		memmap = NULL;
 	}
 	if( user_param.buf != NULL) {
 		new_free(user_param.buf);
+		user_param.buf = NULL;
 	}
 	exit(0);
 }
@@ -984,7 +1006,7 @@ void dump(unsigned int page, unsigned int pc_8k) {
 
 	pc = (page << 13) | (pc_8k & 0x1fff);
 	pcbase = (pc & 0xfff0);
-	printf("PC=%04x, EXEC=%04d SKIP=%04d (+%04d)\n", page, (pc&0xffff), int_exec_counter, current_int_skip_counter,current_int_skip_counter - last_int_skip_counter);
+	printf("PC=%04x, EXEC=%04d SKIP=%04d (+%04d)\n", (pc&0xffff), int_exec_counter, current_int_skip_counter,current_int_skip_counter - last_int_skip_counter);
 	last_int_skip_counter = current_int_skip_counter;
 	for (i = -1; i < 2; i++)
 	{
@@ -1138,8 +1160,8 @@ void set_system_roms() {
 	if (fh_mainrom != -1 && fh_subrom != -1) {
 		// Load user-provided ROMs
 		printf("MAIN ROM: %s\n", init_param.mainrom);
-		printf(" SUB ROM: %s\n", init_param.subrom);
 		allocateAndSetROMwithHandle(fh_mainrom, ROM_TYPE_NORMAL_ROM, 0x00, -1, 0);
+		printf(" SUB ROM: %s\n", init_param.subrom);
 		allocateAndSetROMwithHandle(fh_subrom, ROM_TYPE_NORMAL_ROM, 0x03, 1, 0);
 		if (file_exists(init_param.diskrom)) {
 			printf("DISK ROM: %s\n", init_param.diskrom);

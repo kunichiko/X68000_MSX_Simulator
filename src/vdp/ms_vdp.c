@@ -90,37 +90,29 @@ ms_vdp_mode_t *ms_vdp_mode_table[32] = {
 	NULL
 };
 
+
 int ms_vdp_init_mac(ms_vdp_t* vdp);
 void ms_vdp_deinit_mac(ms_vdp_t* vdp);
 void init_sprite(ms_vdp_t* vdp);
 void init_palette(ms_vdp_t* vdp);
 
 // Singleton instance
-ms_vdp_t* ms_vdp_shared = NULL;
-uint8_t ms_vdp_shared_initialized = 0;
+static ms_vdp_t* _shared = NULL;
 
-ms_vdp_t* ms_vdp_alloc() {
-	if( ms_vdp_shared != NULL ) {
-		return ms_vdp_shared;
+ms_vdp_t* ms_vdp_shared_instance() {
+	if( _shared != NULL) {
+		return _shared;
 	}
-	if ( (ms_vdp_shared = (ms_vdp_t*)new_malloc(sizeof(ms_vdp_t))) == NULL)
+	if ( (_shared = (ms_vdp_t*)new_malloc(sizeof(ms_vdp_t))) == NULL)
 	{
 		MS_LOG(MS_LOG_INFO,"メモリが確保できません\n");
 		return NULL;
 	}
-	return ms_vdp_shared;
-}
-
-void ms_vdp_init(ms_vdp_t* instance) {
-	if (instance == NULL || ms_vdp_shared_initialized) {
-		return;
-	}
-
-	if ( (ms_vdp_shared->vram = (uint8_t*)new_malloc(0x20000)) == NULL)
+	if ( (_shared->vram = (uint8_t*)new_malloc(0x20000)) == NULL)
 	{
 		MS_LOG(MS_LOG_INFO,"メモリが確保できません\n");
-		ms_vdp_deinit(ms_vdp_shared);
-		return;
+		ms_vdp_shared_deinit();
+		return NULL;
 	}
 	// X68000は 1スプライト(16x16)パターンあたり128バイト(uint32_tが32ワード)が必要
 	// MSXは 256個定義できるが、X68000は128個しか定義できないため、メモリ上に定義領域を作っておき
@@ -129,22 +121,22 @@ void ms_vdp_init(ms_vdp_t* instance) {
 	//  * MSX 8x8ドットのスプライト256定義
 	//  * X68000の512ドットモードで拡大スプライトを使うと1ドットが4ドットになり、16x16ドットのスプライトを4つ並べて表示する
 	//  * => 256 * 4 * 32 * 4バイト = 128KB
-	if ( (ms_vdp_shared->x68_pcg_buffer = (uint32_t*)new_malloc( 256 * 4 * 32 * sizeof(uint32_t))) == NULL)
+	if ( (_shared->x68_pcg_buffer = (uint32_t*)new_malloc( 256 * 4 * 32 * sizeof(uint32_t))) == NULL)
 	{
 		MS_LOG(MS_LOG_INFO,"メモリが確保できません\n");
-		ms_vdp_deinit(ms_vdp_shared);
-		return;
+		ms_vdp_shared_deinit();
+		return NULL;
 	}
 
 	// b7: F,  b6: 5S, b5: Collision, b4-b0: 衝突番号
-	ms_vdp_shared->s00 = 0b00011111;
+	_shared->s00 = 0b00011111;
 	// b7: FL, b6: LPS, b5-1: V9958のID, b0: FH
-	ms_vdp_shared->s01 = 0b00000100;
+	_shared->s01 = 0b00000100;
 	// b7: TR, b6: VR, b5: HR, b4: BD, b3: 1, b2: 1, b1: EO, b0: CE
-	ms_vdp_shared->s02 = 0b10001100; // TRは常に1
-	ms_vdp_shared->s04 = 0b11111110; // 上位ビットは1固定
-	ms_vdp_shared->s06 = 0b11111100; // 上位ビットは1固定
-	ms_vdp_shared->s09 = 0b11111100; // 上位ビットは1固定
+	_shared->s02 = 0b10001100; // TRは常に1
+	_shared->s04 = 0b11111110; // 上位ビットは1固定
+	_shared->s06 = 0b11111100; // 上位ビットは1固定
+	_shared->s09 = 0b11111100; // 上位ビットは1固定
 
 	// 初期画面モードを 512x512にする
 	// 実際には、MSXの画面モードに応じてこの後色々変化する
@@ -152,13 +144,13 @@ void ms_vdp_init(ms_vdp_t* instance) {
 	_iocs_g_clr_on();	// グラフィックス画面初期化
 	_iocs_sp_init();
 
-	ms_vdp_init_mac(ms_vdp_shared);
+	ms_vdp_init_mac(_shared);
 	// 初期状態はTEXT1
-	ms_vdp_set_mode(ms_vdp_shared, 0);
+	ms_vdp_set_mode(_shared, 0);
 
-	init_sprite(ms_vdp_shared);
+	init_sprite(_shared);
 
-	update_resolution_COMMON(ms_vdp_shared, 1, 0, 0); // 512, 16色, BG不使用
+	ms_vdp_update_resolution_COMMON(_shared, 1, 0, 0); // 512, 16色, BG不使用
 
 	// GRAMクリア
 	int i;
@@ -167,19 +159,25 @@ void ms_vdp_init(ms_vdp_t* instance) {
 	}
 	// VRAMクリア
 	for(i=0;i<0x20000;i++) {
-		ms_vdp_shared->vram[i] = 0;
+		_shared->vram[i] = 0;
 	}
 
 	// パレット初期化
-	init_palette(ms_vdp_shared);
+	init_palette(_shared);
 
-	return;
+	return _shared;
 }
 
-void ms_vdp_deinit(ms_vdp_t* vdp) {
-	ms_vdp_deinit_mac(ms_vdp_shared);
-	new_free(vdp->x68_pcg_buffer);
-	new_free(vdp->vram);
+void ms_vdp_shared_deinit() {
+	if (_shared == NULL) {
+		return;
+	}
+	ms_vdp_deinit_mac(_shared);
+	new_free(_shared->x68_pcg_buffer);
+	new_free(_shared->vram);
+	// シングルトンの場合は deinitで freeする
+	new_free(_shared);
+	_shared = NULL;
 }
 
 /*
@@ -237,6 +235,7 @@ void ms_vdp_set_mode(ms_vdp_t* vdp, int mode) {
 	// GRAMクリア
 	uint32_t words = 0;
 	switch(vdp->ms_vdp_current_mode->bits_per_dot) {
+	case 0:	// TEST, GRAPHIC1など
 	case 2:
 	case 4:
 		// 4色, 16色
@@ -294,7 +293,7 @@ uint16_t crtc_values[4][13] = {
  * @param color 0=16色, 1=256色, 3=65536色
  * @param bg 0=非表示, 1=表示
  */
-void update_resolution_COMMON(ms_vdp_t* vdp, unsigned int res, unsigned int color, unsigned int bg) {
+void ms_vdp_update_resolution_COMMON(ms_vdp_t* vdp, unsigned int res, unsigned int color, unsigned int bg) {
 	// lines 0=192ライン, 1=212ライン (MSX換算)
 	int lines = (vdp->r09 & 0x80) >> 7;
 	// sprite 0=非表示, 1=表示
@@ -328,8 +327,77 @@ void update_resolution_COMMON(ms_vdp_t* vdp, unsigned int res, unsigned int colo
 					(0x0 << 3 ) | // BG1 ON
 					(0x1 << 2 ) | // BG0 TXSEL
 					((bg & 0x1) << 0 );  // BG0 ON
+
+	// 画面モードが変わったら、表示状態も更新
+	ms_vdp_update_visibility(vdp);
 }
 
+/**
+ * @brief 画面の表示/非表示、ページ切り替え、スクロール量、インターレースなどの表示に関わる設定を更新します
+ * 
+ * 画面モードが変わった時に、X68000の画面解像度を変更する処理は、ms_vdp_update_resolution_COMMON() で
+ * 行っているので、ここでは、画面の表示/非表示、ページ切り替え、スクロール量、インターレースなどの表示に
+ * 関わる設定を更新します。
+ * 
+ * 具体的には、MSXの以下のパラメータがわかった時にこの処理を呼び出してください。
+ * 
+ * * 画面の表示/非表示
+ * 		* VDP Mode register 1 (R#1) の bit6 (BL) が 0 の時は画面を表示しない
+ * * ページ切り替え
+ * 		* GRAPHIC4-7の pattern name table base address によるページ切り替え
+ * * スクロール量
+ * 		* VDP R#23の値によるスクロール量の変更
+ * * インターレース
+ * 		* VDP R#9の bit2 (交互表示) が1 かつ、bit3 (インターレース)が1
+ * 		* さらに現在のページが奇数ページの時、インターレースモードになる
+ * 		* 実機では偶数ページと奇数ページを交互に切り替えるが、MS.Xは 512x424 の画面として表示します
+ * 
+ * それぞれの設定が相互に影響し合うため、この関数で一括して設定しています。
+ * 
+ * @param vdp 
+ */
+void ms_vdp_update_visibility(ms_vdp_t* vdp) {
+	int is_blank = (vdp->r01 & 0x40) ? 0 : 1;
+	int is_interlace = (vdp->r09 & 0x0c) == 0x0c ? 1 : 0; 
+
+	// ビデオコントロールレジスタ(VCR R#02)の設定
+	// 	b7	常に0
+	// 	b6	スプライト+BG画面の表示
+	// 	b5	テキスト画面の表示
+	// 	b4	1024x1024時のグラフィック画面の表示(512x512なので使わない)
+	// 	b3	512x512時のグラフィック画面 GR3 の表示
+	// 	b2	512x512時のグラフィック画面 GR2 の表示
+	// 	b1	512x512時のグラフィック画面 GR1 の表示
+	// 	b0	512x512時のグラフィック画面 GR0 の表示
+	uint16_t r02 = VCRR_02 & 0b1111111100100000;
+	r02 |= 0b01000000;		// スプライト+BG面は常に表示(スプライトの表示/非表示は個別のスプライトのON/OFFで行っている)
+	if( !is_blank) {
+		r02 |= is_interlace ? vdp->gr_active_interlace : vdp->gr_active;
+	}
+	r02 |= vdp->tx_active << 5;
+	VCRR_02 = r02;
+
+	// スクロール量の設定
+	uint16_t r23 = vdp->r23;
+	if(vdp->ms_vdp_current_mode->crt_width == 256) {
+		// 256ドットモードの時
+		uint16_t scrY = r23;
+		CRTR_SCR_p[0*2+1] = scrY;		// GR0のYスクロール
+		CRTR_SCR_p[1*2+1] = scrY;		// GR1のYスクロール
+		CRTR_SCR_p[2*2+1] = scrY;		// GR2のYスクロール
+		CRTR_SCR_p[3*2+1] = scrY;		// GR3のYスクロール
+	} else {
+		// 512ドットモードの時
+		uint16_t scrYe = (r23 * 2 - 0) & 0x1ff;
+		uint16_t scrYo = is_interlace ? //
+			(r23 * 2 - 1) & 0x1ff : // インターレース時は奇数ページの時は1ドット下に表示
+			(r23 * 2 - 0) & 0x1ff;
+		CRTR_SCR_p[0*2+1] = scrYe;		// GR0のYスクロール
+		CRTR_SCR_p[1*2+1] = scrYo;		// GR1のYスクロール
+		//CRTR_SCR_p[2*2+1] = scrYe;		// GR2のYスクロール (3ページ目は存在しないが)
+		//CRTR_SCR_p[3*2+1] = scrYo;		// GR3のYスクロール (4ページ目は存在しないが)
+	}
+}
 
 uint8_t last_vdp_R1 = 0;
 uint8_t last_vdp_R8 = 0;

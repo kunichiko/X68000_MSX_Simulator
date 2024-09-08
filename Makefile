@@ -33,6 +33,7 @@ OBJS = $(BUILD_DIR)/ms.o \
 		$(BUILD_DIR)/ms_sysvalue.o \
 		$(BUILD_DIR)/ms_sub_mac.o \
 		$(BUILD_DIR)/ms_peripherals.o \
+		$(BUILD_DIR)/ms_rtc.o \
 		$(BUILD_DIR)/ms_PSG_mac.o \
 		$(BUILD_DIR)/ms_kanjirom12.o \
 		$(BUILD_DIR)/ms_memmap.o \
@@ -80,6 +81,7 @@ OBJS_DEBUG = $(BUILD_DIR)/ms_d.o \
 		$(BUILD_DIR)/ms_sysvalue_d.o \
 		$(BUILD_DIR)/ms_sub_mac_d.o \
 		$(BUILD_DIR)/ms_peripherals_d.o \
+		$(BUILD_DIR)/ms_rtc_d.o \
 		$(BUILD_DIR)/ms_PSG_mac_d.o \
 		$(BUILD_DIR)/ms_kanjirom12_d.o \
 		$(BUILD_DIR)/ms_memmap_d.o \

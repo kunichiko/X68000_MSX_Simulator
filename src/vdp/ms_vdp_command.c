@@ -21,7 +21,7 @@ uint16_t get_Y_from_vaddr(ms_vdp_t* vdp, uint32_t vaddr) {
 	return 0;
 }
 
-void update_vdp_sprite_area(ms_vdp_t* vdp) {
+void ms_vdp_update_sprite_area(ms_vdp_t* vdp) {
 	uint16_t Y_start = 65535;
 	uint16_t Y_end = 0;
 	uint16_t Y;
@@ -44,7 +44,7 @@ void update_vdp_sprite_area(ms_vdp_t* vdp) {
 	vdp->cmd_ny_sprite_start = Y_start;
 	vdp->cmd_ny_sprite_end = Y_end;
 
-	//MS_LOG(MS_LOG_DEBUG,"update_vdp_sprite_area: %d - %d\n", Y_start, Y_end);
+	MS_LOG(MS_LOG_TRACE,"ms_vdp_update_sprite_area: %d - %d\n", Y_start, Y_end);
 }
 
 void rewrite_sprite_if_needed(ms_vdp_t* vdp) {

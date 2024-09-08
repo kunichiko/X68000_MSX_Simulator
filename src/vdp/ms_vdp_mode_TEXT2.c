@@ -76,8 +76,11 @@ int init_TEXT2(ms_vdp_t* vdp) {
 
 	//	VDP レベルでは、GRAPHIC7にしても他のモードのパレットは保存されるが、
 	//	６８で２５６色モードにすると破壊されてしまうので、再度設定し直す必要がある
+	update_palette_TEXT2(vdp);
+
 	vdp->gr_active = 1;
-	update_VCRR_02();
+	vdp->gr_active_interlace = 1;
+	ms_vdp_update_visibility(vdp);
 
 	set_TEXT2_mac();
 }
@@ -135,5 +138,5 @@ char* get_mode_name_TEXT2(ms_vdp_t* vdp) {
 }
 
 void update_resolution_TEXT2(ms_vdp_t* vdp) {
-	update_resolution_COMMON(vdp, 1, 0, 0); // 512, 16色, スプライト不使用, BG不使用
+	ms_vdp_update_resolution_COMMON(vdp, 1, 0, 0); // 512, 16色, スプライト不使用, BG不使用
 }

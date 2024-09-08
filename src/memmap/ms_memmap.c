@@ -10,8 +10,7 @@
 
 #include "../ms_R800.h"
 
-ms_memmap_t* ms_memmap_shared = NULL;
-int8_t ms_memmap_shared_initialized = 0;
+static ms_memmap_t* _shared = NULL;
 
 void ms_memmap_update_page_pointer(ms_memmap_t* memmap, ms_memmap_driver_t* driver, int page8k);
 
@@ -19,85 +18,80 @@ void select_slot_base_impl(ms_memmap_t* memmap, int page, int slot_base);
 void select_slot_ex_impl(ms_memmap_t* memmap, int slot_base, int page, int slot_ex);
 
 /*
-	memmapモジュールの確保 & 初期化ルーチン
+	memmapモジュールの確保ルーチン
  */
-ms_memmap_t* ms_memmap_alloc() {
-	if (ms_memmap_shared != NULL) {
-		return ms_memmap_shared;
+ms_memmap_t* ms_memmap_shared_instance() {
+	if (_shared != NULL) {
+		return _shared;
 	}
-	ms_memmap_shared = (ms_memmap_t*)new_malloc(sizeof(ms_memmap_t));
-	if ( ms_memmap_shared == NULL) {
+	_shared = (ms_memmap_t*)new_malloc(sizeof(ms_memmap_t));
+	if ( _shared == NULL) {
 		printf("メモリが確保できません\n");
 		return NULL;
 	}
-	return ms_memmap_shared;
-}
-
-void ms_memmap_init(ms_memmap_t* instance) {
-	if (instance == NULL || ms_memmap_shared_initialized) {
-		return;
-	}
-	ms_memmap_shared_initialized = 1;
 
 	// メンバの初期化
-	ms_memmap_shared->update_page_pointer = ms_memmap_update_page_pointer;
-	ms_memmap_shared->current_ptr = ms_memmap_current_ptr;
+	_shared->update_page_pointer = ms_memmap_update_page_pointer;
+	_shared->current_ptr = ms_memmap_current_ptr;
 
-	ms_memmap_shared->mainram_driver = ms_memmap_MAINRAM_alloc();
-	if( ms_memmap_shared->mainram_driver == NULL) {
+	_shared->mainram_driver = ms_memmap_MAINRAM_alloc();
+	if( _shared->mainram_driver == NULL) {
 		printf("メインメモリが確保できません\n");
-		new_free(ms_memmap_shared);
-		return;
+		new_free(_shared);
+		return NULL;
 	}
-	ms_memmap_MAINRAM_init(ms_memmap_shared->mainram_driver, ms_memmap_shared);
+	ms_memmap_MAINRAM_init(_shared->mainram_driver, _shared);
 
-	ms_memmap_shared->nothing_driver = ms_memmap_NOTHING_alloc();
-	if( ms_memmap_shared->nothing_driver == NULL) {
+	_shared->nothing_driver = ms_memmap_NOTHING_alloc();
+	if( _shared->nothing_driver == NULL) {
 		printf("NOTHINGドライバが確保できません\n");
-		new_free(ms_memmap_shared);
-		return;
+		new_free(_shared);
+		return NULL;
 	}
-	ms_memmap_NOTHING_init(ms_memmap_shared->nothing_driver, ms_memmap_shared);
+	ms_memmap_NOTHING_init(_shared->nothing_driver, _shared);
 
 	int base, ex, page;
 	for(base = 0; base < 4; base++) {
 		for(ex = 0; ex < 4; ex++) {
 			for(page = 0; page < 4; page++) {
-				ms_memmap_shared->attached_driver[base][ex][page] = (ms_memmap_driver_t*)ms_memmap_shared->nothing_driver;
+				_shared->attached_driver[base][ex][page] = (ms_memmap_driver_t*)_shared->nothing_driver;
 			}
 		}
 	}
 
 	// スロット3を拡張スロットとして使用する
-	ms_memmap_shared->slot_expanded.flag[3] = 1;
+	_shared->slot_expanded.flag[3] = 1;
 
 	// メインメモリをスロット3-0にアタッチ
-	if ( ms_memmap_attach_driver(ms_memmap_shared, (ms_memmap_driver_t*)ms_memmap_shared->mainram_driver, 3, 0) != 0) {
+	if ( ms_memmap_attach_driver(_shared, (ms_memmap_driver_t*)_shared->mainram_driver, 3, 0) != 0) {
 		printf("メインメモリのアタッチに失敗しました\n");
-		ms_memmap_deinit(ms_memmap_shared);
-		new_free(ms_memmap_shared);
-		return;
+		ms_memmap_shared_deinit();
+		new_free(_shared);
+		return NULL;
 	}
 
 	// 現状で初期化
 	for(page = 0; page < 4; page++) {
-		select_slot_base_impl(ms_memmap_shared, page, ms_memmap_shared->slot_sel[page]);
+		select_slot_base_impl(_shared, page, _shared->slot_sel[page]);
 	}
 
-	return;
+	return _shared;
 }
 
-void ms_memmap_deinit(ms_memmap_t* memmap) {
-	if( memmap->mainram_driver != NULL ) {
-		memmap->mainram_driver->base.deinit( (ms_memmap_driver_t*)memmap->mainram_driver);
-		new_free(memmap->mainram_driver);
-		memmap->mainram_driver = NULL;
+void ms_memmap_shared_deinit() {
+	if( _shared == NULL) {
+		return;
+	}
+	if( _shared->mainram_driver != NULL ) {
+		_shared->mainram_driver->base.deinit( (ms_memmap_driver_t*)_shared->mainram_driver);
+		new_free(_shared->mainram_driver);
+		_shared->mainram_driver = NULL;
 	}
 	int base, ex, page;
 	for(base = 0; base < 4; base++) {
 		for(ex = 0; ex < 4; ex++) {
 			for(page = 0; page < 4; page++) {
-				ms_memmap_driver_t* driver = memmap->attached_driver[base][ex][page];
+				ms_memmap_driver_t* driver = _shared->attached_driver[base][ex][page];
 				// TODO 一つのドライバが複数のページにまたがっているケースがあるので、
 				// TODO ちゃんとデタッチして外してから deinit しないと二重解放になる
 				//if( driver != NULL && driver->type != ROM_TYPE_NOTHING && driver->type != ) {
@@ -106,6 +100,9 @@ void ms_memmap_deinit(ms_memmap_t* memmap) {
 			}
 		}
 	}
+	// シングルトンの場合だけ例外的に deinitで freeする
+	new_free(_shared);
+	_shared = NULL;
 }
 
 
@@ -144,7 +141,7 @@ int ms_memmap_attach_driver(ms_memmap_t* memmap, ms_memmap_driver_t* driver, con
 		}
 	}
 	if(conflict) {
-		printf("スロットにドライバがすでにアタッチされています。\n");
+		printf("スロットにドライバがすでにアタッチされています。%s が配置できませんでした。\n", driver->name);
 		return -1;
 	}
 
@@ -276,27 +273,27 @@ void write_port_A8(uint8_t data) {
 	int page = 0;
 	for(page = 0; page < 4; page++) {
 		int slot_base = data & 0x03;
-		select_slot_base(ms_memmap_shared, page, slot_base);
+		select_slot_base(_shared, page, slot_base);
 		data >>= 2;
 	}
 }
 
 uint8_t read_port_A8() {
-	return ms_memmap_shared->slot_sel[0] | (ms_memmap_shared->slot_sel[1] << 2) | (ms_memmap_shared->slot_sel[2] << 4) | (ms_memmap_shared->slot_sel[3] << 6);
+	return _shared->slot_sel[0] | (_shared->slot_sel[1] << 2) | (_shared->slot_sel[2] << 4) | (_shared->slot_sel[3] << 6);
 }
 
 void write_exslot_reg(uint8_t data) {
 	int page = 0;
 	for(page = 0; page < 4; page++) {
 		int slot_ex = data & 0x03;
-		select_slot_ex(ms_memmap_shared, page, slot_ex);
+		select_slot_ex(_shared, page, slot_ex);
 		data >>= 2;
 	}
 }
 
 uint8_t read_exslot_reg() {
-	uint8_t slot_base = ms_memmap_shared->slot_sel[3];
-	uint8_t ret = ms_memmap_shared->slot_sel_ex[slot_base][0] | (ms_memmap_shared->slot_sel_ex[slot_base][1] << 2) | (ms_memmap_shared->slot_sel_ex[slot_base][2] << 4) | (ms_memmap_shared->slot_sel_ex[slot_base][3] << 6);
+	uint8_t slot_base = _shared->slot_sel[3];
+	uint8_t ret = _shared->slot_sel_ex[slot_base][0] | (_shared->slot_sel_ex[slot_base][1] << 2) | (_shared->slot_sel_ex[slot_base][2] << 4) | (_shared->slot_sel_ex[slot_base][3] << 6);
 	// 読み出すと反転した値が読める
 	return ~ret;
 }
@@ -308,19 +305,19 @@ uint8_t read_exslot_reg() {
  * @param data 
  */
 void write_port_FC(uint8_t data) {
-	ms_memmap_shared->mainram_driver->base.did_update_memory_mapper((ms_memmap_driver_t*)ms_memmap_shared->mainram_driver, 0, data);
+	_shared->mainram_driver->base.did_update_memory_mapper((ms_memmap_driver_t*)_shared->mainram_driver, 0, data);
 }
 
 void write_port_FD(uint8_t data) {
-	ms_memmap_shared->mainram_driver->base.did_update_memory_mapper((ms_memmap_driver_t*)ms_memmap_shared->mainram_driver, 1, data);
+	_shared->mainram_driver->base.did_update_memory_mapper((ms_memmap_driver_t*)_shared->mainram_driver, 1, data);
 }
 
 void write_port_FE(uint8_t data) {
-	ms_memmap_shared->mainram_driver->base.did_update_memory_mapper((ms_memmap_driver_t*)ms_memmap_shared->mainram_driver, 2, data);
+	_shared->mainram_driver->base.did_update_memory_mapper((ms_memmap_driver_t*)_shared->mainram_driver, 2, data);
 }
 
 void write_port_FF(uint8_t data) {
-	ms_memmap_shared->mainram_driver->base.did_update_memory_mapper((ms_memmap_driver_t*)ms_memmap_shared->mainram_driver, 3, data);
+	_shared->mainram_driver->base.did_update_memory_mapper((ms_memmap_driver_t*)_shared->mainram_driver, 3, data);
 }
 
 //
@@ -333,8 +330,8 @@ uint8_t ms_memmap_read8(uint16_t addr) {
 	if (addr == 0xffff) {
 		// 拡張スロット選択レジスタのアドレスの場合
 		// ページ3が拡張されているかどうかを調べる
-		uint8_t slot_base = ms_memmap_shared->slot_sel[3];
-		if ( ms_memmap_shared->slot_expanded.flag[slot_base] == 1) {
+		uint8_t slot_base = _shared->slot_sel[3];
+		if ( _shared->slot_expanded.flag[slot_base] == 1) {
 			// 拡張されている場合は拡張スロット選択レジスタを見る
 			return read_exslot_reg();
 		}
@@ -342,7 +339,7 @@ uint8_t ms_memmap_read8(uint16_t addr) {
 	// アドレスからページ番号を取得
 	int page = (addr >> 14) & 0x03;
 	// ページからドライバを特定
-	ms_memmap_driver_t* d = ms_memmap_shared->current_driver[page];
+	ms_memmap_driver_t* d = _shared->current_driver[page];
 	return d->read8(d, addr);
 }
 
@@ -350,8 +347,8 @@ void ms_memmap_write8(uint16_t addr, uint8_t data) {
 	if (addr == 0xffff) {
 		// 拡張スロット選択レジスタのアドレスの場合
 		// ページ3が拡張されているかどうかを調べる
-		uint8_t slot_base = ms_memmap_shared->slot_sel[3];
-		if ( ms_memmap_shared->slot_expanded.flag[slot_base] == 1) {
+		uint8_t slot_base = _shared->slot_sel[3];
+		if ( _shared->slot_expanded.flag[slot_base] == 1) {
 			// 拡張されている場合は拡張スロット選択レジスタに書き込む
 			write_exslot_reg(data);
 			return;
@@ -360,7 +357,7 @@ void ms_memmap_write8(uint16_t addr, uint8_t data) {
 	// アドレスからページ番号を取得
 	int page = (addr >> 14) & 0x03;
 	// ページからドライバを特定
-	ms_memmap_driver_t* d = ms_memmap_shared->current_driver[page];
+	ms_memmap_driver_t* d = _shared->current_driver[page];
 	d->write8(d, addr, data);
 }
 
@@ -374,7 +371,7 @@ uint16_t ms_memmap_read16(uint16_t addr) {
 	// アドレスからページ番号を取得
 	int page = (addr >> 14) & 0x03;
 	// ページからドライバを特定
-	ms_memmap_driver_t* d = ms_memmap_shared->current_driver[page];
+	ms_memmap_driver_t* d = _shared->current_driver[page];
 	return d->read16(d, addr);
 }
 
@@ -389,6 +386,6 @@ void ms_memmap_write16(uint16_t addr, uint16_t data) {
 	// アドレスからページ番号を取得
 	int page = (addr >> 14) & 0x03;
 	// ページからドライバを特定
-	ms_memmap_driver_t* d = ms_memmap_shared->current_driver[page];
+	ms_memmap_driver_t* d = _shared->current_driver[page];
 	d->write16(d, addr, data);
 }

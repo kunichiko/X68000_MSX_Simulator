@@ -86,10 +86,10 @@ typedef struct ms_memmap_slot {
 	ms_memmap_page_t page_3;
 } ms_memmap_page_slot_t;
 
-ms_memmap_t* ms_memmap_alloc();
-void ms_memmap_init(ms_memmap_t* instance);
+ms_memmap_t* ms_memmap_shared_instance();
+void ms_memmap_shared_deinit();
+
 void ms_memmap_init_mac();
-void ms_memmap_deinit(ms_memmap_t* instance);
 void ms_memmap_deinit_mac();
 void ms_memmap_set_main_mem( void *, int);
 

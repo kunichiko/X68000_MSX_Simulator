@@ -37,10 +37,11 @@
 #define CRTR_09		(*(volatile uint16_t *)0xe80012)	// CRTCレジスタ9
 #define CRTR_10		(*(volatile uint16_t *)0xe80014)	// CRTCレジスタ10 (テキストスクロールX)
 #define CRTR_11		(*(volatile uint16_t *)0xe80016)	// CRTCレジスタ11 (テキストスクロールY)
-#define CRTR_12		(*(volatile uint16_t *)0xe80018)	// CRTCレジスタ12
-#define CRTR_13		(*(volatile uint16_t *)0xe8001a)	// CRTCレジスタ13
-#define CRTR_14		(*(volatile uint16_t *)0xe8001c)	// CRTCレジスタ14
-#define CRTR_15		(*(volatile uint16_t *)0xe8001e)	// CRTCレジスタ15
+#define CRTR_SCR_p	((volatile uint16_t *)0xe80018)		// CRTCスクロールレジスタへのポインタ
+#define CRTR_12		(*(volatile uint16_t *)0xe80018)	// CRTCレジスタ12 (GR0のスクロールX）
+#define CRTR_13		(*(volatile uint16_t *)0xe8001a)	// CRTCレジスタ13 (GR0のスクロールY)
+#define CRTR_14		(*(volatile uint16_t *)0xe8001c)	// CRTCレジスタ14 (GR1のスクロールX）
+#define CRTR_15		(*(volatile uint16_t *)0xe8001e)	// CRTCレジスタ15 (GR1のスクロールY)
 
 #define CRTR_20		(*(volatile uint16_t *)0xe80028)	// CRTCレジスタ20
 #define CRTR_21		(*(volatile uint16_t *)0xe8002a)	// CRTCレジスタ21
@@ -168,6 +169,7 @@ typedef struct ms_vdp {
 	//
 	uint16_t tx_active;
 	uint16_t gr_active;
+	uint16_t gr_active_interlace;
 
 	// X68000側に確保したVRAMの先頭アドレス
 	uint8_t* vram;
@@ -264,9 +266,9 @@ typedef struct ms_vdp_mode {
 	int bits_per_dot; // 1ドットあたりのビット数 (VDPコマンド用)
 } ms_vdp_mode_t;
 
-ms_vdp_t* ms_vdp_alloc();
-void ms_vdp_init(ms_vdp_t* instance);
-void ms_vdp_deinit(ms_vdp_t* instance);
+// singleton instance
+ms_vdp_t* ms_vdp_shared_instance();
+void ms_vdp_shared_deinit();
 
 void ms_vdp_set_mode(ms_vdp_t* vdp, int mode);
 void ms_vdp_vsync_draw(ms_vdp_t* vdp);
@@ -298,10 +300,9 @@ void vdp_command_write(ms_vdp_t* vdp, uint8_t data);
  * @param color 0=16色, 1=256色, 3=65536色
  * @param bg 0=非表示, 1=表示
  */
-void update_resolution_COMMON(ms_vdp_t* vdp, unsigned int res, unsigned int color, unsigned int bg);
-
-void update_vdp_sprite_area(ms_vdp_t* vdp);
-
+void ms_vdp_update_resolution_COMMON(ms_vdp_t* vdp, unsigned int res, unsigned int color, unsigned int bg);
+void ms_vdp_update_visibility(ms_vdp_t* vdp);
+void ms_vdp_update_sprite_area(ms_vdp_t* vdp);
 void ms_vdp_sprite_vsync_draw(ms_vdp_t* vdp);
 
 #endif

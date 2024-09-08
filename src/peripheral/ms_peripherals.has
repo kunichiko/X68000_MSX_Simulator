@@ -13,8 +13,6 @@
 	.xdef	r_port_A9
 	.xdef	r_port_AA
 	.xdef	r_port_AB
-	.xdef	r_port_B4
-	.xdef	r_port_B5
 	.xdef	r_port_FC
 	.xdef	r_port_FD
 	.xdef	r_port_FE
@@ -24,8 +22,6 @@
 	.xdef	w_port_91
 	.xdef	w_port_AA
 	.xdef	w_port_AB
-	.xdef	w_port_B4
-	.xdef	w_port_B5
 
 	.xdef	p_FC
 	.xdef	p_FD
@@ -49,8 +45,6 @@ USART_data	equ	$e8802f		* USART データポート
 
 	.text
 	.even
-
-RTC68	equ	$e8a001
 
 ********************************************************************
 *
@@ -87,64 +81,6 @@ r_port_AA:
 r_port_AB:				* PPI Control Register
 	move.b	p_AB,d0
 	rts
-
-*
-*	Ｒｅａｌ Ｔｉｍｅ Ｃｌｏｃｋ
-*
-r_port_B4:
-	move.b	p_B4,d0
-	rts
-
-r_port_B5:				* Real Time Clock
-	move.b	p_B4,d0			* d0 = register number
-	cmpi.b	#13,d0
-	beq	read_RTC_mode
-	bmi	read_RTC_reg
-	cmpi.b	#15,d0
-	beq	@f
-	move.b	RTCR_14,d0
-	rts
-@@:	move.b	RTC68+15*2,d0
-	rts
-
-read_RTC_mode:
-	move.b	RTC68+13*2,d0
-	andi.b	#%1000,d0
-	move.b	RTCR_13,d1
-	andi.b	#%0111,d1
-	or.b	d1,d0
-	rts
-
-read_RTC_reg:
-	andi.w	#$000f,d0		* 上位バイトをクリア
-	move.b	RTCR_13,d3
-	andi.w	#%00000011,d3
-	beq	r_block0
-	bclr.l	#1,d3
-	bne	r_block2or3
-
-	lea.l	RTC1,a0			* ブロック１の時
-	add.w	d0,d0
-	move.b	0(a0,d0.w),d0
-	rts
-
-r_block0:
-	lea.l	RTC68,a0
-	add.w	d0,d0
-	move.b	0(a0,d0.w),d0
-	rts
-
-r_block2or3:
-	move.w	d3,d3
-	bne	block3
-	lea.l	RTC2,a0
-	move.b	0(a0,d0.w),d0
-	rts
-block3:
-	lea.l	RTC3,a0
-	move.b	0(a0,d0.w),d0
-	rts
-
 
 r_port_FC:
 	move.b	p_FC,d0
@@ -216,142 +152,11 @@ w_port_AB:
 	bra	w_port_AA
 
 
-*
-*	Ｒｅａｌ Ｔｉｍｅ Ｃｌｏｃｋ
-*
-w_port_B4:
-	andi.b	#%00001111,d1
-	move.b	d1,p_B4
-	rts
-
-w_port_B5:
-	move.b	p_B4,d0
-	cmpi.b	#13,d0
-	beq	set_RTC_mode
-	bmi	write_RTC_reg
-	cmpi.b	#15,d0
-	beq	@f
-	move.b	d1,RTCR_14
-	rts
-@@:	move.b	d1,RTC68+15*2
-	rts
-
-set_RTC_mode:
-	move.b	d1,RTCR_13
-	move.b	RTC68+13*2,d0		* 68 の RTC13 を読み込み
-	andi.b	#%0100,d0
-	andi.b	#%1001,d1
-	or.b	d1,d0
-	move.b	d0,RTC68+13*2
-	rts	
-
-write_RTC_reg:
-	andi.w	#$000f,d0		* 上位バイトをクリア
-	move.b	RTCR_13,d3
-	andi.w	#%00000011,d3
-	beq	w_block0
-	bclr.l	#1,d3
-	bne	w_block2or3
-
-	lea.l	RTC1mask,a0		* ブロック１の時
-	and.b	0(a0,d0.w),d1
-	lea.l	RTC1,a0
-	add.w	d0,d0
-	move.b	d1,0(a0,d0.w)
-	rts
-
-w_block0:
-	lea.l	RTC68,a0
-	move.b	13*2(a0),d2		* ６８のＲＴＣモードが変わってるかもしれない
-	andi.b	#%1100,d2		* から、設定し直す
-	move.b	d2,13*2(a0)
-	add.w	d0,d0
-	move.b	d1,0(a0,d0.w)
-	rts
-
-w_block2or3:
-	move.w	d3,d3
-	bne	w_block3	
-	lea.l	RTC2,a0
-	move.b	d1,0(a0,d0.w)
-	rts
-
-w_block3:
-	lea.l	RTC3,a0
-	move.b	d1,0(a0,d0.w)
-	rts
-
-	.data
-
-RTC1:	.dc.b	0		* 0
-	.dc.b	0
-	.dc.b	0
-	.dc.b	0
-	.dc.b	0
-	.dc.b	0
-	.dc.b	0
-	.dc.b	0
-	.dc.b	0
-	.dc.b	0
-	.dc.b	0
-	.dc.b	0
-	.dc.b	0		* 12
-
-RTC2:	.dc.b	0x0a		* 0
-	.dc.b	0
-	.dc.b	0
-	.dc.b	1
-	.dc.b	0
-	.dc.b	2
-	.dc.b	15
-	.dc.b	4
-	.dc.b	7
-	.dc.b	1
-	.dc.b	0
-	.dc.b	0
-	.dc.b	0		* 12
-
-RTC3:	.dc.b	0		* 0
-	.dc.b	0
-	.dc.b	0
-	.dc.b	0
-	.dc.b	0
-	.dc.b	0
-	.dc.b	0
-	.dc.b	0
-	.dc.b	0
-	.dc.b	0
-	.dc.b	0
-	.dc.b	0
-	.dc.b	0		* 12
-
-RTCR_13:
-	.dc.b	%1000
-RTCR_14:
-	.dc.b	%0000
-
-RTC1mask:
-	.dc.b	0
-	.dc.b	0
-	.dc.b	15
-	.dc.b	7
-	.dc.b	15
-	.dc.b	3
-	.dc.b	7
-	.dc.b	15
-	.dc.b	3
-	.dc.b	0
-	.dc.b	1
-	.dc.b	3
-	.dc.b	0
-
 	.data
 
 *	Ｉ／Ｏポートの値保存場所
 p_AA:	.dc.b	0
 p_AB:	.dc.b	0			* PPI Control Register
-
-p_B4:	.dc.b	0			* RTC Register
 
 p_FC:	.dc.b	3			* マッパースロット選択レジスター
 p_FD:	.dc.b	2			* 初期値に意味はない。何となく。

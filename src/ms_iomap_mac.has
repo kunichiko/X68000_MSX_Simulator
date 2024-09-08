@@ -12,11 +12,9 @@
 	.include	iocscall.mac
 	.include	doscall.mac
 
-	.xdef	no_port_OUT
-	.xdef	no_port_OUT_2
+	.xdef	ms_io_input_table, ms_io_output_table
 
-	.xdef	ms_io_input_table
-	.xdef	ms_io_output_table
+	.xref	ms_iomap_out, ms_iomap_in
 
 	.xref	r_port_90
 	.xref	w_port_90, w_port_91
@@ -39,9 +37,6 @@
 	.xref	read_vdp_0,	read_vdp_1,	read_vdp_2,	read_vdp_3
 	.xref	write_vdp_0,	write_vdp_1,	write_vdp_2,	write_vdp_3
 
-	.xref	read_kanji_D9,	read_kanji_DB
-	.xref	write_kanji_D8,	write_kanji_D9,	write_kanji_DA,	write_kanji_DB
-
 	.xref	HEX
 
 	.data
@@ -51,227 +46,166 @@
 ; ****************************************************************************
 ms_io_input_table:
 *	0
-	.dc.l	no_port_IN,	no_port_IN,	no_port_IN,	no_port_IN
-	.dc.l	no_port_IN,	no_port_IN,	no_port_IN,	no_port_IN
-	.dc.l	no_port_IN,	no_port_IN,	no_port_IN,	no_port_IN
-	.dc.l	no_port_IN,	no_port_IN,	no_port_IN,	no_port_IN
+	.dc.l	ms_iomap_in,	ms_iomap_in,	ms_iomap_in,	ms_iomap_in
+	.dc.l	ms_iomap_in,	ms_iomap_in,	ms_iomap_in,	ms_iomap_in
+	.dc.l	ms_iomap_in,	ms_iomap_in,	ms_iomap_in,	ms_iomap_in
+	.dc.l	ms_iomap_in,	ms_iomap_in,	ms_iomap_in,	ms_iomap_in
 *	1
-	.dc.l	no_port_IN,	no_port_IN,	no_port_IN,	no_port_IN
-	.dc.l	no_port_IN,	no_port_IN,	no_port_IN,	no_port_IN
-	.dc.l	no_port_IN,	no_port_IN,	no_port_IN,	no_port_IN
-	.dc.l	no_port_IN,	no_port_IN,	no_port_IN,	no_port_IN
+	.dc.l	ms_iomap_in,	ms_iomap_in,	ms_iomap_in,	ms_iomap_in
+	.dc.l	ms_iomap_in,	ms_iomap_in,	ms_iomap_in,	ms_iomap_in
+	.dc.l	ms_iomap_in,	ms_iomap_in,	ms_iomap_in,	ms_iomap_in
+	.dc.l	ms_iomap_in,	ms_iomap_in,	ms_iomap_in,	ms_iomap_in
 *	2
-	.dc.l	no_port_IN,	no_port_IN,	no_port_IN,	no_port_IN
-	.dc.l	no_port_IN,	no_port_IN,	no_port_IN,	no_port_IN
-	.dc.l	no_port_IN,	no_port_IN,	no_port_IN,	no_port_IN
-	.dc.l	no_port_IN,	no_port_IN,	no_port_IN,	no_port_IN
+	.dc.l	ms_iomap_in,	ms_iomap_in,	ms_iomap_in,	ms_iomap_in
+	.dc.l	ms_iomap_in,	ms_iomap_in,	ms_iomap_in,	ms_iomap_in
+	.dc.l	ms_iomap_in,	ms_iomap_in,	ms_iomap_in,	ms_iomap_in
+	.dc.l	ms_iomap_in,	ms_iomap_in,	ms_iomap_in,	ms_iomap_in
 *	3
-	.dc.l	no_port_IN,	no_port_IN,	no_port_IN,	no_port_IN
-	.dc.l	no_port_IN,	no_port_IN,	no_port_IN,	no_port_IN
-	.dc.l	no_port_IN,	no_port_IN,	no_port_IN,	no_port_IN
-	.dc.l	no_port_IN,	no_port_IN,	no_port_IN,	no_port_IN
+	.dc.l	ms_iomap_in,	ms_iomap_in,	ms_iomap_in,	ms_iomap_in
+	.dc.l	ms_iomap_in,	ms_iomap_in,	ms_iomap_in,	ms_iomap_in
+	.dc.l	ms_iomap_in,	ms_iomap_in,	ms_iomap_in,	ms_iomap_in
+	.dc.l	ms_iomap_in,	ms_iomap_in,	ms_iomap_in,	ms_iomap_in
 *	4
-	.dc.l	no_port_IN,	no_port_IN,	no_port_IN,	no_port_IN
-	.dc.l	no_port_IN,	no_port_IN,	no_port_IN,	no_port_IN
-	.dc.l	no_port_IN,	no_port_IN,	no_port_IN,	no_port_IN
-	.dc.l	no_port_IN,	no_port_IN,	no_port_IN,	no_port_IN
+	.dc.l	ms_iomap_in,	ms_iomap_in,	ms_iomap_in,	ms_iomap_in
+	.dc.l	ms_iomap_in,	ms_iomap_in,	ms_iomap_in,	ms_iomap_in
+	.dc.l	ms_iomap_in,	ms_iomap_in,	ms_iomap_in,	ms_iomap_in
+	.dc.l	ms_iomap_in,	ms_iomap_in,	ms_iomap_in,	ms_iomap_in
 *	5
-	.dc.l	no_port_IN,	no_port_IN,	no_port_IN,	no_port_IN
-	.dc.l	no_port_IN,	no_port_IN,	no_port_IN,	no_port_IN
-	.dc.l	no_port_IN,	no_port_IN,	no_port_IN,	no_port_IN
-	.dc.l	no_port_IN,	no_port_IN,	no_port_IN,	no_port_IN
+	.dc.l	ms_iomap_in,	ms_iomap_in,	ms_iomap_in,	ms_iomap_in
+	.dc.l	ms_iomap_in,	ms_iomap_in,	ms_iomap_in,	ms_iomap_in
+	.dc.l	ms_iomap_in,	ms_iomap_in,	ms_iomap_in,	ms_iomap_in
+	.dc.l	ms_iomap_in,	ms_iomap_in,	ms_iomap_in,	ms_iomap_in
 *	6
-	.dc.l	no_port_IN,	no_port_IN,	no_port_IN,	no_port_IN
-	.dc.l	no_port_IN,	no_port_IN,	no_port_IN,	no_port_IN
-	.dc.l	no_port_IN,	no_port_IN,	no_port_IN,	no_port_IN
-	.dc.l	no_port_IN,	no_port_IN,	no_port_IN,	no_port_IN
+	.dc.l	ms_iomap_in,	ms_iomap_in,	ms_iomap_in,	ms_iomap_in
+	.dc.l	ms_iomap_in,	ms_iomap_in,	ms_iomap_in,	ms_iomap_in
+	.dc.l	ms_iomap_in,	ms_iomap_in,	ms_iomap_in,	ms_iomap_in
+	.dc.l	ms_iomap_in,	ms_iomap_in,	ms_iomap_in,	ms_iomap_in
 *	7
-	.dc.l	no_port_IN,	no_port_IN,	no_port_IN,	no_port_IN
-	.dc.l	no_port_IN,	no_port_IN,	no_port_IN,	no_port_IN
-	.dc.l	no_port_IN,	no_port_IN,	no_port_IN,	no_port_IN
-	.dc.l	no_port_IN,	no_port_IN,	no_port_IN,	no_port_IN
+	.dc.l	ms_iomap_in,	ms_iomap_in,	ms_iomap_in,	ms_iomap_in
+	.dc.l	ms_iomap_in,	ms_iomap_in,	ms_iomap_in,	ms_iomap_in
+	.dc.l	ms_iomap_in,	ms_iomap_in,	ms_iomap_in,	ms_iomap_in
+	.dc.l	ms_iomap_in,	ms_iomap_in,	ms_iomap_in,	ms_iomap_in
 *	8
-	.dc.l	no_port_IN,	no_port_IN,	no_port_IN,	no_port_IN
-	.dc.l	no_port_IN,	no_port_IN,	no_port_IN,	no_port_IN
+	.dc.l	ms_iomap_in,	ms_iomap_in,	ms_iomap_in,	ms_iomap_in
+	.dc.l	ms_iomap_in,	ms_iomap_in,	ms_iomap_in,	ms_iomap_in
 	.dc.l	read_vdp_0,	read_vdp_1,	read_vdp_2,	read_vdp_3
-	.dc.l	no_port_IN,	no_port_IN,	no_port_IN,	no_port_IN
+	.dc.l	ms_iomap_in,	ms_iomap_in,	ms_iomap_in,	ms_iomap_in
 *	9
-	.dc.l	r_port_90,	no_port_IN,	no_port_IN,	no_port_IN
-	.dc.l	no_port_IN,	no_port_IN,	no_port_IN,	no_port_IN
+	.dc.l	r_port_90,	ms_iomap_in,	ms_iomap_in,	ms_iomap_in
+	.dc.l	ms_iomap_in,	ms_iomap_in,	ms_iomap_in,	ms_iomap_in
 	.dc.l	read_vdp_0,	read_vdp_1,	read_vdp_2,	read_vdp_3
-	.dc.l	no_port_IN,	no_port_IN,	no_port_IN,	no_port_IN
+	.dc.l	ms_iomap_in,	ms_iomap_in,	ms_iomap_in,	ms_iomap_in
 *	a
-	.dc.l	r_port_A0,	no_port_IN,	r_port_A2,	no_port_IN
-	.dc.l	no_port_IN,	no_port_IN,	no_port_IN,	no_port_IN
+	.dc.l	r_port_A0,	ms_iomap_in,	r_port_A2,	ms_iomap_in
+	.dc.l	ms_iomap_in,	ms_iomap_in,	ms_iomap_in,	ms_iomap_in
 	.dc.l	r_port_A8,	r_port_A9,	r_port_AA,	r_port_AB
-	.dc.l	no_port_IN_2,	no_port_IN_2,	no_port_IN_2,	no_port_IN_2
+	.dc.l	ms_iomap_in,	ms_iomap_in,	ms_iomap_in,	ms_iomap_in
 *	b
-	.dc.l	no_port_IN,	no_port_IN,	no_port_IN,	no_port_IN
-	.dc.l	r_port_B4,	r_port_B5,	no_port_IN,	no_port_IN
-	.dc.l	no_port_IN,	no_port_IN,	no_port_IN,	no_port_IN
-	.dc.l	no_port_IN,	no_port_IN,	no_port_IN,	no_port_IN
+	.dc.l	ms_iomap_in,	ms_iomap_in,	ms_iomap_in,	ms_iomap_in
+	.dc.l	ms_iomap_in,	ms_iomap_in,	ms_iomap_in,	ms_iomap_in
+	.dc.l	ms_iomap_in,	ms_iomap_in,	ms_iomap_in,	ms_iomap_in
+	.dc.l	ms_iomap_in,	ms_iomap_in,	ms_iomap_in,	ms_iomap_in
 *	c
-	.dc.l	no_port_IN,	no_port_IN,	no_port_IN,	no_port_IN
-	.dc.l	no_port_IN,	no_port_IN,	no_port_IN,	no_port_IN
-	.dc.l	no_port_IN,	no_port_IN,	no_port_IN,	no_port_IN
-	.dc.l	no_port_IN,	no_port_IN,	no_port_IN,	no_port_IN
+	.dc.l	ms_iomap_in,	ms_iomap_in,	ms_iomap_in,	ms_iomap_in
+	.dc.l	ms_iomap_in,	ms_iomap_in,	ms_iomap_in,	ms_iomap_in
+	.dc.l	ms_iomap_in,	ms_iomap_in,	ms_iomap_in,	ms_iomap_in
+	.dc.l	ms_iomap_in,	ms_iomap_in,	ms_iomap_in,	ms_iomap_in
 *	d
-	.dc.l	no_port_IN_2,	no_port_IN_2,	no_port_IN_2,	no_port_IN_2
-	.dc.l	no_port_IN_2,	no_port_IN_2,	no_port_IN_2,	no_port_IN_2
-	.dc.l	no_port_IN_2,	read_kanji_D9,	no_port_IN_2,	read_kanji_DB
-	.dc.l	no_port_IN,	no_port_IN,	no_port_IN,	no_port_IN
+	.dc.l	ms_iomap_in,	ms_iomap_in,	ms_iomap_in,	ms_iomap_in
+	.dc.l	ms_iomap_in,	ms_iomap_in,	ms_iomap_in,	ms_iomap_in
+	.dc.l	ms_iomap_in,	ms_iomap_in,	ms_iomap_in,	ms_iomap_in
+	.dc.l	ms_iomap_in,	ms_iomap_in,	ms_iomap_in,	ms_iomap_in
 *	e
-	.dc.l	no_port_IN,	no_port_IN,	no_port_IN,	no_port_IN
-	.dc.l	no_port_IN,	no_port_IN,	no_port_IN,	no_port_IN
-	.dc.l	no_port_IN,	no_port_IN,	no_port_IN,	no_port_IN
-	.dc.l	no_port_IN,	no_port_IN,	no_port_IN,	no_port_IN
+	.dc.l	ms_iomap_in,	ms_iomap_in,	ms_iomap_in,	ms_iomap_in
+	.dc.l	ms_iomap_in,	ms_iomap_in,	ms_iomap_in,	ms_iomap_in
+	.dc.l	ms_iomap_in,	ms_iomap_in,	ms_iomap_in,	ms_iomap_in
+	.dc.l	ms_iomap_in,	ms_iomap_in,	ms_iomap_in,	ms_iomap_in
 *	f
-	.dc.l	no_port_IN,	no_port_IN,	no_port_IN,	no_port_IN_2
-	.dc.l	no_port_IN_2,	no_port_IN_2,	no_port_IN,	no_port_IN
-	.dc.l	no_port_IN,	no_port_IN,	no_port_IN,	no_port_IN
+	.dc.l	ms_iomap_in,	ms_iomap_in,	ms_iomap_in,	ms_iomap_in
+	.dc.l	ms_iomap_in,	ms_iomap_in,	ms_iomap_in,	ms_iomap_in
+	.dc.l	ms_iomap_in,	ms_iomap_in,	ms_iomap_in,	ms_iomap_in
 	.dc.l	r_port_FC,	r_port_FD,	r_port_FE,	r_port_FF
 
 ; ****************************************************************************
 ms_io_output_table:
 *	0
-	.dc.l	no_port_OUT,	no_port_OUT,	no_port_OUT,	no_port_OUT
-	.dc.l	no_port_OUT,	no_port_OUT,	no_port_OUT,	no_port_OUT
-	.dc.l	no_port_OUT,	no_port_OUT,	no_port_OUT,	no_port_OUT
-	.dc.l	no_port_OUT,	no_port_OUT,	no_port_OUT,	no_port_OUT
+	.dc.l	ms_iomap_out,	ms_iomap_out,	ms_iomap_out,	ms_iomap_out
+	.dc.l	ms_iomap_out,	ms_iomap_out,	ms_iomap_out,	ms_iomap_out
+	.dc.l	ms_iomap_out,	ms_iomap_out,	ms_iomap_out,	ms_iomap_out
+	.dc.l	ms_iomap_out,	ms_iomap_out,	ms_iomap_out,	ms_iomap_out
 *	1
-	.dc.l	no_port_OUT,	no_port_OUT,	no_port_OUT,	no_port_OUT
-	.dc.l	no_port_OUT,	no_port_OUT,	no_port_OUT,	no_port_OUT
-	.dc.l	no_port_OUT,	no_port_OUT,	no_port_OUT,	no_port_OUT
-	.dc.l	no_port_OUT,	no_port_OUT,	no_port_OUT,	no_port_OUT
+	.dc.l	ms_iomap_out,	ms_iomap_out,	ms_iomap_out,	ms_iomap_out
+	.dc.l	ms_iomap_out,	ms_iomap_out,	ms_iomap_out,	ms_iomap_out
+	.dc.l	ms_iomap_out,	ms_iomap_out,	ms_iomap_out,	ms_iomap_out
+	.dc.l	ms_iomap_out,	ms_iomap_out,	ms_iomap_out,	ms_iomap_out
 *	2
-	.dc.l	no_port_OUT,	no_port_OUT,	no_port_OUT,	no_port_OUT
-	.dc.l	no_port_OUT,	no_port_OUT,	no_port_OUT,	no_port_OUT
-	.dc.l	no_port_OUT,	no_port_OUT,	no_port_OUT,	no_port_OUT
-	.dc.l	no_port_OUT,	no_port_OUT,	no_port_OUT,	no_port_OUT
+	.dc.l	ms_iomap_out,	ms_iomap_out,	ms_iomap_out,	ms_iomap_out
+	.dc.l	ms_iomap_out,	ms_iomap_out,	ms_iomap_out,	ms_iomap_out
+	.dc.l	ms_iomap_out,	ms_iomap_out,	ms_iomap_out,	ms_iomap_out
+	.dc.l	ms_iomap_out,	ms_iomap_out,	ms_iomap_out,	ms_iomap_out
 *	3
-	.dc.l	no_port_OUT,	no_port_OUT,	no_port_OUT,	no_port_OUT
-	.dc.l	no_port_OUT,	no_port_OUT,	no_port_OUT,	no_port_OUT
-	.dc.l	no_port_OUT,	no_port_OUT,	no_port_OUT,	no_port_OUT
-	.dc.l	no_port_OUT,	no_port_OUT,	no_port_OUT,	no_port_OUT
+	.dc.l	ms_iomap_out,	ms_iomap_out,	ms_iomap_out,	ms_iomap_out
+	.dc.l	ms_iomap_out,	ms_iomap_out,	ms_iomap_out,	ms_iomap_out
+	.dc.l	ms_iomap_out,	ms_iomap_out,	ms_iomap_out,	ms_iomap_out
+	.dc.l	ms_iomap_out,	ms_iomap_out,	ms_iomap_out,	ms_iomap_out
 *	4
-	.dc.l	no_port_OUT,	no_port_OUT,	no_port_OUT,	no_port_OUT
-	.dc.l	no_port_OUT,	no_port_OUT,	no_port_OUT,	no_port_OUT
-	.dc.l	no_port_OUT,	no_port_OUT,	no_port_OUT,	no_port_OUT
-	.dc.l	no_port_OUT,	no_port_OUT,	no_port_OUT,	no_port_OUT
+	.dc.l	ms_iomap_out,	ms_iomap_out,	ms_iomap_out,	ms_iomap_out
+	.dc.l	ms_iomap_out,	ms_iomap_out,	ms_iomap_out,	ms_iomap_out
+	.dc.l	ms_iomap_out,	ms_iomap_out,	ms_iomap_out,	ms_iomap_out
+	.dc.l	ms_iomap_out,	ms_iomap_out,	ms_iomap_out,	ms_iomap_out
 *	5
-	.dc.l	no_port_OUT,	no_port_OUT,	no_port_OUT,	no_port_OUT
-	.dc.l	no_port_OUT,	no_port_OUT,	no_port_OUT,	no_port_OUT
-	.dc.l	no_port_OUT,	no_port_OUT,	no_port_OUT,	no_port_OUT
-	.dc.l	no_port_OUT,	no_port_OUT,	no_port_OUT,	no_port_OUT
+	.dc.l	ms_iomap_out,	ms_iomap_out,	ms_iomap_out,	ms_iomap_out
+	.dc.l	ms_iomap_out,	ms_iomap_out,	ms_iomap_out,	ms_iomap_out
+	.dc.l	ms_iomap_out,	ms_iomap_out,	ms_iomap_out,	ms_iomap_out
+	.dc.l	ms_iomap_out,	ms_iomap_out,	ms_iomap_out,	ms_iomap_out
 *	6
-	.dc.l	no_port_OUT,	no_port_OUT,	no_port_OUT,	no_port_OUT
-	.dc.l	no_port_OUT,	no_port_OUT,	no_port_OUT,	no_port_OUT
-	.dc.l	no_port_OUT,	no_port_OUT,	no_port_OUT,	no_port_OUT
-	.dc.l	no_port_OUT,	no_port_OUT,	no_port_OUT,	no_port_OUT
+	.dc.l	ms_iomap_out,	ms_iomap_out,	ms_iomap_out,	ms_iomap_out
+	.dc.l	ms_iomap_out,	ms_iomap_out,	ms_iomap_out,	ms_iomap_out
+	.dc.l	ms_iomap_out,	ms_iomap_out,	ms_iomap_out,	ms_iomap_out
+	.dc.l	ms_iomap_out,	ms_iomap_out,	ms_iomap_out,	ms_iomap_out
 *	7
-	.dc.l	no_port_OUT,	no_port_OUT,	no_port_OUT,	no_port_OUT
-	.dc.l	no_port_OUT,	no_port_OUT,	no_port_OUT,	no_port_OUT
-	.dc.l	no_port_OUT,	no_port_OUT,	no_port_OUT,	no_port_OUT
-	.dc.l	no_port_OUT,	no_port_OUT,	no_port_OUT,	no_port_OUT
+	.dc.l	ms_iomap_out,	ms_iomap_out,	ms_iomap_out,	ms_iomap_out
+	.dc.l	ms_iomap_out,	ms_iomap_out,	ms_iomap_out,	ms_iomap_out
+	.dc.l	ms_iomap_out,	ms_iomap_out,	ms_iomap_out,	ms_iomap_out
+	.dc.l	ms_iomap_out,	ms_iomap_out,	ms_iomap_out,	ms_iomap_out
 *	8
-	.dc.l	no_port_OUT,	no_port_OUT,	no_port_OUT,	no_port_OUT
-	.dc.l	no_port_OUT,	no_port_OUT,	no_port_OUT,	no_port_OUT
+	.dc.l	ms_iomap_out,	ms_iomap_out,	ms_iomap_out,	ms_iomap_out
+	.dc.l	ms_iomap_out,	ms_iomap_out,	ms_iomap_out,	ms_iomap_out
 	.dc.l	write_vdp_0,	write_vdp_1,	write_vdp_2,	write_vdp_3
-	.dc.l	no_port_OUT,	no_port_OUT,	no_port_OUT,	no_port_OUT
+	.dc.l	ms_iomap_out,	ms_iomap_out,	ms_iomap_out,	ms_iomap_out
 *	9
-	.dc.l	w_port_90,	w_port_91,	no_port_OUT,	no_port_OUT
-	.dc.l	no_port_OUT,	no_port_OUT,	no_port_OUT,	no_port_OUT
+	.dc.l	w_port_90,	w_port_91,	ms_iomap_out,	ms_iomap_out
+	.dc.l	ms_iomap_out,	ms_iomap_out,	ms_iomap_out,	ms_iomap_out
 	.dc.l	write_vdp_0,	write_vdp_1,	write_vdp_2,	write_vdp_3
-	.dc.l	no_port_OUT,	no_port_OUT,	no_port_OUT,	no_port_OUT
+	.dc.l	ms_iomap_out,	ms_iomap_out,	ms_iomap_out,	ms_iomap_out
 *	a
-	.dc.l	w_port_A0,	w_port_A1,	no_port_OUT,	no_port_OUT
-	.dc.l	no_port_OUT,	no_port_OUT,	no_port_OUT,	no_port_OUT
-	.dc.l	w_port_A8,	no_port_OUT,	w_port_AA,	no_port_OUT
-	.dc.l	no_port_OUT_2,	no_port_OUT_2,	no_port_OUT_2,	no_port_OUT_2
+	.dc.l	w_port_A0,	w_port_A1,	ms_iomap_out,	ms_iomap_out
+	.dc.l	ms_iomap_out,	ms_iomap_out,	ms_iomap_out,	ms_iomap_out
+	.dc.l	w_port_A8,	ms_iomap_out,	w_port_AA,	ms_iomap_out
+	.dc.l	ms_iomap_out,	ms_iomap_out,	ms_iomap_out,	ms_iomap_out
 *	b
-	.dc.l	no_port_OUT,	no_port_OUT,	no_port_OUT,	no_port_OUT
-	.dc.l	w_port_B4,	w_port_B5,	no_port_OUT_2,	no_port_OUT_2
-	.dc.l	no_port_OUT,	no_port_OUT,	no_port_OUT,	no_port_OUT
-	.dc.l	no_port_OUT,	no_port_OUT,	no_port_OUT,	no_port_OUT
+	.dc.l	ms_iomap_out,	ms_iomap_out,	ms_iomap_out,	ms_iomap_out
+	.dc.l	ms_iomap_out,	ms_iomap_out,	ms_iomap_out,	ms_iomap_out
+	.dc.l	ms_iomap_out,	ms_iomap_out,	ms_iomap_out,	ms_iomap_out
+	.dc.l	ms_iomap_out,	ms_iomap_out,	ms_iomap_out,	ms_iomap_out
 *	c
-	.dc.l	no_port_OUT,	no_port_OUT,	no_port_OUT,	no_port_OUT
-	.dc.l	no_port_OUT,	no_port_OUT,	no_port_OUT,	no_port_OUT
-	.dc.l	no_port_OUT,	no_port_OUT,	no_port_OUT,	no_port_OUT
-	.dc.l	no_port_OUT,	no_port_OUT,	no_port_OUT,	no_port_OUT
+	.dc.l	ms_iomap_out,	ms_iomap_out,	ms_iomap_out,	ms_iomap_out
+	.dc.l	ms_iomap_out,	ms_iomap_out,	ms_iomap_out,	ms_iomap_out
+	.dc.l	ms_iomap_out,	ms_iomap_out,	ms_iomap_out,	ms_iomap_out
+	.dc.l	ms_iomap_out,	ms_iomap_out,	ms_iomap_out,	ms_iomap_out
 *	d
-	.dc.l	no_port_OUT_2,	no_port_OUT_2,	no_port_OUT_2,	no_port_OUT_2
-	.dc.l	no_port_OUT_2,	no_port_OUT_2,	no_port_OUT_2,	no_port_OUT_2
-	.dc.l	write_kanji_D8,	write_kanji_D9,	write_kanji_DA,	write_kanji_DB
-	.dc.l	no_port_OUT,	no_port_OUT,	no_port_OUT,	no_port_OUT
+	.dc.l	ms_iomap_out,	ms_iomap_out,	ms_iomap_out,	ms_iomap_out
+	.dc.l	ms_iomap_out,	ms_iomap_out,	ms_iomap_out,	ms_iomap_out
+	.dc.l	ms_iomap_out,	ms_iomap_out,	ms_iomap_out,	ms_iomap_out
+	.dc.l	ms_iomap_out,	ms_iomap_out,	ms_iomap_out,	ms_iomap_out
 *	e
-	.dc.l	no_port_OUT,	no_port_OUT,	no_port_OUT,	no_port_OUT
-	.dc.l	no_port_OUT,	no_port_OUT,	no_port_OUT,	no_port_OUT
-	.dc.l	no_port_OUT,	no_port_OUT,	no_port_OUT,	no_port_OUT
-	.dc.l	no_port_OUT,	no_port_OUT,	no_port_OUT,	no_port_OUT
+	.dc.l	ms_iomap_out,	ms_iomap_out,	ms_iomap_out,	ms_iomap_out
+	.dc.l	ms_iomap_out,	ms_iomap_out,	ms_iomap_out,	ms_iomap_out
+	.dc.l	ms_iomap_out,	ms_iomap_out,	ms_iomap_out,	ms_iomap_out
+	.dc.l	ms_iomap_out,	ms_iomap_out,	ms_iomap_out,	ms_iomap_out
 *	f
-	.dc.l	no_port_OUT,	no_port_OUT,	no_port_OUT,	no_port_OUT_2
-	.dc.l	no_port_OUT_2,	no_port_OUT_2,	no_port_OUT,	no_port_OUT
-	.dc.l	no_port_OUT,	no_port_OUT,	no_port_OUT,	no_port_OUT
+	.dc.l	ms_iomap_out,	ms_iomap_out,	ms_iomap_out,	ms_iomap_out
+	.dc.l	ms_iomap_out,	ms_iomap_out,	ms_iomap_out,	ms_iomap_out
+	.dc.l	ms_iomap_out,	ms_iomap_out,	ms_iomap_out,	ms_iomap_out
 	.dc.l	w_port_FC,	w_port_FD,	w_port_FE,	w_port_FF
 
-
-
-; ****************************************************************************
-;      デフォルトのI/Oポート処理
-; ****************************************************************************
-
-	.text
-
-no_port_IN:
-	move.b	#$ff,d0
-	rts
-
-no_port_IN_2:
-	move.w	d1,d0
-	lsr.w	#4,d0
-	lea.l	HEX,a0
-	move.b	(a0,d0.w),number_r+0
-	andi.w	#$0f,d1
-	move.b	(a0,d1.w),number_r+1
-
-	pea.l	errms_r
-	DOS	__PRINT
-	lea.l	4(sp),sp
-	move.b	#$ff,d0
-	rts
-
-	.data
-errms_r:
-	.dc.b	'エミュレーションしていないポートを読み込みました。0x'
-number_r:
-	.dc.b	'00'
-	.dc.b	0x0d,0x0a,0x00
-
-
-; ****************************************************************************
-
-	.text
-	.even
-
-no_port_OUT:
-	rts
-
-no_port_OUT_2:
-	move.w	d2,d0				* d2.w ポート番号
-	lsr.w	#4,d0
-	lea.l	HEX,a0
-	move.b	(a0,d0.w),number_w+0
-	andi.w	#$0f,d2
-	move.b	(a0,d2.w),number_w+1
-
-	pea.l	errms_w
-	DOS	__PRINT
-	lea.l	4(sp),sp
-	rts
-
-	.data
-errms_w:
-	.dc.b	'エミュレーションしていないポートに書き込みました。0x'
-number_w:
-	.dc.b	'00'
-	.dc.b	0x0d,0x0a,0x00
