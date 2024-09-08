@@ -524,12 +524,13 @@ int main(int argc, char *argv[]) {
 	/*
 	 RTC‚Ì‰Šú‰»
 	 */
-	rtc = ms_rtc_shared_instance();
+	rtc = ms_rtc_alloc();
 	if (rtc == NULL)
 	{
 		printf("RTC‚Ì‰Šú‰»‚É¸”s‚µ‚Ü‚µ‚½\n");
 		ms_exit();
 	}
+	ms_rtc_init(rtc, iomap);
 
 	/*
 	 Š¿šROM‚ÌƒZƒbƒg
@@ -633,7 +634,7 @@ void ms_exit() {
 		vdp = NULL;
 	}
 	if ( rtc != NULL ) {
-		ms_rtc_shared_deinit(); // singleton‚Í deinit“à•”‚Åfree‚³‚ê‚é
+		ms_rtc_deinit(rtc, iomap); // singleton‚Í deinit“à•”‚Åfree‚³‚ê‚é
 		rtc = NULL;
 	}
 	if ( iomap != NULL ) {

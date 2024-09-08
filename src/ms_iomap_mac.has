@@ -37,12 +37,6 @@
 	.xref	read_vdp_0,	read_vdp_1,	read_vdp_2,	read_vdp_3
 	.xref	write_vdp_0,	write_vdp_1,	write_vdp_2,	write_vdp_3
 
-	.xref	read_rtc_B4,	read_rtc_B5
-	.xref	write_rtc_B4,	write_rtc_B5
-
-	.xref	read_kanji_D9,	read_kanji_DB
-	.xref	write_kanji_D8,	write_kanji_D9,	write_kanji_DA,	write_kanji_DB
-
 	.xref	HEX
 
 	.data
@@ -108,7 +102,7 @@ ms_io_input_table:
 	.dc.l	ms_iomap_in,	ms_iomap_in,	ms_iomap_in,	ms_iomap_in
 *	b
 	.dc.l	ms_iomap_in,	ms_iomap_in,	ms_iomap_in,	ms_iomap_in
-	.dc.l	read_rtc_B4,	read_rtc_B5,	ms_iomap_in,	ms_iomap_in
+	.dc.l	ms_iomap_in,	ms_iomap_in,	ms_iomap_in,	ms_iomap_in
 	.dc.l	ms_iomap_in,	ms_iomap_in,	ms_iomap_in,	ms_iomap_in
 	.dc.l	ms_iomap_in,	ms_iomap_in,	ms_iomap_in,	ms_iomap_in
 *	c
@@ -191,7 +185,7 @@ ms_io_output_table:
 	.dc.l	ms_iomap_out,	ms_iomap_out,	ms_iomap_out,	ms_iomap_out
 *	b
 	.dc.l	ms_iomap_out,	ms_iomap_out,	ms_iomap_out,	ms_iomap_out
-	.dc.l	write_rtc_B4,	write_rtc_B5,	ms_iomap_out,	ms_iomap_out
+	.dc.l	ms_iomap_out,	ms_iomap_out,	ms_iomap_out,	ms_iomap_out
 	.dc.l	ms_iomap_out,	ms_iomap_out,	ms_iomap_out,	ms_iomap_out
 	.dc.l	ms_iomap_out,	ms_iomap_out,	ms_iomap_out,	ms_iomap_out
 *	c

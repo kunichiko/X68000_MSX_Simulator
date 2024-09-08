@@ -8,61 +8,77 @@
 
 #define THIS ms_rtc_t
 
+// I/O port
+static void write_rtc_B4(ms_ioport_t* ioport, uint8_t port, uint8_t data);
+static uint8_t read_rtc_B4(ms_ioport_t* ioport, uint8_t port);
+static void write_rtc_B5(ms_ioport_t* ioport, uint8_t port, uint8_t data);
+static uint8_t read_rtc_B5(ms_ioport_t* ioport, uint8_t port);
+
 #define RTC_X68K ((volatile uint16_t *)0xe8a000) // RTCレジスタ
 
 uint8_t read_rtc_datetime(uint8_t regnum);
 void write_rtc_datetime(uint8_t regnum, uint8_t data);
 
-// Singleton instance
-static THIS* _shared = NULL;
-
-THIS* ms_rtc_shared_instance() {
-	if (_shared != NULL) {
-		return _shared;
-	}
-	if( (_shared = (THIS*)new_malloc(sizeof(THIS))) == NULL) {
+THIS* ms_rtc_alloc() {
+	THIS* instance = NULL;
+	if( (instance = (ms_rtc_t*)new_malloc(sizeof(ms_rtc_t))) == NULL) {
 		printf("メモリが確保できません\n");
 		return NULL;
 	}
+	return instance;
+}
 
-	_shared->regnum = 0;
-	_shared->r13 = 0;
-	_shared->r14 = 0;
-	_shared->r15 = 0;
+void ms_rtc_init(ms_rtc_t* instance, ms_iomap_t* iomap) {
+	if (instance == NULL) {
+		return;
+	}
+
+	instance->regnum = 0;
+	instance->r13 = 0;
+	instance->r14 = 0;
+	instance->r15 = 0;
 
 	int i;
 	for (i = 0; i < 13; i++) {
-		_shared->block2[i] = 0;
-		_shared->block3[i] = 0;
+		instance->block2[i] = 0;
+		instance->block3[i] = 0;
 	}
 
 	// MSXでバッテリバックアップされている設定値をデフォルト値にしておく
 	// TODO: ファイルに永続化できるようにする
-	_shared->block2[0] = 10;		// 保存値が有効な場合は10になる
-	_shared->block2[1] = 0x00;	// X-Adjust
-	_shared->block2[2] = 0x00;	// Y-Adjust
-	_shared->block2[3] = 0x01;	// SCREEN MODE
-	_shared->block2[4] = 0x00;	// SCREEN WIDTH (下位4bit)
-	_shared->block2[5] = 0x02;	// SCREEN WIDTH (上位3bit)
-	_shared->block2[6] = 0x0f;	// TEXT COLOR
-	_shared->block2[7] = 0x04;	// BACKGROUND COLOR
-	_shared->block2[8] = 0x07;	// BORDER COLOR
-	_shared->block2[9] = 0x01;	// b3:ボーレート, b2:プリンタ種別, b1:キークリック, b0:キーON/OFF
-	_shared->block2[10] = 0x00;	// b3-2:BEEP timbre, b1-0:BEEP volume
-	_shared->block2[11] = 0x00;	// b1-0:起動ロゴの色
-	_shared->block2[12] = 0x00;	// エリアコード(0:日本, 1:米国, etc)
+	instance->block2[0] = 10;		// 保存値が有効な場合は10になる
+	instance->block2[1] = 0x00;	// X-Adjust
+	instance->block2[2] = 0x00;	// Y-Adjust
+	instance->block2[3] = 0x01;	// SCREEN MODE
+	instance->block2[4] = 0x00;	// SCREEN WIDTH (下位4bit)
+	instance->block2[5] = 0x02;	// SCREEN WIDTH (上位3bit)
+	instance->block2[6] = 0x0f;	// TEXT COLOR
+	instance->block2[7] = 0x04;	// BACKGROUND COLOR
+	instance->block2[8] = 0x07;	// BORDER COLOR
+	instance->block2[9] = 0x01;	// b3:ボーレート, b2:プリンタ種別, b1:キークリック, b0:キーON/OFF
+	instance->block2[10] = 0x00;	// b3-2:BEEP timbre, b1-0:BEEP volume
+	instance->block2[11] = 0x00;	// b1-0:起動ロゴの色
+	instance->block2[12] = 0x00;	// エリアコード(0:日本, 1:米国, etc)
 
-	return _shared;
+	// I/O port アクセスを提供
+	instance->io_port_B4.instance = instance;
+	instance->io_port_B4.read = read_rtc_B4;
+	instance->io_port_B4.write = write_rtc_B4;
+	ms_iomap_attach_ioport(iomap, 0xb4, &instance->io_port_B4);
+
+	instance->io_port_B5.instance = instance;
+	instance->io_port_B5.read = read_rtc_B5;
+	instance->io_port_B5.write = write_rtc_B5;
+	ms_iomap_attach_ioport(iomap, 0xb5, &instance->io_port_B5);
 }
 
 
-void ms_rtc_shared_deinit() {
-	// シングルトンの場合だけ例外的に deinitで freeする
-	if (_shared == NULL) {
+void ms_rtc_deinit(ms_rtc_t* instance, ms_iomap_t* iomap) {
+	if (instance == NULL) {
 		return;
 	}
-	new_free(_shared);
-	_shared = NULL;
+	ms_iomap_detach_ioport(iomap, 0xb4);
+	ms_iomap_detach_ioport(iomap, 0xb5);
 }
 
 
@@ -87,51 +103,45 @@ void ms_rtc_shared_deinit() {
 // * ブロック2: 0-12
 //    * MSXの設定値(画面の色やSET ADJUSTの値など)が格納されている
 
-uint8_t read_rtc_B4(uint8_t port) {
-	if(_shared == NULL) {
-		return;
-	}
+static uint8_t read_rtc_B4(ms_ioport_t* ioport, uint8_t port) {
+	THIS* instance = (THIS*)ioport->instance;
 	// レジスタ番号を返す
-	return _shared->regnum;
+	return instance->regnum;
 }
 
-void write_rtc_B4(uint8_t port, uint8_t data) {
-	if(_shared == NULL) {
-		return;
-	}
+static void write_rtc_B4(ms_ioport_t* ioport, uint8_t port, uint8_t data) {
+	THIS* instance = (THIS*)ioport->instance;
 	// レジスタ番号をセット
-	_shared->regnum = data;
+	instance->regnum = data;
 }
 
-uint8_t read_rtc_B5(uint8_t port) {
-	if(_shared == NULL) {
-		return;
-	}
+static uint8_t read_rtc_B5(ms_ioport_t* ioport, uint8_t port) {
+	THIS* instance = (THIS*)ioport->instance;
 	// レジスタの読み出し
-	switch(_shared->regnum) {
+	switch(instance->regnum) {
 	case 13:
 		// Mode register
 		// b3: Timer Enable
 		// b2: Alarm Enable
 		// b1-2: Block number
-		return _shared->r13;
+		return instance->r13;
 	case 14:
 		// Test register
-		return _shared->r14;
+		return instance->r14;
 	case 15:
 		// Reset controller
-		return _shared->r15;
+		return instance->r15;
 	default:
 		// レジスタ0-12はブロックによって異なる
-		switch(_shared->r13 & 0x03) {
+		switch(instance->r13 & 0x03) {
 		case 0:
-			return read_rtc_datetime(_shared->regnum);
+			return read_rtc_datetime(instance->regnum);
 		case 1:
 			return 0xff;
 		case 2:
-			return _shared->block2[_shared->regnum];
+			return instance->block2[instance->regnum];
 		case 3:
-			return _shared->block3[_shared->regnum];
+			return instance->block3[instance->regnum];
 		default:
 			break;
 		}
@@ -139,34 +149,32 @@ uint8_t read_rtc_B5(uint8_t port) {
 	return 0xff;
 }
 
-void write_rtc_B5(uint8_t port, uint8_t data) {
-	if(_shared == NULL) {
-		return;
-	}
+static void write_rtc_B5(ms_ioport_t* ioport, uint8_t port, uint8_t data) {
+	THIS* instance = (THIS*)ioport->instance;
 	// レジスタの書き込み
-	switch(_shared->regnum) {
+	switch(instance->regnum) {
 	case 13:
-		_shared->r13 = data;
+		instance->r13 = data;
 		break;
 	case 14:
-		_shared->r14 = data;
+		instance->r14 = data;
 		break;
 	case 15:
-		_shared->r15 = data;
+		instance->r15 = data;
 		break;
 	default:
 		// レジスタ0-12はブロックによって異なる
-		switch(_shared->r13 & 0x03) {
+		switch(instance->r13 & 0x03) {
 		case 0:
-			write_rtc_datetime(_shared->regnum, data);
+			write_rtc_datetime(instance->regnum, data);
 			break;
 		case 1:
 			break;
 		case 2:
-			_shared->block2[_shared->regnum] = data;
+			instance->block2[instance->regnum] = data;
 			break;
 		case 3:
-			_shared->block3[_shared->regnum] = data;
+			instance->block3[instance->regnum] = data;
 			break;
 		default:
 			break;

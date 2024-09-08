@@ -2,6 +2,7 @@
 #define MS_RTC_H
 
 #include <stdint.h>
+#include "../ms_iomap.h"
 
 typedef struct ms_rtc {
 	uint8_t regnum;
@@ -10,16 +11,14 @@ typedef struct ms_rtc {
 	uint8_t r15;
 	uint8_t block2[13];
 	uint8_t block3[13];
+
+	// I/O port アクセスを提供
+	ms_ioport_t io_port_B4;
+	ms_ioport_t io_port_B5;
 } ms_rtc_t;
 
-ms_rtc_t* ms_rtc_shared_instance();
-void ms_rtc_shared_deinit();
-
-
-// I/O port
-void write_rtc_B4(uint8_t port, uint8_t data);
-uint8_t read_rtc_B4(uint8_t port);
-void write_rtc_B5(uint8_t port, uint8_t data);
-uint8_t read_rtc_B5(uint8_t port);
+ms_rtc_t* ms_rtc_alloc();
+void ms_rtc_init(ms_rtc_t* instance, ms_iomap_t* iomap);
+void ms_rtc_deinit();
 
 #endif
