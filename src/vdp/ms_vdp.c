@@ -237,6 +237,7 @@ void ms_vdp_set_mode(ms_vdp_t* vdp, int mode) {
 	// GRAMクリア
 	uint32_t words = 0;
 	switch(vdp->ms_vdp_current_mode->bits_per_dot) {
+	case 0:	// TEST, GRAPHIC1など
 	case 2:
 	case 4:
 		// 4色, 16色

@@ -50,6 +50,10 @@ void allocateAndSetROM_Cartridge(const char *romFileName, int slot_base, int kin
 		ms_exit();
 		return;
 	}
+	// length が 8Kの境界にない場合は8Kに切り上げ
+	if(crt_length % 0x2000 != 0) {
+		crt_length = (crt_length + 0x1fff) & 0xffffe000;
+	}
 
 	// ROMデータをロードして、ROMの種類を判定
 	crt_buff =  (uint8_t*)new_malloc(crt_length);

@@ -76,6 +76,8 @@ int init_TEXT1(ms_vdp_t* vdp) {
 
 	//	VDP レベルでは、GRAPHIC7にしても他のモードのパレットは保存されるが、
 	//	６８で２５６色モードにすると破壊されてしまうので、再度設定し直す必要がある
+	update_palette_TEXT1(vdp);
+
 	vdp->gr_active = 1;
 	update_VCRR_02();
 

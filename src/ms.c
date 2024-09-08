@@ -24,6 +24,7 @@
 #include "memmap/ms_memmap.h"
 #include "vdp/ms_vdp.h"
 #include "disk/ms_disk_container.h"
+#include "peripheral/ms_rtc.h"
 #include "peripheral/ms_kanjirom12.h"
 
 ms_init_params_t default_param;
@@ -40,6 +41,9 @@ ms_memmap_t* memmap = NULL;
 
 // I/O関連
 ms_iomap_t* iomap = NULL;
+
+// RTC関連
+ms_rtc_t* rtc = NULL;
 
 // VDP関連
 ms_vdp_t* vdp = NULL;  // ms_vdp_shared と同じになるはず
@@ -520,6 +524,17 @@ int main(int argc, char *argv[]) {
 	}
 
 	/*
+	 RTCの初期化
+	 */
+	rtc = ms_rtc_alloc();
+	if (rtc == NULL)
+	{
+		printf("RTCの初期化に失敗しました\n");
+		ms_exit();
+	}
+	ms_rtc_init(rtc);
+
+	/*
 	 漢字ROMのセット
 	 */
 	if (init_param.kanjirom != NULL) {
@@ -618,6 +633,10 @@ void ms_exit() {
 	if ( vdp != NULL ) {
 		ms_vdp_deinit(vdp);
 		new_free(vdp);
+	}
+	if ( rtc != NULL ) {
+		ms_rtc_deinit(rtc);
+		new_free(rtc);
 	}
 	if ( iomap != NULL ) {
 		ms_iomap_deinit(iomap);

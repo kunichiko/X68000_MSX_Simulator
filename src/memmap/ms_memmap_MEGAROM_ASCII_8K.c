@@ -7,6 +7,7 @@
 #include "ms_memmap_MEGAROM_ASCII_8K.h"
 
 char* driver_name_MEGAROM_ASCII_8K = "MEGAROM_ASCII_8K";
+uint8_t dummy_buffer[8192];
 
 void _select_bank_ascii_8K(ms_memmap_driver_MEGAROM_ASCII_8K_t* d, int page, int bank);
 
@@ -23,6 +24,10 @@ ms_memmap_driver_MEGAROM_ASCII_8K_t* ms_memmap_MEGAROM_ASCII_8K_alloc() {
 void ms_memmap_MEGAROM_ASCII_8K_init(ms_memmap_driver_MEGAROM_ASCII_8K_t* instance, ms_memmap_t* memmap, uint8_t* buffer, uint32_t length) {
 	if (instance == NULL) {
 		return;
+	}
+	int i;
+	for(i = 0; i < 8192; i++) {
+		dummy_buffer[i] = 0xff;
 	}
 
 	ms_memmap_driver_init(&instance->base, memmap, buffer);
@@ -67,10 +72,12 @@ void ms_memmap_did_update_memory_mapper_MEGAROM_ASCII_8K(ms_memmap_driver_t* dri
 void _select_bank_ascii_8K(ms_memmap_driver_MEGAROM_ASCII_8K_t* d, int page8k, int segment) {
 	if ( segment >= d->num_segments) {
 		printf("MEGAROM_ASCII_8K: segment out of range: %d\n", segment);
-		return;
+		d->base.page8k_pointers[page8k] = dummy_buffer;
+		d->selected_segment[page8k] = segment;
+	} else {
+		d->base.page8k_pointers[page8k] = d->base.buffer + (segment * 0x2000);
+		d->selected_segment[page8k] = segment;
 	}
-	d->base.page8k_pointers[page8k] = d->base.buffer + (segment * 0x2000);
-	d->selected_segment[page8k] = segment;
 
 	// Ø‚è‘Ö‚¦‚ª‹N‚±‚Á‚½‚±‚Æ‚ð memmap ‚É’Ê’m
 	d->base.memmap->update_page_pointer( d->base.memmap, (ms_memmap_driver_t*)d, page8k);
