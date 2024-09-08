@@ -69,7 +69,7 @@ ms_vdp_mode_t ms_vdp_GRAPHIC7 = {
 
 int init_GRAPHIC7(ms_vdp_t* vdp) {
 	set_GRAPHIC7_mac();
-	update_vdp_sprite_area(vdp);
+	ms_vdp_update_sprite_area(vdp);
 	// X68000の 256色を MSXの256色に割り当てる
 	int i,r,g,b;
 	for(i = 0;i<256;i++) {
@@ -101,7 +101,21 @@ void update_pnametbl_baddr_GRAPHIC7(ms_vdp_t* vdp) {
 	vdp->pnametbl_baddr = (vdp->_r02 << 11) & 0x10000;
 	// 256色モードの場合は2画面しかないが、この時は、(b3,b2), (b1,b0) をペアでセットします
 	vdp->gr_active = 0x3 << (vdp->pnametbl_baddr >> 15);
-	update_VCRR_02();
+	switch(vdp->pnametbl_baddr >> 16) {
+	case 0:
+		vdp->gr_active = 0b0011;
+		vdp->gr_active_interlace = 0b0011;		// GRAPHIC7のインターレースモードはまだ未対応
+		break;
+	case 1:
+		vdp->gr_active = 0b1100;
+		vdp->gr_active_interlace = 0b1100;		// GRAPHIC7のインターレースモードはまだ未対応
+		break;
+	default:
+		vdp->gr_active = 0b0011;
+		vdp->gr_active_interlace = 0b0011;		// GRAPHIC7のインターレースモードはまだ未対応
+		break;
+	}
+	ms_vdp_update_visibility(vdp);
 }
 
 void update_colortbl_baddr_GRAPHIC7(ms_vdp_t* vdp) {
@@ -141,5 +155,5 @@ void vdp_command_write_GRAPHIC7(ms_vdp_t* vdp, uint8_t value) {
 }
 
 void update_resolution_GRAPHIC7(ms_vdp_t* vdp) {
-	update_resolution_COMMON(vdp, 0, 1, 0); // 256, 256色, BG不使用
+	ms_vdp_update_resolution_COMMON(vdp, 0, 1, 0); // 256, 256色, BG不使用
 }

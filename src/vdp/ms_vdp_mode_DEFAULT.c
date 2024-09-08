@@ -144,7 +144,7 @@ void update_sprattrtbl_baddr_MODE2(ms_vdp_t* vdp) {
 		// 更新されたら、全てのスプライトのアトリビュートを再生成する
 		vdp->sprattrtbl_baddr = addr;
 		vdp->sprcolrtbl_baddr = addr ^ 0x200;
-		update_vdp_sprite_area(vdp);
+		ms_vdp_update_sprite_area(vdp);
 		vdp->sprite_refresh_flag |= SPRITE_REFRESH_FLAG_CC;
 		vdp->sprite_refresh_flag |= SPRITE_REFRESH_FLAG_ATTR;
 	}
@@ -167,7 +167,7 @@ void update_sprpgentbl_baddr_MODE2(ms_vdp_t* vdp) {
 		// 更新されたら、全てのスプライトのパターンを再生成する
 		vdp->sprpgentbl_baddr = addr;
 		vdp->sprite_refresh_flag |= SPRITE_REFRESH_FLAG_PGEN;
-		update_vdp_sprite_area(vdp);
+		ms_vdp_update_sprite_area(vdp);
 	}
 }
 
@@ -204,7 +204,7 @@ void vdp_command_write_NONE(ms_vdp_t* vdp, uint8_t cmd) {
 }
 
 void update_resolution_DEFAULT(ms_vdp_t* vdp) {
-	update_resolution_COMMON(vdp, 1, 0, 0); // 512, 16色, BG不使用
+	ms_vdp_update_resolution_COMMON(vdp, 1, 0, 0); // 512, 16色, BG不使用
 }
 
 void vsync_draw_NONE(ms_vdp_t* vdp) {

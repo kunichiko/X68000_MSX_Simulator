@@ -89,7 +89,31 @@ void update_palette_GRAPHIC5(ms_vdp_t* vdp) {
 }
 
 void update_pnametbl_baddr_GRAPHIC5(ms_vdp_t* vdp) {
-    update_pnametbl_baddr_GRAPHIC4(vdp);
+	update_pnametbl_baddr_DEFAULT(vdp);
+	vdp->pnametbl_baddr &= 0x18000;
+	switch(vdp->pnametbl_baddr >> 15) {
+	case 0:
+		vdp->gr_active = 0b0001;
+		vdp->gr_active_interlace = 0b0001;
+		break;
+	case 1:
+		vdp->gr_active = 0b0010;
+		vdp->gr_active_interlace = 0b0011;
+		break;
+	case 2:
+		vdp->gr_active = 0b0100;
+		vdp->gr_active_interlace = 0b0100;
+		break;
+	case 3:
+		vdp->gr_active = 0b1000;
+		vdp->gr_active_interlace = 0b1100;
+		break;
+	default:
+		vdp->gr_active = 0b0001;
+		vdp->gr_active_interlace = 0b0001;
+		break;
+	}
+	ms_vdp_update_visibility(vdp);
 }
 
 void update_colortbl_baddr_GRAPHIC5(ms_vdp_t* vdp) {
@@ -128,5 +152,5 @@ void vdp_command_write_GRAPHIC5(ms_vdp_t* vdp, uint8_t value) {
 }
 
 void update_resolution_GRAPHIC5(ms_vdp_t* vdp) {
-	update_resolution_COMMON(vdp, 1, 0, 0); // 512, 16色, BG不使用
+	ms_vdp_update_resolution_COMMON(vdp, 1, 0, 0); // 512, 16色, BG不使用
 }

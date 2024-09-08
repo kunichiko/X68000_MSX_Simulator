@@ -88,8 +88,6 @@
 
 	.xref	ms_io_input_table
 	.xref	ms_io_output_table
-	;.xref	no_port_OUT
-	;.xref	no_port_OUT_2
 
 	.xref	native_jpt_add		* ６８ネイティブルーチンのジャンプテーブル
 
@@ -7738,13 +7736,15 @@ OTDR:	bsr	OUTD
 *****************************************************************	
 input:
 	movem.l	d2-d7/a0-a5,-(sp)
-	clr.w	d1
-	move.b	d0,d1				* 上位バイトを０でクリア
+	andi.l	#$ff,d0				* 上位バイトを０でクリア
 	lea.l	ms_io_input_table,a0
-	movea.l	(a0,d1.w*4),a0			* d0 の値を変えちゃだめ（68030用→68000用にする時注意）
-	move.b	d0,-(sp)			* Cの関数でも呼べるように引数をセット
+	movea.l	(a0,d0.w*4),a0			* d0 の値を変えちゃだめ（68030用→68000用にする時注意）
+.ifdef	DEBUG
+	bsr	print_debug_in
+.endif
+	move.l	d0,-(sp)			* Cの関数でも呼べるように引数をセット
 	jsr	(a0)
-@@:	lea	2(sp),sp
+	lea	4(sp),sp
 	movem.l	(sp)+,d2-d7/a0-a5
 	rts
 
@@ -7772,19 +7772,31 @@ output:
 	move.l	d1,-(sp)			* Cの関数でも呼べるように引数をセット
 	move.l	d0,-(sp)			* Cの関数でも呼べるように引数をセット
 	jsr	(a0)
-	jsr	refresh_PC_if_needed		* I/Oの出力によってページ切り替えが発生している可能性があるので調べる
 	lea	8(sp),sp
 	movem.l	(sp)+,d2-d7/a0-a5
+	jsr	refresh_PC_if_needed		* I/Oの出力によってページ切り替えが発生している可能性があるので調べる
+	rts
+
+print_debug_in:
+	cmp.w	#2,debug_log_level
+	bge	@f				* ログレベルが3以上の時
+	rts
+@@:	movem.l	d0-d3/a0-a3,-(sp)
+	move.b	d0,d2
+	lsr.w	#4,d0
+	lea.l	HEX,a0
+	move.b	(a0,d0.w),debug_in_number+0	* ポート番号の上位4bit
+	andi.w	#$0f,d2
+	move.b	(a0,d2.w),debug_in_number+1	* ポート番号の下位4bit
+
+	pea.l	debug_in_msg
+	DOS	__PRINT
+	lea.l	4(sp),sp
+	movem.l	(sp)+,d0-d3/a0-a3
 	rts
 
 print_debug_out:
-; 	cmp.l	#no_port_OUT,a0
-; 	bne	@f
-; 	rts
-; @@:	cmp.l	#no_port_OUT_2,a0
-; 	bne	@f
-; 	rts
-@@:	cmp.w	#3,debug_log_level
+	cmp.w	#2,debug_log_level
 	bge	@f				* ログレベルが3以上の時
 	rts
 @@:	movem.l	d0-d3/a0-a3,-(sp)
@@ -7810,6 +7822,12 @@ print_debug_out:
 	.data
 
 
+debug_in_msg:
+	.dc.b	'I/O read P:0x'
+debug_in_number:
+	.dc.b	'00'
+	.dc.b	0x0d,0x0a,0x00
+
 debug_out_msg:
 	.dc.b	'I/O write P:0x'
 debug_out_number:
@@ -7818,7 +7836,6 @@ debug_out_number:
 debug_out_value:
 	.dc.b	'00'
 	.dc.b	0x0d,0x0a,0x00
-
 
 
 
@@ -7914,7 +7931,7 @@ emu_yield:
 	.dc.w	0
 
 debug_log_level:
-	.dc.w	0
+	.dc.w	0		* ms.c の main() の最初で上書きしている
 
 ;	割り込み許可状態を示すフラグ
 ;	0 ・・・ DI

@@ -12,9 +12,8 @@ typedef struct ms_rtc {
 	uint8_t block3[13];
 } ms_rtc_t;
 
-ms_rtc_t* ms_rtc_alloc();
-void ms_rtc_init(ms_rtc_t* instance);
-void ms_rtc_deinit(ms_rtc_t* instance);
+ms_rtc_t* ms_rtc_shared_instance();
+void ms_rtc_shared_deinit();
 
 
 // I/O port

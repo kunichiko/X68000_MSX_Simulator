@@ -139,7 +139,7 @@ char* get_mode_name_GRAPHIC2(ms_vdp_t* vdp) {
 }
 
 void update_resolution_GRAPHIC2(ms_vdp_t* vdp) {
-	update_resolution_COMMON(vdp, 0, 0, 0); // 256, 16色, BG不使用
+	ms_vdp_update_resolution_COMMON(vdp, 0, 0, 0); // 256, 16色, BG不使用
 }
 
 void write_pname_tbl_GRAPHIC2(ms_vdp_t* vdp, uint32_t addr, uint8_t data) {

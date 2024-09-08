@@ -6,23 +6,24 @@
 
 #include "ms_kanjirom12.h"
 
-// Singleton instance
-ms_kanjirom12_t* ms_kanjirom12_shared = NULL;
-uint8_t ms_kanjirom12shared_initialized = 0;
+#define THIS ms_kanjirom12_t
 
-ms_kanjirom12_t* ms_kanjirom12_alloc() {
-	if (ms_kanjirom12_shared != NULL) {
-		return ms_kanjirom12_shared;
-	}
-	if( (ms_kanjirom12_shared = (ms_kanjirom12_t*)new_malloc(sizeof(ms_kanjirom12_t))) == NULL) {
+static void write_kanji_D8(ms_ioport_t* ioport, uint8_t port, uint8_t data);
+static uint8_t read_kanji_D8(ms_ioport_t* ioport, uint8_t port);
+static void write_kanji_D9(ms_ioport_t* ioport, uint8_t port, uint8_t data);
+static uint8_t read_kanji_D9(ms_ioport_t* ioport, uint8_t port);
+
+THIS* ms_kanjirom12_alloc() {
+	THIS* instance = NULL;
+	if( (instance = (ms_kanjirom12_t*)new_malloc(sizeof(ms_kanjirom12_t))) == NULL) {
 		printf("メモリが確保できません\n");
 		return NULL;
 	}
-	return ms_kanjirom12_shared;
+	return instance;
 }
 
-void ms_kanjirom12_init(ms_kanjirom12_t* instance, char* rom_path) {
-	if (instance == NULL || ms_kanjirom12shared_initialized) {
+void ms_kanjirom12_init(ms_kanjirom12_t* instance, ms_iomap_t* iomap, char* rom_path) {
+	if (instance == NULL) {
 		return;
 	}
 	instance->rom_path = rom_path;
@@ -54,13 +55,24 @@ void ms_kanjirom12_init(ms_kanjirom12_t* instance, char* rom_path) {
 	// 第二水準アドレス
 	instance->addr2 = 0x20000;
 
-	ms_kanjirom12shared_initialized = 1;
+	// I/O port アクセスを提供
+	instance->io_port_D8.instance = instance;
+	instance->io_port_D8.read = read_kanji_D8;
+	instance->io_port_D8.write = write_kanji_D8;
+	ms_iomap_attach_ioport(iomap, 0xd8, &instance->io_port_D8);
+
+	instance->io_port_D9.instance = instance;
+	instance->io_port_D9.read = read_kanji_D9;
+	instance->io_port_D9.write = write_kanji_D9;
+	ms_iomap_attach_ioport(iomap, 0xd9, &instance->io_port_D9);
 }
 
-void ms_kanjirom12_deinit(ms_kanjirom12_t* instance) {
+void ms_kanjirom12_deinit(ms_kanjirom12_t* instance, ms_iomap_t* iomap) {
 	if (instance->rom_data != NULL) {
 		new_free(instance->rom_data);
 	}
+	ms_iomap_detach_ioport(iomap, 0xd8);
+	ms_iomap_detach_ioport(iomap, 0xd9);
 }
 
 
@@ -77,58 +89,54 @@ void ms_kanjirom12_deinit(ms_kanjirom12_t* instance) {
  * 6bitずつ割り当てられています。
  * @param data 
  */
-void write_kanji_D8(uint8_t port, uint8_t data) {
-	if(ms_kanjirom12_shared == NULL || !ms_kanjirom12shared_initialized) {
-		return;
-	}
-	ms_kanjirom12_shared->addr1 = (ms_kanjirom12_shared->addr1 & 0x1f800) | (((uint32_t)data & 0x3f) << 5);
+static void write_kanji_D8(ms_ioport_t* ioport, uint8_t port, uint8_t data) {
+	THIS* instance = (THIS*)ioport->instance;
+	instance->addr1 = (instance->addr1 & 0x1f800) | (((uint32_t)data & 0x3f) << 5);
 }
 
-void write_kanji_D9(uint8_t port, uint8_t data) {
-	if(ms_kanjirom12_shared == NULL || !ms_kanjirom12shared_initialized) {
-		return;
-	}
-	ms_kanjirom12_shared->addr1 = (ms_kanjirom12_shared->addr1 & 0x007e0) | (((uint32_t)data & 0x3f) << 11);
+static uint8_t read_kanji_D8(ms_ioport_t* ioport, uint8_t port) {
+	return 0xff;
 }
 
-uint8_t read_kanji_D9(uint8_t port) {
-	if(ms_kanjirom12_shared == NULL || !ms_kanjirom12shared_initialized) {
-		return;
-	}
-	if(ms_kanjirom12_shared->addr1 >= ms_kanjirom12_shared->rom_size) {
+static void write_kanji_D9(ms_ioport_t* ioport, uint8_t port, uint8_t data) {
+	THIS* instance = (THIS*)ioport->instance;
+	instance->addr1 = (instance->addr1 & 0x007e0) | (((uint32_t)data & 0x3f) << 11);
+}
+
+static uint8_t read_kanji_D9(ms_ioport_t* ioport, uint8_t port) {
+	THIS* instance = (THIS*)ioport->instance;
+	if(instance->addr1 >= instance->rom_size) {
 		return 0xff;
 	}
-	uint8_t ret = ms_kanjirom12_shared->rom_data[ms_kanjirom12_shared->addr1];
+	uint8_t ret = instance->rom_data[instance->addr1];
 	// 上位下位アドレスはインクリメントせず、32バイト内でインクリメントする
-	ms_kanjirom12_shared->addr1 = (ms_kanjirom12_shared->addr1 & 0x1ffe0) | ((ms_kanjirom12_shared->addr1 + 1) & 0x1f);
+	instance->addr1 = (instance->addr1 & 0x1ffe0) | ((instance->addr1 + 1) & 0x1f);
 	return ret;
 }
 
 
 // 第二水準
-void write_kanji_DA(uint8_t port, uint8_t data) {
-	if(ms_kanjirom12_shared == NULL || !ms_kanjirom12shared_initialized) {
-		return;
-	}
-	ms_kanjirom12_shared->addr2 = (ms_kanjirom12_shared->addr2 & 0x3f800) | (((uint32_t)data & 0x3f) << 5);
+static void write_kanji_DA(ms_ioport_t* ioport, uint8_t port, uint8_t data) {
+	THIS* instance = (THIS*)ioport->instance;
+	instance->addr2 = (instance->addr2 & 0x3f800) | (((uint32_t)data & 0x3f) << 5);
 }
 
-void write_kanji_DB(uint8_t port, uint8_t data) {
-	if(ms_kanjirom12_shared == NULL || !ms_kanjirom12shared_initialized) {
-		return;
-	}
-	ms_kanjirom12_shared->addr2 = (ms_kanjirom12_shared->addr2 & 0x007e0) | (((uint32_t)data & 0x3f) << 11);
+static uint8_t read_kanji_DA(ms_ioport_t* ioport, uint8_t port) {
+	return 0xff;
 }
 
-uint8_t read_kanji_DB(uint8_t port) {
-	if(ms_kanjirom12_shared == NULL || !ms_kanjirom12shared_initialized) {
-		return;
-	}
-	if(ms_kanjirom12_shared->addr2 >= ms_kanjirom12_shared->rom_size) {
+static void write_kanji_DB(ms_ioport_t* ioport, uint8_t port, uint8_t data) {
+	THIS* instance = (THIS*)ioport->instance;
+	instance->addr2 = (instance->addr2 & 0x007e0) | (((uint32_t)data & 0x3f) << 11);
+}
+
+static uint8_t read_kanji_DB(ms_ioport_t* ioport, uint8_t port) {
+	THIS* instance = (THIS*)ioport->instance;
+	if(instance->addr2 >= instance->rom_size) {
 		return 0xff;
 	}
-	uint8_t ret = ms_kanjirom12_shared->rom_data[ms_kanjirom12_shared->addr2];
+	uint8_t ret = instance->rom_data[instance->addr2];
 	// 上位下位アドレスはインクリメントせず、32バイト内でインクリメントする
-	ms_kanjirom12_shared->addr2 = (ms_kanjirom12_shared->addr2 & 0x3f800) | ((ms_kanjirom12_shared->addr2 + 1) & 0x1f);
+	instance->addr2 = (instance->addr2 & 0x3f800) | ((instance->addr2 + 1) & 0x1f);
 	return ret;
 }
