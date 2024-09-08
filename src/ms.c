@@ -236,6 +236,9 @@ int main(int argc, char *argv[]) {
 	if( load_user_param() ) {
 		// 読み込みに成功した場合は、デフォルトの設定をユーザー設定で上書き
 		init_param = user_param;
+	} else {
+		// 読み込みに失敗した場合は、デフォルトの設定を使用
+		init_param = default_param;
 	}
 
 	// その他ワークエリアの初期化
