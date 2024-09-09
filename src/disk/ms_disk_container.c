@@ -48,8 +48,9 @@ ms_disk_container_t* ms_disk_container_alloc() {
 		for(i=0; i< min(argc,16); i++) {
 			// ひとまず .DSK フォーマットのみ対応
 			ms_disk_media_dskformat_t* disk = ms_disk_media_dskformat_alloc();
-			ms_disk_media_dskformat_init(disk, argv[i]);
-			instance->disk_set[i] = (ms_disk_media_t*)disk;
+			if( ms_disk_media_dskformat_init(disk, argv[i]) ) {
+				instance->disk_set[i] = (ms_disk_media_t*)disk;
+			}
 		}
 		instance->disk_count = argc;
 		instance->change_disk(instance, 0);		// 1枚目のディスクをセット

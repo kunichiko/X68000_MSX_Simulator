@@ -18,13 +18,18 @@
 #define MS_LOG(level, ...)
 #endif
 #define MS_LOG_NONE 0
-#define MS_LOG_ERROR 1
-#define MS_LOG_INFO 1
-#define MS_LOG_DEBUG 2
-#define MS_LOG_TRACE 3
+#define MS_LOG_FATAL 1
+#define MS_LOG_ERROR 2
+#define MS_LOG_INFO 3
+#define MS_LOG_DEBUG 4
+#define MS_LOG_FINE 5
+#define MS_LOG_TRACE 6
+#define MS_LOG_CPUTRACE 7
 #define MS_LOG_INFO_ENABLED (debug_log_level >= MS_LOG_INFO)
 #define MS_LOG_DEBUG_ENABLED (debug_log_level >= MS_LOG_DEBUG)
+#define MS_LOG_FINE_ENABLED (debug_log_level >= MS_LOG_FINE)
 #define MS_LOG_TRACE_ENABLED (debug_log_level >= MS_LOG_TRACE)
+#define MS_LOG_CPUTRACE_ENABLED (debug_log_level >= MS_LOG_CPUTRACE)
 
 #define min(a, b) ((a) < (b) ? (a) : (b))
 #define max(a, b) ((a) > (b) ? (a) : (b))

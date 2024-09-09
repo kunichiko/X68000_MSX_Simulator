@@ -75,11 +75,14 @@ typedef struct ms_disk_controller_TC8566AF {
 	uint8_t value_DS;	// drive select
 	uint8_t value_C;	// cylinder address
 	uint8_t value_H;	// logical head address
-	uint8_t value_R;
-	uint8_t value_N;
+	uint8_t value_R;	// secotor number
+	uint8_t value_N;	// number of bytes per sector
 	uint8_t value_EOT;
-	uint8_t value_GPL;
+	uint8_t value_GSL_GPL; // Gap Skip Length / Gap Length
 	uint8_t value_DTL_STP;
+	// format(Write ID)で使うレジスタ
+	uint8_t value_SC;	// sectors / cylinder
+	uint8_t value_D;	// filler data
 
 	// drive status
 	uint8_t request_for_master;

@@ -70,18 +70,7 @@ ms_vdp_mode_t ms_vdp_GRAPHIC7 = {
 int init_GRAPHIC7(ms_vdp_t* vdp) {
 	set_GRAPHIC7_mac();
 	ms_vdp_update_sprite_area(vdp);
-	// X68000の 256色を MSXの256色に割り当てる
-	int i,r,g,b;
-	for(i = 0;i<256;i++) {
-		// 5bit RGB
-		int g = (i & 0b11100000) >> 3;
-		int r = (i & 0b00011100);
-		int b = (i & 0b00000011) << 3;
-		g = g | (g>>3);
-		r = r | (r>>3);
-		b = b | (b>>2) | (b>>4);
-		X68_GR_PAL[i] = (g << 11) | (r << 6) | b << 1;
-	}
+	update_palette_GRAPHIC7(vdp);
 	return 0;
 }
 
@@ -94,7 +83,26 @@ void write_vram_GRAPHIC7(ms_vdp_t* vdp, uint8_t data) {
 }
 
 void update_palette_GRAPHIC7(ms_vdp_t* vdp) {
-	//パレットはない
+	// MSX側のパレットはないので、
+	// X68000の 256色パレットを MSXの256色に割り当てる
+	int i,r,g,b;
+	uint16_t color;
+	for(i = 0;i<256;i++) {
+		// 5bit RGB
+		int g = (i & 0b11100000) >> 3;
+		int r = (i & 0b00011100);
+		int b = (i & 0b00000011) << 3;
+		g = g | (g>>3);
+		r = r | (r>>3);
+		b = b | (b>>2) | (b>>4);
+		color = (g << 11) | (r << 6) | b << 1;
+		if(vdp->tx_active) {
+			// 輝度を半分に落とす
+			color &= 0b1111011110111100;
+			color >>= 1;
+		}
+		X68_GR_PAL[i] = color;
+	}
 }
 
 void update_pnametbl_baddr_GRAPHIC7(ms_vdp_t* vdp) {

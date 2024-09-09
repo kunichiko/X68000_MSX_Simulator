@@ -511,6 +511,7 @@ int main(int argc, char *argv[]) {
 	}
 
 	printf("\n\n\n\n\n\n\n\n"); // TEXT画面を上に8ラインくらい上げているので、その分改行を入れる
+	printf("\n\n\n\n\n\n\n\n"); // 256ドットモードだとさらに見えなくなるので、もう少し下げる
 	printf("[[ MSX Simulator MS.X]]\n");
 	printf(" この画面は HELP キーで消せます\n");
 
@@ -582,8 +583,8 @@ int main(int argc, char *argv[]) {
 		allocateAndSetROM_Cartridge(init_param.cartridge_path_slot2, 2, init_param.cartridge_kind_slot2);
 	}
 
-	printf("VSYNCレート=%d, ホスト処理レート=%d\n", ms_vdp_vsync_rate, host_rate);
-	printf("VSYNC計測中...\n");
+	MS_LOG(MS_LOG_DEBUG, "VSYNCレート=%d, ホスト処理レート=%d\n", ms_vdp_vsync_rate, host_rate);
+	MS_LOG(MS_LOG_DEBUG, "VSYNC計測中...\n");
 	{
 		volatile int date,lastdate;
 		volatile int start,end;
@@ -603,7 +604,7 @@ int main(int argc, char *argv[]) {
 		}
 		end = ms_vdp_interrupt_tick;		// そのときのtickを取得
 
-		printf("VSYNC回数は %d です\n", end - start);
+		MS_LOG(MS_LOG_DEBUG, "VSYNC回数は %d です\n", end - start);
 	}
 
 	// 	全ページの スロットを０で初期化
@@ -940,7 +941,7 @@ int emuLoop(unsigned int pc, unsigned int counter) {
 			debug_log_level = max(0, debug_log_level - 1);
 		} else {
 			// それ以外の場合は、デバッグログレベルを上げる
-			debug_log_level = min(3, debug_log_level + 1);
+			debug_log_level = min(7, debug_log_level + 1);
 		}
 		printf("デバッグログレベル=%d\n", debug_log_level);
 	}
@@ -1044,8 +1045,6 @@ void sync_keyboard_leds() {
 }
 
 // テキスト表示切り替え
-unsigned short* VCON_R02 = (unsigned short*)0x00e82600;
-
 static unsigned short debug_log_level_bup;
 
 void _toggleTextPlane(void) {
@@ -1053,9 +1052,9 @@ void _toggleTextPlane(void) {
 
 	textPlaneMode = (textPlaneMode + 1) % 2;
 	if (textPlaneMode == 0) {
-		// テキスト表示OFFにする時に、デバッグログをOFFにする
+		// テキスト表示OFFにする時に、デバッグログをINFOにする
 		debug_log_level_bup = debug_log_level;
-		debug_log_level = 0;
+		debug_log_level = MS_LOG_INFO;
 	}
 	else {
 		debug_log_level = debug_log_level_bup;
@@ -1112,15 +1111,15 @@ void _setTextPlane(int textPlaneMode) {
 	{
 	case 0:
 		// テキスト表示OFF
-		*VCON_R02 &= 0xffdf;
 		vdp->tx_active = 0;
 		break;
 	case 1:
 		// テキスト表示ON
-		*VCON_R02 |= 0x0020;
 		vdp->tx_active = 1;
 		break;
 	}
+	ms_vdp_update_visibility(vdp);
+	vdp->ms_vdp_current_mode->update_palette(vdp);
 }
 
 
