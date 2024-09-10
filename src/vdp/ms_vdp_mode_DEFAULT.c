@@ -98,8 +98,14 @@ void update_palette_DEFAULT(ms_vdp_t* vdp) {
 	//X68_GR_PAL[0] = 0x0e01;
 
 	for(i =1; i < 16; i++) {
-		X68_GR_PAL[i] = vdp->palette[i];
-		X68_SP_PAL_B1[i] = vdp->palette[i];
+		uint16_t color = vdp->palette[i];
+		if (vdp->tx_active) {
+			// ‹P“x‚ð”¼•ª‚É—Ž‚Æ‚·
+			color &= 0b1111011110111100;
+			color >>= 1;
+		}
+		X68_GR_PAL[i] = color;
+		X68_SP_PAL_B1[i] = color;
 	}
 }
 

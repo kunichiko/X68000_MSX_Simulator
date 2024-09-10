@@ -6,6 +6,7 @@
 #include <fcntl.h>
 #include "ms_disk.h"
 #include "ms_disk_media_sectorbase.h"
+#include "../ms.h"
 
 
 /*
@@ -160,8 +161,7 @@ void ms_disk_media_sectorbase_read_track(ms_disk_media_t* media, uint32_t track_
 
 	if (1) {
 		if (offset != 6250) {
-			printf("track byte count %d is not match 6250\n", offset);
-			ms_exit();
+			MS_LOG(MS_LOG_ERROR, "track byte count %d is not match 6250\n", offset);
 		}
 	}
 }
@@ -210,6 +210,7 @@ void ms_disk_media_sectorbase_write_track(ms_disk_media_t* media, uint32_t track
 			ms_exit();
 		}
 		offset += 22;	// gap2
+		offset += 12;	// sync
 		uint32_t data_mark;
 		data_mark = track[offset++];
 		data_mark <<= 8;
@@ -223,7 +224,7 @@ void ms_disk_media_sectorbase_write_track(ms_disk_media_t* media, uint32_t track
 			ms_exit();
 		}
 		// セクター番号は1から始まるが、Rが1から始まるので、そのまま使えばOK
-		uint32_t sector_id = (track_no * instance->heads + side) * instance->sectors_per_track + H + R;
+		uint32_t sector_id = (track_no * instance->heads + side) * instance->sectors_per_track + R;
 		instance->write_sector(media, sector_id, (ms_sector_t*)(track+offset));
 	}
 

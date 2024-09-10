@@ -57,7 +57,7 @@ ms_vdp_mode_t ms_vdp_GRAPHIC6 = {
 	// void vsync_draw(ms_vdp_t* vdp);
 	vsync_draw_NONE,
 	// sprite mode
-	2,
+	0x80 + 2,
 	// crt_width
 	512,
 	// dots_per_byte

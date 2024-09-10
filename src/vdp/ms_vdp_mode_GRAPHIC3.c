@@ -83,9 +83,9 @@ void update_palette_GRAPHIC3(ms_vdp_t* vdp) {
 static uint32_t last_pnametbl_baddr = 0xffffffff;
 
 void update_pnametbl_baddr_GRAPHIC3(ms_vdp_t* vdp) {
-	MS_LOG(MS_LOG_DEBUG,"update_pnametbl_baddr_GRAPHIC3\n");
+	MS_LOG(MS_LOG_FINE,"update_pnametbl_baddr_GRAPHIC3\n");
     update_pnametbl_baddr_DEFAULT(vdp);
-	MS_LOG(MS_LOG_DEBUG,"  %06x -> %06x\n", last_pnametbl_baddr, vdp->pnametbl_baddr);
+	MS_LOG(MS_LOG_FINE,"  %06x -> %06x\n", last_pnametbl_baddr, vdp->pnametbl_baddr);
 	if (last_pnametbl_baddr != vdp->pnametbl_baddr) {
 		last_pnametbl_baddr = vdp->pnametbl_baddr;
 		_refresh_GRAPHIC2(vdp);
@@ -95,9 +95,9 @@ void update_pnametbl_baddr_GRAPHIC3(ms_vdp_t* vdp) {
 static uint32_t last_colortbl_baddr = 0xffffffff;
 
 void update_colortbl_baddr_GRAPHIC3(ms_vdp_t* vdp) {
-	MS_LOG(MS_LOG_DEBUG,"update_colortbl_baddr_GRAPHIC3\n");
+	MS_LOG(MS_LOG_FINE,"update_colortbl_baddr_GRAPHIC3\n");
 	update_colortbl_baddr_DEFAULT(vdp);
-	MS_LOG(MS_LOG_DEBUG,"  %06x -> %06x\n", last_colortbl_baddr, vdp->colortbl_baddr);
+	MS_LOG(MS_LOG_FINE,"  %06x -> %06x\n", last_colortbl_baddr, vdp->colortbl_baddr);
 	if (last_colortbl_baddr != vdp->colortbl_baddr) {
 		last_colortbl_baddr = vdp->colortbl_baddr;
 		_refresh_GRAPHIC2(vdp);
@@ -107,9 +107,9 @@ void update_colortbl_baddr_GRAPHIC3(ms_vdp_t* vdp) {
 static uint32_t last_pgentbl_baddr = 0xffffffff;
 
 void update_pgentbl_baddr_GRAPHIC3(ms_vdp_t* vdp) {
-	MS_LOG(MS_LOG_DEBUG,"update_pgentbl_baddr_GRAPHIC3\n");
+	MS_LOG(MS_LOG_FINE,"update_pgentbl_baddr_GRAPHIC3\n");
 	update_pgentbl_baddr_DEFAULT(vdp);
-	MS_LOG(MS_LOG_DEBUG,"  %06x -> %06x\n", last_pgentbl_baddr, vdp->pgentbl_baddr);
+	MS_LOG(MS_LOG_FINE,"  %06x -> %06x\n", last_pgentbl_baddr, vdp->pgentbl_baddr);
 	if (last_pgentbl_baddr != vdp->pgentbl_baddr) {
 		last_pgentbl_baddr = vdp->pgentbl_baddr;
 		_refresh_GRAPHIC2(vdp);

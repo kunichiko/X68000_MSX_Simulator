@@ -178,6 +178,14 @@ z	equ	z_-base
 target_16 equ	target_16_-base
 target_8 equ	target_8_-base
 
+MS_LOG_FATAL	equ	1
+MS_LOG_ERROR	equ	2
+MS_LOG_INFO	equ	3
+MS_LOG_DEBUG	equ	4
+MS_LOG_FINE 	equ	5
+MS_LOG_TRACE	equ	6
+MS_LOG_CPUTRACE equ	7
+
 PC_page_inc	macro
 		swap	d7
 		addq.w	#1,d7
@@ -341,8 +349,8 @@ do_wait:
 ;
 ;
 debug_log_pc:
-	cmp.w	#3,debug_log_level
-	bge	@f				* ログレベルが3以上の時
+	cmp.w	#MS_LOG_CPUTRACE,debug_log_level
+	bge	@f				* ログレベルがCPUTRACEの時のみ
 	rts
 @@:	link	a6,#-2
 	movem.l	d0-d7/a0-a6,-(sp)
@@ -3512,8 +3520,8 @@ RST_38H:
 	rts
 
 print_debug_rst:
-	cmp.w	#1,debug_log_level
-	bge	@f				* ログレベルが１以上の時
+	cmp.w	#MS_LOG_TRACE,debug_log_level
+	bge	@f				* ログレベルが TRACE 以上の時
 	rts
 @@:	movem.l	d0-d3/a0-a3,-(sp)
 	move.w	d0,d1
@@ -7778,7 +7786,7 @@ output:
 	rts
 
 print_debug_in:
-	cmp.w	#2,debug_log_level
+	cmp.w	#MS_LOG_TRACE,debug_log_level
 	bge	@f				* ログレベルが3以上の時
 	rts
 @@:	movem.l	d0-d3/a0-a3,-(sp)
@@ -7796,7 +7804,7 @@ print_debug_in:
 	rts
 
 print_debug_out:
-	cmp.w	#2,debug_log_level
+	cmp.w	#MS_LOG_TRACE,debug_log_level		* TRACE以上の時
 	bge	@f				* ログレベルが3以上の時
 	rts
 @@:	movem.l	d0-d3/a0-a3,-(sp)

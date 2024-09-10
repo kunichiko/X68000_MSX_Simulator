@@ -26,6 +26,12 @@ typedef struct ms_disk_drive_floppy {
 	 */
 	uint8_t (*get_next_sector)(ms_disk_drive_floppy_t* d, ms_disk_sector_t* sector_buffer);
 
+	/**
+	 * @brief 現在のヘッド位置のトラックにセクタを書き込みます
+	 * 
+	 */
+	uint8_t (*write_sector)(ms_disk_drive_floppy_t* d, ms_disk_sector_t* sector_buffer);
+
 	// properties
 
 	/* ディスクコンテナ。 nullにするとダミードライブ(機能しないドライブ)として振る舞う */
