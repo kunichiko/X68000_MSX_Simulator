@@ -41,25 +41,30 @@
 	* MSX 16x16ドット(拡大)スプライト & X68000 512ドットモード
 		* (対応しない)
 
-	このようにしてみると、MSXのスプライトプレーンは最大でX68000の4つのスプライトに
-	対応することがわかります。
+	このようにしてみると、最後のパターンをサポートしなければ、MSXの
+	スプライトプレーン1つは最大でX68000の4つのスプライトに対応することになります。
+	MSXはどのサイズでも32枚のスプライトプレーンを表示でき、X68000は16x16のスプライトを
+	128枚表示できるので、ちょうどぴったり収まっています。
+	逆にいうと「16x16ドット(拡大)スプライト & X68000 512ドットモード」は、
+	X68000のスプライト数が足りないため、対応できません。スプライトダブラを使えば
+	不可能ではないかもしれませんが、需要があれば……という感じでしばらくはサポートしません。
 
-	対応が少しづつづれていくのでこんがらがりやすいため、以下のように用語を定義します。
+	なお、このように画面モードとスプライトのモードによって対応が少しずつずれていき、
+	こんがらがりやすいため、以下のように用語を定義します。
 
 	* シングルモード / マルチモード
 		* 1スプライトプレーンが1つのスプライトになるケースをシングルモードと呼ぶ
 		* 1スプライトプレーンが複数のスプライトになるケースをマルチモードと呼ぶ
 	* D1Xモード / D2Xモード / D4Xモード
 		* MSXのスプライトパターン1ビットが、X68000の1ドットになる場合を D1Xモードと呼ぶ
-			* 拡大機能で2ドットになる場合もこれに含む
 		* MSXのスプライトパターン1ビットが、X68000の2ドットになる場合を D2Xモードと呼ぶ
+			* 拡大機能で2ドットになる場合もこれに含む
 		* MSXのスプライトパターン1ビットが、X68000の4ドットになる場合を D4Xモードと呼ぶ
 			* 512ドットモードで拡大スプライトを使う場合4ドット必要になる
 
-	MSXはどのサイズでも32枚のスプライトプレーンを表示でき、X68000は16x16のスプライトを
-	128枚表示できるので、ちょうどぴったり収まっています。
 
-	そこで、MS.Xでは、どの画面モードにおいても、MSXのスプライトプレーン番号を
+
+	MS.Xでは、どの画面モードにおいても、MSXのスプライトプレーン番号を
 	以下のようにマッピングすることにしています。
 
 	MSXのスプライトプレーン  0番 -> X68000のスプライト 0-3番
@@ -67,9 +72,9 @@
 		:
 	MSXのスプライトプレーン 31番 -> X68000のスプライト 124-127番
 
-	このように、1つのスプライトで間に合う場合でも番号を詰めずに、4つ飛ばしで使用します。
-	こうしておくと、画面モードを行き来した時でも対応関係が一致するので、
-	管理が楽になるのではと思っています。
+	このように、1つのスプライトで間に合う場合(シングルモード)でも番号を詰めずに、
+	4つ飛ばしで使用します。こうしておくと、画面モードを行き来した時でも対応関係が
+	一致するので、管理が楽になるのではと思っています。
 
 	上記はスプライトプレーンの話ですが、スプライトパターン定義のほうは、MSXのスプライトの
 	最大4倍の定義をPCG上に展開することができないため、メモリ上にPCGパターンをあらかじめ
@@ -158,7 +163,7 @@ void write_sprite_pattern_512(ms_vdp_t* vdp, int offset, uint32_t pattern) {
 	int ptNum = offset / 8; // MSXのスプライトパターン番号
 	int pLine = offset % 8; // パターンの何行目か 
 	int pcgLine = pLine * 2; // MSXの1ラインはX68000では2ライン
-	unsigned int pLeft=0,pRight=0; // 1ラインの左4ドットと右4ドットを X68000の8x8のパターン2つに変換
+	uint32_t pLeft=0,pRight=0; // 1ラインの左4ドットと右4ドットを X68000の8x8のパターン2つに変換
 
     // 右端のドットから処理
 	for(i =0; i < 4; i++) {
@@ -186,6 +191,8 @@ void write_sprite_pattern_512(ms_vdp_t* vdp, int offset, uint32_t pattern) {
 void write_sprite_attribute_256(ms_vdp_t* vdp, int offset, uint32_t attribute, int32_t old_attribute);
 void write_sprite_attribute_512(ms_vdp_t* vdp, int offset, uint32_t attribute, int32_t old_attribute);
 void refresh_sprite_512(ms_vdp_t* vdp, int plNum);
+void refresh_sprite_512_mode1(ms_vdp_t* vdp, int plNum);
+void refresh_sprite_512_mode2(ms_vdp_t* vdp);
 void refresh_sprite_256(ms_vdp_t* vdp, int plNum);
 void refresh_sprite_256_mode1(ms_vdp_t* vdp, int plNum);
 void refresh_sprite_256_mode2(ms_vdp_t* vdp);
@@ -200,8 +207,8 @@ void write_sprite_attribute(ms_vdp_t* vdp, int offset, uint32_t attribute, int32
 
 void write_sprite_attribute_256(ms_vdp_t* vdp, int offset, uint32_t attribute, int32_t old_attribute) {
 	int i,j;
-	int plNum = (((uint32_t)offset) / 4); // MSXのスプライトプレーン番号
-	int type = offset % 4; // 属性の種類
+	int plNum = (((uint32_t)offset) / SAT_SIZE); // MSXのスプライトプレーン番号
+	int type = offset % SAT_SIZE; // 属性の種類
 
 	if (plNum >= 32) {
 		return;
@@ -214,11 +221,6 @@ void write_sprite_attribute_256(ms_vdp_t* vdp, int offset, uint32_t attribute, i
 			int HY = (vdp->ms_vdp_current_mode->sprite_mode & 0x3) == 1 ? 208 : 216;
 			if ( attribute == HY || old_attribute == HY) {
 				vdp->sprite_refresh_flag |= SPRITE_REFRESH_FLAG_COORD;
-				if (old_attribute != HY ) {
-					for(i=plNum;i<32;i++) {
-					//	X68_SSR[i*SSR_UNIT+3] = 0;	// スプライト非表示
-					}
-				}
 			}
 			uint8_t scroll_offset = vdp->r23; // 縦スクロール量
 			// MSXは1ライン下に表示されるので+1
@@ -373,6 +375,94 @@ void refresh_sprite_256_mode2(ms_vdp_t* vdp) {
 	}
 }
 
+void refresh_sprite_512_mode2(ms_vdp_t* vdp) {
+	int plNum,n,y,i,j;
+	uint8_t* pcol = vdp->vram + vdp->sprcolrtbl_baddr;
+	uint8_t* patr = vdp->vram + vdp->sprattrtbl_baddr;
+	// スプライトモード2の色合成を行う
+	for (plNum=0;plNum<32;plNum++) {
+		int m = plNum;
+		for(n=plNum+1;n<32;n++) {
+			// XY座標が同一のものかつ、CC=1のラインが一つでもあるものを抽出(連続している物のみ)
+			if((patr[plNum*SAT_SIZE+0] == patr[n*SAT_SIZE+0]) && (patr[plNum*SAT_SIZE+1] == patr[n*SAT_SIZE+1]) && //
+				(sprite_cc_flags[n] != 0)) {
+				m = n;
+			} else {
+				break;
+			}
+		}
+
+		// ************
+		//m = plNum; // テスト用
+		// ************
+
+		// ラインごとの合成処理
+		// 512モードの場合、1ラインが2ラインになるので、ラインを2倍にする
+		// 16x16のスプライトの場合、以下のように合成する
+		// 一つの箱が X68000の 8x8のパターン(1ラインが32bit)を表す
+		// X68000はスプライトサイズは16x16だが、定義は8x8の箱が4つ集まっているので注意
+		//
+		//  lr: 0   1      2   3
+		//    +---+---+  +---+---+	y=0		CCの0ライン目
+		//    | 0 | 2 |  | 8 | A |
+		//  　+---+---+  +---+---+	y=4		CCの4ライン目
+		//    | 1 | 3 |  | 9 | B |	
+		//    +---+---+  +---+---+	y=7		CCの7ライン目
+		//  lr: 0   1      2   3
+		//    +---+---+  +---+---+	y=8		CCの8ライン目
+		//    | 4 | 6 |  | C | E |
+		//    +---+---+  +---+---+
+		//    | 5 | 7 |  | D | F |
+		//    +---+---+  +---+---+	y=15	CCの15ライン目
+		//
+		// 各yに対してX68000側は2行あるので、2回同じパターンを連続で書く
+		int ymax = vdp->sprite_size == 0 ? 8 : 16;
+		int lrmax = vdp->sprite_size == 0 ? 2 : 4;
+		int ptNumMask = vdp->sprite_size == 0 ? 0xff : 0xfc;
+		int lr;
+		for (lr=0;lr < lrmax; lr++) {
+			uint16_t mask = 1;
+			for	(y=0; y<ymax; y++, mask <<= 1) {
+				// yy は上記パターンの通し番号(0-F)の中で見た、X68000側のライン番号
+				int yy = (y&0x8)*4*8/8 + // 外の上段下段
+						(y&0x4)*8/4 + // 中の上段下段
+						(lr&0x2)*8*8/2 + // 外の左右
+						(lr&0x1)*8*2 + // 中の左右
+						(y&0x3)*2; // 512モードの場合、1ラインが2ラインになる
+				i=plNum;
+				while(i<=m) {
+					uint32_t color = pcol[i*COL_SIZE+y] & 0xf;
+					uint32_t colorex = color << 28 | color << 24 | color << 20 | color << 16 | color << 12 | color << 8 | color << 4 | color;
+					uint32_t ptNum = patr[i*SAT_SIZE+2];
+					uint32_t pattern = vdp->x68_pcg_buffer[(ptNum & ptNumMask)*PCG_BUF_UNIT_D2X+yy] & colorex;
+					j=i;
+					while(j<=m) {
+						if( j == m ) {
+							X68_PCG[i*PCG_UNIT+yy+0] = pattern;
+							X68_PCG[i*PCG_UNIT+yy+1] = pattern;	//奇数ラインも同じものになる(yyは必ず偶数)
+							i=j+1;
+							break;
+						}
+						j++; // j==mを先に判定しているので、i+1がmをオーバーすることはない
+						if( (sprite_cc_flags[j]&mask) == 0) {
+							// CC=0に遭遇したら、それ以降は合成しない
+							X68_PCG[i*PCG_UNIT+yy+0] = pattern;
+							X68_PCG[i*PCG_UNIT+yy+1] = pattern;	//奇数ラインも同じものになる(yyは必ず偶数)
+							i=j;
+							break;
+						}
+						// CC=1のものが見つかったので合成する
+						uint32_t color_add = pcol[j*COL_SIZE+y] & 0xf;
+						uint32_t colorex_add = color_add << 28 | color_add << 24 | color_add << 20 | color_add << 16 | color_add << 12 | color_add << 8 | color_add << 4 | color_add;
+						uint32_t ptNum_add = patr[j*SAT_SIZE+2];
+						uint32_t pattern_add = vdp->x68_pcg_buffer[(ptNum_add & 0xff)*PCG_BUF_UNIT_D2X+yy] & colorex_add;
+						pattern |= pattern_add;
+					}
+				}
+			}
+		}
+	}
+}
 
 void write_sprite_attribute_512(ms_vdp_t* vdp, int offset, uint32_t attribute, int32_t old_attribute) {
 	int i,j;
@@ -425,7 +515,18 @@ void write_sprite_attribute_512(ms_vdp_t* vdp, int offset, uint32_t attribute, i
 	}
 }
 
+
 void refresh_sprite_512(ms_vdp_t* vdp, int plNum) {
+	if((vdp->ms_vdp_current_mode->sprite_mode & 0x3) == 1) {
+		refresh_sprite_512_mode1(vdp, plNum);
+	} else {
+		// モード2は一つ書き換えると全体に影響が出るので、垂直帰線期間にまとめて書き換える
+		// TODO: それなりに重いので、もう少し範囲を限定したい
+		vdp->sprite_refresh_flag |= SPRITE_REFRESH_FLAG_ATTR;
+	}
+}
+
+void refresh_sprite_512_mode1(ms_vdp_t* vdp, int plNum) {
 	int i;
 	uint8_t* pattr = vdp->vram + vdp->sprattrtbl_baddr;
 
@@ -520,8 +621,12 @@ void ms_vdp_sprite_vsync_draw(ms_vdp_t* vdp) {
 		// PCG更新処理
 		if (mag512 == 2 ) {
 			// 512ドットモードの時
-			for(i=0;i<32;i++) {
-				refresh_sprite_512(vdp, i);
+			if (spMode == 1) {
+				for(i=0;i<32;i++) {
+					refresh_sprite_512(vdp, i);
+				}
+			} else {
+				refresh_sprite_512_mode2(vdp);
 			}
 		} else {
 			// 256ドットモードの時
@@ -565,7 +670,7 @@ void ms_vdp_sprite_vsync_draw(ms_vdp_t* vdp) {
 					for( i=0; i<4; i++) {
 						X68_SSR[plNum*SSR_UNIT+i*4+0] = x + (i/2)*16;
 						X68_SSR[plNum*SSR_UNIT+i*4+1] = y + (i%2)*16;
-						X68_SSR[plNum*SSR_UNIT+i*4+2] = 0x100 + plNum*4; // パレット0x10-0x1fを使用するので 0x100を足す
+						X68_SSR[plNum*SSR_UNIT+i*4+2] = 0x100 + plNum*4+i; // パレット0x10-0x1fを使用するので 0x100を足す
 						X68_SSR[plNum*SSR_UNIT+i*4+3] = 3; // スプライト表示
 					}
 				} else {
