@@ -575,7 +575,7 @@ void write_sprite_color(ms_vdp_t* vdp, int offset, uint32_t color, int32_t old_c
  */
 void ms_vdp_sprite_vsync_draw(ms_vdp_t* vdp) {
 	//vdp->sprite_refresh_flag |= SPRITE_REFRESH_FLAG_PGEN;	// 全書き換え
-	vdp->sprite_refresh_flag |= SPRITE_REFRESH_FLAG_ATTR;	// アトリビュートテーブルのみ再検査
+	//vdp->sprite_refresh_flag |= SPRITE_REFRESH_FLAG_ATTR;	// アトリビュートテーブルのみ再検査
 	//vdp->sprite_refresh_flag |= SPRITE_REFRESH_FLAG_COORD;	// 実験的に、位置調整は毎回行うようにしてみる
 
 	if (!vdp->sprite_refresh_flag) {

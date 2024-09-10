@@ -36,6 +36,16 @@ void ms_exit( void);
 uint8_t load_user_param();
 int search_open(const char *filename, int flag);
 
+// 現在の設定ログレベル
+// デバッグテキスト画面が出ている時だけこのログレベルになる
+static int _debug_log_level = MS_LOG_INFO;
+
+#ifdef DEBUG
+static int textPlaneMode = 1;
+#else
+static int textPlaneMode = 0;
+#endif
+
 // メモリ関連
 ms_memmap_t* memmap = NULL;
 
@@ -610,6 +620,9 @@ int main(int argc, char *argv[]) {
 	// 	全ページの スロットを０で初期化
 	write_port_A8(0);
 
+	// テキスト画面の表示/非表示を設定
+	_setTextPlane(textPlaneMode);
+
 	if (1) {
 		ms_cpu_emulate(emuLoop, init_param.max_wait);
 	} else {
@@ -1044,21 +1057,8 @@ void sync_keyboard_leds() {
 	}
 }
 
-// テキスト表示切り替え
-static unsigned short debug_log_level_bup;
-
 void _toggleTextPlane(void) {
-	static int textPlaneMode = 1;
-
 	textPlaneMode = (textPlaneMode + 1) % 2;
-	if (textPlaneMode == 0) {
-		// テキスト表示OFFにする時に、デバッグログをINFOにする
-		debug_log_level_bup = debug_log_level;
-		debug_log_level = MS_LOG_INFO;
-	}
-	else {
-		debug_log_level = debug_log_level_bup;
-	}
 	_setTextPlane(textPlaneMode);
 }
 
@@ -1110,10 +1110,14 @@ void _setTextPlane(int textPlaneMode) {
 	switch (textPlaneMode)
 	{
 	case 0:
+		// テキスト表示OFFにする時に、デバッグログをINFOにする
+		debug_log_level = MS_LOG_INFO;
 		// テキスト表示OFF
 		vdp->tx_active = 0;
 		break;
 	case 1:
+		// テキスト表示ONにする時に、デバッグログを元に戻す
+		debug_log_level = _debug_log_level;
 		// テキスト表示ON
 		vdp->tx_active = 1;
 		break;
