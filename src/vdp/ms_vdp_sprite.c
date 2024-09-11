@@ -94,6 +94,28 @@
 	(PCGバッファはあくまでPCGを作るときの素材が詰まっていると思ってください)
  */
 
+/*
+ 	制限事項
+
+  # 「色コード0」のスプライト
+  MSXはパターンの定義と色の定義が別れているため、「パターンは1だが、色コードが0」の
+  スプライトというものが描画可能です。一方、X68000はパターンと色が一体となっているため、
+  色コード0は透明色として扱われます。そのため、MS.Xでは「パターンは1だが、色コードが0」
+  のスプライトは強制的に色コード1に変換されます。
+  そのため、色が変わって見えてしまうことがあります。
+
+  # スプライトモード2の色合成
+
+  MSXのスプライトモード2は、スプライトの色合成が行われるモードですが、MS.Xでは
+  特定の条件下でしか正しく表示されません。具体的には、以下の条件を満たす場合のみ
+  正しく表示されます。
+
+  * 重なったスプライトのXY座標がぴったり一致していること
+  * 合性を行うスプライトプレーン番号が連続していること
+
+ 
+ */
+
 #define COL_SIZE			16				// MSXのスプライトカラーテーブルのサイズ(バイト数)
 #define SAT_SIZE			4				// MSXのスプライトアトリビュートテーブルのサイズ(バイト数)
 #define PCG_SIZE			32				// X68kのスプライト1つ(16x16)あたりの、PCGパターンのワード数
@@ -261,6 +283,7 @@ void refresh_sprite_256_mode1(ms_vdp_t* vdp, int plNum) {
 	uint32_t ptNum = p[plNum*SAT_SIZE+2];
 	ptNum &= (vdp->sprite_size == 0) ? 0xff : 0xfc;
 	uint32_t color = p[plNum*SAT_SIZE+3] & 0xf;
+	color = color == 0 ? 1 : color; // 「色コード0」のスプライトが消えてしまう問題への暫定対応
 	uint32_t colorex = color << 28 | color << 24 | color << 20 | color << 16 | color << 12 | color << 8 | color << 4 | color;
 	if (vdp->sprite_size == 0) {
 		// 8x8
@@ -345,6 +368,7 @@ void refresh_sprite_256_mode2(ms_vdp_t* vdp) {
 				i=plNum;
 				while(i<=m) {
 					uint32_t color = pcol[i*COL_SIZE+y] & 0xf;
+					color = color == 0 ? 1 : color; // 「色コード0」のスプライトが消えてしまう問題への暫定対応
 					uint32_t colorex = color << 28 | color << 24 | color << 20 | color << 16 | color << 12 | color << 8 | color << 4 | color;
 					uint32_t ptNum = patr[i*SAT_SIZE+2];
 					uint32_t pattern = vdp->x68_pcg_buffer[(ptNum & ptNumMask)*PCG_BUF_UNIT_D1X+yy] & colorex;
@@ -364,6 +388,7 @@ void refresh_sprite_256_mode2(ms_vdp_t* vdp) {
 						}
 						// CC=1のものが見つかったので合成する
 						uint32_t color_add = pcol[j*COL_SIZE+y] & 0xf;
+						color_add = color_add == 0 ? 1 : color; // 「色コード0」のスプライトが消えてしまう問題への暫定対応
 						uint32_t colorex_add = color_add << 28 | color_add << 24 | color_add << 20 | color_add << 16 | color_add << 12 | color_add << 8 | color_add << 4 | color_add;
 						uint32_t ptNum_add = patr[j*SAT_SIZE+2];
 						uint32_t pattern_add = vdp->x68_pcg_buffer[(ptNum_add & 0xff)*PCG_BUF_UNIT_D1X+yy] & colorex_add;
@@ -531,8 +556,9 @@ void refresh_sprite_512_mode1(ms_vdp_t* vdp, int plNum) {
 	uint8_t* pattr = vdp->vram + vdp->sprattrtbl_baddr;
 
 	unsigned int ptNum = pattr[plNum*SAT_SIZE+2];
-	unsigned int color = pattr[plNum*SAT_SIZE+3] & 0xf;
-	unsigned int colorex = color << 28 | color << 24 | color << 20 | color << 16 | color << 12 | color << 8 | color << 4 | color; // MSXの4ドット分(X68000だと2倍の8ドットに拡大)
+	uint32_t color = pattr[plNum*SAT_SIZE+3] & 0xf;
+	color = color == 0 ? 1 : color; // 「色コード0」のスプライトが消えてしまう問題への暫定対応
+	uint32_t colorex = color << 28 | color << 24 | color << 20 | color << 16 | color << 12 | color << 8 | color << 4 | color; // MSXの4ドット分(X68000だと2倍の8ドットに拡大)
 	if (vdp->sprite_size == 0) { // 8x8
 		for( i = 0; i < 32; i++) { 
 			X68_PCG[plNum*PCG_UNIT+i] = vdp->x68_pcg_buffer[(ptNum & 0xff)*PCG_BUF_UNIT_D2X+i] & colorex;
