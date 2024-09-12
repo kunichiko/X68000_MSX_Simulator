@@ -292,29 +292,31 @@ offset_ms_vdp_s07		equ	55
 offset_ms_vdp_s08		equ	56
 offset_ms_vdp_s09		equ	57
 offset_ms_vdp_palette		equ	58
-offset_ms_vdp_crt_mode		equ	90
-offset_ms_vdp_sprite_size	equ	91
-offset_ms_vdp_sprite_zoom	equ	92
-offset_ms_vdp_dummy2		equ	93
-offset_ms_vdp_pnametbl_baddr	equ	94
-offset_ms_vdp_colortbl_baddr	equ	98
-offset_ms_vdp_pgentbl_baddr	equ	102
-offset_ms_vdp_sprattrtbl_baddr	equ	106
-offset_ms_vdp_sprcolrtbl_baddr	equ	110
-offset_ms_vdp_sprpgentbl_baddr 	equ	114
-offset_ms_vdp_text_color	equ	118
-offset_ms_vdp_back_color	equ	120
-offset_ms_vdp_vram_addr		equ	122
-offset_ms_vdp_gram_addr		equ	126
-;offset_ms_vdp_display_mode	equ	130
-offset_ms_vdp_current_mode	equ	132
-offset_ms_vdp_tx_active		equ	136
-offset_ms_vdp_gr_active		equ	138
-offset_ms_vdp_gr_active_interlace equ	140
-offset_ms_vdp_vram		equ	142
-offset_ms_vdp_x68_pcg_buffer	equ	146
-offset_ms_vdp_last_visible_sprite_planes	equ	150
-offset_ms_vdp_last_visible_sprite_size		equ	154
+offset_ms_vdp_alt_color_zero	equ	60
+
+offset_ms_vdp_crt_mode		equ	92
+offset_ms_vdp_sprite_size	equ	93
+offset_ms_vdp_sprite_zoom	equ	94
+offset_ms_vdp_dummy2		equ	95
+offset_ms_vdp_pnametbl_baddr	equ	96
+offset_ms_vdp_colortbl_baddr	equ	100
+offset_ms_vdp_pgentbl_baddr	equ	104
+offset_ms_vdp_sprattrtbl_baddr	equ	108
+offset_ms_vdp_sprcolrtbl_baddr	equ	112
+offset_ms_vdp_sprpgentbl_baddr 	equ	116
+offset_ms_vdp_text_color	equ	120
+offset_ms_vdp_back_color	equ	122
+offset_ms_vdp_vram_addr		equ	124
+offset_ms_vdp_gram_addr		equ	128
+;offset_ms_vdp_display_mode	equ	132
+offset_ms_vdp_current_mode	equ	134
+offset_ms_vdp_tx_active		equ	138
+offset_ms_vdp_gr_active		equ	140
+offset_ms_vdp_gr_active_interlace equ	142
+offset_ms_vdp_vram		equ	144
+offset_ms_vdp_x68_pcg_buffer	equ	148
+offset_ms_vdp_last_visible_sprite_planes	equ	152
+offset_ms_vdp_last_visible_sprite_size		equ	156
 
 
 *
@@ -908,12 +910,7 @@ w_R0:	move.b	d1,offset_ms_vdp_r00(a5)
 	*TBD
 	bra	1f
 @@:					* 走査線割り込みを使用しない
-1:	andi.w	#%00000000_00001110,d1	* 画面モードのセット
-	lsl.w	#1,d1			* M5,M4,M3を bit4,3,2の位置に
-	move.b	offset_ms_vdp_crt_mode(a5),d0
-	andi.w	#%00000000_00000011,d0	* M2,M1と混ぜる
-	or.w	d1,d0
-	bsr	set_CRT			* 画面の切り替え
+1:	bsr	set_CRT			* 画面の切り替え
 	rts
 
 ; R#1	VDP Mode Register 1
@@ -946,16 +943,6 @@ w_R1:	move.b	d1,offset_ms_vdp_r01(a5)
 	lsr.b	#1,d0
 	move.b	d0,offset_ms_vdp_sprite_size(a5)
 
-	move.b	d1,d0
-	andi.w	#%00000000_00010000,d0
-	lsr.w	#4,d0			* M1をbit0に
-	move.b	d1,d2
-	andi.w	#%00000000_00001000,d2
-	lsr.w	#2,d2			* M2をbit1に
-	or.w	d2,d0
-	move.b	offset_ms_vdp_crt_mode(a5),d2
-	andi.w	#%00000000_00011100,d2	* M5,M4,M3と混ぜる
-	or.w	d2,d0
 	bsr	set_CRT
 
 	rts
@@ -1199,9 +1186,7 @@ w_R46:
 
 ***************************************************************
 *
-*	画面の切り替え
-*
-*	d0.w	新しいＣＲＴＭＯＤＥレジスターの値
+*	R#0とR#2に従い画面モードを切り替えます
 *
 *		     | M5 | M4 | M3 | M2 | M1 |
 *	|SCREEN 0(40)|  0 |  0 |  0 |  0 |  1 |		0x01	TEXT1
@@ -1217,6 +1202,26 @@ w_R46:
 *
 ***************************************************************
 set_CRT:
+	; R#0	VDP Mode Register 0
+	; 	[ 0 ][ DG][IE2][IE1][ M5][ M4][ M3][ 0 ]
+	; R#1	VDP Mode Register 1
+	;	[ 0 ][ BL][IE0][ M1][ M2][ 0 ][ SI][MAG]
+	clr.w	d0
+	move.b	offset_ms_vdp_r00(a5),d0
+	; M5,M4,M3を bit4,3,2の位置に
+	andi.w	#%00000000_00001110,d0
+	lsl.w	#1,d0
+	; M1をbit0に
+	move.b	offset_ms_vdp_r01(a5),d1
+	andi.w	#%00000000_00010000,d1
+	lsr.w	#4,d1
+	or.w	d1,d0
+	; M2をbit1に
+	move.b	offset_ms_vdp_r01(a5),d1
+	andi.w	#%00000000_00001000,d1
+	lsr.w	#2,d1
+	or.w	d1,d0
+
 	cmp.b	offset_ms_vdp_crt_mode(a5),d0		* 前と変わってなければ何もしない
 	bne	@f
 	rts

@@ -90,15 +90,40 @@ void write_vram_DEFAULT(ms_vdp_t* vdp, uint8_t data) {
 	dbra	d0,@b
 
 	rts*/
+inline uint16_t diff_color(uint16_t color1, uint16_t color2) {
+	uint16_t diff = 0;
+	uint16_t r1,g1,b1;
+	uint16_t r2,g2,b2;
+	uint16_t r_diff,g_diff,b_diff;
+	g1 = (color1 & 0b1111100000000000) >> 11;
+	r1 = (color1 & 0b0000011111000000) >> 6;
+	b1 = (color1 & 0b0000000000111110) >> 1;
+	g2 = (color2 & 0b1111100000000000) >> 11;
+	r2 = (color2 & 0b0000011111000000) >> 6;
+	b2 = (color2 & 0b0000000000111110) >> 1;
+	g_diff = g1 > g2 ? g1 - g2 : g2 - g1;
+	r_diff = r1 > r2 ? r1 - r2 : r2 - r1;
+	b_diff = b1 > b2 ? b1 - b2 : b2 - b1;
+	return g_diff + r_diff + b_diff;
+}
+
 void update_palette_DEFAULT(ms_vdp_t* vdp) {
 	int i;
+	uint16_t back_palette = vdp->palette[vdp->back_color & 0xf];
+	int alt_color = 1;
+	uint16_t alt_color_diff = diff_color(back_palette, vdp->palette[alt_color]);
 
 	// “§–¾F‚Í”wŒiF‚ª“§‚¯‚ÄŒ©‚¦‚é‚æ‚¤‚É‚·‚é
-	X68_GR_PAL[0] = vdp->palette[vdp->back_color & 0xf];
-	//X68_GR_PAL[0] = 0x0e01;
+	X68_GR_PAL[0] = back_palette;
 
 	for(i =1; i < 16; i++) {
 		uint16_t color = vdp->palette[i];
+		// ”wŒiF‚Æ‚Ì·‚ªÅ‚à¬‚³‚¢F‚ğ”wŒiF‚Ì‘ã‘ÖF‚Æ‚µ‚Ä‘I‚Ô
+		uint16_t diff = diff_color(back_palette, color);
+		if (diff < alt_color_diff) {
+			alt_color = i;
+			alt_color_diff = diff;
+		}
 		if (vdp->tx_active) {
 			// ‹P“x‚ğ”¼•ª‚É—‚Æ‚·
 			color &= 0b1111011110111100;
@@ -107,6 +132,7 @@ void update_palette_DEFAULT(ms_vdp_t* vdp) {
 		X68_GR_PAL[i] = color;
 		X68_SP_PAL_B1[i] = color;
 	}
+	vdp->alt_color_zero = alt_color;
 }
 
 void update_pnametbl_baddr_DEFAULT(ms_vdp_t* vdp) {
