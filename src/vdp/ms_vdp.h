@@ -138,6 +138,8 @@ typedef struct ms_vdp {
 
 	// Palette Registers
 	uint16_t palette[16];	// offset = +58
+	uint8_t alt_color_zero; // カラーコード0の色に最も近い色を持つパレット番号。スプライトがカラーコード0で描画できる問題への対処
+	uint8_t dummy2;
 
 	// Special Control Registers
 	// 	特殊コントロールレジスタ
@@ -146,7 +148,7 @@ typedef struct ms_vdp {
 	uint8_t crt_mode;		// R_0,R_1の[ M5]～[ M0]
 	uint8_t sprite_size;	// R_1の[ SI]
 	uint8_t sprite_zoom;	// R_1の[MAG]
-	uint8_t dummy2;
+	uint8_t dummy3;
 
 	// base address registers
 	uint32_t pnametbl_baddr;		// R02: Pattern name table base address
@@ -163,7 +165,7 @@ typedef struct ms_vdp {
 	uint32_t gram_addr;
 
 	//
-	uint16_t dummy3;
+	uint16_t dummy4;
 	ms_vdp_mode_t *ms_vdp_current_mode;
 
 	//

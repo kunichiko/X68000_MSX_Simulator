@@ -283,7 +283,7 @@ void refresh_sprite_256_mode1(ms_vdp_t* vdp, int plNum) {
 	uint32_t ptNum = p[plNum*SAT_SIZE+2];
 	ptNum &= (vdp->sprite_size == 0) ? 0xff : 0xfc;
 	uint32_t color = p[plNum*SAT_SIZE+3] & 0xf;
-	color = color == 0 ? 1 : color; // 「色コード0」のスプライトが消えてしまう問題への暫定対応
+	color = color == 0 ? vdp->alt_color_zero : color; // 「色コード0」のスプライトが消えてしまう問題への暫定対応
 	uint32_t colorex = color << 28 | color << 24 | color << 20 | color << 16 | color << 12 | color << 8 | color << 4 | color;
 	if (vdp->sprite_size == 0) {
 		// 8x8
@@ -368,7 +368,7 @@ void refresh_sprite_256_mode2(ms_vdp_t* vdp) {
 				i=plNum;
 				while(i<=m) {
 					uint32_t color = pcol[i*COL_SIZE+y] & 0xf;
-					color = color == 0 ? 1 : color; // 「色コード0」のスプライトが消えてしまう問題への暫定対応
+					color = color == 0 ? vdp->alt_color_zero : color; // 「色コード0」のスプライトが消えてしまう問題への暫定対応
 					uint32_t colorex = color << 28 | color << 24 | color << 20 | color << 16 | color << 12 | color << 8 | color << 4 | color;
 					uint32_t ptNum = patr[i*SAT_SIZE+2];
 					uint32_t pattern = vdp->x68_pcg_buffer[(ptNum & ptNumMask)*PCG_BUF_UNIT_D1X+yy] & colorex;
@@ -388,7 +388,7 @@ void refresh_sprite_256_mode2(ms_vdp_t* vdp) {
 						}
 						// CC=1のものが見つかったので合成する
 						uint32_t color_add = pcol[j*COL_SIZE+y] & 0xf;
-						color_add = color_add == 0 ? 1 : color_add; // 「色コード0」のスプライトが消えてしまう問題への暫定対応
+						color_add = color_add == 0 ? vdp->alt_color_zero : color_add; // 「色コード0」のスプライトが消えてしまう問題への暫定対応
 						uint32_t colorex_add = color_add << 28 | color_add << 24 | color_add << 20 | color_add << 16 | color_add << 12 | color_add << 8 | color_add << 4 | color_add;
 						uint32_t ptNum_add = patr[j*SAT_SIZE+2];
 						uint32_t pattern_add = vdp->x68_pcg_buffer[(ptNum_add & 0xff)*PCG_BUF_UNIT_D1X+yy] & colorex_add;
@@ -465,6 +465,7 @@ void refresh_sprite_512_mode2(ms_vdp_t* vdp) {
 				i=plNum;
 				while(i<=m) {
 					uint32_t color = pcol[i*COL_SIZE+y] & 0xf;
+					color = color == 0 ? vdp->alt_color_zero : color; // 「色コード0」のスプライトが消えてしまう問題への暫定対応
 					uint32_t colorex = color << 28 | color << 24 | color << 20 | color << 16 | color << 12 | color << 8 | color << 4 | color;
 					uint32_t ptNum = patr[i*SAT_SIZE+2];
 					uint32_t pattern = vdp->x68_pcg_buffer[(ptNum & ptNumMask)*PCG_BUF_UNIT_D2X+yy] & colorex;
@@ -486,7 +487,7 @@ void refresh_sprite_512_mode2(ms_vdp_t* vdp) {
 						}
 						// CC=1のものが見つかったので合成する
 						uint32_t color_add = pcol[j*COL_SIZE+y] & 0xf;
-						color_add = color_add == 0 ? 1 : color_add; // 「色コード0」のスプライトが消えてしまう問題への暫定対応
+						color_add = color_add == 0 ? vdp->alt_color_zero : color_add; // 「色コード0」のスプライトが消えてしまう問題への暫定対応
 						uint32_t colorex_add = color_add << 28 | color_add << 24 | color_add << 20 | color_add << 16 | color_add << 12 | color_add << 8 | color_add << 4 | color_add;
 						uint32_t ptNum_add = patr[j*SAT_SIZE+2];
 						uint32_t pattern_add = vdp->x68_pcg_buffer[(ptNum_add & 0xff)*PCG_BUF_UNIT_D2X+yy] & colorex_add;
@@ -566,7 +567,7 @@ void refresh_sprite_512_mode1(ms_vdp_t* vdp, int plNum) {
 
 	unsigned int ptNum = pattr[plNum*SAT_SIZE+2];
 	uint32_t color = pattr[plNum*SAT_SIZE+3] & 0xf;
-	color = color == 0 ? 1 : color; // 「色コード0」のスプライトが消えてしまう問題への暫定対応
+	color = color == 0 ? vdp->alt_color_zero : color; // 「色コード0」のスプライトが消えてしまう問題への暫定対応
 	uint32_t colorex = color << 28 | color << 24 | color << 20 | color << 16 | color << 12 | color << 8 | color << 4 | color; // MSXの4ドット分(X68000だと2倍の8ドットに拡大)
 	if (vdp->sprite_size == 0) { // 8x8
 		for( i = 0; i < 32; i++) { 

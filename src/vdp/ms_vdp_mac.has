@@ -292,29 +292,31 @@ offset_ms_vdp_s07		equ	55
 offset_ms_vdp_s08		equ	56
 offset_ms_vdp_s09		equ	57
 offset_ms_vdp_palette		equ	58
-offset_ms_vdp_crt_mode		equ	90
-offset_ms_vdp_sprite_size	equ	91
-offset_ms_vdp_sprite_zoom	equ	92
-offset_ms_vdp_dummy2		equ	93
-offset_ms_vdp_pnametbl_baddr	equ	94
-offset_ms_vdp_colortbl_baddr	equ	98
-offset_ms_vdp_pgentbl_baddr	equ	102
-offset_ms_vdp_sprattrtbl_baddr	equ	106
-offset_ms_vdp_sprcolrtbl_baddr	equ	110
-offset_ms_vdp_sprpgentbl_baddr 	equ	114
-offset_ms_vdp_text_color	equ	118
-offset_ms_vdp_back_color	equ	120
-offset_ms_vdp_vram_addr		equ	122
-offset_ms_vdp_gram_addr		equ	126
-;offset_ms_vdp_display_mode	equ	130
-offset_ms_vdp_current_mode	equ	132
-offset_ms_vdp_tx_active		equ	136
-offset_ms_vdp_gr_active		equ	138
-offset_ms_vdp_gr_active_interlace equ	140
-offset_ms_vdp_vram		equ	142
-offset_ms_vdp_x68_pcg_buffer	equ	146
-offset_ms_vdp_last_visible_sprite_planes	equ	150
-offset_ms_vdp_last_visible_sprite_size		equ	154
+offset_ms_vdp_alt_color_zero	equ	60
+
+offset_ms_vdp_crt_mode		equ	92
+offset_ms_vdp_sprite_size	equ	93
+offset_ms_vdp_sprite_zoom	equ	94
+offset_ms_vdp_dummy2		equ	95
+offset_ms_vdp_pnametbl_baddr	equ	96
+offset_ms_vdp_colortbl_baddr	equ	100
+offset_ms_vdp_pgentbl_baddr	equ	104
+offset_ms_vdp_sprattrtbl_baddr	equ	108
+offset_ms_vdp_sprcolrtbl_baddr	equ	112
+offset_ms_vdp_sprpgentbl_baddr 	equ	116
+offset_ms_vdp_text_color	equ	120
+offset_ms_vdp_back_color	equ	122
+offset_ms_vdp_vram_addr		equ	124
+offset_ms_vdp_gram_addr		equ	128
+;offset_ms_vdp_display_mode	equ	132
+offset_ms_vdp_current_mode	equ	134
+offset_ms_vdp_tx_active		equ	138
+offset_ms_vdp_gr_active		equ	140
+offset_ms_vdp_gr_active_interlace equ	142
+offset_ms_vdp_vram		equ	144
+offset_ms_vdp_x68_pcg_buffer	equ	148
+offset_ms_vdp_last_visible_sprite_planes	equ	152
+offset_ms_vdp_last_visible_sprite_size		equ	156
 
 
 *
