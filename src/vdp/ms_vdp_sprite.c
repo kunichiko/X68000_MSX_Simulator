@@ -388,7 +388,7 @@ void refresh_sprite_256_mode2(ms_vdp_t* vdp) {
 						}
 						// CC=1のものが見つかったので合成する
 						uint32_t color_add = pcol[j*COL_SIZE+y] & 0xf;
-						color_add = color_add == 0 ? 1 : color; // 「色コード0」のスプライトが消えてしまう問題への暫定対応
+						color_add = color_add == 0 ? 1 : color_add; // 「色コード0」のスプライトが消えてしまう問題への暫定対応
 						uint32_t colorex_add = color_add << 28 | color_add << 24 | color_add << 20 | color_add << 16 | color_add << 12 | color_add << 8 | color_add << 4 | color_add;
 						uint32_t ptNum_add = patr[j*SAT_SIZE+2];
 						uint32_t pattern_add = vdp->x68_pcg_buffer[(ptNum_add & 0xff)*PCG_BUF_UNIT_D1X+yy] & colorex_add;
@@ -421,11 +421,15 @@ void refresh_sprite_512_mode2(ms_vdp_t* vdp) {
 		//m = plNum; // テスト用
 		// ************
 
+		// TODO 今のループはlrが大外にあるせいでCCの合成を最大4回やっているが、ラインごとに変更すれば省力化できそう
+		// TODO 512ドットモードでスプライトを縦に2倍に引き伸ばすことはできるっぽいので、それができると書き込み量が半分になる　
+
 		// ラインごとの合成処理
-		// 512モードの場合、1ラインが2ラインになるので、ラインを2倍にする
+		// 512モードの場合、1ラインが2ラインになるので、同じラインを2回描く
 		// 16x16のスプライトの場合、以下のように合成する
 		// 一つの箱が X68000の 8x8のパターン(1ラインが32bit)を表す
-		// X68000はスプライトサイズは16x16だが、定義は8x8の箱が4つ集まっているので注意
+		// X68000はスプライトサイズは16x16だが、定義は8x8の箱が4つ、
+		// 左上→左下→右上→右下の順に集まっているので注意が必要
 		//
 		//  lr: 0   1      2   3
 		//    +---+---+  +---+---+	y=0		CCの0ライン目
@@ -439,21 +443,25 @@ void refresh_sprite_512_mode2(ms_vdp_t* vdp) {
 		//    +---+---+  +---+---+
 		//    | 5 | 7 |  | D | F |
 		//    +---+---+  +---+---+	y=15	CCの15ライン目
-		//
-		// 各yに対してX68000側は2行あるので、2回同じパターンを連続で書く
+		// ※ 8x8のスプライトの場合は左上の0,1,2,3の部分だけが使われる
+
+		// 各yに対してX68000側は2ラインになるが、ループはMSX側のライン数でおこない、
+		// X68000側に同じパターンを連続で書くようにしている。よってこの yは 8 or 16でOK。
 		int ymax = vdp->sprite_size == 0 ? 8 : 16;
+		// lrは 8ドットサイズの場合は2回、16ドットサイズの場合は4回繰り返す
 		int lrmax = vdp->sprite_size == 0 ? 2 : 4;
 		int ptNumMask = vdp->sprite_size == 0 ? 0xff : 0xfc;
 		int lr;
 		for (lr=0;lr < lrmax; lr++) {
-			uint16_t mask = 1;
-			for	(y=0; y<ymax; y++, mask <<= 1) {
+			uint16_t ccmask = 1;
+			for	(y=0; y<ymax; y++, ccmask <<= 1) {
 				// yy は上記パターンの通し番号(0-F)の中で見た、X68000側のライン番号
-				int yy = (y&0x8)*4*8/8 + // 外の上段下段
-						(y&0x4)*8/4 + // 中の上段下段
-						(lr&0x2)*8*8/2 + // 外の左右
-						(lr&0x1)*8*2 + // 中の左右
-						(y&0x3)*2; // 512モードの場合、1ラインが2ラインになる
+				// ここで出てくるyyは必ず偶数になり、以下の処理の中で奇数ラインも同じ値を書いている
+				int yy = (lr & 0x2)/2*8*8 +	// 外の左右
+						 (lr & 0x1)  *8*2 +	// 中の左右
+						 ( y & 0x8)/8*4*8 +	// 外の上段下段
+						 ( y & 0x4)/4*8*1 +	// 中の上段下段
+						 ( y & 0x3)  *2;	// 512モードの場合、1ラインが2ラインになる
 				i=plNum;
 				while(i<=m) {
 					uint32_t color = pcol[i*COL_SIZE+y] & 0xf;
@@ -469,7 +477,7 @@ void refresh_sprite_512_mode2(ms_vdp_t* vdp) {
 							break;
 						}
 						j++; // j==mを先に判定しているので、i+1がmをオーバーすることはない
-						if( (sprite_cc_flags[j]&mask) == 0) {
+						if( (sprite_cc_flags[j]&ccmask) == 0) {
 							// CC=0に遭遇したら、それ以降は合成しない
 							X68_PCG[i*PCG_UNIT+yy+0] = pattern;
 							X68_PCG[i*PCG_UNIT+yy+1] = pattern;	//奇数ラインも同じものになる(yyは必ず偶数)
@@ -478,6 +486,7 @@ void refresh_sprite_512_mode2(ms_vdp_t* vdp) {
 						}
 						// CC=1のものが見つかったので合成する
 						uint32_t color_add = pcol[j*COL_SIZE+y] & 0xf;
+						color_add = color_add == 0 ? 1 : color_add; // 「色コード0」のスプライトが消えてしまう問題への暫定対応
 						uint32_t colorex_add = color_add << 28 | color_add << 24 | color_add << 20 | color_add << 16 | color_add << 12 | color_add << 8 | color_add << 4 | color_add;
 						uint32_t ptNum_add = patr[j*SAT_SIZE+2];
 						uint32_t pattern_add = vdp->x68_pcg_buffer[(ptNum_add & 0xff)*PCG_BUF_UNIT_D2X+yy] & colorex_add;
