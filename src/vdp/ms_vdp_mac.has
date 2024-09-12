@@ -910,12 +910,7 @@ w_R0:	move.b	d1,offset_ms_vdp_r00(a5)
 	*TBD
 	bra	1f
 @@:					* 走査線割り込みを使用しない
-1:	andi.w	#%00000000_00001110,d1	* 画面モードのセット
-	lsl.w	#1,d1			* M5,M4,M3を bit4,3,2の位置に
-	move.b	offset_ms_vdp_crt_mode(a5),d0
-	andi.w	#%00000000_00000011,d0	* M2,M1と混ぜる
-	or.w	d1,d0
-	bsr	set_CRT			* 画面の切り替え
+1:	bsr	set_CRT			* 画面の切り替え
 	rts
 
 ; R#1	VDP Mode Register 1
@@ -948,16 +943,6 @@ w_R1:	move.b	d1,offset_ms_vdp_r01(a5)
 	lsr.b	#1,d0
 	move.b	d0,offset_ms_vdp_sprite_size(a5)
 
-	move.b	d1,d0
-	andi.w	#%00000000_00010000,d0
-	lsr.w	#4,d0			* M1をbit0に
-	move.b	d1,d2
-	andi.w	#%00000000_00001000,d2
-	lsr.w	#2,d2			* M2をbit1に
-	or.w	d2,d0
-	move.b	offset_ms_vdp_crt_mode(a5),d2
-	andi.w	#%00000000_00011100,d2	* M5,M4,M3と混ぜる
-	or.w	d2,d0
 	bsr	set_CRT
 
 	rts
@@ -1201,9 +1186,7 @@ w_R46:
 
 ***************************************************************
 *
-*	画面の切り替え
-*
-*	d0.w	新しいＣＲＴＭＯＤＥレジスターの値
+*	R#0とR#2に従い画面モードを切り替えます
 *
 *		     | M5 | M4 | M3 | M2 | M1 |
 *	|SCREEN 0(40)|  0 |  0 |  0 |  0 |  1 |		0x01	TEXT1
@@ -1219,6 +1202,26 @@ w_R46:
 *
 ***************************************************************
 set_CRT:
+	; R#0	VDP Mode Register 0
+	; 	[ 0 ][ DG][IE2][IE1][ M5][ M4][ M3][ 0 ]
+	; R#1	VDP Mode Register 1
+	;	[ 0 ][ BL][IE0][ M1][ M2][ 0 ][ SI][MAG]
+	clr.w	d0
+	move.b	offset_ms_vdp_r00(a5),d0
+	; M5,M4,M3を bit4,3,2の位置に
+	andi.w	#%00000000_00001110,d0
+	lsl.w	#1,d0
+	; M1をbit0に
+	move.b	offset_ms_vdp_r01(a5),d1
+	andi.w	#%00000000_00010000,d1
+	lsr.w	#4,d1
+	or.w	d1,d0
+	; M2をbit1に
+	move.b	offset_ms_vdp_r01(a5),d1
+	andi.w	#%00000000_00001000,d1
+	lsr.w	#2,d1
+	or.w	d1,d0
+
 	cmp.b	offset_ms_vdp_crt_mode(a5),d0		* 前と変わってなければ何もしない
 	bne	@f
 	rts
