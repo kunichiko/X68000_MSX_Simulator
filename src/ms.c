@@ -129,7 +129,7 @@ void printHelpAndExit(char* progname) {
 	fprintf(stderr, "    1: every frame, 2: every 2 frames, ...\n");
 	fprintf(stderr, "    default is 3.\n");
 	fprintf(stderr, " --hostdelay host key interruption delay cycle (1-9999)\n");
-	fprintf(stderr, "    default is 20 cycles.\n");
+	fprintf(stderr, "    default is 100 cycles.\n");
 	fprintf(stderr, " --disablekey\n");
 	fprintf(stderr, "    disable key input for performance test.\n");
 //	fprintf(stderr, " --debuglevel N\n");
@@ -212,7 +212,7 @@ int main(int argc, char *argv[]) {
 	const struct option* longopt;
     int longindex = 0;
 
-	printf("[[ MSX Simulator MS.X]]\n");
+	printf("[[ MSX Simulator MS.X v%s]]\n", MS_dot_X_VERSION);
 
 	unsigned int mpu_type = _iocs_mpu_stat();
 	if( (mpu_type & 0xf) < 3) {
@@ -522,7 +522,7 @@ int main(int argc, char *argv[]) {
 
 	printf("\n\n\n\n\n\n\n\n"); // TEXT画面を上に8ラインくらい上げているので、その分改行を入れる
 	printf("\n\n\n\n\n\n\n\n"); // 256ドットモードだとさらに見えなくなるので、もう少し下げる
-	printf("[[ MSX Simulator MS.X]]\n");
+	printf("[[ MSX Simulator MS.X v%s]]\n", MS_dot_X_VERSION);
 	printf(" この画面は HELP キーで消せます\n");
 
 	/*

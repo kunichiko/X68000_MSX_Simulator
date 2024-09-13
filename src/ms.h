@@ -1,3 +1,6 @@
+#ifndef MS_H
+#define MS_H
+
 /*
 
 		‚l‚r‚w.‚r‚‰‚‚•‚Œ‚‚”‚…‚’ [[ MS ]]
@@ -7,10 +10,10 @@
 										1995.12.06
 
 */
-#ifndef MS_H
-#define MS_H
 
 #include "memmap/ms_memmap.h"
+
+#define MS_dot_X_VERSION	"0.4.7"
 
 #ifdef DEBUG
 #define MS_LOG(level, ...) do { if (debug_log_level >= level) printf(__VA_ARGS__); } while (0)

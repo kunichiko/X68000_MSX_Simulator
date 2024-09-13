@@ -257,7 +257,7 @@ ms_iocs_ledctrl:
 int_block_count:
 	.dc.l	2048
 host_delay:
-	.dc.w	$20
+	.dc.w	100
 original:
 	.dc.l	0
 

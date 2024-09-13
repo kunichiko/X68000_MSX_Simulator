@@ -459,14 +459,6 @@ raster_interrupt:
 	movea.l	ms_vdp_shared,a5
 	btst.b	#4,offset_ms_vdp_r00(a5)	* VDP IE1 (R#0のbit4) をみて、HSYNC割り込みが許可されているかを調べる
 	beq	@f
-	clr.w	d0
-	move.b	offset_ms_vdp_r19(a5),d0
-	btst.b	#7,offset_ms_vdp_r09(a5)	* R#9の bit7 が画面のライン数
-	beq	1f
-	cmpi.w	#212,d0				* R#19の値(ラスタ割り込みをかけるラスタ番号)が画面外の時は割り込みをかけない
-	bra	2f
-1:	cmpi.w	#192,d0
-2:	bge	@f
 	; 走査線割り込みをかける
 	bset.b	#0,offset_ms_vdp_s01(a5)	* VDP S#1の bit0に、HSYNC割り込み発生フラグを立てる。これとS#0の VSYNC割り込みがZ80のINT端子の状態を表している。
 	bset.b	#1,ms_vdp_int			* HSYNC割り込み要求フラグを立てる
@@ -1160,7 +1152,7 @@ w_R16:	move.b	d1,offset_ms_vdp_r16(a5)
 w_R17:	move.b	d1,offset_ms_vdp_r17(a5)
 	rts
 
-; set adjust
+; R#18 は set adjust
 w_R18:
 	move.b	d1,offset_ms_vdp_r18(a5)
 	; 水平方向だけ仮対応
@@ -1177,18 +1169,41 @@ w_R18:
 	move.w	#SPRITE_REFRESH_FLAG_COORD,offset_ms_vdp_sprite_refresh_flag(a5)
 	rts
 
+; R#19 はラスタ割り込み番号の指定
 w_R19:	move.b	d1,offset_ms_vdp_r19(a5)
+	bsr	update_raster_interrupt_line
+	rts
+
+update_raster_interrupt_line:
 	; CRTC R09 のラスタ割り込み番号を更新
+	; R#23 による縦スクロールの影響を受けるので、補正する必要がある
+	; 例えば、スクロールオフセットが10のとき走査線割り込み番号が100だと、X68000側の90ライン目で割り込みをかける必要がある
+	move.b	offset_ms_vdp_r19(a5),d1
+	sub.b	offset_ms_vdp_r23(a5),d1
 	andi.w	#$00ff,d1
+	; ラスタ番号が画面内に表示される範囲かどうか調べる
+	btst.b	#7,offset_ms_vdp_r09(a5)	* R#9の bit7 が画面のライン数
+	beq	1f
+	; 212ラインの時
+	cmpi.w	#212,d0
+	bra	2f
+1:	; 192ラインの時
+	cmpi.w	#192,d0
+2:	bge	@f
+	; 画面内なので割り込みをかける
 	add.w	d1,d1
 	addi.w	#39,d1	; 暫定
 	move.w	d1,CRTR_09
 	rts
+@@:	; 画面外なので割り込みをかけない
+	move.w	#$ffff,CRTR_09
+	rts	
 
 ; R#23 は縦スクロール
 w_R23:					
 	move.b	d1,offset_ms_vdp_r23(a5)
 	bsr	ms_vdp_update_visibility_mac
+	bsr	update_raster_interrupt_line
 	rts
 
 SX_l:	move.b	d1,offset_ms_vdp_sx+1(a5)
