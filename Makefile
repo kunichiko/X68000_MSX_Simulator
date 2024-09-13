@@ -149,27 +149,28 @@ ${BUILD_DIR}/ms.x: $(OBJS)
 ${BUILD_DIR}/ms_debug.x: $(OBJS_DEBUG)
 	$(LD) $(LDFLAGS) -o $@ $^
 
-${BUILD_DIR}/%_d.o: $(SRC_DIR)/%.c $(SRC_DIR)/ms_R800.h
-	$(CC) $(CFLAGS_DEBUG) $< -o $@
-
-${BUILD_DIR}/%_d.o: $(SRC_DIR)/%.has $(SRC_DIR)/ms.mac
-	$(AS) $(ASFLAGS_DEBUG) $< -o $@.tmp
-	x68k2elf.py $@.tmp $@
-	rm $@.tmp
-
-${BUILD_DIR}/%.o: $(SRC_DIR)/%.c $(SRC_DIR)/ms_R800.h
+${BUILD_DIR}/%.o: $(SRC_DIR)/%.c $(SRC_DIR)/ms_R800.h $(SRC_DIR)/ms.h
 	$(CC) $(CFLAGS) $< -o $@
+
+${BUILD_DIR}/%_d.o: $(SRC_DIR)/%.c $(SRC_DIR)/ms_R800.h $(SRC_DIR)/ms.h
+	$(CC) $(CFLAGS_DEBUG) $< -o $@
 
 ${BUILD_DIR}/%.o: $(SRC_DIR)/%.has
 	$(AS) $(ASFLAGS) $< -o $@.tmp
 	x68k2elf.py $@.tmp $@
 	rm $@.tmp
 
+${BUILD_DIR}/%_d.o: $(SRC_DIR)/%.has $(SRC_DIR)/ms.mac
+	$(AS) $(ASFLAGS_DEBUG) $< -o $@.tmp
+	x68k2elf.py $@.tmp $@
+	rm $@.tmp
+
+
 # VDP files
-${BUILD_DIR}/%.o: $(VDP_DIR)/%.c $(VDP_DIR)/ms_vdp.h
+${BUILD_DIR}/%.o: $(VDP_DIR)/%.c $(VDP_DIR)/ms_vdp.h $(SRC_DIR)/ms.h
 	$(CC) $(CFLAGS) $< -o $@
 
-${BUILD_DIR}/%_d.o: $(VDP_DIR)/%.c $(VDP_DIR)/ms_vdp.h
+${BUILD_DIR}/%_d.o: $(VDP_DIR)/%.c $(VDP_DIR)/ms_vdp.h $(SRC_DIR)/ms.h
 	$(CC) $(CFLAGS_DEBUG) $< -o $@
 
 ${BUILD_DIR}/%.o: $(VDP_DIR)/%.has
@@ -183,10 +184,10 @@ ${BUILD_DIR}/%_d.o: $(VDP_DIR)/%.has $(SRC_DIR)/ms.mac
 	rm $@.tmp
 
 # Memmap files
-${BUILD_DIR}/%.o: $(MEMMAP_DIR)/%.c $(MEMMAP_DIR)/ms_memmap.h
+${BUILD_DIR}/%.o: $(MEMMAP_DIR)/%.c $(MEMMAP_DIR)/ms_memmap.h $(SRC_DIR)/ms.h
 	$(CC) $(CFLAGS) $< -o $@
 
-${BUILD_DIR}/%_d.o: $(MEMMAP_DIR)/%.c $(MEMMAP_DIR)/ms_memmap.h
+${BUILD_DIR}/%_d.o: $(MEMMAP_DIR)/%.c $(MEMMAP_DIR)/ms_memmap.h $(SRC_DIR)/ms.h
 	$(CC) $(CFLAGS_DEBUG) $< -o $@
 
 ${BUILD_DIR}/%.o: $(MEMMAP_DIR)/%.has
@@ -200,10 +201,10 @@ ${BUILD_DIR}/%_d.o: $(MEMMAP_DIR)/%.has $(SRC_DIR)/ms.mac
 	rm $@.tmp
 
 # Disk files
-${BUILD_DIR}/%.o: $(DISK_DIR)/%.c $(DISK_DIR)/ms_disk.h
+${BUILD_DIR}/%.o: $(DISK_DIR)/%.c $(DISK_DIR)/ms_disk.h $(SRC_DIR)/ms.h
 	$(CC) $(CFLAGS) $< -o $@
 
-${BUILD_DIR}/%_d.o: $(DISK_DIR)/%.c $(DISK_DIR)/ms_disk.h
+${BUILD_DIR}/%_d.o: $(DISK_DIR)/%.c $(DISK_DIR)/ms_disk.h $(SRC_DIR)/ms.h
 	$(CC) $(CFLAGS_DEBUG) $< -o $@
 
 ${BUILD_DIR}/%.o: $(DISK_DIR)/%.has
@@ -217,10 +218,10 @@ ${BUILD_DIR}/%_d.o: $(DISK_DIR)/%.has $(SRC_DIR)/ms.mac
 	rm $@.tmp
 
 # Peripheral files
-${BUILD_DIR}/%.o: $(PERIPHERAL_DIR)/%.c
+${BUILD_DIR}/%.o: $(PERIPHERAL_DIR)/%.c $(SRC_DIR)/ms.h
 	$(CC) $(CFLAGS) $< -o $@
 
-${BUILD_DIR}/%_d.o: $(PERIPHERAL_DIR)/%.c
+${BUILD_DIR}/%_d.o: $(PERIPHERAL_DIR)/%.c $(SRC_DIR)/ms.h
 	$(CC) $(CFLAGS_DEBUG) $< -o $@
 
 ${BUILD_DIR}/%.o: $(PERIPHERAL_DIR)/%.has
