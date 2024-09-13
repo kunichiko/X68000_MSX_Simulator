@@ -14,10 +14,6 @@
 
 	.xref	VDP_R_01		* VDP コントロールレジスタ 1
 
-	.xref	cpu_emu_yield
-	.xref	cpu_yield
-	.xref	emu_yield
-
 	.xref	KEY_INT
 
 	.xdef	KEY_vector
@@ -63,6 +59,8 @@ print:		macro	msg
 	.even
 
 ; CPUコアのINT端子(割り込み受付)と、VDPのINT端子(割り込み要求)を接続するための変数
+; bit0: VSYNC割り込み要求
+; bit1: HSYNC割り込み要求
 ms_cpu_int:
 ms_vdp_int:
 	.dc.b	0

@@ -100,7 +100,7 @@
 	.xref	HEX
 	.xref	int_block_count
 
-	.xref	ms_vdp_interrupt_tick	; TODO VDP依存を除去
+	.xref	ms_vsync_interrupt_tick	; TODO VDP依存を除去
 
 	.xref	eval_flag_all
 	.xref	eval_flag_SZ
@@ -118,8 +118,9 @@
 	.xdef	ms_cpu_needs_refresh_PC
 
 	;.xdef	cpu_main
-	.xdef	cpu_emu_yield
-	.xdef	cpu_yield
+	.xdef	cpu_sub_emu_yield
+	.xdef	cpu_yield		* 一定周期(VSYNC)などで必ず呼び出される割り込み要求
+	.xdef	sub_yield		* その他の要因で呼ばれる割り込み要求
 	.xdef	emu_yield
 	.xdef	cpu_cycle_last
 	.xdef	cpu_cycle_wait
@@ -264,6 +265,8 @@ emu_counter:
 	.dc.l	0
 emu_counter_latch:
 	.dc.l	0
+emu_counter_latch_r:		* Rレジスタ用のラッチ
+	.dc.l	0
 int_skip_counter:
 	.dc.l	0
 int_exec_counter:
@@ -324,7 +327,7 @@ cpu_main:
 	; このタイミングでちょっと重めの処理を入れると、影響が1/256になる
 	; ウエイトが必要な場合はウエイトを入れる
 	bsr	do_wait
-@@:	move.l	cpu_emu_yield,d0
+@@:	move.l	cpu_sub_emu_yield,d0
 	beq	cpu_main_next
 	bsr	check_yield
 cpu_main_next:
@@ -352,6 +355,9 @@ debug_log_pc:
 	cmp.w	#MS_LOG_CPUTRACE,debug_log_level
 	bge	@f				* ログレベルがCPUTRACEの時のみ
 	rts
+; @@:	cmp.w	#0,interrupt_return		* 割り込み中はログを出力しない
+; 	beq	@f
+; 	rts
 @@:	link	a6,#-2
 	movem.l	d0-d7/a0-a6,-(sp)
 	move.l	d7,d0
@@ -674,7 +680,7 @@ ms_cpu_jmp:					* デバッガでBP設定する時用のラベル
 ;---------------------------------------------------------------------------------------
 
 
-; cpu_yieldか emu_yieldのどちらかが0でない場合の中断処理
+; cpu_yield, sub_yield, emu_yieldのいずれかが0でない場合の中断処理
 check_yield:
 	move.w	sr,d0
 	move.w	d0,-(sp)
@@ -682,11 +688,33 @@ check_yield:
 	move.w	d0,sr
 
 	; cpu_yieldの処理
-	cmpi.w	#0,cpu_yield
+	cmpi.b	#0,cpu_yield
+	beq	next_sub_yield
+	subq.b	#1,cpu_yield
+	bne	next_sub_yield
+	bra	next_cpu_yield
+
+next_sub_yield:
+	; sub_yieldの処理
+	cmpi.b	#0,sub_yield
 	beq	next_emu_yield
-	subq.w	#1,cpu_yield
+	subq.b	#1,sub_yield
 	bne	next_emu_yield
-	; cpu_yieldが1→0になったので、1/60ごとの処理を行う (割り込み判定など)
+	; HSYNC割り込み処理
+	cmpi.b	#0,interrupt_enable
+	beq	next_emu_yield	* DIなら割り込まない
+	; EI = 1だった場合、割り込みを処理するが、
+	; EIの実行直後の場合は割り込みをスキップする
+	cmpi.b	#$fb,last_opcode
+	beq	next_emu_yield
+	; あらためて割り込み要求端子の値(ms_cpu_int)を見て割り込み要求があるかどうかを見る
+	cmpi.b	#0,ms_cpu_int
+	beq	next_emu_yield
+	bsr	INT
+	bra	check_yield_rts
+
+next_cpu_yield:
+	; cpu_yieldが1→0になったので、1/60ごとの定期処理を行う
 	; まずはCPUサイクル数を見て早すぎる場合のウエイト量を計算
 	move.l	cpu_cycle,d0
 	move.l	d0,cpu_cycle_latch
@@ -756,12 +784,7 @@ check_interrupt:
 	move.w	#1,d0
 	bsr	add_interrupt_history
 
-	cmp.w	#0,cpu_yield	* 絶対に0のはずなので違ったら強制終了(実験)
-	beq	check_yield_rts
-	move.w	(sp)+,sr
-	; サブルーチンを1段飛ばすために、SPをインクリメント
-	lea.l	4(sp),sp
-	bra	emu_end		* 強制終了
+	bra	check_yield_rts
 
 1:
 	addq.l	#1,int_exec_counter
@@ -989,13 +1012,16 @@ ms_cpu_step:
 
 *
 * 割り込みヒストリに情報を追記します
-*	入力: d0.w		割り込みに対する対応の結果: 0: EI状態で割り込みがかかった, 1: EIだったがスキップ, 2: DI状態で割り込みがスキップ
+*	入力: d0.w	割り込みに対する対応の結果:
+*		 0: EI状態で割り込みがかかった
+*		 1: EIだったがスキップ
+*		 2: DI状態で割り込みがスキップ
 * 	破壊: a0, d0, d1
 *
 add_interrupt_history:
 	lea	interrupt_history,a0
 	move.w	interrupt_history_wr,d1
-	move.w	ms_vdp_interrupt_tick,(a0,d1.w*8)
+	move.w	ms_vsync_interrupt_tick,(a0,d1.w*8)
 	move.w	d0,2(a0,d1.w*8)
 	move.l	emu_counter,d0
 	sub.l	emu_counter_latch,d0
@@ -1309,6 +1335,7 @@ mode1:	move.l	d7,d1
 	swap	d7		* d7 = 00000000_00000ppp
 	ror.w	#PAGENUMBIT,d7	* d7 = ppp00000_00000000
 	or.w	d7,d1		* d1 = pppaaaaa_aaaaaaaa = PC (64k)
+	move.w	d1,interrupt_return	* 戻り先アドレスを保存
 	subq.w	#2,sp_(a3)	* PUSH	
 	move.w	sp_(a3),d0
 	write_mem_16
@@ -3154,7 +3181,10 @@ CALL_M:	bsr	eval_flag_SZ	* SZ フラグを再評価
 RET:	move.w	sp_(a3),d0
 	jsr	ms_read_mem_16
 	addq.w	#2,sp_(a3)
-	move.w	d0,d7
+	cmp.w	interrupt_return,d0	* 割り込み発生時にセットした戻り先アドレスに戻ったか？
+	bne	@f
+	move.w	#0,interrupt_return
+@@:	move.w	d0,d7
 	PC_page_set
 	rts
 
@@ -3617,7 +3647,7 @@ HALT:
 	; pea.l	halt_msg
 	; DOS	__PRINT
 	; lea.l	4(sp),sp
-9:	move.l	cpu_emu_yield,d0	* X68000側の割り込みがかかるまで待機
+9:	move.l	cpu_sub_emu_yield,d0	* X68000側の割り込みがかかるまで待機
 	beq	9b
 	; 一時的に割り込み禁止
 	move.w	sr,d0
@@ -5486,10 +5516,14 @@ MULW_HL_SP:
 	.dc.w	2-1			* 命令語長-1
 LD_A_R:	bsr	eval_flag_all
 	andi.l	#%000_00000000_00101001,d6	* S,Z,HC,PV,Nをクリア
-	move.b	emu_counter,d0
-	andi.b	#%01111111,d0		* 下位7bitのみ
 	move.b	r(a3),d4
+	; bit7はLD R,Aで代入した値がそのまま残る
 	andi.b	#%10000000,d4		* bit7 を取り出す
+	; Rレジスタは下位7bitのみがインクリメントされる
+	move.l	emu_counter,d0
+	sub.l	emu_counter_latch_r,d0
+	add.b	r(a3),d0
+	andi.b	#%01111111,d0		* 下位7bitのみ
 	or.b	d0,d4
 	bne	1f
 	ori.w	#%01000000,d6		* Zフラグをセット
@@ -5505,6 +5539,7 @@ LD_A_R:	bsr	eval_flag_all
 	.dc.w	9			* サイクル数
 	.dc.w	2-1			* 命令語長-1
 LD_R_A:	move.b	d4,r(a3)
+	move.l	emu_counter,emu_counter_latch_r	* Rレジスタがセットされたときのカウンタを覚えておく
 	rts
 
 *	------ ＬＤ Ｉ ------
@@ -5512,11 +5547,7 @@ LD_R_A:	move.b	d4,r(a3)
 	.dc.w	2-1			* 命令語長-1
 LD_A_I: bsr	eval_flag_all
 	andi.l	#%000_00000000_00101001,d6	* S,Z,HC,PV,Nをクリア
-	move.b	emu_counter,d0
-	andi.b	#%01111111,d0		* 下位7bitのみ
 	move.b	i(a3),d4
-	andi.b	#%10000000,d4		* bit7 を取り出す
-	or.b	d0,d4
 	bne	1f
 	ori.w	#%01000000,d6		* Zフラグをセット
 1:	btst.l	#7,d4
@@ -5550,7 +5581,10 @@ RETN:	move.w	sp_(a3),d0
 RETI:	move.w	sp_(a3),d0
 	jsr	ms_read_mem_16
 	addq.w	#2,sp_(a3)
-	move.w	d0,d7
+	cmp.w	interrupt_return,d0	* 割り込み発生時にセットした戻り先アドレスに戻ったか？
+	bne	@f
+	move.w	#0,interrupt_return
+@@:	move.w	d0,d7
 	PC_page_set
 	rts
 
@@ -7787,7 +7821,7 @@ output:
 
 print_debug_in:
 	cmp.w	#MS_LOG_TRACE,debug_log_level
-	bge	@f				* ログレベルが3以上の時
+	bge	@f
 	rts
 @@:	movem.l	d0-d3/a0-a3,-(sp)
 	move.b	d0,d2
@@ -7805,7 +7839,7 @@ print_debug_in:
 
 print_debug_out:
 	cmp.w	#MS_LOG_TRACE,debug_log_level		* TRACE以上の時
-	bge	@f				* ログレベルが3以上の時
+	bge	@f
 	rts
 @@:	movem.l	d0-d3/a0-a3,-(sp)
 	move.b	d0,d2
@@ -7904,23 +7938,20 @@ target_8_:
 
 ; CPUのメインループを極力高速化するため、Z80の割り込みや、エミュレータの割り込み(キーボード処理など)を
 ; yieldフラグを見て分岐するようにしています。
-; yieldフラグには cpu_yieldと、emu_yieldの2つがあり、どちらも0の場合は、CPUのメインループが
+; yieldフラグには cpu_yield、sub_yield、emu_yieldがあり、すべてが0の場合は、CPUのメインループが
 ; 割り込まれずに実行されます。
-; この2つのフラグは、以下のような動作をします。
+; このフラグは、以下のような動作をします。
 ;
-; ● cpu_yield
-; cpu_yieldに1以上をセットすると、1命令処理するごとにカウントダウンし、0になるタイミングで、
+; ● cpu_yield, sub_yield
+; cpu_yield、sub_yieldに1以上をセットすると、1命令処理するごとにカウントダウンし、0になるタイミングで、
 ; 以下の動作をします:
 ;   * EI状態で、VDPからの割り込み要求があるなら、割り込みを発生させる
 ;   * DI状態なら無視する(割り込みは取りこぼされる)
 ;
-; 通常はX68000側のVSYNC割り込みで1をセットし、即座にZ80側の割り込みがかかるようにしますが、
+; 通常はX68000側のVSYNC割り込みでcpu_yieldに1をセットし、即座にZ80側の割り込みがかかるようにします。
 ; タイミング調整が必要になった場合は、このフラグを使って調整可能です。
-; 走査線割り込みをサポートする場合も、このフラグに1以上の値をセットして走査線割り込みのタイミングを
-; 調整することが可能です。
-; VSYNC割り込みでセットされたフラグのカウントダウンをしている最中に走査線割り込みによって cpu_yieldが
-; 書き潰される可能性はあるかもしれませんが、もともと両者の割り込みはZ80から見ると共有割り込みなので、
-; まあ問題ないかなと思っています。
+; 走査線割り込みをサポートする場合は、sub_yieldをセットしますこのフラグに1以上の値をセットして
+; 走査線割り込みのタイミングを 調整することが可能です。
 ;
 ; ● emu_yield
 ; emu_yieldに1以上をセットすると、1命令処理するごとにカウントダウンし、0になるタイミングで、
@@ -7932,9 +7963,11 @@ target_8_:
 ; emu_yieldの頻度を調整したい場合は、VSYNC割り込み以外のタイマー割り込みを使ってセットするように
 ; しても良いです。
 	.quad
-cpu_emu_yield:			* cpu_yieldと emu_yieldの両方を同時にロングワードアクセスするときはこちらのラベルを使用する
+cpu_sub_emu_yield:		* cpu_yield, sub_yield, emu_yield を同時にロングワードアクセスするときはこちらのラベルを使用する
 cpu_yield:
-	.dc.w	0
+	.dc.b	0
+sub_yield:
+	.dc.b	0
 emu_yield:
 	.dc.w	0
 
@@ -7957,5 +7990,9 @@ last_opcode:
 interrupt_mode:
 	.dc.b	0		* インタラプトモード 0, 1, 2
 
+	.even
+
+interrupt_return:
+	.dc.w	0		* 割り込み処理の戻り先アドレス。割り込みが終わったら0クリアされます。
 
 	.end

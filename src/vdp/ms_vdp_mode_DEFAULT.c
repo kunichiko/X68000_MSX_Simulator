@@ -112,12 +112,20 @@ void update_palette_DEFAULT(ms_vdp_t* vdp) {
 	uint16_t back_palette = vdp->palette[vdp->back_color & 0xf];
 	int alt_color = 1;
 	uint16_t alt_color_diff = diff_color(back_palette, vdp->palette[alt_color]);
+	uint16_t color;
 
 	// 透明色は背景色が透けて見えるようにする
-	X68_GR_PAL[0] = back_palette;
+	if (vdp->tx_active) {
+		// 輝度を半分に落とす
+		color = back_palette & 0b1111011110111100;
+		color >>= 1;
+	} else {
+		color = back_palette;
+	}
+	X68_GR_PAL[0] = color;
 
 	for(i =1; i < 16; i++) {
-		uint16_t color = vdp->palette[i];
+		color = vdp->palette[i];
 		// 背景色との差が最も小さい色を背景色の代替色として選ぶ
 		uint16_t diff = diff_color(back_palette, color);
 		if (diff < alt_color_diff) {

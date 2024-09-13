@@ -100,7 +100,7 @@ void _moveTextPlane(int cursorKeyHit);
 
 unsigned short host_rate = 1;
 
-volatile extern unsigned short ms_vdp_interrupt_tick;
+volatile extern unsigned short ms_vsync_interrupt_tick;
 volatile extern unsigned short ms_vdp_vsync_rate;
 volatile extern unsigned int int_block_count;
 volatile extern unsigned short host_delay;
@@ -605,14 +605,14 @@ int main(int argc, char *argv[]) {
 			lastdate = date;
 			date = _iocs_timeget();
 		}
-		start = ms_vdp_interrupt_tick;		// ‚»‚Ì‚Æ‚«‚Ìtick‚ðŽæ“¾
+		start = ms_vsync_interrupt_tick;		// ‚»‚Ì‚Æ‚«‚Ìtick‚ðŽæ“¾
 		date = _iocs_timeget();
 		lastdate = date;
 		while(date == lastdate) {	// •b‚ª•Ï‚í‚éuŠÔ‚ð‘Ò‚Â
 			lastdate = date;
 			date = _iocs_timeget();
 		}
-		end = ms_vdp_interrupt_tick;		// ‚»‚Ì‚Æ‚«‚Ìtick‚ðŽæ“¾
+		end = ms_vsync_interrupt_tick;		// ‚»‚Ì‚Æ‚«‚Ìtick‚ðŽæ“¾
 
 		MS_LOG(MS_LOG_DEBUG, "VSYNC‰ñ”‚Í %d ‚Å‚·\n", end - start);
 	}
@@ -962,7 +962,7 @@ int emuLoop(unsigned int pc, unsigned int counter) {
 	if (kigoKeyHit) {
 		printf("\n");
 		printf("loop count=%08d\ncycle=%08ld wait=%ld\n", emuLoopCounter, cpu_cycle_last, cpu_cycle_wait);
-		printf("COUNTER=%08x, inttick=%08d\n", counter, ms_vdp_interrupt_tick);
+		printf("COUNTER=%08x, inttick=%08d\n", counter, ms_vsync_interrupt_tick);
 		dump(pc >> 16, pc & 0x1fff);
 	}
 

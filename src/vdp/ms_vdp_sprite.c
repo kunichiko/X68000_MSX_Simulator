@@ -219,6 +219,10 @@ void refresh_sprite_256(ms_vdp_t* vdp, int plNum);
 void refresh_sprite_256_mode1(ms_vdp_t* vdp, int plNum);
 void refresh_sprite_256_mode2(ms_vdp_t* vdp);
 
+inline int get_sprite_adjustx(ms_vdp_t* vdp) {
+	return (vdp->r18 & 0x8) ? 8-(vdp->r18 & 0x7) : -(vdp->r18 & 0x7);
+}
+
 void write_sprite_attribute(ms_vdp_t* vdp, int offset, uint32_t attribute, int32_t old_attribute) {
 	if(vdp->ms_vdp_current_mode->sprite_mode & 0x80) {
 		write_sprite_attribute_512(vdp, offset, attribute, old_attribute);
@@ -236,7 +240,6 @@ void write_sprite_attribute_256(ms_vdp_t* vdp, int offset, uint32_t attribute, i
 		return;
 	}
 
-	uint8_t* pattr = vdp->vram + vdp->sprattrtbl_baddr;
 	switch(type) {
 		case 0: // Y座標
 			// Y=208/216の対応のため、Y座標の208/216の値が変化したら、スプライトの再配置を行う
@@ -253,8 +256,24 @@ void write_sprite_attribute_256(ms_vdp_t* vdp, int offset, uint32_t attribute, i
 			X68_SSR[plNum*SSR_UNIT+1] = y;
 			break;
 		case 1: // X座標
-			X68_SSR[plNum*SSR_UNIT+0] = (attribute & 0xff) + 16; // MSXのX座標の1倍, X68000のスプライトの原点は(16,16)なのでずらす
-			// TODO ECビットによる位置補正処理
+		 	// MSXのX座標の1倍, X68000のスプライトの原点は(16,16)なのでずらす
+			// SET ADJUSTのX方向の補正を行う
+			int ec = 0;
+			int spMode = vdp->ms_vdp_current_mode->sprite_mode & 0x3;
+			switch(spMode) {
+			case 1:
+				uint8_t* pattr = vdp->vram + vdp->sprattrtbl_baddr;
+				ec = (pattr[plNum*SAT_SIZE+3] & 0x80) >> 7;
+				break;
+			case 2:
+				uint8_t* pcolr = vdp->vram + vdp->sprcolrtbl_baddr;
+				ec = (pcolr[plNum*COL_SIZE+0] & 0x80) >> 7; // ラインごとのECはサポートしないので1ライン目だけみる
+				break;
+			}
+			int x = attribute & 0xff;
+			int adjustx = get_sprite_adjustx(vdp);
+			x = ((x - ec*32) + 16 + adjustx) & 0x3ff; // MSXのX座標の1倍
+			X68_SSR[plNum*SSR_UNIT+0] = x;
 			break;
 		case 2: // パターン番号
 		case 3: // 属性
@@ -289,6 +308,9 @@ void refresh_sprite_256_mode1(ms_vdp_t* vdp, int plNum) {
 		// 8x8
 		for( i = 0; i < 8; i++) { 
 			X68_PCG[plNum*PCG_UNIT+i] = x68_pcg_buffer[ptNum*PCG_BUF_UNIT_D1X+i] & colorex;
+		}
+		for(;i < 32; i++) {
+			X68_PCG[plNum*PCG_UNIT+i] = 0;
 		}
 	} else {
 		// 16x16
@@ -395,6 +417,20 @@ void refresh_sprite_256_mode2(ms_vdp_t* vdp) {
 						pattern |= pattern_add;
 					}
 				}
+			}
+			// 8x8の時は残りを0で埋める
+			for	(; y<16; y++) {
+				int yy = y+lr*16;
+				i=plNum;
+				X68_PCG[i*PCG_UNIT+yy] = 0;
+			}
+		}
+		// 8x8の時は残りを0で埋める
+		for	(; lr<2; lr++) {
+			for	(y=0; y<16; y++) {
+				int yy = y+lr*16;
+				i=plNum;
+				X68_PCG[i*PCG_UNIT+yy] = 0;
 			}
 		}
 	}
@@ -535,7 +571,8 @@ void write_sprite_attribute_512(ms_vdp_t* vdp, int offset, uint32_t attribute, i
 				break;
 			}
 			int x = attribute & 0xff;
-			x = ((x - ec*32)*2 + 16) & 0x3ff; // MSXのX座標の2倍
+			int adjustx = get_sprite_adjustx(vdp);
+			x = ((x - ec*32)*2 + 16 + adjustx*2) & 0x3ff; // MSXのX座標の2倍
 			for( i=0; i<4; i++) {
 				X68_SSR[plNum*SSR_UNIT+i*4+0] = x + (i/2)*16;
 			}
@@ -685,6 +722,7 @@ void ms_vdp_sprite_vsync_draw(ms_vdp_t* vdp) {
 		int visible_sprite_planes = 0;
 		plNum = 0;
 		int x,y,ec = 0;
+		int adjustx = get_sprite_adjustx(vdp) * mag512;
 		if ( (vdp->r08 & 0x02) == 0 ) {
 			// スプライト非表示ではない時
 			for(;plNum<32;plNum++) {
@@ -700,7 +738,7 @@ void ms_vdp_sprite_vsync_draw(ms_vdp_t* vdp) {
 					ec = (sprcolr[plNum*COL_SIZE+0] & 0x80) >> 7; // ラインごとのECはサポートしないので1ライン目だけみる
 				}
 				y = ((y + 1 - scroll_offset) & 0xff) * mag512 + 16;
-				x = ((x  - ec*32)* mag512 + 16) & 0x3ff;
+				x = ((x  - ec*32)* mag512 + 16 + adjustx) & 0x3ff;
 				if( mag512 == 2 && spSize == 16) {
 					// 512ドットモード、16x16サイズの時
 					for( i=0; i<4; i++) {
@@ -715,20 +753,17 @@ void ms_vdp_sprite_vsync_draw(ms_vdp_t* vdp) {
 					X68_SSR[plNum*SSR_UNIT+1] = y;
 					X68_SSR[plNum*SSR_UNIT+2] = 0x100 + plNum*4; // パレット0x10-0x1fを使用するので 0x100を足す					
 					X68_SSR[plNum*SSR_UNIT+3] = 3; // スプライト表示
+					for( i=1; i<4; i++) {
+						X68_SSR[plNum*SSR_UNIT+i*4+3] = 0;	// 8x8の時は後ろ3枚のスプライトは非表示
+					}
 				}
 			}
 		}
 		visible_sprite_planes = plNum;
 		// 以下のスプライトプレーンは非表示にする
 		for(;plNum<32;plNum++) {
-			if( mag512 == 2 ) {
-				// 512ドットモードの時
-				for( i=0; i<4; i++) {
-					X68_SSR[plNum*SSR_UNIT+i*4+3] = 0; // スプライト非表示
-				}
-			} else {
-				// 256ドットモードの時
-				X68_SSR[plNum*SSR_UNIT+3] = 0; // スプライト非表示
+			for( i=0; i<4; i++) {
+				X68_SSR[plNum*SSR_UNIT+i*4+3] = 0; // スプライト非表示
 			}
 		}
 		vdp->last_visible_sprite_planes = visible_sprite_planes;
