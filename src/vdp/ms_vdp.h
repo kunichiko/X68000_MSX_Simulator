@@ -181,17 +181,6 @@ typedef struct ms_vdp {
 	int last_visible_sprite_planes;
 	int last_visible_sprite_size;
 
-	// VDPコマンドのワークエリア
-	uint8_t cmd_current;
-	uint8_t cmd_logiop;
-	uint8_t cmd_arg;
-	uint32_t cmd_vram_addr;
-	uint16_t cmd_vram_addr_mod;		// 論理転送時、vram_addrの1バイト内の位置 GRAPHIC4,6の場合は 0,1、GRAPHIC5の場合は 0,1,2,3
-	uint16_t cmd_nx_count;
-	uint16_t cmd_ny_count;
-	uint16_t cmd_ny_sprite_start;	// VDPでスプライト領域を書き換えられたかの検出用
-	uint16_t cmd_ny_sprite_end;		// VDPでスプライト領域を書き換えられたかの検出用
-
 	// スプライトリフレッシュ要求フラグ
 	// どのビットが1になっているかで、再描画する範囲を決定します。
 	// ビット番号が下のものほど軽い処理で、上になる程思い処理としています。
@@ -224,6 +213,19 @@ typedef struct ms_vdp {
 	// このビットが立っていた場合は、MSXのパターンジェネレータテーブルの値を元にPCGバッファを再構築した上で、
 	// X68000側のスプライトパターンを全て再描画しなおします。
 	uint16_t sprite_refresh_flag;
+
+	// VDPコマンドのワークエリア
+	uint8_t cmd_current;
+	uint8_t cmd_logiop;
+	uint8_t cmd_arg;
+	uint32_t cmd_vram_addr;
+	uint16_t cmd_vram_addr_mod;		// 論理転送時、vram_addrの1バイト内の位置 GRAPHIC4,6の場合は 0,1、GRAPHIC5の場合は 0,1,2,3
+	uint16_t cmd_nx_count;
+	uint16_t cmd_ny_count;
+	uint16_t cmd_ny_sprite_start;	// VDPでスプライト領域を書き換えられたかの検出用
+	uint16_t cmd_ny_sprite_end;		// VDPでスプライト領域を書き換えられたかの検出用
+
+
 } ms_vdp_t;
 
 #define SPRITE_REFRESH_FLAG_COORD	0x01

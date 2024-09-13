@@ -100,7 +100,7 @@ void _moveTextPlane(int cursorKeyHit);
 
 unsigned short host_rate = 1;
 
-volatile extern unsigned short ms_vdp_interrupt_tick;
+volatile extern unsigned short ms_vsync_interrupt_tick;
 volatile extern unsigned short ms_vdp_vsync_rate;
 volatile extern unsigned int int_block_count;
 volatile extern unsigned short host_delay;
@@ -129,7 +129,7 @@ void printHelpAndExit(char* progname) {
 	fprintf(stderr, "    1: every frame, 2: every 2 frames, ...\n");
 	fprintf(stderr, "    default is 3.\n");
 	fprintf(stderr, " --hostdelay host key interruption delay cycle (1-9999)\n");
-	fprintf(stderr, "    default is 20 cycles.\n");
+	fprintf(stderr, "    default is 100 cycles.\n");
 	fprintf(stderr, " --disablekey\n");
 	fprintf(stderr, "    disable key input for performance test.\n");
 //	fprintf(stderr, " --debuglevel N\n");
@@ -212,7 +212,7 @@ int main(int argc, char *argv[]) {
 	const struct option* longopt;
     int longindex = 0;
 
-	printf("[[ MSX Simulator MS.X]]\n");
+	printf("[[ MSX Simulator MS.X v%s]]\n", MS_dot_X_VERSION);
 
 	unsigned int mpu_type = _iocs_mpu_stat();
 	if( (mpu_type & 0xf) < 3) {
@@ -522,7 +522,7 @@ int main(int argc, char *argv[]) {
 
 	printf("\n\n\n\n\n\n\n\n"); // TEXT画面を上に8ラインくらい上げているので、その分改行を入れる
 	printf("\n\n\n\n\n\n\n\n"); // 256ドットモードだとさらに見えなくなるので、もう少し下げる
-	printf("[[ MSX Simulator MS.X]]\n");
+	printf("[[ MSX Simulator MS.X v%s]]\n", MS_dot_X_VERSION);
 	printf(" この画面は HELP キーで消せます\n");
 
 	/*
@@ -605,14 +605,14 @@ int main(int argc, char *argv[]) {
 			lastdate = date;
 			date = _iocs_timeget();
 		}
-		start = ms_vdp_interrupt_tick;		// そのときのtickを取得
+		start = ms_vsync_interrupt_tick;		// そのときのtickを取得
 		date = _iocs_timeget();
 		lastdate = date;
 		while(date == lastdate) {	// 秒が変わる瞬間を待つ
 			lastdate = date;
 			date = _iocs_timeget();
 		}
-		end = ms_vdp_interrupt_tick;		// そのときのtickを取得
+		end = ms_vsync_interrupt_tick;		// そのときのtickを取得
 
 		MS_LOG(MS_LOG_DEBUG, "VSYNC回数は %d です\n", end - start);
 	}
@@ -962,7 +962,7 @@ int emuLoop(unsigned int pc, unsigned int counter) {
 	if (kigoKeyHit) {
 		printf("\n");
 		printf("loop count=%08d\ncycle=%08ld wait=%ld\n", emuLoopCounter, cpu_cycle_last, cpu_cycle_wait);
-		printf("COUNTER=%08x, inttick=%08d\n", counter, ms_vdp_interrupt_tick);
+		printf("COUNTER=%08x, inttick=%08d\n", counter, ms_vsync_interrupt_tick);
 		dump(pc >> 16, pc & 0x1fff);
 	}
 
