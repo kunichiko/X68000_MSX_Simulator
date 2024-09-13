@@ -447,8 +447,9 @@ vsync_interrupt:
 	beq	@f
 	bset.b	#7,offset_ms_vdp_s00(a5)	* VDP S#0の bit7に、VSYNC割り込み発生フラグを立てる。これとS#1の HSYNC割り込みがZ80のINT端子の状態を表している。
 	bset.b	#0,ms_vdp_int			* VSYNC割り込み要求フラグを立てる
-@@:
-	move.b	#$01,cpu_yield			* cpu_yield 
+	move.b	#$01,cpu_yield			* cpu_yield
+
+@@:	; MSX側と関係なく、ホスト(X68000)側の処理が必要なので、emu_yieldをセット
 	move.w	host_delay,emu_yield		* emu_yield
 
 	movem.l	(sp)+,d0/a0/a5
@@ -1196,7 +1197,7 @@ update_raster_interrupt_line:
 	move.w	d1,CRTR_09
 	rts
 @@:	; 画面外なので割り込みをかけない
-	move.w	#$ffff,CRTR_09
+	move.w	#$1ff,CRTR_09
 	rts	
 
 ; R#23 は縦スクロール
