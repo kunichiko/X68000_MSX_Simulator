@@ -6,19 +6,31 @@
 #include "ms_memmap.h"
 #include "ms_memmap_MAINRAM.h"
 
-char* driver_name_MAINRAM = "MAINRAM";
+#define THIS ms_memmap_driver_MAINRAM_t
+
+static char* driver_name = "MAINRAM";
+
+static void _did_attach(ms_memmap_driver_t* driver);
+static int _will_detach(ms_memmap_driver_t* driver);
+
+static void _did_update_memory_mapper(ms_memmap_driver_t* driver, int slot, uint8_t segment_num);
+
+static uint8_t _read8(ms_memmap_driver_t* driver, uint16_t addr);
+static void _write8(ms_memmap_driver_t* driver, uint16_t addr, uint8_t data);
+static uint16_t _read16(ms_memmap_driver_t* driver, uint16_t addr);
+static void _write16(ms_memmap_driver_t* driver, uint16_t addr, uint16_t data);
 
 /*
 	確保ルーチン
  */
-ms_memmap_driver_MAINRAM_t* ms_memmap_MAINRAM_alloc() {
-	return (ms_memmap_driver_MAINRAM_t*)new_malloc(sizeof(ms_memmap_driver_MAINRAM_t));
+THIS* ms_memmap_MAINRAM_alloc() {
+	return (THIS*)new_malloc(sizeof(THIS));
 }
 
 /*
 	初期化ルーチン
  */
-void ms_memmap_MAINRAM_init(ms_memmap_driver_MAINRAM_t* instance, ms_memmap_t* memmap) {
+void ms_memmap_MAINRAM_init(THIS* instance, ms_memmap_t* memmap) {
 	if (instance == NULL) {
 		return;
 	}
@@ -31,15 +43,15 @@ void ms_memmap_MAINRAM_init(ms_memmap_driver_MAINRAM_t* instance, ms_memmap_t* m
 
 	// プロパティやメソッドの登録
 	instance->base.type = ROM_TYPE_MAPPER_RAM;
-	instance->base.name = driver_name_MAINRAM;
+	instance->base.name = driver_name;
 	//instance->base.deinit = ms_memmap_MAINRAM_deinit; オーバーライド不要
-	instance->base.did_attach = ms_memmap_did_attach_MAINRAM;
-	instance->base.will_detach = ms_memmap_will_detach_MAINRAM;
-	instance->base.did_update_memory_mapper = ms_memmap_did_update_memory_mapper_MAINRAM;
-	instance->base.read8 = ms_memmap_read8_MAINRAM;
-	instance->base.read16 = ms_memmap_read16_MAINRAM;
-	instance->base.write8 = ms_memmap_write8_MAINRAM;
-	instance->base.write16 = ms_memmap_write16_MAINRAM;
+	instance->base.did_attach = _did_attach;
+	instance->base.will_detach = _will_detach;
+	instance->base.did_update_memory_mapper = _did_update_memory_mapper;
+	instance->base.read8 = _read8;
+	instance->base.read16 = _read16;
+	instance->base.write8 = _write8;
+	instance->base.write16 = _write16;
 
 	//
 	instance->num_segments = MAINRAM_SIZE / (16*1024);
@@ -56,15 +68,15 @@ void ms_memmap_MAINRAM_init(ms_memmap_driver_MAINRAM_t* instance, ms_memmap_t* m
 	return;
 }
 
-void ms_memmap_did_attach_MAINRAM(ms_memmap_driver_t* driver) {
+static void _did_attach(ms_memmap_driver_t* driver) {
 }
 
-int ms_memmap_will_detach_MAINRAM(ms_memmap_driver_t* driver) {
+static int _will_detach(ms_memmap_driver_t* driver) {
 	return 0;
 }
 
-void ms_memmap_did_update_memory_mapper_MAINRAM(ms_memmap_driver_t* driver, int page, uint8_t segment_num) {
-	ms_memmap_driver_MAINRAM_t* d = (ms_memmap_driver_MAINRAM_t*)driver;
+static void _did_update_memory_mapper(ms_memmap_driver_t* driver, int page, uint8_t segment_num) {
+	THIS* d = (THIS*)driver;
 	if (page < 0 || page > 3) {
 		printf("MAINRAM: page out of range: %d\n", page);
 		return;
@@ -82,8 +94,8 @@ void ms_memmap_did_update_memory_mapper_MAINRAM(ms_memmap_driver_t* driver, int 
 	d->base.memmap->update_page_pointer( d->base.memmap, (ms_memmap_driver_t*)d, page*2+1);
 }
 
-uint8_t ms_memmap_read8_MAINRAM(ms_memmap_driver_t* driver, uint16_t addr) {
-	ms_memmap_driver_MAINRAM_t* d = (ms_memmap_driver_MAINRAM_t*)driver;
+static uint8_t _read8(ms_memmap_driver_t* driver, uint16_t addr) {
+	THIS* d = (THIS*)driver;
 	int slot = (addr >> 14) & 0x03;
 	int long_addr = (addr & 0x3fff) + (0x4000 * d->selected_segment[slot]);
 	uint8_t ret = driver->buffer[long_addr];
@@ -91,16 +103,16 @@ uint8_t ms_memmap_read8_MAINRAM(ms_memmap_driver_t* driver, uint16_t addr) {
 	return ret;
 }
 
-void ms_memmap_write8_MAINRAM(ms_memmap_driver_t* driver, uint16_t addr, uint8_t data) {
-	ms_memmap_driver_MAINRAM_t* d = (ms_memmap_driver_MAINRAM_t*)driver;
+static void _write8(ms_memmap_driver_t* driver, uint16_t addr, uint8_t data) {
+	THIS* d = (THIS*)driver;
 	int slot = (addr >> 14) & 0x03;
 	int long_addr = (addr & 0x3fff) + (0x4000 * d->selected_segment[slot]);
 	driver->buffer[long_addr] = data;
 	//printf("MAINRAM: write %04x[%06x] <- %02x\n", addr, long_addr, data);
 }
 
-uint16_t ms_memmap_read16_MAINRAM(ms_memmap_driver_t* driver, uint16_t addr) {
-	ms_memmap_driver_MAINRAM_t* d = (ms_memmap_driver_MAINRAM_t*)driver;
+static uint16_t _read16(ms_memmap_driver_t* driver, uint16_t addr) {
+	THIS* d = (THIS*)driver;
 	int slot = (addr >> 14) & 0x03;
 	int long_addr = (addr & 0x3fff) + (0x4000 * d->selected_segment[slot]);
 
@@ -109,8 +121,8 @@ uint16_t ms_memmap_read16_MAINRAM(ms_memmap_driver_t* driver, uint16_t addr) {
 	return ret;
 }
 
-void ms_memmap_write16_MAINRAM(ms_memmap_driver_t* driver, uint16_t addr, uint16_t data) {
-	ms_memmap_driver_MAINRAM_t* d = (ms_memmap_driver_MAINRAM_t*)driver;
+static void _write16(ms_memmap_driver_t* driver, uint16_t addr, uint16_t data) {
+	THIS* d = (THIS*)driver;
 	int slot = (addr >> 14) & 0x03;
 	int long_addr = (addr & 0x3fff) + (0x4000 * d->selected_segment[slot]);
 

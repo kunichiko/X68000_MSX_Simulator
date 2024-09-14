@@ -9,7 +9,7 @@
 
 #define THIS ms_memmap_driver_DISKBIOS_PANASONIC_t
 
-char* driver_name_DISKBIOS_PANASONIC = "DISKBIOS_PANASONIC";
+static char* driver_name = "DISKBIOS_PANASONIC";
 
 /*
 	確保ルーチン
@@ -28,7 +28,7 @@ void ms_disk_bios_Panasonic_init(THIS* instance, ms_memmap_t* memmap, uint8_t* b
 	ms_memmap_driver_init(&instance->base, memmap, buffer);
 
 	instance->base.type = ROM_TYPE_DOS_ROM;
-	instance->base.name = driver_name_DISKBIOS_PANASONIC;
+	instance->base.name = driver_name;
 	//instance->base.deinit = ms_memmap_DISKBIOS_PANASONIC_deinit; オーバーライド不要
 	instance->base.did_attach = ms_memmap_did_attach_DISKBIOS_PANASONIC;
 	instance->base.will_detach = ms_memmap_will_detach_DISKBIOS_PANASONIC;

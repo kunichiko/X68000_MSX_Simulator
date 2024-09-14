@@ -130,6 +130,8 @@ void printHelpAndExit(char* progname) {
 	fprintf(stderr, "    default is 3.\n");
 	fprintf(stderr, " --hostdelay host key interruption delay cycle (1-9999)\n");
 	fprintf(stderr, "    default is 100 cycles.\n");
+	fprintf(stderr, " --hostdebug\n");
+	fprintf(stderr, "    enable host process debug mode.\n");
 	fprintf(stderr, " --disablekey\n");
 	fprintf(stderr, "    disable key input for performance test.\n");
 //	fprintf(stderr, " --debuglevel N\n");
@@ -141,6 +143,7 @@ void printHelpAndExit(char* progname) {
 
 int disablekey = 0;
 int safemode = 0;
+int hostdebug = 0;
 
 char* separate_rom_kind(char* path, int* kind) {
 	char* p = strchr(path, ',');
@@ -205,6 +208,7 @@ int main(int argc, char *argv[]) {
         {   "intblock", required_argument,           0, 'B' },
         {   "hostrate", required_argument,           0, 'C' },
         {  "hostdelay", required_argument,           0, 'D' },
+		{  "hostdebug",       no_argument,  &hostdebug,  1  },
 		{ "disablekey",       no_argument, &disablekey,  1  },
 		{       "safe",       no_argument,   &safemode,  1  },
         {            0,                 0,           0,  0  }, // termination
@@ -721,7 +725,30 @@ void dump(unsigned int page, unsigned int pc_8k);
 
 void sync_keyboard_leds();
 
+void willEnterEmuLoop() {
+	if( hostdebug ) {
+		// デバッグモードの場合は、画面上の色を変更して、どのタイミングで実行されているかを可視化する
+		X68_TX_PAL[0] = 0xffff;
+	}
+}
+
+void didExitEmuLoop() {
+	if( hostdebug ) {
+		// デバッグモードの場合は、画面上の色を変更して、どのタイミングで実行されているかを可視化する
+		X68_TX_PAL[0] = 0x0000;
+	}
+}
+
+int emuLoopImpl(unsigned int pc, unsigned int counter);
+
 int emuLoop(unsigned int pc, unsigned int counter) {
+	willEnterEmuLoop();
+	int ret = emuLoopImpl(pc, counter);
+	didExitEmuLoop();
+	return ret;
+}
+
+int emuLoopImpl(unsigned int pc, unsigned int counter) {
 	static int emuLoopCounter = 0;
 	static uint8_t last_bitsns[16];
 
@@ -739,7 +766,7 @@ int emuLoop(unsigned int pc, unsigned int counter) {
 	emuLoopCounter++;
 
 	if( vdp != NULL) {
-		ms_vdp_vsync_draw(vdp);
+		ms_vdp_vsync_draw(vdp, hostdebug);
 	}
 
 	if(emuLoopCounter % host_rate != 0) {

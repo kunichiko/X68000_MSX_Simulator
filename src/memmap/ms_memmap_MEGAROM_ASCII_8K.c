@@ -8,10 +8,19 @@
 
 #define THIS ms_memmap_driver_MEGAROM_ASCII_8K_t
 
-char* driver_name_MEGAROM_ASCII_8K = "MEGAROM_ASCII_8K";
+static char* driver_name = "MEGAROM_ASCII_8K";
 uint8_t dummy_buffer[8192];
 
 void _select_bank_ascii_8K(THIS* d, int page, int bank);
+static void _did_attach(ms_memmap_driver_t* driver);
+static int _will_detach(ms_memmap_driver_t* driver);
+
+static void _did_update_memory_mapper(ms_memmap_driver_t* driver, int slot, uint8_t segment_num);
+
+static uint8_t _read8(ms_memmap_driver_t* driver, uint16_t addr);
+static void _write8(ms_memmap_driver_t* driver, uint16_t addr, uint8_t data);
+static uint16_t _read16(ms_memmap_driver_t* driver, uint16_t addr);
+static void _write16(ms_memmap_driver_t* driver, uint16_t addr, uint16_t data);
 
 /*
 	確保ルーチン
@@ -36,15 +45,15 @@ void ms_memmap_MEGAROM_ASCII_8K_init(THIS* instance, ms_memmap_t* memmap, uint8_
 
 	// プロパティやメソッドの登録
 	instance->base.type = ROM_TYPE_MEGAROM_ASCII_8K;
-	instance->base.name = driver_name_MEGAROM_ASCII_8K;
+	instance->base.name = driver_name;
 	//instance->base.deinit = ms_memmap_MEGAROM_ASCII_8K_deinit; オーバーライド不要
-	instance->base.did_attach = ms_memmap_did_attach_MEGAROM_ASCII_8K;
-	instance->base.will_detach = ms_memmap_will_detach_MEGAROM_ASCII_8K;
-	instance->base.did_update_memory_mapper = ms_memmap_did_update_memory_mapper_MEGAROM_ASCII_8K;
-	instance->base.read8 = ms_memmap_read8_MEGAROM_ASCII_8K;
-	instance->base.read16 = ms_memmap_read16_MEGAROM_ASCII_8K;
-	instance->base.write8 = ms_memmap_write8_MEGAROM_ASCII_8K;
-	instance->base.write16 = ms_memmap_write16_MEGAROM_ASCII_8K;
+	instance->base.did_attach = _did_attach;
+	instance->base.will_detach = _will_detach;
+	instance->base.did_update_memory_mapper = _did_update_memory_mapper;
+	instance->base.read8 = _read8;
+	instance->base.read16 = _read16;
+	instance->base.write8 = _write8;
+	instance->base.write16 = _write16;
 
 	//
 	instance->base.buffer = (uint8_t*)buffer;
@@ -61,14 +70,14 @@ void ms_memmap_MEGAROM_ASCII_8K_init(THIS* instance, ms_memmap_t* memmap, uint8_
 	return;
 }
 
-void ms_memmap_did_attach_MEGAROM_ASCII_8K(ms_memmap_driver_t* driver) {
+static void _did_attach(ms_memmap_driver_t* driver) {
 }
 
-int ms_memmap_will_detach_MEGAROM_ASCII_8K(ms_memmap_driver_t* driver) {
+static int _will_detach(ms_memmap_driver_t* driver) {
 	return 0;
 }
 
-void ms_memmap_did_update_memory_mapper_MEGAROM_ASCII_8K(ms_memmap_driver_t* driver, int slot, uint8_t segment_num) {
+static void _did_update_memory_mapper(ms_memmap_driver_t* driver, int slot, uint8_t segment_num) {
 }
 
 void _select_bank_ascii_8K(THIS* d, int page8k, int segment) {
@@ -87,7 +96,7 @@ void _select_bank_ascii_8K(THIS* d, int page8k, int segment) {
 }
 
 
-uint8_t ms_memmap_read8_MEGAROM_ASCII_8K(ms_memmap_driver_t* driver, uint16_t addr) {
+static uint8_t _read8(ms_memmap_driver_t* driver, uint16_t addr) {
 	THIS* d = (THIS*)driver;
 	int page8k = addr >> 13;
 	if( page8k < 2 || page8k > 5) {
@@ -105,9 +114,9 @@ uint8_t ms_memmap_read8_MEGAROM_ASCII_8K(ms_memmap_driver_t* driver, uint16_t ad
 	return ret;
 }
 
-uint16_t ms_memmap_read16_MEGAROM_ASCII_8K(ms_memmap_driver_t* driver, uint16_t addr) {
+static uint16_t _read16(ms_memmap_driver_t* driver, uint16_t addr) {
 	THIS* d = (THIS*)driver;
-	return ms_memmap_read8_MEGAROM_ASCII_8K(driver, addr) | (ms_memmap_read8_MEGAROM_ASCII_8K(driver, addr + 1) << 8);
+	return _read8(driver, addr) | (_read8(driver, addr + 1) << 8);
 }
 
 /*
@@ -127,7 +136,7 @@ uint16_t ms_memmap_read16_MEGAROM_ASCII_8K(ms_memmap_driver_t* driver, uint16_t 
 		* 切り替えアドレス	7800h (mirrors: 7801h~7FFFh)
 		* 初期セグメント	0
  */
-void ms_memmap_write8_MEGAROM_ASCII_8K(ms_memmap_driver_t* driver, uint16_t addr, uint8_t data) {
+static void _write8(ms_memmap_driver_t* driver, uint16_t addr, uint8_t data) {
 	THIS* d = (THIS*)driver;
 	// バンク切り替え処理
 	int page8k = -1;
@@ -152,10 +161,10 @@ void ms_memmap_write8_MEGAROM_ASCII_8K(ms_memmap_driver_t* driver, uint16_t addr
 	return;
 }
 
-void ms_memmap_write16_MEGAROM_ASCII_8K(ms_memmap_driver_t* driver, uint16_t addr, uint16_t data) {
+static void _write16(ms_memmap_driver_t* driver, uint16_t addr, uint16_t data) {
 	THIS* d = (THIS*)driver;
-	ms_memmap_write8_MEGAROM_ASCII_8K(driver, addr + 0, data & 0xff);
-	ms_memmap_write8_MEGAROM_ASCII_8K(driver, addr + 1, data >> 8);
+	_write8(driver, addr + 0, data & 0xff);
+	_write8(driver, addr + 1, data >> 8);
 	return;
 }
 
