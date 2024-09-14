@@ -8,7 +8,7 @@
 
 #define THIS ms_memmap_driver_NOTHING_t
 
-char* driver_name_NOTHING = "NOTHING";
+static char* driver_name = "NOTHING";
 
 static void _did_attach(ms_memmap_driver_t* driver);
 static int _will_detach(ms_memmap_driver_t* driver);
@@ -42,7 +42,7 @@ void ms_memmap_NOTHING_init(THIS* instance, ms_memmap_t* memmap) {
 	ms_memmap_driver_init(&instance->base, memmap, buffer);
 
 	instance->base.type = ROM_TYPE_NOTHING;
-	instance->base.name = driver_name_NOTHING;
+	instance->base.name = driver_name;
 	//instance->base.deinit = ms_memmap_NOTHING_deinit; オーバーライド不要
 	instance->base.did_attach = _did_attach;
 	instance->base.will_detach = _will_detach;

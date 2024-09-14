@@ -8,7 +8,7 @@
 
 #define THIS ms_memmap_driver_MEGAROM_KONAMI_t
 
-char* driver_name_MEGAROM_KONAMI = "MEGAROM_KONAMI";
+static char* driver_name = "MEGAROM_KONAMI";
 
 static void _select_bank(THIS* d, int rom_page, int bank);
 
@@ -42,7 +42,7 @@ void ms_memmap_MEGAROM_KONAMI_init(THIS* instance, ms_memmap_t* memmap, uint8_t*
 	// プロパティやメソッドの登録
 	instance->base.memmap = memmap;
 	instance->base.type = ROM_TYPE_MEGAROM_KONAMI;
-	instance->base.name = driver_name_MEGAROM_KONAMI;
+	instance->base.name = driver_name;
 	//instance->base.deinit = ms_memmap_MEGAROM_KONAMI_deinit; オーバーライド不要
 	instance->base.did_attach = _did_attach;
 	instance->base.will_detach = _will_detach;

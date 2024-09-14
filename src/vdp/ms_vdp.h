@@ -275,7 +275,7 @@ ms_vdp_t* ms_vdp_shared_instance();
 void ms_vdp_shared_deinit();
 
 void ms_vdp_set_mode(ms_vdp_t* vdp, int mode);
-void ms_vdp_vsync_draw(ms_vdp_t* vdp);
+void ms_vdp_vsync_draw(ms_vdp_t* vdp, int hostdebugmode);
 
 void write_sprite_pattern(ms_vdp_t* vdp, int offset, uint32_t pattern, int32_t old_pattern);
 void write_sprite_attribute(ms_vdp_t* vdp, int offset, uint32_t attribute, int32_t old_attribute);
@@ -307,6 +307,6 @@ void vdp_command_write(ms_vdp_t* vdp, uint8_t data);
 void ms_vdp_update_resolution_COMMON(ms_vdp_t* vdp, unsigned int res, unsigned int color, unsigned int bg);
 void ms_vdp_update_visibility(ms_vdp_t* vdp);
 void ms_vdp_update_sprite_area(ms_vdp_t* vdp);
-void ms_vdp_sprite_vsync_draw(ms_vdp_t* vdp);
+void ms_vdp_sprite_vsync_draw(ms_vdp_t* vdp, int hostdebugmode);
 
 #endif

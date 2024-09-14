@@ -8,7 +8,7 @@
 
 #define THIS ms_memmap_driver_MEGAROM_KONAMI_SCC_t
 
-char* driver_name_MEGAROM_KONAMI_SCC = "MEGAROM_KONAMI_SCC";
+static char* driver_name = "MEGAROM_KONAMI_SCC";
 
 static void _select_bank(THIS* d, int rom_page, int bank);
 static void _did_attach(ms_memmap_driver_t* driver);
@@ -40,7 +40,7 @@ void ms_memmap_MEGAROM_KONAMI_SCC_init(THIS* instance, ms_memmap_t* memmap, uint
 
 	// プロパティやメソッドの登録
 	instance->base.type = ROM_TYPE_MEGAROM_KONAMI_SCC;
-	instance->base.name = driver_name_MEGAROM_KONAMI_SCC;
+	instance->base.name = driver_name;
 	//instance->base.deinit = ms_memmap_MEGAROM_KONAMI_SCC_deinit; オーバーライド不要
 	instance->base.did_attach = _did_attach;
 	instance->base.will_detach = _will_detach;
@@ -137,6 +137,7 @@ static void _write8(ms_memmap_driver_t* driver, uint16_t addr, uint8_t data) {
 	int area = addr >> 11;
 	switch(area) {
 		case 0x5*2:
+			page8k = 2;
 			break;
 		case 0x7*2:
 			page8k = 3;

@@ -379,59 +379,70 @@ void refresh_sprite_256_mode2(ms_vdp_t* vdp) {
 		// ************
 
 		// ラインごとの合成処理
+		// 256モードの場合、16x16のスプライトがそのまま16x16のスプライトになるので、
+		// 以下のように合成する
+		// 一つの箱が X68000の 8x8のパターン(1ラインが32bit)を表す
+		// X68000はスプライトサイズは16x16だが、定義は8x8の箱が4つ、
+		// 左上→左下→右上→右下の順に集まっているので注意が必要
+		//
+		//  lr: 0   1  
+		//    +---+---+	y=0		CCの0ライン目
+		//    | 0 | 2 |
+		//  　+---+---+	y=8		CCの8ライン目
+		//    | 1 | 3 |
+		//    +---+---+	y=15	CCの15ライン目
+		// ※ 8x8のスプライトの場合は左上の0の部分だけが使われる
 		int ymax = vdp->sprite_size == 0 ? 8 : 16;
 		int lrmax = vdp->sprite_size == 0 ? 1 : 2;
 		int ptNumMask = vdp->sprite_size == 0 ? 0xff : 0xfc;
 		int lr;
-		for (lr=0;lr < lrmax; lr++) {
-			uint16_t mask = 1;
-			for	(y=0; y<ymax; y++, mask <<= 1) {
-				int yy = y+lr*16;
-				i=plNum;
-				while(i<=m) {
-					uint32_t color = pcol[i*COL_SIZE+y] & 0xf;
-					color = color == 0 ? vdp->alt_color_zero : color; // 「色コード0」のスプライトが消えてしまう問題への暫定対応
-					uint32_t colorex = color << 28 | color << 24 | color << 20 | color << 16 | color << 12 | color << 8 | color << 4 | color;
-					uint32_t ptNum = patr[i*SAT_SIZE+2];
-					uint32_t pattern = vdp->x68_pcg_buffer[(ptNum & ptNumMask)*PCG_BUF_UNIT_D1X+yy] & colorex;
-					j=i;
-					while(j<=m) {
-						if( j == m ) {
-							X68_PCG[i*PCG_UNIT+yy] = pattern;
-							i=j+1;
-							break;
-						}
-						j++; // j==mを先に判定しているので、i+1がmをオーバーすることはない
-						if( (sprite_cc_flags[j]&mask) == 0) {
-							// CC=0に遭遇したら、それ以降は合成しない
-							X68_PCG[i*PCG_UNIT+yy] = pattern;
-							i=j;
-							break;
-						}
-						// CC=1のものが見つかったので合成する
-						uint32_t color_add = pcol[j*COL_SIZE+y] & 0xf;
-						color_add = color_add == 0 ? vdp->alt_color_zero : color_add; // 「色コード0」のスプライトが消えてしまう問題への暫定対応
-						uint32_t colorex_add = color_add << 28 | color_add << 24 | color_add << 20 | color_add << 16 | color_add << 12 | color_add << 8 | color_add << 4 | color_add;
-						uint32_t ptNum_add = patr[j*SAT_SIZE+2];
-						uint32_t pattern_add = vdp->x68_pcg_buffer[(ptNum_add & 0xff)*PCG_BUF_UNIT_D1X+yy] & colorex_add;
-						pattern |= pattern_add;
+		uint16_t mask = 1;
+		for	(y=0; y<ymax; y++, mask <<= 1) {
+			// yybase は上記パターンの一番左の列(0,15) の中で見た、X68000側のライン番号
+			int yybase = y;
+			i=plNum;
+			while(i<=m) {
+				uint32_t color = pcol[i*COL_SIZE+y] & 0xf;
+				color = color == 0 ? vdp->alt_color_zero : color; // 「色コード0」のスプライトが消えてしまう問題への暫定対応
+				uint32_t colorex = color << 28 | color << 24 | color << 20 | color << 16 | color << 12 | color << 8 | color << 4 | color;
+				uint32_t ptNum = patr[i*SAT_SIZE+2];
+				uint32_t pattern0 = vdp->x68_pcg_buffer[(ptNum & ptNumMask)*PCG_BUF_UNIT_D1X+yybase+8*0 ] & colorex;	// lr=0
+				uint32_t pattern1 = vdp->x68_pcg_buffer[(ptNum & ptNumMask)*PCG_BUF_UNIT_D1X+yybase+8*2 ] & colorex;	// lr=1
+
+				j=i;
+				while(j<=m) {
+					if( j == m ) {
+						X68_PCG[i*PCG_UNIT+yybase+8*0] = pattern0;
+						X68_PCG[i*PCG_UNIT+yybase+8*2] = (lrmax==2) ? pattern1 : 0;
+						i=j+1;
+						break;
 					}
+					j++; // j==mを先に判定しているので、i+1がmをオーバーすることはない
+					if( (sprite_cc_flags[j]&mask) == 0) {
+						// CC=0に遭遇したら、それ以降は合成しない
+						X68_PCG[i*PCG_UNIT+yybase+8*0] = pattern0;
+						X68_PCG[i*PCG_UNIT+yybase+8*2] = (lrmax==2) ? pattern1 : 0;
+						i=j;
+						break;
+					}
+					// CC=1のものが見つかったので合成する
+					uint32_t color_add = pcol[j*COL_SIZE+y] & 0xf;
+					color_add = color_add == 0 ? vdp->alt_color_zero : color_add; // 「色コード0」のスプライトが消えてしまう問題への暫定対応
+					uint32_t colorex_add = color_add << 28 | color_add << 24 | color_add << 20 | color_add << 16 | color_add << 12 | color_add << 8 | color_add << 4 | color_add;
+					uint32_t ptNum_add = patr[j*SAT_SIZE+2];
+					uint32_t pattern_add0 = vdp->x68_pcg_buffer[(ptNum_add & 0xff)*PCG_BUF_UNIT_D1X+yybase+8*0 ] & colorex_add;
+					uint32_t pattern_add1 = vdp->x68_pcg_buffer[(ptNum_add & 0xff)*PCG_BUF_UNIT_D1X+yybase+8*2 ] & colorex_add;
+					pattern0 |= pattern_add0;
+					pattern1 |= pattern_add1;
 				}
-			}
-			// 8x8の時は残りを0で埋める
-			for	(; y<16; y++) {
-				int yy = y+lr*16;
-				i=plNum;
-				X68_PCG[i*PCG_UNIT+yy] = 0;
 			}
 		}
 		// 8x8の時は残りを0で埋める
-		for	(; lr<2; lr++) {
-			for	(y=0; y<16; y++) {
-				int yy = y+lr*16;
-				i=plNum;
-				X68_PCG[i*PCG_UNIT+yy] = 0;
-			}
+		for	(; y<16; y++) {
+			int yybase = y;
+			i=plNum;
+			X68_PCG[i*PCG_UNIT+yybase+8*0] = 0;
+			X68_PCG[i*PCG_UNIT+yybase+8*2] = 0;
 		}
 	}
 }
@@ -457,7 +468,6 @@ void refresh_sprite_512_mode2(ms_vdp_t* vdp) {
 		//m = plNum; // テスト用
 		// ************
 
-		// TODO 今のループはlrが大外にあるせいでCCの合成を最大4回やっているが、ラインごとに変更すれば省力化できそう
 		// TODO 512ドットモードでスプライトを縦に2倍に引き伸ばすことはできるっぽいので、それができると書き込み量が半分になる　
 
 		// ラインごとの合成処理
@@ -488,49 +498,83 @@ void refresh_sprite_512_mode2(ms_vdp_t* vdp) {
 		int lrmax = vdp->sprite_size == 0 ? 2 : 4;
 		int ptNumMask = vdp->sprite_size == 0 ? 0xff : 0xfc;
 		int lr;
-		for (lr=0;lr < lrmax; lr++) {
-			uint16_t ccmask = 1;
-			for	(y=0; y<ymax; y++, ccmask <<= 1) {
-				// yy は上記パターンの通し番号(0-F)の中で見た、X68000側のライン番号
-				// ここで出てくるyyは必ず偶数になり、以下の処理の中で奇数ラインも同じ値を書いている
-				int yy = (lr & 0x2)/2*8*8 +	// 外の左右
-						 (lr & 0x1)  *8*2 +	// 中の左右
-						 ( y & 0x8)/8*4*8 +	// 外の上段下段
-						 ( y & 0x4)/4*8*1 +	// 中の上段下段
+		uint16_t ccmask = 1;
+		for	(y=0; y<ymax; y++, ccmask <<= 1) {
+			// yybase は上記パターンの一番左の列(0,1,4,5) の中で見た、X68000側のライン番号
+			// ここで出てくるyybaseは必ず偶数になります。
+			int yybase = ( y & 0x8)/8*4*8 +	// 外の上段下段
+						 ( y & 0x4)/4*1*8 +	// 中の上段下段
 						 ( y & 0x3)  *2;	// 512モードの場合、1ラインが2ラインになる
-				i=plNum;
-				while(i<=m) {
-					uint32_t color = pcol[i*COL_SIZE+y] & 0xf;
-					color = color == 0 ? vdp->alt_color_zero : color; // 「色コード0」のスプライトが消えてしまう問題への暫定対応
-					uint32_t colorex = color << 28 | color << 24 | color << 20 | color << 16 | color << 12 | color << 8 | color << 4 | color;
-					uint32_t ptNum = patr[i*SAT_SIZE+2];
-					uint32_t pattern = vdp->x68_pcg_buffer[(ptNum & ptNumMask)*PCG_BUF_UNIT_D2X+yy] & colorex;
-					j=i;
-					while(j<=m) {
-						if( j == m ) {
-							X68_PCG[i*PCG_UNIT+yy+0] = pattern;
-							X68_PCG[i*PCG_UNIT+yy+1] = pattern;	//奇数ラインも同じものになる(yyは必ず偶数)
-							i=j+1;
-							break;
-						}
-						j++; // j==mを先に判定しているので、i+1がmをオーバーすることはない
-						if( (sprite_cc_flags[j]&ccmask) == 0) {
-							// CC=0に遭遇したら、それ以降は合成しない
-							X68_PCG[i*PCG_UNIT+yy+0] = pattern;
-							X68_PCG[i*PCG_UNIT+yy+1] = pattern;	//奇数ラインも同じものになる(yyは必ず偶数)
-							i=j;
-							break;
-						}
-						// CC=1のものが見つかったので合成する
-						uint32_t color_add = pcol[j*COL_SIZE+y] & 0xf;
-						color_add = color_add == 0 ? vdp->alt_color_zero : color_add; // 「色コード0」のスプライトが消えてしまう問題への暫定対応
-						uint32_t colorex_add = color_add << 28 | color_add << 24 | color_add << 20 | color_add << 16 | color_add << 12 | color_add << 8 | color_add << 4 | color_add;
-						uint32_t ptNum_add = patr[j*SAT_SIZE+2];
-						uint32_t pattern_add = vdp->x68_pcg_buffer[(ptNum_add & 0xff)*PCG_BUF_UNIT_D2X+yy] & colorex_add;
-						pattern |= pattern_add;
+			i=plNum;
+			while(i<=m) {
+				uint32_t color = pcol[i*COL_SIZE+y] & 0xf;
+				color = color == 0 ? vdp->alt_color_zero : color; // 「色コード0」のスプライトが消えてしまう問題への暫定対応
+				uint32_t colorex = color << 28 | color << 24 | color << 20 | color << 16 | color << 12 | color << 8 | color << 4 | color;
+				uint32_t ptNum = patr[i*SAT_SIZE+2];
+				uint32_t pattern0 = vdp->x68_pcg_buffer[(ptNum & ptNumMask)*PCG_BUF_UNIT_D2X+yybase+8*0 ] & colorex;	// lr=0
+				uint32_t pattern1 = vdp->x68_pcg_buffer[(ptNum & ptNumMask)*PCG_BUF_UNIT_D2X+yybase+8*2 ] & colorex;	// lr=1
+				uint32_t pattern2 = vdp->x68_pcg_buffer[(ptNum & ptNumMask)*PCG_BUF_UNIT_D2X+yybase+8*8 ] & colorex;	// lr=2
+				uint32_t pattern3 = vdp->x68_pcg_buffer[(ptNum & ptNumMask)*PCG_BUF_UNIT_D2X+yybase+8*10] & colorex;	// lr=3
+
+				j=i;
+				while(j<=m) {
+					if( j == m ) {
+						X68_PCG[i*PCG_UNIT+yybase+8*0 +0] = pattern0;
+						X68_PCG[i*PCG_UNIT+yybase+8*0 +1] = pattern0;	//奇数ラインも同じものになる(yyは必ず偶数)
+						X68_PCG[i*PCG_UNIT+yybase+8*2 +0] = pattern1;
+						X68_PCG[i*PCG_UNIT+yybase+8*2 +1] = pattern1;	//奇数ラインも同じものになる(yyは必ず偶数)
+						X68_PCG[i*PCG_UNIT+yybase+8*8 +0] = (lrmax==4) ? pattern2 : 0;
+						X68_PCG[i*PCG_UNIT+yybase+8*8 +1] = (lrmax==4) ? pattern2 : 0;	//奇数ラインも同じものになる(yyは必ず偶数)
+						X68_PCG[i*PCG_UNIT+yybase+8*10+0] = (lrmax==4) ? pattern3 : 0;
+						X68_PCG[i*PCG_UNIT+yybase+8*10+1] = (lrmax==4) ? pattern3 : 0;	//奇数ラインも同じものになる(yyは必ず偶数)
+						i=j+1;
+						break;
 					}
+					j++; // j==mを先に判定しているので、i+1がmをオーバーすることはない
+					if( (sprite_cc_flags[j]&ccmask) == 0) {
+						// CC=0に遭遇したら、それ以降は合成しない
+						X68_PCG[i*PCG_UNIT+yybase+8*0 +0] = pattern0;
+						X68_PCG[i*PCG_UNIT+yybase+8*0 +1] = pattern0;	//奇数ラインも同じものになる(yyは必ず偶数)
+						X68_PCG[i*PCG_UNIT+yybase+8*2 +0] = pattern1;
+						X68_PCG[i*PCG_UNIT+yybase+8*2 +1] = pattern1;	//奇数ラインも同じものになる(yyは必ず偶数)
+						X68_PCG[i*PCG_UNIT+yybase+8*8 +0] = (lrmax==4) ? pattern2 : 0;
+						X68_PCG[i*PCG_UNIT+yybase+8*8 +1] = (lrmax==4) ? pattern2 : 0;	//奇数ラインも同じものになる(yyは必ず偶数)
+						X68_PCG[i*PCG_UNIT+yybase+8*10+0] = (lrmax==4) ? pattern3 : 0;
+						X68_PCG[i*PCG_UNIT+yybase+8*10+1] = (lrmax==4) ? pattern3 : 0;	//奇数ラインも同じものになる(yyは必ず偶数)
+						i=j;
+						break;
+					}
+					// CC=1のものが見つかったので合成する
+					uint32_t color_add = pcol[j*COL_SIZE+y] & 0xf;
+					color_add = color_add == 0 ? vdp->alt_color_zero : color_add; // 「色コード0」のスプライトが消えてしまう問題への暫定対応
+					uint32_t colorex_add = color_add << 28 | color_add << 24 | color_add << 20 | color_add << 16 | color_add << 12 | color_add << 8 | color_add << 4 | color_add;
+					uint32_t ptNum_add = patr[j*SAT_SIZE+2];
+					uint32_t pattern_add0 = vdp->x68_pcg_buffer[(ptNum_add & 0xff)*PCG_BUF_UNIT_D2X+yybase+8*0 ] & colorex_add;
+					uint32_t pattern_add1 = vdp->x68_pcg_buffer[(ptNum_add & 0xff)*PCG_BUF_UNIT_D2X+yybase+8*2 ] & colorex_add;
+					uint32_t pattern_add2 = vdp->x68_pcg_buffer[(ptNum_add & 0xff)*PCG_BUF_UNIT_D2X+yybase+8*8 ] & colorex_add;
+					uint32_t pattern_add3 = vdp->x68_pcg_buffer[(ptNum_add & 0xff)*PCG_BUF_UNIT_D2X+yybase+8*10] & colorex_add;
+					pattern0 |= pattern_add0;
+					pattern1 |= pattern_add1;
+					pattern2 |= pattern_add2;
+					pattern3 |= pattern_add3;
 				}
 			}
+		}
+		// 8x8の時は残りを0で埋める
+		for	(; y<16; y++) {
+			int yybase = ( y & 0x8)/8*4*8 +	// 外の上段下段
+						 ( y & 0x4)/4*1*8 +	// 中の上段下段
+						 ( y & 0x3)  *2;	// 512モードの場合、1ラインが2ラインになる
+			i=plNum;
+			X68_PCG[i*PCG_UNIT+yybase+8*0 +0] = 0;
+			X68_PCG[i*PCG_UNIT+yybase+8*0 +1] = 0;
+			X68_PCG[i*PCG_UNIT+yybase+8*2 +0] = 0;
+			X68_PCG[i*PCG_UNIT+yybase+8*2 +1] = 0;
+			X68_PCG[i*PCG_UNIT+yybase+8*8 +0] = 0;
+			X68_PCG[i*PCG_UNIT+yybase+8*8 +0] = 0;
+			X68_PCG[i*PCG_UNIT+yybase+8*8 +1] = 0;
+			X68_PCG[i*PCG_UNIT+yybase+8*10+0] = 0;
+			X68_PCG[i*PCG_UNIT+yybase+8*10+1] = 0;
 		}
 	}
 }
@@ -646,7 +690,7 @@ void write_sprite_color(ms_vdp_t* vdp, int offset, uint32_t color, int32_t old_c
  * 
  * @param vdp 
  */
-void ms_vdp_sprite_vsync_draw(ms_vdp_t* vdp) {
+void ms_vdp_sprite_vsync_draw(ms_vdp_t* vdp, int hostdebugmode) {
 	//vdp->sprite_refresh_flag |= SPRITE_REFRESH_FLAG_PGEN;	// 全書き換え
 	//vdp->sprite_refresh_flag |= SPRITE_REFRESH_FLAG_ATTR;	// アトリビュートテーブルのみ再検査
 	//vdp->sprite_refresh_flag |= SPRITE_REFRESH_FLAG_COORD;	// 実験的に、位置調整は毎回行うようにしてみる
@@ -665,6 +709,9 @@ void ms_vdp_sprite_vsync_draw(ms_vdp_t* vdp) {
 	int plNum;
 	uint16_t flag = vdp->sprite_refresh_flag;
 	if (flag & SPRITE_REFRESH_FLAG_PGEN) {
+		if(hostdebugmode) {
+			X68_TX_PAL[0] = 0x1f << 11;	// Green
+		}
 		// パターンジェネレータテーブルからPCGバッファの再構築を行います
 		uint32_t sprpgenaddr = vdp->sprpgentbl_baddr & 0x1fe00; // 下位9ビットをクリア
 		for(i=0;i<256;i++) {
@@ -675,6 +722,9 @@ void ms_vdp_sprite_vsync_draw(ms_vdp_t* vdp) {
 		flag |= SPRITE_REFRESH_FLAG_CC;	// CCフラグ更新、PCG更新、スプライトアトリビュートテーブルの更新も行う
 	}
 	if (flag & SPRITE_REFRESH_FLAG_CC) {
+		if(hostdebugmode) {
+			X68_TX_PAL[0] = 0x1f << 6;	// Red
+		}
 		// スプライトカラーテーブルのCCビットマップフラグを再作成
 		if (spMode == 2) {
 			uint8_t* sprcolr = vram + vdp->sprcolrtbl_baddr;
@@ -691,6 +741,9 @@ void ms_vdp_sprite_vsync_draw(ms_vdp_t* vdp) {
 		flag |= SPRITE_REFRESH_FLAG_ATTR;	// スプライトアトリビュートテーブルの更新も行う
 	}
 	if (flag & SPRITE_REFRESH_FLAG_ATTR) {
+		if(hostdebugmode) {
+			X68_TX_PAL[0] = 0x1f << 1;	// Blue
+		}
 		// PCG更新処理
 		if (mag512 == 2 ) {
 			// 512ドットモードの時
@@ -714,6 +767,9 @@ void ms_vdp_sprite_vsync_draw(ms_vdp_t* vdp) {
 		flag |= SPRITE_REFRESH_FLAG_COORD;	// スプライトアトリビュートテーブルの更新も行う
 	}
 	if (flag & SPRITE_REFRESH_FLAG_COORD) {
+		if(hostdebugmode) {
+			X68_TX_PAL[0] = 0x1f << 11 | 0x1f << 6;	// Yellow
+		}
 		// スプライトアトリビュートテーブルのみの更新
 		int HY = (vdp->ms_vdp_current_mode->sprite_mode & 0x3) == 1 ? 208 : 216;
 		uint8_t* sprattr = vram + vdp->sprattrtbl_baddr;

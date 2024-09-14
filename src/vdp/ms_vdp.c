@@ -412,7 +412,7 @@ uint8_t last_vdp_R23 = 0;
 
 /*
 */
-void ms_vdp_vsync_draw(ms_vdp_t* vdp) {
+void ms_vdp_vsync_draw(ms_vdp_t* vdp, int hostdebugmode) {
 	// 画面モードごとの再描画処理を呼び出す
 	vdp->ms_vdp_current_mode->vsync_draw(vdp);
 
@@ -434,7 +434,7 @@ void ms_vdp_vsync_draw(ms_vdp_t* vdp) {
 		// スクロール量が変化
 		vdp->sprite_refresh_flag |= SPRITE_REFRESH_FLAG_COORD;
 	}
-	ms_vdp_sprite_vsync_draw(vdp);
+	ms_vdp_sprite_vsync_draw(vdp, hostdebugmode);
 	last_vdp_R1 = vdp->r01;
 	last_vdp_R8 = vdp->r08;
 	last_vdp_R23 = vdp->r23;

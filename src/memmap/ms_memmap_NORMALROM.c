@@ -8,7 +8,7 @@
 
 #define THIS ms_memmap_driver_NORMALROM_t
 
-char* driver_name_NORMALROM = "NORMALROM";
+static char* driver_name = "NORMALROM";
 
 static void _did_attach(ms_memmap_driver_t* driver);
 static int _will_detach(ms_memmap_driver_t* driver);
@@ -39,7 +39,7 @@ void ms_memmap_NORMALROM_init(THIS* instance, ms_memmap_t* memmap, uint8_t* buff
 
 	// プロパティやメソッドの登録
 	instance->base.type = ROM_TYPE_NORMAL_ROM;
-	instance->base.name = driver_name_NORMALROM;
+	instance->base.name = driver_name;
 	//instance->base.deinit = ms_memmap_NORMALROM_deinit; オーバーライド不要
 	instance->base.did_attach = _did_attach;
 	instance->base.will_detach = _will_detach;

@@ -8,7 +8,7 @@
 
 #define THIS ms_memmap_driver_MEGAROM_ASCII_8K_t
 
-char* driver_name_MEGAROM_ASCII_8K = "MEGAROM_ASCII_8K";
+static char* driver_name = "MEGAROM_ASCII_8K";
 uint8_t dummy_buffer[8192];
 
 void _select_bank_ascii_8K(THIS* d, int page, int bank);
@@ -45,7 +45,7 @@ void ms_memmap_MEGAROM_ASCII_8K_init(THIS* instance, ms_memmap_t* memmap, uint8_
 
 	// プロパティやメソッドの登録
 	instance->base.type = ROM_TYPE_MEGAROM_ASCII_8K;
-	instance->base.name = driver_name_MEGAROM_ASCII_8K;
+	instance->base.name = driver_name;
 	//instance->base.deinit = ms_memmap_MEGAROM_ASCII_8K_deinit; オーバーライド不要
 	instance->base.did_attach = _did_attach;
 	instance->base.will_detach = _will_detach;

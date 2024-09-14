@@ -8,7 +8,7 @@
 
 #define THIS ms_memmap_driver_MAINRAM_t
 
-char* driver_name_MAINRAM = "MAINRAM";
+static char* driver_name = "MAINRAM";
 
 static void _did_attach(ms_memmap_driver_t* driver);
 static int _will_detach(ms_memmap_driver_t* driver);
@@ -43,7 +43,7 @@ void ms_memmap_MAINRAM_init(THIS* instance, ms_memmap_t* memmap) {
 
 	// プロパティやメソッドの登録
 	instance->base.type = ROM_TYPE_MAPPER_RAM;
-	instance->base.name = driver_name_MAINRAM;
+	instance->base.name = driver_name;
 	//instance->base.deinit = ms_memmap_MAINRAM_deinit; オーバーライド不要
 	instance->base.did_attach = _did_attach;
 	instance->base.will_detach = _will_detach;
