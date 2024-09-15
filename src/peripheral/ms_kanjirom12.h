@@ -17,6 +17,8 @@ typedef struct ms_kanjirom12 {
 	// I/O port アクセスを提供
 	ms_ioport_t io_port_D8;
 	ms_ioport_t io_port_D9;
+	ms_ioport_t io_port_DA;
+	ms_ioport_t io_port_DB;
 } ms_kanjirom12_t;
 
 ms_kanjirom12_t* ms_kanjirom12_alloc();
