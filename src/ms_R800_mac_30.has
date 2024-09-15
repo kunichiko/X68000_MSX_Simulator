@@ -7053,209 +7053,209 @@ DDFD_CB_JPT:
 	.dc.l	SRL_lIdx_dl	* $3e
 	.dc.l	none_DDFD_CB	* $3f
 
-	.dc.l	none_DDFD_CB	* $40
-	.dc.l	none_DDFD_CB
-	.dc.l	none_DDFD_CB
-	.dc.l	none_DDFD_CB
-	.dc.l	none_DDFD_CB
-	.dc.l	none_DDFD_CB
+	.dc.l	BIT_lIdx_dl	* $40
+	.dc.l	BIT_lIdx_dl
+	.dc.l	BIT_lIdx_dl
+	.dc.l	BIT_lIdx_dl
+	.dc.l	BIT_lIdx_dl
+	.dc.l	BIT_lIdx_dl
 	.dc.l	BIT_lIdx_dl	* $46
-	.dc.l	none_DDFD_CB
-	.dc.l	none_DDFD_CB	* $48
-	.dc.l	none_DDFD_CB
-	.dc.l	none_DDFD_CB
-	.dc.l	none_DDFD_CB
-	.dc.l	none_DDFD_CB
-	.dc.l	none_DDFD_CB
+	.dc.l	BIT_lIdx_dl
+	.dc.l	BIT_lIdx_dl	* $48
+	.dc.l	BIT_lIdx_dl
+	.dc.l	BIT_lIdx_dl
+	.dc.l	BIT_lIdx_dl
+	.dc.l	BIT_lIdx_dl
+	.dc.l	BIT_lIdx_dl
 	.dc.l	BIT_lIdx_dl	* $4e
-	.dc.l	none_DDFD_CB	* $4f
+	.dc.l	BIT_lIdx_dl	* $4f
 
-	.dc.l	none_DDFD_CB	* $50
-	.dc.l	none_DDFD_CB
-	.dc.l	none_DDFD_CB
-	.dc.l	none_DDFD_CB
-	.dc.l	none_DDFD_CB
-	.dc.l	none_DDFD_CB
+	.dc.l	BIT_lIdx_dl	* $50
+	.dc.l	BIT_lIdx_dl
+	.dc.l	BIT_lIdx_dl
+	.dc.l	BIT_lIdx_dl
+	.dc.l	BIT_lIdx_dl
+	.dc.l	BIT_lIdx_dl
 	.dc.l	BIT_lIdx_dl	* $56
-	.dc.l	none_DDFD_CB
-	.dc.l	none_DDFD_CB	* $58
-	.dc.l	none_DDFD_CB
-	.dc.l	none_DDFD_CB
-	.dc.l	none_DDFD_CB
-	.dc.l	none_DDFD_CB
-	.dc.l	none_DDFD_CB
+	.dc.l	BIT_lIdx_dl
+	.dc.l	BIT_lIdx_dl	* $58
+	.dc.l	BIT_lIdx_dl
+	.dc.l	BIT_lIdx_dl
+	.dc.l	BIT_lIdx_dl
+	.dc.l	BIT_lIdx_dl
+	.dc.l	BIT_lIdx_dl
 	.dc.l	BIT_lIdx_dl	* $5e
-	.dc.l	none_DDFD_CB	* $5f
+	.dc.l	BIT_lIdx_dl	* $5f
 
-	.dc.l	none_DDFD_CB	* $60
-	.dc.l	none_DDFD_CB
-	.dc.l	none_DDFD_CB
-	.dc.l	none_DDFD_CB
-	.dc.l	none_DDFD_CB
-	.dc.l	none_DDFD_CB
+	.dc.l	BIT_lIdx_dl	* $60
+	.dc.l	BIT_lIdx_dl
+	.dc.l	BIT_lIdx_dl
+	.dc.l	BIT_lIdx_dl
+	.dc.l	BIT_lIdx_dl
+	.dc.l	BIT_lIdx_dl
 	.dc.l	BIT_lIdx_dl	* $66
-	.dc.l	none_DDFD_CB
-	.dc.l	none_DDFD_CB	* $68
-	.dc.l	none_DDFD_CB
-	.dc.l	none_DDFD_CB
-	.dc.l	none_DDFD_CB
-	.dc.l	none_DDFD_CB
-	.dc.l	none_DDFD_CB
+	.dc.l	BIT_lIdx_dl
+	.dc.l	BIT_lIdx_dl	* $68
+	.dc.l	BIT_lIdx_dl
+	.dc.l	BIT_lIdx_dl
+	.dc.l	BIT_lIdx_dl
+	.dc.l	BIT_lIdx_dl
+	.dc.l	BIT_lIdx_dl
 	.dc.l	BIT_lIdx_dl	* $6e
-	.dc.l	none_DDFD_CB	* $6f
+	.dc.l	BIT_lIdx_dl	* $6f
 
-	.dc.l	none_DDFD_CB	* $70
-	.dc.l	none_DDFD_CB
-	.dc.l	none_DDFD_CB
-	.dc.l	none_DDFD_CB
-	.dc.l	none_DDFD_CB
-	.dc.l	none_DDFD_CB
+	.dc.l	BIT_lIdx_dl	* $70
+	.dc.l	BIT_lIdx_dl
+	.dc.l	BIT_lIdx_dl
+	.dc.l	BIT_lIdx_dl
+	.dc.l	BIT_lIdx_dl
+	.dc.l	BIT_lIdx_dl
 	.dc.l	BIT_lIdx_dl	* $76
-	.dc.l	none_DDFD_CB
-	.dc.l	none_DDFD_CB	* $78
-	.dc.l	none_DDFD_CB
-	.dc.l	none_DDFD_CB
-	.dc.l	none_DDFD_CB
-	.dc.l	none_DDFD_CB
-	.dc.l	none_DDFD_CB
+	.dc.l	BIT_lIdx_dl
+	.dc.l	BIT_lIdx_dl	* $78
+	.dc.l	BIT_lIdx_dl
+	.dc.l	BIT_lIdx_dl
+	.dc.l	BIT_lIdx_dl
+	.dc.l	BIT_lIdx_dl
+	.dc.l	BIT_lIdx_dl
 	.dc.l	BIT_lIdx_dl	* $7e
-	.dc.l	none_DDFD_CB	* $7f
+	.dc.l	BIT_lIdx_dl	* $7f
 
-	.dc.l	none_DDFD_CB	* $80
-	.dc.l	none_DDFD_CB
-	.dc.l	none_DDFD_CB
-	.dc.l	none_DDFD_CB
-	.dc.l	none_DDFD_CB
-	.dc.l	none_DDFD_CB
+	.dc.l	RES_lIdx_dl_B	* $80
+	.dc.l	RES_lIdx_dl_C
+	.dc.l	RES_lIdx_dl_D
+	.dc.l	RES_lIdx_dl_E
+	.dc.l	RES_lIdx_dl_H
+	.dc.l	RES_lIdx_dl_L
 	.dc.l	RES_lIdx_dl	* $86
-	.dc.l	none_DDFD_CB
-	.dc.l	none_DDFD_CB	* $88
-	.dc.l	none_DDFD_CB
-	.dc.l	none_DDFD_CB
-	.dc.l	none_DDFD_CB
-	.dc.l	none_DDFD_CB
-	.dc.l	none_DDFD_CB
+	.dc.l	RES_lIdx_dl_A
+	.dc.l	RES_lIdx_dl_B	* $88
+	.dc.l	RES_lIdx_dl_C
+	.dc.l	RES_lIdx_dl_D
+	.dc.l	RES_lIdx_dl_E
+	.dc.l	RES_lIdx_dl_H
+	.dc.l	RES_lIdx_dl_L
 	.dc.l	RES_lIdx_dl
-	.dc.l	none_DDFD_CB	* $8f
+	.dc.l	RES_lIdx_dl_A	* $8f
 
-	.dc.l	none_DDFD_CB	* $90
-	.dc.l	none_DDFD_CB
-	.dc.l	none_DDFD_CB
-	.dc.l	none_DDFD_CB
-	.dc.l	none_DDFD_CB
-	.dc.l	none_DDFD_CB
+	.dc.l	RES_lIdx_dl_B	* $90
+	.dc.l	RES_lIdx_dl_C
+	.dc.l	RES_lIdx_dl_D
+	.dc.l	RES_lIdx_dl_E
+	.dc.l	RES_lIdx_dl_H
+	.dc.l	RES_lIdx_dl_L
 	.dc.l	RES_lIdx_dl
-	.dc.l	none_DDFD_CB
-	.dc.l	none_DDFD_CB	* $98
-	.dc.l	none_DDFD_CB
-	.dc.l	none_DDFD_CB
-	.dc.l	none_DDFD_CB
-	.dc.l	none_DDFD_CB
-	.dc.l	none_DDFD_CB
+	.dc.l	RES_lIdx_dl_A
+	.dc.l	RES_lIdx_dl_B	* $98
+	.dc.l	RES_lIdx_dl_C
+	.dc.l	RES_lIdx_dl_D
+	.dc.l	RES_lIdx_dl_E
+	.dc.l	RES_lIdx_dl_H
+	.dc.l	RES_lIdx_dl_L
 	.dc.l	RES_lIdx_dl
-	.dc.l	none_DDFD_CB	* $9f
+	.dc.l	RES_lIdx_dl_A	* $9f
 
-	.dc.l	none_DDFD_CB	* $a0
-	.dc.l	none_DDFD_CB
-	.dc.l	none_DDFD_CB
-	.dc.l	none_DDFD_CB
-	.dc.l	none_DDFD_CB
-	.dc.l	none_DDFD_CB
+	.dc.l	RES_lIdx_dl_B	* $a0
+	.dc.l	RES_lIdx_dl_C
+	.dc.l	RES_lIdx_dl_D
+	.dc.l	RES_lIdx_dl_E
+	.dc.l	RES_lIdx_dl_H
+	.dc.l	RES_lIdx_dl_L
 	.dc.l	RES_lIdx_dl
-	.dc.l	none_DDFD_CB
-	.dc.l	none_DDFD_CB	* $a8
-	.dc.l	none_DDFD_CB
-	.dc.l	none_DDFD_CB
-	.dc.l	none_DDFD_CB
-	.dc.l	none_DDFD_CB
-	.dc.l	none_DDFD_CB
+	.dc.l	RES_lIdx_dl_A
+	.dc.l	RES_lIdx_dl_B	* $a8
+	.dc.l	RES_lIdx_dl_C
+	.dc.l	RES_lIdx_dl_D
+	.dc.l	RES_lIdx_dl_E
+	.dc.l	RES_lIdx_dl_H
+	.dc.l	RES_lIdx_dl_L
 	.dc.l	RES_lIdx_dl
-	.dc.l	none_DDFD_CB	* $af
+	.dc.l	RES_lIdx_dl_A	* $af
 
-	.dc.l	none_DDFD_CB	* $b0
-	.dc.l	none_DDFD_CB
-	.dc.l	none_DDFD_CB
-	.dc.l	none_DDFD_CB
-	.dc.l	none_DDFD_CB
-	.dc.l	none_DDFD_CB
+	.dc.l	RES_lIdx_dl_B	* $b0
+	.dc.l	RES_lIdx_dl_C
+	.dc.l	RES_lIdx_dl_D
+	.dc.l	RES_lIdx_dl_E
+	.dc.l	RES_lIdx_dl_H
+	.dc.l	RES_lIdx_dl_L
 	.dc.l	RES_lIdx_dl
-	.dc.l	none_DDFD_CB
-	.dc.l	none_DDFD_CB	* $b8
-	.dc.l	none_DDFD_CB
-	.dc.l	none_DDFD_CB
-	.dc.l	none_DDFD_CB
-	.dc.l	none_DDFD_CB
-	.dc.l	none_DDFD_CB
+	.dc.l	RES_lIdx_dl_A
+	.dc.l	RES_lIdx_dl_B	* $b8
+	.dc.l	RES_lIdx_dl_C
+	.dc.l	RES_lIdx_dl_D
+	.dc.l	RES_lIdx_dl_E
+	.dc.l	RES_lIdx_dl_H
+	.dc.l	RES_lIdx_dl_L
 	.dc.l	RES_lIdx_dl	* $be
-	.dc.l	none_DDFD_CB	* $bf
+	.dc.l	RES_lIdx_dl_A	* $bf
 
-	.dc.l	none_DDFD_CB	* $c0
-	.dc.l	none_DDFD_CB
-	.dc.l	none_DDFD_CB
-	.dc.l	none_DDFD_CB
-	.dc.l	none_DDFD_CB
-	.dc.l	none_DDFD_CB
+	.dc.l	SET_lIdx_dl_B	* $c0
+	.dc.l	SET_lIdx_dl_C
+	.dc.l	SET_lIdx_dl_D
+	.dc.l	SET_lIdx_dl_E
+	.dc.l	SET_lIdx_dl_H
+	.dc.l	SET_lIdx_dl_L
 	.dc.l	SET_lIdx_dl	* $c6
-	.dc.l	none_DDFD_CB
-	.dc.l	none_DDFD_CB	* $c8
-	.dc.l	none_DDFD_CB
-	.dc.l	none_DDFD_CB
-	.dc.l	none_DDFD_CB
-	.dc.l	none_DDFD_CB
-	.dc.l	none_DDFD_CB
+	.dc.l	SET_lIdx_dl_A
+	.dc.l	SET_lIdx_dl_B	* $c8
+	.dc.l	SET_lIdx_dl_C
+	.dc.l	SET_lIdx_dl_D
+	.dc.l	SET_lIdx_dl_E
+	.dc.l	SET_lIdx_dl_H
+	.dc.l	SET_lIdx_dl_L
 	.dc.l	SET_lIdx_dl
-	.dc.l	none_DDFD_CB	* $cf
+	.dc.l	SET_lIdx_dl_A	* $cf
 
-	.dc.l	none_DDFD_CB	* $d0
-	.dc.l	none_DDFD_CB
-	.dc.l	none_DDFD_CB
-	.dc.l	none_DDFD_CB
-	.dc.l	none_DDFD_CB
-	.dc.l	none_DDFD_CB
+	.dc.l	SET_lIdx_dl_B	* $d0
+	.dc.l	SET_lIdx_dl_C
+	.dc.l	SET_lIdx_dl_D
+	.dc.l	SET_lIdx_dl_E
+	.dc.l	SET_lIdx_dl_H
+	.dc.l	SET_lIdx_dl_L
 	.dc.l	SET_lIdx_dl
-	.dc.l	none_DDFD_CB
-	.dc.l	none_DDFD_CB	* $d8
-	.dc.l	none_DDFD_CB
-	.dc.l	none_DDFD_CB
-	.dc.l	none_DDFD_CB
-	.dc.l	none_DDFD_CB
-	.dc.l	none_DDFD_CB
+	.dc.l	SET_lIdx_dl_A
+	.dc.l	SET_lIdx_dl_B	* $d8
+	.dc.l	SET_lIdx_dl_C
+	.dc.l	SET_lIdx_dl_D
+	.dc.l	SET_lIdx_dl_E
+	.dc.l	SET_lIdx_dl_H
+	.dc.l	SET_lIdx_dl_L
 	.dc.l	SET_lIdx_dl
-	.dc.l	none_DDFD_CB	* $df
+	.dc.l	SET_lIdx_dl_A	* $df
 
-	.dc.l	none_DDFD_CB	* $e0
-	.dc.l	none_DDFD_CB
-	.dc.l	none_DDFD_CB
-	.dc.l	none_DDFD_CB
-	.dc.l	none_DDFD_CB
-	.dc.l	none_DDFD_CB
+	.dc.l	SET_lIdx_dl_B	* $e0
+	.dc.l	SET_lIdx_dl_C
+	.dc.l	SET_lIdx_dl_D
+	.dc.l	SET_lIdx_dl_E
+	.dc.l	SET_lIdx_dl_H
+	.dc.l	SET_lIdx_dl_L
 	.dc.l	SET_lIdx_dl
-	.dc.l	none_DDFD_CB
-	.dc.l	none_DDFD_CB	* $e8
-	.dc.l	none_DDFD_CB
-	.dc.l	none_DDFD_CB
-	.dc.l	none_DDFD_CB
-	.dc.l	none_DDFD_CB
-	.dc.l	none_DDFD_CB
+	.dc.l	SET_lIdx_dl_A
+	.dc.l	SET_lIdx_dl_B	* $e8
+	.dc.l	SET_lIdx_dl_C
+	.dc.l	SET_lIdx_dl_D
+	.dc.l	SET_lIdx_dl_E
+	.dc.l	SET_lIdx_dl_H
+	.dc.l	SET_lIdx_dl_L
 	.dc.l	SET_lIdx_dl
-	.dc.l	none_DDFD_CB	* $ef
+	.dc.l	SET_lIdx_dl_A	* $ef
 
-	.dc.l	none_DDFD_CB	* $f0
-	.dc.l	none_DDFD_CB
-	.dc.l	none_DDFD_CB
-	.dc.l	none_DDFD_CB
-	.dc.l	none_DDFD_CB
-	.dc.l	none_DDFD_CB
+	.dc.l	SET_lIdx_dl_B	* $f0
+	.dc.l	SET_lIdx_dl_C
+	.dc.l	SET_lIdx_dl_D
+	.dc.l	SET_lIdx_dl_E
+	.dc.l	SET_lIdx_dl_H
+	.dc.l	SET_lIdx_dl_L
 	.dc.l	SET_lIdx_dl
-	.dc.l	none_DDFD_CB
-	.dc.l	none_DDFD_CB	* $f8
-	.dc.l	none_DDFD_CB
-	.dc.l	none_DDFD_CB
-	.dc.l	none_DDFD_CB
-	.dc.l	none_DDFD_CB
-	.dc.l	none_DDFD_CB
+	.dc.l	SET_lIdx_dl_A
+	.dc.l	SET_lIdx_dl_B	* $f8
+	.dc.l	SET_lIdx_dl_C
+	.dc.l	SET_lIdx_dl_D
+	.dc.l	SET_lIdx_dl_E
+	.dc.l	SET_lIdx_dl_H
+	.dc.l	SET_lIdx_dl_L
 	.dc.l	SET_lIdx_dl	* $fe
-	.dc.l	none_DDFD_CB	* $ff
+	.dc.l	SET_lIdx_dl_A	* $ff
 
 ; d0 には Idx + d がセットされて呼ばれる
 
@@ -7381,40 +7381,6 @@ SLI_lIdx_dl:
 	write_mem_8
 	rts
 
-*	------ ＳＥＴ n,(Idx+d) ------
-; d0 には Idx + d がセットされて呼ばれる
-; d1 には DD CB dd XX の XX (OP CODE)が入っている
-	.dc.w	23			* サイクル数
-	.dc.w	4-1			* 命令語長-1 (使っていない)
-SET_lIdx_dl:
-	andi.w	#%00000000_00111000,d1		* BIT_n_? の n を d1にロード
-	lsr.w	#3,d1
-	move.w	d0,-(sp)			* Idx + d を退避
-	move.w	d1,-(sp)
-	jsr	ms_read_mem_8
-	move.w	(sp)+,d1
-	bset.l	d1,d0				* (Idx + d)の nビット目をセット
-	move.b	d0,d1
-	move.w	(sp)+,d0
-	write_mem_8		
-	rts
-
-*	------ ＲＥＳ n,(Idx+d) ------
-	.dc.w	23			* サイクル数
-	.dc.w	4-1			* 命令語長-1 (使っていない)
-RES_lIdx_dl:
-	andi.w	#%00000000_00111000,d1		* BIT_n_? の n を d1にロード
-	lsr.w	#3,d1
-	move.w	d0,-(sp)			* Idx + d をプッシュ
-	move.w	d1,-(sp)
-	jsr	ms_read_mem_8
-	move.w	(sp)+,d1
-	bclr.l	d1,d0				* (Idx + d)の nビット目をクリア
-	move.b	d0,d1
-	move.w	(sp)+,d0
-	write_mem_8		
-	rts
-
 *	------ ＢＩＴ n,(Idx+d) ------
 ; ＢＩＴ命令の挙動は以下の通り
 ; * S : BIT 7,?の時だけ、対象のbit7が1なら1。それ以外の時は0
@@ -7455,6 +7421,170 @@ BIT_lIdx_dl:
 1:	andi.b	#%10000000,d0		* bit7のみ残す
 	or.b	d0,d6			* bit7を Sフラグに反映
 	rts
+
+
+*	------ ＳＥＴ n,(Idx+d) ------
+; d0 には Idx + d がセットされて呼ばれる
+; d1 には DD CB dd XX の XX (OP CODE)が入っている
+	.dc.w	23			* サイクル数
+	.dc.w	4-1			* 命令語長-1 (使っていない)
+SET_lIdx_dl:
+	andi.w	#%00000000_00111000,d1		* BIT_n_? の n を d1にロード
+	lsr.w	#3,d1
+	move.w	d0,-(sp)			* Idx + d を退避
+	move.w	d1,-(sp)
+	jsr	ms_read_mem_8
+	move.w	(sp)+,d1
+	bset.l	d1,d0				* (Idx + d)の nビット目をセット
+	move.b	d0,d1
+	move.w	(sp)+,d0
+	move.b	d1,-(sp)			* 結果を残しておく
+	write_mem_8
+	move.b	(sp)+,d0			* 結果を d0に入れて戻る(SET n,(Idx+d),Xのため)
+	rts
+
+*	------ ＳＥＴ n,(Idx+d),X ------
+;---------------------------------------------------------------------------------------
+; 未定義命令。SET n,(Idx+d)の実行後、結果をXレジスタにストアする命令。
+; XはOP Codeの下位3ビットで指定され、以下のように対応している。
+; 0: Bレジスタ
+; 1: Cレジスタ
+; 2: Dレジスタ
+; 3: Eレジスタ
+; 4: Hレジスタ
+; 5: Lレジスタ
+; 6: RES n,(Idx+d)
+; 7: Aレジスタ
+SET_lIdx_dl_X	macro	target
+	bsr	SET_lIdx_dl			* SET n,(Idx+d) を実行
+	; 実行結果が d0 に入っているので、それをXレジスタにストア
+	move.b	d0,target
+	endm
+;---------------------------------------------------------------------------------------
+	.dc.w	23			* サイクル数
+	.dc.w	4-1			* 命令語長-1 (使っていない)
+SET_lIdx_dl_B:
+	SET_lIdx_dl_X	b(a3)
+	rts
+
+	.dc.w	23			* サイクル数
+	.dc.w	4-1			* 命令語長-1 (使っていない)
+SET_lIdx_dl_C:
+	SET_lIdx_dl_X	c(a3)
+	rts
+
+	.dc.w	23			* サイクル数
+	.dc.w	4-1			* 命令語長-1 (使っていない)
+SET_lIdx_dl_D:
+	SET_lIdx_dl_X	d(a3)
+	rts
+
+	.dc.w	23			* サイクル数
+	.dc.w	4-1			* 命令語長-1 (使っていない)
+SET_lIdx_dl_E:
+	SET_lIdx_dl_X	e(a3)
+	rts
+
+	.dc.w	23			* サイクル数
+	.dc.w	4-1			* 命令語長-1 (使っていない)
+SET_lIdx_dl_H:
+	SET_lIdx_dl_X	h(a3)
+	rts
+
+	.dc.w	23			* サイクル数
+	.dc.w	4-1			* 命令語長-1 (使っていない)
+SET_lIdx_dl_L:
+	SET_lIdx_dl_X	l(a3)
+	rts
+
+	.dc.w	23			* サイクル数
+	.dc.w	4-1			* 命令語長-1 (使っていない)
+SET_lIdx_dl_A:
+	SET_lIdx_dl_X	d4
+	rts
+
+
+
+*	------ ＲＥＳ n,(Idx+d) ------
+	.dc.w	23			* サイクル数
+	.dc.w	4-1			* 命令語長-1 (使っていない)
+RES_lIdx_dl:
+	andi.w	#%00000000_00111000,d1		* BIT_n_? の n を d1にロード
+	lsr.w	#3,d1
+	move.w	d0,-(sp)			* Idx + d をプッシュ
+	move.w	d1,-(sp)
+	jsr	ms_read_mem_8
+	move.w	(sp)+,d1
+	bclr.l	d1,d0				* (Idx + d)の nビット目をクリア
+	move.b	d0,d1
+	move.w	(sp)+,d0
+	move.b	d1,-(sp)			* 結果を残しておく
+	write_mem_8
+	move.b	(sp)+,d0			* 結果を d0に入れて戻る(RES n,(Idx+d),Xのため)
+	rts
+
+*	------ ＲＥＳ n,(Idx+d),X ------
+;---------------------------------------------------------------------------------------
+; 未定義命令。RES n,(Idx+d)の実行後、結果をXレジスタにストアする命令。
+; XはOP Codeの下位3ビットで指定され、以下のように対応している。
+; 0: Bレジスタ
+; 1: Cレジスタ
+; 2: Dレジスタ
+; 3: Eレジスタ
+; 4: Hレジスタ
+; 5: Lレジスタ
+; 6: RES n,(Idx+d)
+; 7: Aレジスタ
+RES_lIdx_dl_X	macro	target
+	bsr	RES_lIdx_dl			* RES n,(Idx+d) を実行
+	; 実行結果が d0 に入っているので、それをXレジスタにストア
+	move.b	d0,target
+	endm
+;---------------------------------------------------------------------------------------
+	
+	.dc.w	23			* サイクル数
+	.dc.w	4-1			* 命令語長-1 (使っていない)
+RES_lIdx_dl_B:
+	RES_lIdx_dl_X	b(a3)
+	rts
+
+	.dc.w	23			* サイクル数
+	.dc.w	4-1			* 命令語長-1 (使っていない)
+RES_lIdx_dl_C:
+	RES_lIdx_dl_X	c(a3)
+	rts
+
+	.dc.w	23			* サイクル数
+	.dc.w	4-1			* 命令語長-1 (使っていない)
+RES_lIdx_dl_D:
+	RES_lIdx_dl_X	d(a3)
+	rts
+
+	.dc.w	23			* サイクル数
+	.dc.w	4-1			* 命令語長-1 (使っていない)
+RES_lIdx_dl_E:
+	RES_lIdx_dl_X	e(a3)
+	rts
+
+	.dc.w	23			* サイクル数
+	.dc.w	4-1			* 命令語長-1 (使っていない)
+RES_lIdx_dl_H:
+	RES_lIdx_dl_X	h(a3)
+	rts
+
+	.dc.w	23			* サイクル数
+	.dc.w	4-1			* 命令語長-1 (使っていない)
+RES_lIdx_dl_L:
+	RES_lIdx_dl_X	l(a3)
+	rts
+
+	.dc.w	23			* サイクル数
+	.dc.w	4-1			* 命令語長-1 (使っていない)
+RES_lIdx_dl_A:
+	RES_lIdx_dl_X	d4
+	rts
+
+
 
 *****************************************************
 *

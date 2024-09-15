@@ -26,6 +26,7 @@
 #include "disk/ms_disk_container.h"
 #include "peripheral/ms_rtc.h"
 #include "peripheral/ms_kanjirom12.h"
+#include "peripheral/ms_kanjirom_alt.h"
 
 ms_init_params_t default_param;
 ms_init_params_t init_param;
@@ -132,6 +133,8 @@ void printHelpAndExit(char* progname) {
 	fprintf(stderr, "    default is 100 cycles.\n");
 	fprintf(stderr, " --hostdebug\n");
 	fprintf(stderr, "    enable host process debug mode.\n");
+	fprintf(stderr, " --disablekanji");
+	fprintf(stderr, "    disable kanji ROM.\n");
 	fprintf(stderr, " --disablekey\n");
 	fprintf(stderr, "    disable key input for performance test.\n");
 //	fprintf(stderr, " --debuglevel N\n");
@@ -141,6 +144,7 @@ void printHelpAndExit(char* progname) {
 	exit(EXIT_FAILURE);
 }
 
+int disablekanji = 0;
 int disablekey = 0;
 int safemode = 0;
 int hostdebug = 0;
@@ -203,15 +207,16 @@ int main(int argc, char *argv[]) {
 	int opt;
     const char* optstring = "hm:s:w:r:" ; // optstringを定義します
     const struct option longopts[] = {
-      //{        *name,           has_arg,       *flag, val },
-        {     "vsrate", required_argument,           0, 'A' },
-        {   "intblock", required_argument,           0, 'B' },
-        {   "hostrate", required_argument,           0, 'C' },
-        {  "hostdelay", required_argument,           0, 'D' },
-		{  "hostdebug",       no_argument,  &hostdebug,  1  },
-		{ "disablekey",       no_argument, &disablekey,  1  },
-		{       "safe",       no_argument,   &safemode,  1  },
-        {            0,                 0,           0,  0  }, // termination
+      //{          *name,           has_arg,       *flag, val },
+        {       "vsrate", required_argument,             0, 'A' },
+        {     "intblock", required_argument,             0, 'B' },
+        {     "hostrate", required_argument,             0, 'C' },
+        {    "hostdelay", required_argument,             0, 'D' },
+		{    "hostdebug",       no_argument,    &hostdebug,  1  },
+		{ "disablekanji",       no_argument, &disablekanji,  1  },
+		{   "disablekey",       no_argument,   &disablekey,  1  },
+		{         "safe",       no_argument,     &safemode,  1  },
+        {              0,                 0,             0,  0  }, // termination
     };
 	const struct option* longopt;
     int longindex = 0;
@@ -553,7 +558,9 @@ int main(int argc, char *argv[]) {
 	/*
 	 漢字ROMのセット
 	 */
-	if (init_param.kanjirom != NULL) {
+	if (disablekanji) {
+		printf("漢字ROMを無効化します\n");
+	} else if (init_param.kanjirom != NULL) {
 		ms_kanjirom12_t* k12 = ms_kanjirom12_alloc();
 		if (k12 == NULL) {
 			printf("漢字ROMの初期化に失敗しました\n");
@@ -561,6 +568,14 @@ int main(int argc, char *argv[]) {
 		}
 		ms_kanjirom12_init(k12, iomap, init_param.kanjirom);
 		printf("KANJIROM: %s\n", init_param.kanjirom);
+	} else {
+		printf("代替漢字ROMを使用します\n");
+		ms_kanjirom_alt_t* k_alt = ms_kanjirom_alt_alloc();
+		if (k_alt == NULL) {
+			printf("代替漢字ROMの初期化に失敗しました\n");
+			ms_exit();
+		}
+		ms_kanjirom_alt_init(k_alt, iomap);
 	}
 
 	/*

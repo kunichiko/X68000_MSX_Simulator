@@ -339,8 +339,8 @@ int through_test_cb(value_func_t value_func)
 	return 0;
 }
 
-// DD CB ラインのテスト
-int through_test_ddcb(value_func_t value_func)
+// DD CB / FD CBラインのテスト
+int through_test_ddfd_cb(value_func_t value_func)
 {
 	char result[256];
 
@@ -357,30 +357,35 @@ int through_test_ddcb(value_func_t value_func)
 
 	int d = 0;
 
-	for(int i=0;i<0x100;i++)
+	for(int j=0xdd;j<=0xfd;j+=0x20)
 	{
-		if ( (i & 0x0f) != 0x06 && (i & 0x0f) != 0x0e)
+		for(int i=0;i<0x100;i++)
 		{
-			continue;
+			if ( i < 0x40) {
+				if ( (i & 0x0f) != 0x06 && (i & 0x0f) != 0x0e)
+				{
+					continue;
+				}
+			}
+			printf("Test: 0x%02x 0xCB 0x%02x 0x%02x ... ", j, d, i);
+			fflush(stdout);
+			// テストコードSZ
+			sz_cpu.pc = org;
+			sz_memory[org+0] = j;
+			sz_memory[org+1] = 0xCB;
+			sz_memory[org+2] = d;
+			sz_memory[org+3] = i;
+			bool debug = false;
+			if ( i == 0xc6 | i == 0xce ) {
+				debug = false;
+			}
+			if (dotest(20,result,debug) ) {
+				printf(" ********************************************************** failed --> %s\n",result);
+				dump_cpu();
+				return 1;
+			}
+			printf(" passed\n");
 		}
-		printf("Test: 0xDD 0xCB 0x%02x 0x%02x ... ", d, i);
-		fflush(stdout);
-		// テストコードSZ
-		sz_cpu.pc = org;
-		sz_memory[org+0] = 0xDD;
-		sz_memory[org+1] = 0xCB;
-		sz_memory[org+2] = d;
-		sz_memory[org+3] = i;
-		bool debug = false;
-		if ( i == 0xc6 | i == 0xce ) {
-			debug = false;
-		}
-		if (dotest(20,result,debug) ) {
-			printf(" ********************************************************** failed --> %s\n",result);
-			dump_cpu();
-			return 1;
-		}
-		printf(" passed\n");
 	}
 	return 0;
 }
@@ -654,6 +659,9 @@ int run_through_tests(value_func_t value_func)
 	sz_memory[0x0006] = 0x00;
 	sz_memory[0x0007] = 0xC9;
 
+	if(through_test_ddfd_cb(value_func)) {
+		return 1;
+	}
 	if(through_test_normal_page_edge(value_func)) {
 		return 1;
 	}
@@ -667,9 +675,6 @@ int run_through_tests(value_func_t value_func)
 		return 1;
 	}
 	if(through_test_ed(value_func)) {
-		return 1;
-	}
-	if(through_test_ddcb(value_func)) {
 		return 1;
 	}
 
