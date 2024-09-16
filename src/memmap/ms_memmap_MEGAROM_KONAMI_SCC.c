@@ -5,6 +5,7 @@
 #include <fcntl.h>
 #include "ms_memmap.h"
 #include "ms_memmap_MEGAROM_KONAMI_SCC.h"
+#include "../ms.h"
 
 #define THIS ms_memmap_driver_MEGAROM_KONAMI_SCC_t
 
@@ -63,6 +64,17 @@ void ms_memmap_MEGAROM_KONAMI_SCC_init(THIS* instance, ms_memmap_t* memmap, uint
 		_select_bank(instance, page8k, page8k-2);	// KONAMI SCCメガロムの場合、初期値は0,1,2,3
 	}
 
+	uint8_t* scc_segment = (uint8_t*)new_malloc( 8*1024 );
+	if(scc_segment == NULL) {
+		printf("メモリが確保できません。\n");
+		return;
+	}
+	int i;
+	for (i = 0; i < 8*1024; i++) {
+		scc_segment[i] = 0xff;
+	}
+	instance->scc_segment = scc_segment;
+
 	return;
 }
 
@@ -77,12 +89,17 @@ static void _did_update_memory_mapper(ms_memmap_driver_t* driver, int slot, uint
 }
 
 static void _select_bank(THIS* d, int page8k, int segment) {
-	if ( segment >= d->num_segments) {
-		printf("MEGAROM_KONAMI_SCC: segment out of range: %d\n", segment);
+	if ( segment == 0x3f) {
+		// SCC register
+		d->base.page8k_pointers[page8k] = d->scc_segment;
+		d->selected_segment[page8k] = segment;
+	} else if ( segment >= d->num_segments) {
+		MS_LOG(MS_LOG_DEBUG,"MEGAROM_KONAMI_SCC: segment out of range: %d\n", segment);
 		return;
+	} else {
+		d->base.page8k_pointers[page8k] = d->base.buffer + (segment * 0x2000);
+		d->selected_segment[page8k] = segment;
 	}
-	d->base.page8k_pointers[page8k] = d->base.buffer + (segment * 0x2000);
-	d->selected_segment[page8k] = segment;
 
 	// 切り替えが起こったことを memmap に通知
 	d->base.memmap->update_page_pointer( d->base.memmap, (ms_memmap_driver_t*)d, page8k);
@@ -93,18 +110,15 @@ static void _select_bank(THIS* d, int page8k, int segment) {
 static uint8_t _read8(ms_memmap_driver_t* driver, uint16_t addr) {
 	THIS* d = (THIS*)driver;
 	int page8k = addr >> 13;
-	if( page8k < 2 || page8k > 5) {
-		printf("MEGAROM_KONAMI_SCC: read out of range: %04x\n", addr);
+	int local_addr = addr & 0x1fff;
+
+	uint8_t* p8k = driver->page8k_pointers[page8k];
+	if( p8k == NULL ) {
+		MS_LOG(MS_LOG_FINE,"MEGAROM_KONAMI_SCC: read out of range: %04x\n", addr);
 		return 0xff;
 	}
-	int segment = d->selected_segment[page8k];
-	if (segment >= d->num_segments) {
-		printf("MEGAROM_KONAMI_SCC: segment out of range: %d\n", segment);
-		return 0xff;
-	}
-	int long_addr = (addr & 0x1fff) + (0x2000 * segment);
-	uint8_t ret = driver->buffer[long_addr];
-	//printf("MEGAROM_KONAMI_SCC: read %04x[%06x] -> %02x\n", addr, long_addr, ret);
+
+	uint8_t ret = p8k[local_addr];
 	return ret;
 }
 

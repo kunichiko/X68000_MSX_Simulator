@@ -11,6 +11,7 @@
 typedef struct ms_memmap_driver_MEGAROM_KONAMI_SCC {
 	ms_memmap_driver_t base;
 	// extended properties
+	uint8_t* scc_segment;
 	int num_segments;
 	int selected_segment[4];	// Page0-3のそれぞれのセグメント選択状態
 } ms_memmap_driver_MEGAROM_KONAMI_SCC_t;
