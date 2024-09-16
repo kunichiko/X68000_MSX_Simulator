@@ -235,6 +235,7 @@ void write_sprite_attribute_256(ms_vdp_t* vdp, int offset, uint32_t attribute, i
 	int i,j;
 	int plNum = (((uint32_t)offset) / SAT_SIZE); // MSXのスプライトプレーン番号
 	int type = offset % SAT_SIZE; // 属性の種類
+	int spMode = vdp->ms_vdp_current_mode->sprite_mode & 0x3;
 
 	if (plNum >= 32) {
 		return;
@@ -259,7 +260,6 @@ void write_sprite_attribute_256(ms_vdp_t* vdp, int offset, uint32_t attribute, i
 		 	// MSXのX座標の1倍, X68000のスプライトの原点は(16,16)なのでずらす
 			// SET ADJUSTのX方向の補正を行う
 			int ec = 0;
-			int spMode = vdp->ms_vdp_current_mode->sprite_mode & 0x3;
 			switch(spMode) {
 			case 1:
 				uint8_t* pattr = vdp->vram + vdp->sprattrtbl_baddr;
@@ -279,6 +279,15 @@ void write_sprite_attribute_256(ms_vdp_t* vdp, int offset, uint32_t attribute, i
 		case 3: // 属性
 			// パターン番号、カラーが変更されたら、事前にバッファに展開しておいたパターンを転送し、書き換える
 			refresh_sprite_256(vdp, plNum);
+			// ECをX座標に反映
+			if(spMode == 1) {
+				uint8_t* pattr = vdp->vram + vdp->sprattrtbl_baddr;
+				int x = pattr[plNum*SAT_SIZE+1];
+				int ec = (pattr[plNum*SAT_SIZE+3] & 0x80) >> 7;
+				int adjustx = get_sprite_adjustx(vdp);
+				x = ((x - ec*32) + 16 + adjustx) & 0x3ff; // MSXのX座標の1倍
+				X68_SSR[plNum*SSR_UNIT+0] = x;
+			}
 			break;
 		default:
 			break;
