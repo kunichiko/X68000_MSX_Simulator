@@ -5,6 +5,7 @@
 #include <fcntl.h>
 #include "ms_memmap.h"
 #include "ms_memmap_MEGAROM_KONAMI.h"
+#include "../ms.h"
 
 #define THIS ms_memmap_driver_MEGAROM_KONAMI_t
 
@@ -94,18 +95,15 @@ static void _select_bank(THIS* d, int page8k, int segment) {
 static uint8_t _read8(ms_memmap_driver_t* driver, uint16_t addr) {
 	THIS* d = (THIS*)driver;
 	int page8k = addr >> 13;
-	if( page8k < 2 || page8k > 5) {
-		printf("MEGAROM_KONAMI: read out of range: %04x\n", addr);
+	int local_addr = addr & 0x1fff;
+
+	uint8_t* p8k = driver->page8k_pointers[page8k];
+	if( p8k == NULL ) {
+		MS_LOG(MS_LOG_FINE,"MEGAROM_KONAMI: read out of range: %04x\n", addr);
 		return 0xff;
 	}
-	int segment = d->selected_segment[page8k];
-	if (segment > d->num_segments) {
-		printf("MEGAROM_KONAMI: segment out of range: %d\n", segment);
-		return 0xff;
-	}
-	int long_addr = (addr & 0x1fff) + (0x2000 * segment);
-	uint8_t ret = driver->buffer[long_addr];
-	//printf("MEGAROM_KONAMI: read %04x[%06x] -> %02x\n", addr, long_addr, ret);
+
+	uint8_t ret = p8k[local_addr];
 	return ret;
 }
 
