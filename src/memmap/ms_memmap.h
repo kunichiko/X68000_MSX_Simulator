@@ -7,15 +7,16 @@
 #define ROM_TYPE_NOTHING			0
 #define ROM_TYPE_MAPPER_RAM			1
 #define ROM_TYPE_NORMAL_ROM			2
-#define ROM_TYPE_MEGAROM_GENERIC_8K	3
-#define ROM_TYPE_MEGAROM_ASCII_8K	4
-#define ROM_TYPE_MEGAROM_ASCII_16K	5
-#define ROM_TYPE_MEGAROM_KONAMI		6
-#define ROM_TYPE_MEGAROM_KONAMI_SCC	7
-#define ROM_TYPE_SOUND_CARTRIG		8
-#define ROM_TYPE_MEGAROM_PANA		9
-#define ROM_TYPE_DOS_ROM			10
-#define ROM_TYPE_PAC				11
+#define ROM_TYPE_MIRRORED_ROM		3
+#define ROM_TYPE_MEGAROM_GENERIC_8K	4
+#define ROM_TYPE_MEGAROM_ASCII_8K	5
+#define ROM_TYPE_MEGAROM_ASCII_16K	6
+#define ROM_TYPE_MEGAROM_KONAMI		7
+#define ROM_TYPE_MEGAROM_KONAMI_SCC	8
+#define ROM_TYPE_SOUND_CARTRIG		9
+#define ROM_TYPE_MEGAROM_PANA		10
+#define ROM_TYPE_DOS_ROM			11
+#define ROM_TYPE_PAC				12
 
 #define MS_MEMMAP_HEADER_LENGTH 8
 #define MS_MEMMAP_NUM_SEGMENTS 4
@@ -95,10 +96,9 @@ void ms_memmap_set_main_mem( void *, int);
 
 int ms_memmap_attach_driver(ms_memmap_t* memmap, ms_memmap_driver_t* driver, int slot_base, int slot_ex);
 
-int allocateAndSetROM(const char *romFileName, int kind, int slot_base, int slot_ex, int page);
-int allocateAndSetROMwithHandle(int fh, int kind, int slot_base, int slot_ex, int page);
+int allocateAndSetNORMALROM(int fh, int kind, int slot_base, int slot_ex, int page);
 void allocateAndSetDISKBIOSROM(const char *romFileName, ms_disk_container_t* disk_container);
-void allocateAndSetROM_Cartridge(const char* romFileName, int slot_base, int kind);
+void allocateAndSetCartridge(const char* romFileName, int slot_base, int kind);
 
 uint8_t ms_memmap_read8(uint16_t addr);
 void ms_memmap_write8(uint16_t addr, uint8_t data);

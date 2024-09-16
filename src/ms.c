@@ -154,8 +154,8 @@ char* separate_rom_kind(char* path, int* kind) {
 	if (p != NULL) {
 		*p = '\0';
 		p++;
-		if (strcasecmp(p, "NOR") == 0) {
-			*kind = ROM_TYPE_NORMAL_ROM;
+		if (strcasecmp(p, "MIR") == 0) {
+			*kind = ROM_TYPE_MIRRORED_ROM;
 		} else if (strcasecmp(p, "G8K") == 0) {
 			*kind = ROM_TYPE_MEGAROM_GENERIC_8K;
 		} else if (strcasecmp(p, "A8K") == 0) {
@@ -221,7 +221,7 @@ int main(int argc, char *argv[]) {
 	const struct option* longopt;
     int longindex = 0;
 
-	printf("[[ MSX Simulator MS.X v%s]]\n", MS_dot_X_VERSION);
+	printf("[[ MSX Simulator MS.X %s]]\n", MS_dot_X_VERSION);
 
 	unsigned int mpu_type = _iocs_mpu_stat();
 	if( (mpu_type & 0xf) < 3) {
@@ -531,7 +531,7 @@ int main(int argc, char *argv[]) {
 
 	printf("\n\n\n\n\n\n\n\n"); // TEXT画面を上に8ラインくらい上げているので、その分改行を入れる
 	printf("\n\n\n\n\n\n\n\n"); // 256ドットモードだとさらに見えなくなるので、もう少し下げる
-	printf("[[ MSX Simulator MS.X v%s]]\n", MS_dot_X_VERSION);
+	printf("[[ MSX Simulator MS.X %s]]\n", MS_dot_X_VERSION);
 	printf(" この画面は HELP キーで消せます\n");
 
 	/*
@@ -583,11 +583,7 @@ int main(int argc, char *argv[]) {
 	 */
 	set_system_roms();
 
-	/* 基本スロット1-ページ1のROM配置 (32KBytesゲームの前半16Kなど）	*/
-	//	allocateAndSetROM( 16 * 1024,"GAME1.ROM", (int)2, (int)0x04, (int)1 );
-	/* 基本スロット1-ページ1のROM配置 (32KBytesゲームの後半16Kなど）	*/
-	//	allocateAndSetROM( 16 * 1024,"GAME2.ROM", (int)2, (int)0x04, (int)2 );
-
+	// その他の個別指定ROMをセット
 	for ( i = 0; i < 4; i++) {
 		for ( j = 0; j < 4; j++) {
 			if ( init_param.slot_path[i][j] != NULL) {
@@ -596,7 +592,7 @@ int main(int argc, char *argv[]) {
 				if ( fh == -1) {
 					printf("ファイルが開けません. %s\n", init_param.slot_path[i][j]);
 				} else {
-					allocateAndSetROMwithHandle(fh, ROM_TYPE_NORMAL_ROM, i, -1, j);
+					allocateAndSetNORMALROM(fh, ROM_TYPE_NORMAL_ROM, i, -1, j);
 				}
 			}
 		}
@@ -605,11 +601,11 @@ int main(int argc, char *argv[]) {
 	// サイズを自動判別してROMをセット
 	if (init_param.cartridge_path_slot1 != NULL) {
 		printf("Cartridge slot 1: %s\n", init_param.cartridge_path_slot1);
-		allocateAndSetROM_Cartridge(init_param.cartridge_path_slot1, 1, init_param.cartridge_kind_slot1);
+		allocateAndSetCartridge(init_param.cartridge_path_slot1, 1, init_param.cartridge_kind_slot1);
 	}
 	if (init_param.cartridge_path_slot2 != NULL) {
 		printf("Cartridge slot 2: %s\n", init_param.cartridge_path_slot2);
-		allocateAndSetROM_Cartridge(init_param.cartridge_path_slot2, 2, init_param.cartridge_kind_slot2);
+		allocateAndSetCartridge(init_param.cartridge_path_slot2, 2, init_param.cartridge_kind_slot2);
 	}
 
 	MS_LOG(MS_LOG_DEBUG, "VSYNCレート=%d, ホスト処理レート=%d\n", ms_vdp_vsync_rate, host_rate);
@@ -1205,9 +1201,9 @@ void set_system_roms() {
 	if (fh_mainrom != -1 && fh_subrom != -1) {
 		// Load user-provided ROMs
 		printf("MAIN ROM: %s\n", init_param.mainrom);
-		allocateAndSetROMwithHandle(fh_mainrom, ROM_TYPE_NORMAL_ROM, 0x00, -1, 0);
+		allocateAndSetNORMALROM(fh_mainrom, ROM_TYPE_NORMAL_ROM, 0x00, -1, 0);
 		printf(" SUB ROM: %s\n", init_param.subrom);
-		allocateAndSetROMwithHandle(fh_subrom, ROM_TYPE_NORMAL_ROM, 0x03, 1, 0);
+		allocateAndSetNORMALROM(fh_subrom, ROM_TYPE_NORMAL_ROM, 0x03, 1, 0);
 		if (file_exists(init_param.diskrom)) {
 			printf("DISK ROM: %s\n", init_param.diskrom);
 			int i;

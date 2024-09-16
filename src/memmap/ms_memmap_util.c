@@ -7,6 +7,7 @@
 #include "ms_memmap_driver.h"
 #include "ms_memmap_NOTHING.h"
 #include "ms_memmap_NORMALROM.h"
+#include "ms_memmap_MIRROREDROM.h"
 #include "ms_memmap_MAINRAM.h"
 #include "ms_memmap_MEGAROM_GENERIC_8K.h"
 #include "ms_memmap_MEGAROM_ASCII_8K.h"
@@ -29,7 +30,7 @@ int filelength(int fh) {
  * @param slot_base 
  * @param kind ROMタイプの指定。-1 を指定すると自動判定します
  */
-void allocateAndSetROM_Cartridge(const char *romFileName, int slot_base, int kind) {
+void allocateAndSetCartridge(const char *romFileName, int slot_base, int kind) {
 	int crt_fh;
 	int crt_length;
 	uint8_t *crt_buff;
@@ -78,10 +79,14 @@ void allocateAndSetROM_Cartridge(const char *romFileName, int slot_base, int kin
 		kind = detect_rom_type(crt_buff, crt_length);
 	}
 	switch(kind) {
-		case ROM_TYPE_NORMAL_ROM:
-			if( allocateAndSetROM(romFileName, ROM_TYPE_NORMAL_ROM, slot_base, -1, 1) ) {
-				printf(" Loaded %s\n", romFileName);
+		case ROM_TYPE_MIRRORED_ROM:
+			ms_memmap_driver_MIRROREDROM_t* mir = ms_memmap_MIRROREDROM_alloc();
+			driver = (ms_memmap_driver_t*)mir;
+			if( driver == NULL) {
+				printf("MIRROREDROMの初期化に失敗しました\n");
+				return;
 			}
+			ms_memmap_MIRROREDROM_init(mir, ms_memmap_shared_instance(), crt_buff, crt_length);
 			break;
 		case ROM_TYPE_MEGAROM_GENERIC_8K:
 			// GENERIC 8K メガロム
@@ -162,8 +167,8 @@ int detect_rom_type(uint8_t* buffer, int length) {
 	int i;
 
 	if (length <= 32 * 1024) {
-		printf("通常ロムと推定しました。\n");
-		return ROM_TYPE_NORMAL_ROM;
+		printf("通常のミラーロムと推定しました。\n");
+		return ROM_TYPE_MIRRORED_ROM;
 	}
 
 	for (i = 0; i < length - 3; i++) {
@@ -231,19 +236,7 @@ int detect_rom_type(uint8_t* buffer, int length) {
 	return ROM_TYPE_MEGAROM_GENERIC_8K;
 }
 
-int allocateAndSetROM(const char *romFileName, int kind, int slot_base, int slot_ex, int page) {
-	int crt_fh;
-
-	crt_fh = open( romFileName, O_RDONLY | O_BINARY);
-	if (crt_fh == -1) {
-		printf("ファイルが開けません. %s\n", romFileName);
-		ms_exit();
-		return 0;
-	}
-	return allocateAndSetROMwithHandle(crt_fh, kind, slot_base, slot_ex, page);
-}
-
-int allocateAndSetROMwithHandle(int crt_fh, int kind, int slot_base, int slot_ex, int page) {
+int allocateAndSetNORMALROM(int crt_fh, int kind, int slot_base, int slot_ex, int page) {
 	int crt_length;
 	uint8_t *crt_buff;
 	int i;

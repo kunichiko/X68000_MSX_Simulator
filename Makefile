@@ -44,6 +44,7 @@ OBJS = $(BUILD_DIR)/ms.o \
 		$(BUILD_DIR)/ms_memmap_NOTHING.o \
 		$(BUILD_DIR)/ms_memmap_MAINRAM.o \
 		$(BUILD_DIR)/ms_memmap_NORMALROM.o \
+		$(BUILD_DIR)/ms_memmap_MIRROREDROM.o \
 		$(BUILD_DIR)/ms_memmap_MEGAROM_GENERIC_8K.o \
 		$(BUILD_DIR)/ms_memmap_MEGAROM_ASCII_8K.o \
 		$(BUILD_DIR)/ms_memmap_MEGAROM_KONAMI.o \
@@ -93,6 +94,7 @@ OBJS_DEBUG = $(BUILD_DIR)/ms_d.o \
 		$(BUILD_DIR)/ms_memmap_NOTHING_d.o \
 		$(BUILD_DIR)/ms_memmap_MAINRAM_d.o \
 		$(BUILD_DIR)/ms_memmap_NORMALROM_d.o \
+		$(BUILD_DIR)/ms_memmap_MIRROREDROM_d.o \
 		$(BUILD_DIR)/ms_memmap_MEGAROM_GENERIC_8K_d.o \
 		$(BUILD_DIR)/ms_memmap_MEGAROM_ASCII_8K_d.o \
 		$(BUILD_DIR)/ms_memmap_MEGAROM_KONAMI_d.o \
@@ -123,7 +125,10 @@ OBJS_DEBUG = $(BUILD_DIR)/ms_d.o \
 		$(BUILD_DIR)/ms_disk_controller_TC8566AF_d.o \
 		$(BUILD_DIR)/ms_disk_bios_Panasonic_d.o
 
-all: copy_to_target_all
+all: update_version copy_to_target_all 
+
+update_version:
+	@./update_version.sh
 
 debug: copy_to_target_debug
 
@@ -144,6 +149,9 @@ copy_to_target_debug: ${BUILD_DIR} ${BUILD_DIR}/ms_debug.x
 	cp ${BUILD_DIR}/ms_debug.x ${EXE_DIR}/
 	cp ${BUILD_DIR}/ms_debug.x.elf ${EXE_DIR}/
 	cp ${BUILD_DIR}/ms_debug.x /Users/ohnaka/work/XEiJ/HFS/MS.X/
+
+$(SRC_DIR)/ms.h: $(SRC_DIR)/../version.h
+	touch $(SRC_DIR)/ms.h
 
 ${BUILD_DIR}/ms.x: $(OBJS)
 	$(LD) $(LDFLAGS) -o $@ $^

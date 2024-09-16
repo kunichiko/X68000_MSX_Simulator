@@ -12,8 +12,9 @@
 */
 
 #include "memmap/ms_memmap.h"
+#include "../version.h"
 
-#define MS_dot_X_VERSION	"0.5.0"
+#define MS_dot_X_VERSION	APP_VERSION
 
 #ifdef DEBUG
 #define MS_LOG(level, ...) do { if (debug_log_level >= level) printf(__VA_ARGS__); } while (0)
