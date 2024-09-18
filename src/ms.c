@@ -132,9 +132,9 @@ void printHelpAndExit(char* progname) {
 	fprintf(stderr, "    default is 100 cycles.\n");
 	fprintf(stderr, " --hostdebug\n");
 	fprintf(stderr, "    enable host process debug mode.\n");
-	fprintf(stderr, " --disablekanji");
+	fprintf(stderr, " --disablekanji\n");
 	fprintf(stderr, "    disable kanji ROM.\n");
-	fprintf(stderr, " --disablescc");
+	fprintf(stderr, " --disablescc\n");
 	fprintf(stderr, "    disable SCC sound.\n");
 	fprintf(stderr, " --disablekey\n");
 	fprintf(stderr, "    disable key input for performance test.\n");
