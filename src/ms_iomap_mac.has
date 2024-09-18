@@ -19,9 +19,6 @@
 	.xref	r_port_90
 	.xref	w_port_90, w_port_91
 
-	.xref	r_port_A0, r_port_A1, r_port_A2
-	.xref	w_port_A0, w_port_A1
-
 	.xref	r_port_A8, r_port_A9
 	.xref	w_port_A8
 
@@ -96,7 +93,7 @@ ms_io_input_table:
 	.dc.l	read_vdp_0,	read_vdp_1,	read_vdp_2,	read_vdp_3
 	.dc.l	ms_iomap_in,	ms_iomap_in,	ms_iomap_in,	ms_iomap_in
 *	a
-	.dc.l	r_port_A0,	ms_iomap_in,	r_port_A2,	ms_iomap_in
+	.dc.l	ms_iomap_in,	ms_iomap_in,	ms_iomap_in,	ms_iomap_in
 	.dc.l	ms_iomap_in,	ms_iomap_in,	ms_iomap_in,	ms_iomap_in
 	.dc.l	r_port_A8,	r_port_A9,	r_port_AA,	r_port_AB
 	.dc.l	ms_iomap_in,	ms_iomap_in,	ms_iomap_in,	ms_iomap_in
@@ -179,7 +176,7 @@ ms_io_output_table:
 	.dc.l	write_vdp_0,	write_vdp_1,	write_vdp_2,	write_vdp_3
 	.dc.l	ms_iomap_out,	ms_iomap_out,	ms_iomap_out,	ms_iomap_out
 *	a
-	.dc.l	w_port_A0,	w_port_A1,	ms_iomap_out,	ms_iomap_out
+	.dc.l	ms_iomap_out,	ms_iomap_out,	ms_iomap_out,	ms_iomap_out
 	.dc.l	ms_iomap_out,	ms_iomap_out,	ms_iomap_out,	ms_iomap_out
 	.dc.l	w_port_A8,	ms_iomap_out,	w_port_AA,	ms_iomap_out
 	.dc.l	ms_iomap_out,	ms_iomap_out,	ms_iomap_out,	ms_iomap_out

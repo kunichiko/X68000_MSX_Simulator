@@ -5,6 +5,7 @@
 #include <fcntl.h>
 #include "ms_memmap.h"
 #include "ms_memmap_MEGAROM_KONAMI_SCC.h"
+#include "../peripheral/ms_SCC.h"
 #include "../ms.h"
 
 #define THIS ms_memmap_driver_MEGAROM_KONAMI_SCC_t
@@ -72,6 +73,10 @@ void ms_memmap_MEGAROM_KONAMI_SCC_init(THIS* instance, ms_memmap_t* memmap, uint
 	int i;
 	for (i = 0; i < 8*1024; i++) {
 		scc_segment[i] = 0xff;
+	}
+	// SCC Registers
+	for (i= 0x9800; i <= 0x98ff; i++) {
+		scc_segment[i & 0x1fff] = 0;
 	}
 	instance->scc_segment = scc_segment;
 
@@ -144,24 +149,126 @@ static uint16_t _read16(ms_memmap_driver_t* driver, uint16_t addr) {
 		* 切り替えアドレス	b000h (mirrors: B001h~B7FFh)
 		* 初期セグメント	Random
  */
+uint32_t conv_freq(THIS* d, uint32_t freq) {
+	switch (d->scc_segment[0x18e0] & 0x3) {
+		case 0:
+			return freq & 0x3ff;
+		case 1:
+			return (freq & 0xf) << 8;
+		case 2:
+			return (freq & 0xff) << 4;
+		default:
+			break;
+	}
+	// ????
+	return (freq & 0xf) << 8;
+}
+
 static void _write8(ms_memmap_driver_t* driver, uint16_t addr, uint8_t data) {
 	THIS* d = (THIS*)driver;
 	// バンク切り替え処理
 	int page8k = -1;
 	int area = addr >> 11;
 	switch(area) {
-		case 0x5*2:
-			page8k = 2;
-			break;
-		case 0x7*2:
-			page8k = 3;
-			break;
-		case 0x9*2:
-			page8k = 4;
-			break;
-		case 0xb*2:
-			page8k = 5;
-			break;
+	case 0x5*2:
+		page8k = 2;
+		break;
+	case 0x7*2:
+		page8k = 3;
+		break;
+	case 0x9*2:
+		page8k = 4;
+		break;
+	case 0x9*2+1:	// 0x9800-0x9fff には SCCのレジスタがある
+		if (d->selected_segment[4] == 0x3f) {
+			MS_LOG(MS_LOG_TRACE, "SCC: write %04x <- %02x\n", addr, data);
+
+			int32_t freq;
+			switch(addr) {
+			case 0x9880:
+			case 0x9881:
+			case 0x9890:
+			case 0x9891:
+				d->scc_segment[addr & 0x1fef] = data;
+				freq = d->scc_segment[0x1880] | (d->scc_segment[0x1881] << 8);
+				w_SCC_freq(0, conv_freq(d, freq));
+				break;
+			case 0x9882:
+			case 0x9883:
+			case 0x9892:
+			case 0x9893:
+				d->scc_segment[addr & 0x1fef] = data;
+				freq = d->scc_segment[0x1882] | (d->scc_segment[0x1883] << 8);
+				w_SCC_freq(1, conv_freq(d, freq));
+				break;
+			case 0x9884:
+			case 0x9885:
+			case 0x9894:
+			case 0x9895:
+				d->scc_segment[addr & 0x1fef] = data;
+				freq = d->scc_segment[0x1884] | (d->scc_segment[0x1885] << 8);
+				w_SCC_freq(2, conv_freq(d, freq));
+				break;
+			case 0x9886:
+			case 0x9887:
+			case 0x9896:
+			case 0x9897:
+				d->scc_segment[addr & 0x1fef] = data;
+				freq = d->scc_segment[0x1886] | (d->scc_segment[0x1887] << 8);
+				w_SCC_freq(3, conv_freq(d, freq));
+				break;
+			case 0x9888:
+			case 0x9889:
+			case 0x9898:
+			case 0x9899:
+				d->scc_segment[addr & 0x1fef] = data;
+				freq = d->scc_segment[0x1888] | (d->scc_segment[0x1889] << 8);
+				//w_SCC_freq(4, conv_freq(d, freq)); サポートしていない
+				break;
+			case 0x988a:
+			case 0x989a:
+				d->scc_segment[addr & 0x1fef] = data;
+				w_SCC_volume(0, data);
+				break;
+			case 0x988b:
+			case 0x989b:
+				d->scc_segment[addr & 0x1fef] = data;
+				w_SCC_volume(1, data);
+				break;
+			case 0x988c:
+			case 0x989c:
+				d->scc_segment[addr & 0x1fef] = data;
+				w_SCC_volume(2, data);
+				break;
+			case 0x988d:
+			case 0x989d:
+				d->scc_segment[addr & 0x1fef] = data;
+				w_SCC_volume(3, data);
+				break;
+			case 0x988e:
+			case 0x989e:
+				d->scc_segment[addr & 0x1fef] = data;
+				//w_SCC_volume(4, data); サポートしていない
+				break;
+			case 0x988f:
+			case 0x989f:
+				d->scc_segment[addr & 0x1fef] = data;
+				w_SCC_keyon(data);
+				break;
+			default:
+				if (addr >= 0x98e0 && addr <= 0x98ff) {
+					d->scc_segment[0x18e0] = data;
+					w_SCC_deformation(data);
+				} else {
+					d->scc_segment[addr & 0x1fff] = data;						
+				}
+				break;
+			}
+		}
+		break;
+	case 0xb*2:
+		page8k = 5;
+		break;
 	}
 	if (page8k != -1) {
 		_select_bank(d, page8k, data);
