@@ -24,6 +24,7 @@
 #include "memmap/ms_memmap.h"
 #include "vdp/ms_vdp.h"
 #include "disk/ms_disk_container.h"
+#include "peripheral/ms_psg.h"
 #include "peripheral/ms_rtc.h"
 #include "peripheral/ms_kanjirom12.h"
 #include "peripheral/ms_kanjirom_alt.h"
@@ -60,9 +61,7 @@ ms_rtc_t* rtc = NULL;
 ms_vdp_t* vdp = NULL;  // ms_vdp_shared ‚Æ“¯‚¶‚É‚È‚é‚Í‚¸
 
 // PSGŠÖ˜A
-int psg_initialized = 0;
-int ms_psg_init( void);
-void ms_psg_deinit(void);
+ms_psg_t* psg = NULL; // ms_psg_shared ‚Æ“¯‚¶‚É‚È‚é‚Í‚¸
 
 // DiskŠÖ˜A
 ms_disk_container_t* disk_container = NULL;
@@ -133,8 +132,10 @@ void printHelpAndExit(char* progname) {
 	fprintf(stderr, "    default is 100 cycles.\n");
 	fprintf(stderr, " --hostdebug\n");
 	fprintf(stderr, "    enable host process debug mode.\n");
-	fprintf(stderr, " --disablekanji");
+	fprintf(stderr, " --disablekanji\n");
 	fprintf(stderr, "    disable kanji ROM.\n");
+	fprintf(stderr, " --disablescc\n");
+	fprintf(stderr, "    disable SCC sound.\n");
 	fprintf(stderr, " --disablekey\n");
 	fprintf(stderr, "    disable key input for performance test.\n");
 //	fprintf(stderr, " --debuglevel N\n");
@@ -146,6 +147,7 @@ void printHelpAndExit(char* progname) {
 
 int disablekanji = 0;
 int disablekey = 0;
+int disablescc = 0;
 int safemode = 0;
 int hostdebug = 0;
 
@@ -215,6 +217,7 @@ int main(int argc, char *argv[]) {
 		{    "hostdebug",       no_argument,    &hostdebug,  1  },
 		{ "disablekanji",       no_argument, &disablekanji,  1  },
 		{   "disablekey",       no_argument,   &disablekey,  1  },
+		{  "disablescc",        no_argument,   &disablescc,  1  },
 		{         "safe",       no_argument,     &safemode,  1  },
         {              0,                 0,             0,  0  }, // termination
     };
@@ -537,11 +540,18 @@ int main(int argc, char *argv[]) {
 	/*
 	 PSGƒVƒXƒeƒ€‚Ì‰Šú‰»
 	 */
-	psg_initialized = ms_psg_init();
-	if (psg_initialized == 0)
+	psg = ms_psg_shared_instance();
+	if (psg == 0)
 	{
 		printf("‚o‚r‚f‚Ì‰Šú‰»‚É¸”s‚µ‚Ü‚µ‚½\n");
 		ms_exit();
+	}
+	ms_psg_shared_init(iomap);
+
+	// SCC
+	if (disablescc) {
+		printf("‹[—SCC‰¹Œ¹‚ğ–³Œø‰»‚µ‚Ü‚·\n");
+		w_SCC_enable(0);
 	}
 
 	/*
@@ -658,15 +668,16 @@ void ms_exit() {
 		new_free(disk_container);
 		//disk_container = NULL;
 	}
-	if ( psg_initialized ) {
-		ms_psg_deinit();
+	if ( psg != NULL ) {
+		ms_psg_shared_deinit(iomap);	// singleton‚Í deinit“à•”‚Åfree‚³‚ê‚é
 	}
 	if ( vdp != NULL ) {
 		ms_vdp_shared_deinit();	// singleton‚Í deinit“à•”‚Åfree‚³‚ê‚é
 		vdp = NULL;
 	}
 	if ( rtc != NULL ) {
-		ms_rtc_deinit(rtc, iomap); // singleton‚Í deinit“à•”‚Åfree‚³‚ê‚é
+		ms_rtc_deinit(rtc, iomap);
+		new_free(rtc);
 		rtc = NULL;
 	}
 	if ( iomap != NULL ) {

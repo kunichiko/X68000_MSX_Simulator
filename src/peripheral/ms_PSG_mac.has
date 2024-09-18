@@ -13,14 +13,20 @@
 	.xref	PSG2OPM_tbl
 	.xref	_ms_peripherals_led_kana
 
-	.xdef	ms_psg_init
-	.xdef	ms_psg_deinit
+	.xdef	ms_psg_init_mac
+	.xdef	ms_psg_deinit_mac
 
 	.xdef	r_port_A0		* アドレスセット
 	.xdef	r_port_A2		* レジスタリード
 
 	.xdef	w_port_A0
 	.xdef	w_port_A1
+
+	.xdef	w_SCC_freq
+	.xdef	w_SCC_volume
+	.xdef	w_SCC_keyon
+	.xdef	w_SCC_enable
+	.xdef	w_SCC_deformation
 
 OPM_regset	equ	$e90001		* ＯＰＭアクセスレジスタ設定ポート
 OPM_port	equ	$e90003		* ＯＰＭアクセスポート
@@ -53,14 +59,14 @@ w_OPM	macro	val,regnum
 *
 *	ＰＳＧ初期化ルーチン
 *
-*	int ms_psg_init();
+*	int ms_psg_init_mac();
 *
 *	返り値
 *		1・・・・・正常終了
 *		0・・・異状終了
 *
 ***************************************************************
-ms_psg_init:
+ms_psg_init_mac:
 	movem.l	d3-d7/a0-a5,-(sp)
 
 *	レジスタ初期化
@@ -168,6 +174,8 @@ ms_psg_init:
 ; * CH3:
 ;	* PSG CH.C に割り当てる
 ;	* CON (AL) は 4番	(理由は忘れましたが、PSGっぽい音を出し続けるために使った記憶がある)
+; * CH4-7:
+;	* SCCの CH1-4 に割り当てる (CH5は鳴らない)
 ; * CH8:
 ;	* PSG ノイズに割り当てる
 ;	* CON (AL) は 7番にして、M1、C1、M2は無音にしてC2だけ使用する
@@ -179,7 +187,7 @@ ms_psg_init:
 ;	* ノイズの音量として使うのが良いと思われる
 
 	move.w	#$40,d1
-	move.w	#3-1,d3				* PSG CH.A,B,Cの３パートにＰＳＧ音色をセット
+	move.w	#7-1,d3				* PSG CH.A,B,Cの３パート、SCCのCH1-4にＰＳＧ音色をセット
 
 @@:	lea.l	PSG_data,a0
 	;M1
@@ -230,19 +238,32 @@ ms_psg_init:
 	w_OPM	#$00,#$39			*	  ch.2
 	w_OPM	#$00,#$3a			*	  ch.3
 
+	w_OPM	#$00,#$3b			* PMS AMS SCC ch.1
+	w_OPM	#$00,#$3c			*	  SCC ch.2
+	w_OPM	#$00,#$3d			*	  SCC ch.3
+	w_OPM	#$00,#$3e			*	  SCC ch.4
+
 *	ノイズジェネレータの初期化
 	w_OPM	#%1_0000001,#$0f		* b7を1にすると、CH8のC2がノイズジェネレータになる b4-b0 はノイズ周波数
 
 *	すべてキーオン状態にするが、R-ch enable/L-ch enable で出力をON/OFFする
-	w_OPM	#%00_111_100,#$20		* CH1の L/R enableを OFFにする(b7,b6) (b5-3はFL、b2-0はAL=CON)
-	w_OPM	#%00_111_100,#$21		* CH2の L/R enableを OFFにする(b7,b6) (b5-3はFL、b2-0はAL=CON)
-	w_OPM	#%00_111_100,#$22		* CH3の L/R enableを OFFにする(b7,b6) (b5-3はFL、b2-0はAL=CON)
-	w_OPM	#%00_111_100,#$27		* CH8の L/R enableを OFFにする(b7,b6) (b5-3はFL、b2-0はAL=CON)
+	w_OPM	#%00_111_100,#$20		* PSG CH1の L/R enableを OFFにする(b7,b6) (b5-3はFL、b2-0はAL=CON)
+	w_OPM	#%00_111_100,#$21		* PSG CH2の L/R enableを OFFにする(b7,b6) (b5-3はFL、b2-0はAL=CON)
+	w_OPM	#%00_111_100,#$22		* PSG CH3の L/R enableを OFFにする(b7,b6) (b5-3はFL、b2-0はAL=CON)
+	w_OPM	#%00_111_100,#$23		* SCC CH1の L/R enableを OFFにする(b7,b6) (b5-3はFL、b2-0はAL=CON)
+	w_OPM	#%00_111_100,#$24		* SCC CH2の L/R enableを OFFにする(b7,b6) (b5-3はFL、b2-0はAL=CON)
+	w_OPM	#%00_111_100,#$25		* SCC CH3の L/R enableを OFFにする(b7,b6) (b5-3はFL、b2-0はAL=CON)
+	w_OPM	#%00_111_100,#$26		* SCC CH4の L/R enableを OFFにする(b7,b6) (b5-3はFL、b2-0はAL=CON)
+	w_OPM	#%00_111_100,#$27		* PSG Noiseの L/R enableを OFFにする(b7,b6) (b5-3はFL、b2-0はAL=CON)
 
-	w_OPM	#%0_1111_000,#$08		* CH1: キーオン(OP.4-1すべてON)
-	w_OPM	#%0_1111_001,#$08		* CH2: キーオン(OP.4-1すべてON)
-	w_OPM	#%0_1111_010,#$08		* CH3: キーオン(OP.4-1すべてON)
-	w_OPM	#%0_1000_111,#$08		* CH8: キーオン(OP.4=C2のみON)
+	w_OPM	#%0_1111_000,#$08		* PSG CH1: キーオン(OP.4-1すべてON)
+	w_OPM	#%0_1111_001,#$08		* PSG CH2: キーオン(OP.4-1すべてON)
+	w_OPM	#%0_1111_010,#$08		* PSG CH3: キーオン(OP.4-1すべてON)
+	w_OPM	#%0_1111_011,#$08		* SCC CH1: キーオン(OP.4-1すべてON)
+	w_OPM	#%0_1111_100,#$08		* SCC CH2: キーオン(OP.4-1すべてON)
+	w_OPM	#%0_1111_101,#$08		* SCC CH3: キーオン(OP.4-1すべてON)
+	w_OPM	#%0_1111_110,#$08		* SCC CH4: キーオン(OP.4-1すべてON)
+	w_OPM	#%0_1000_111,#$08		* PSG Noise: キーオン(OP.4=C2のみON)
 
 
 *	割り込みの設定
@@ -279,7 +300,7 @@ err_PSG_INIT:
 	moveq.l	#0,d0
 	rts
 
-ms_psg_deinit:
+ms_psg_deinit_mac:
 	move.w	sr,d0
 	move.w	d0,-(sp)		* sr を保存
 	or.w	#%00000111_00000000,d0	* 一時的に割り込み禁止
@@ -292,12 +313,20 @@ ms_psg_deinit:
 	w_OPM	#%00000000,#$08		* キーオフ
 	w_OPM	#%00000001,#$08		* キーオフ
 	w_OPM	#%00000010,#$08		* キーオフ
+	w_OPM	#%00000011,#$08		* キーオフ
+	w_OPM	#%00000100,#$08		* キーオフ
+	w_OPM	#%00000101,#$08		* キーオフ
+	w_OPM	#%00000110,#$08		* キーオフ
 	w_OPM	#%00000111,#$08		* キーオフ
 
-	w_OPM	#%00_111_100,#$20	* CH1の L/R enableを OFFにする(b7,b6)
-	w_OPM	#%00_111_100,#$21	* CH1の L/R enableを OFFにする(b7,b6)
-	w_OPM	#%00_111_100,#$22	* CH1の L/R enableを OFFにする(b7,b6)
-	w_OPM	#%00_111_100,#$27	* CH1の L/R enableを OFFにする(b7,b6)
+	w_OPM	#%00_111_100,#$20	* PSG CH1の L/R enableを OFFにする(b7,b6)
+	w_OPM	#%00_111_100,#$21	* PSG CH2の L/R enableを OFFにする(b7,b6)
+	w_OPM	#%00_111_100,#$22	* PSG CH3の L/R enableを OFFにする(b7,b6)
+	w_OPM	#%00_111_100,#$23	* SCC CH1の L/R enableを OFFにする(b7,b6)
+	w_OPM	#%00_111_100,#$24	* SCC CH2の L/R enableを OFFにする(b7,b6)
+	w_OPM	#%00_111_100,#$25	* SCC CH3の L/R enableを OFFにする(b7,b6)
+	w_OPM	#%00_111_100,#$26	* SCC CH4の L/R enableを OFFにする(b7,b6)
+	w_OPM	#%00_111_100,#$27	* PSG Noiseの L/R enableを OFFにする(b7,b6)
 
 	rts
 
@@ -482,11 +511,13 @@ r_PSG_R15:				* R15は書き込みポートだが、どうやら読み出しもできるらしい
 *
 ***************************************************************
 w_port_A0:
+	move.l	4(sp),d1
 	andi.w	#$0f,d1
 	move.w	d1,p_A0
 	rts
 
 w_port_A1:
+	move.l	4(sp),d1
 	move.w	p_A0,d0
 	add.w	d0,d0
 	add.w	d0,d0
@@ -611,15 +642,15 @@ w_PSG_R07:
 
 @@:	btst.l	#1,d1			* 0: 出力、1: 非出力
 	beq	1f
-	w_OPM	#%00_111_100,#$21	* CH1の L/R enableを OFFにする(b7,b6) (b5-3はFL、b2-0はAL=CON)
+	w_OPM	#%00_111_100,#$21	* CH2の L/R enableを OFFにする(b7,b6) (b5-3はFL、b2-0はAL=CON)
 	bra	@f
-1:	w_OPM	#%11_111_100,#$21	* CH1の L/R enableを ONにする(b7,b6) (b5-3はFL、b2-0はAL=CON)
+1:	w_OPM	#%11_111_100,#$21	* CH2の L/R enableを ONにする(b7,b6) (b5-3はFL、b2-0はAL=CON)
 
 @@:	btst.l	#2,d1			* 0: 出力、1: 非出力
 	beq	1f
-	w_OPM	#%00_111_100,#$22	* CH1の L/R enableを OFFにする(b7,b6) (b5-3はFL、b2-0はAL=CON)
+	w_OPM	#%00_111_100,#$22	* CH3の L/R enableを OFFにする(b7,b6) (b5-3はFL、b2-0はAL=CON)
 	bra	@f
-1:	w_OPM	#%11_111_100,#$22	* CH1の L/R enableを ONにする(b7,b6) (b5-3はFL、b2-0はAL=CON)
+1:	w_OPM	#%11_111_100,#$22	* CH3の L/R enableを ONにする(b7,b6) (b5-3はFL、b2-0はAL=CON)
 
 	; PSGノイズの発音
 @@:	andi.b	#%00_111_000,d1		* ノイズ出力
@@ -776,6 +807,116 @@ w_PSG_R15:
 
 	rts
 
+
+*
+*	SCC対応(仮対応)
+*
+
+w_SCC_freq:
+	link	a6,#0
+	movem.l	d2-d7/a0-a5,-(sp)
+
+	; 引数からチャンネル番号(0-3)を取得
+	move.l	8(a6),d0
+	and.w	#$03,d0
+	add.w	#$2b,d0			* OPMのレジスタ番号に変換
+	; 引数から周波数(12bit)
+	move.l	12(a6),d1
+	add.w	#1,d1			* SCCとPSGは1ずれているらしいので補正(http://d4.princess.ne.jp/msx/scc/scc2.html)
+	add.w	d1,d1
+
+	movea.l	PSG2OPM_tbl,a0
+	w_OPM	0(a0,d1.w),d0		* キーコード設定
+	add.w	#8,d0
+	w_OPM	1(a0,d1.w),d0		* キーフラクション設定
+
+	movem.l (sp)+,d2-d7/a0-a5
+	unlk	a6
+	rts
+
+w_SCC_volume:
+	link	a6,#0
+	movem.l	d2-d7/a0-a5,-(sp)
+
+	; 引数からチャンネル番号(0-3)を取得
+	move.l	8(a6),d0
+	and.w	#$03,d0
+	add.w	#$73,d0			* OPMのレジスタ番号に変換
+	; 引数からボリューム(0-15)
+	move.l	12(a6),d1
+
+	; 音量はTLで調整する
+	lea.l	scc_volume_tbl,a0
+	andi.w	#$000f,d1		* SCCの音量を取得
+	w_OPM	0(a0,d1.w),d0		* テーブルを引いて TL をセット
+
+	movem.l (sp)+,d2-d7/a0-a5
+	unlk	a6
+	rts
+
+w_SCC_keyon:
+	link	a6,#0
+	movem.l	d2-d7/a0-a5,-(sp)
+
+	; 引数からチャンネルごとのOn/Off(b0-b3で制御)を取得
+	move.l	8(a6),d0
+
+	; SCCの有効ビットを見てマスクする
+	and.b	scc_enable,d0
+
+	; PSGサウンドの発音
+	; キーのON/OFFは L-ch enable/R-ch enable で行う
+
+	btst.l	#0,d0			* 1: 出力、0: 非出力
+	bne	1f
+	w_OPM	#%00_111_100,#$23	* SCC CH1の L/R enableを OFFにする(b7,b6) (b5-3はFL、b2-0はAL=CON)
+	bra	@f
+1:	w_OPM	#%11_111_100,#$23	* SCC CH1の L/R enableを ONにする(b7,b6) (b5-3はFL、b2-0はAL=CON)
+
+@@:	btst.l	#1,d0			* 1: 出力、0: 非出力
+	bne	1f
+	w_OPM	#%00_111_100,#$24	* SCC CH2の L/R enableを OFFにする(b7,b6) (b5-3はFL、b2-0はAL=CON)
+	bra	@f
+1:	w_OPM	#%11_111_100,#$24	* SCC CH2の L/R enableを ONにする(b7,b6) (b5-3はFL、b2-0はAL=CON)
+
+@@:	btst.l	#2,d0			* 1: 出力、0: 非出力
+	bne	1f
+	w_OPM	#%00_111_100,#$25	* SCC CH3の L/R enableを OFFにする(b7,b6) (b5-3はFL、b2-0はAL=CON)
+	bra	@f
+1:	w_OPM	#%11_111_100,#$25	* SCC CH3の L/R enableを ONにする(b7,b6) (b5-3はFL、b2-0はAL=CON)
+
+@@:	btst.l	#3,d0			* 1: 出力、0: 非出力
+	bne	1f
+	w_OPM	#%00_111_100,#$26	* SCC CH4の L/R enableを OFFにする(b7,b6) (b5-3はFL、b2-0はAL=CON)
+	bra	@f
+1:	w_OPM	#%11_111_100,#$26	* SCC CH4の L/R enableを ONにする(b7,b6) (b5-3はFL、b2-0はAL=CON)
+
+@@:	movem.l (sp)+,d2-d7/a0-a5
+	unlk	a6
+	rts
+
+
+w_SCC_enable:
+	link	a6,#0
+	movem.l	d2-d7/a0-a5,-(sp)
+
+	; 引数からチャンネルごとの有効無効(b0-b3で制御)を取得
+	move.l	8(a6),d0
+
+	move.b	d0,scc_enable
+
+	movem.l (sp)+,d2-d7/a0-a5
+	unlk	a6
+	rts
+
+
+w_SCC_deformation:
+	link	a6,#0
+	movem.l	d2-d7/a0-a5,-(sp)
+	movem.l (sp)+,d2-d7/a0-a5
+	unlk	a6
+	rts
+
 *
 *		ワークエリア
 *
@@ -860,7 +1001,6 @@ PSG_data_common: ; 使ってない
 volume_tbl:
 * https://github.com/digital-sound-antiques/vgm-conv/blob/main/src/converter/ay8910-to-opm-coverter.ts#L6
 *		  0   1   2   3   4   5   6   7   8   9   a   b   c   d   e   f
-*	.dc.b	127, 62, 56, 52, 46, 42, 36, 32, 28, 24, 20, 16, 12,  8,  4,  0
 	.dc.b	127, 70, 64, 60, 54, 50, 44, 40, 36, 32, 28, 24, 20, 16, 12,  8	* ノイズとのバランス調整のため、+8する
 
 noise_volume_tbl:
@@ -868,6 +1008,16 @@ noise_volume_tbl:
 *		  0   1   2   3   4   5   6   7   8   9   a   b   c   d   e   f
 	.dc.b	127,126,125,124,123,122,121,120,116,112,105, 96, 82, 64, 37,  0
 
+scc_volume_tbl:
+* SCCの音量変化はPSGとは違うらしい
+* https://www.tiny-yarou.com/msx_sccforbasic.html
+*		  0   1   2   3   4   5   6   7   8   9   a   b   c   d   e   f
+	.dc.b	127, 60, 40, 36, 32, 30, 28, 26, 24, 22, 20, 18, 16, 14, 12,  8
+
+scc_enable:
+	.dc.b	0xff
+
+	.even
 
 note_tbl:
 	.dc.b	$0,$1,$2,$4,$5,$6,$8,$9,$a,$c,$d,$e,$0,$0,$0,$0
