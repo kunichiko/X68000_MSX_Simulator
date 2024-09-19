@@ -1,0 +1,1036 @@
+*
+*	Ｍｓｘ Ｓｉｍｕｌａｔｅｒ
+*
+*		[[[ ＰＳＧ Ｓｉｍｕｌａｔｅｒ ]]]		
+*
+*				1995.10.19		by Kuni.
+*
+
+	.include	iocscall.equ
+	.include	doscall.equ
+
+
+	.xref	PSG2OPM_tbl
+	.xref	_ms_peripherals_led_kana
+
+	.xdef	ms_psg_init_mac
+	.xdef	ms_psg_deinit_mac
+
+	.xdef	r_port_A0		* アドレスセット
+	.xdef	r_port_A2		* レジスタリード
+
+	.xdef	w_port_A0
+	.xdef	w_port_A1
+
+	.xdef	w_SCC_freq
+	.xdef	w_SCC_volume
+	.xdef	w_SCC_keyon
+	.xdef	w_SCC_enable
+	.xdef	w_SCC_deformation
+
+OPM_regset	equ	$e90001		* ＯＰＭアクセスレジスタ設定ポート
+OPM_port	equ	$e90003		* ＯＰＭアクセスポート
+
+portA_8255	equ	$e9a001
+portB_8255	equ	$e9a003
+cont_8255	equ	$e9a007
+
+	.68000
+
+***************************************************************
+*       OPMレジスタ書き込みマクロ
+***************************************************************
+w_OPM	macro	val,regnum
+
+9:	tst.b	OPM_port		* ウェイト
+	bmi	9b
+	move.b	regnum,OPM_regset
+9:	tst.b	OPM_port		* ウェイト
+	bmi	9b
+	move.b	val,OPM_port
+
+	endm
+***************************************************************
+
+	.text
+	.even
+
+***************************************************************
+*
+*	ＰＳＧ初期化ルーチン
+*
+*	int ms_psg_init_mac();
+*
+*	返り値
+*		1・・・・・正常終了
+*		0・・・異状終了
+*
+***************************************************************
+ms_psg_init_mac:
+	movem.l	d3-d7/a0-a5,-(sp)
+
+*	レジスタ初期化
+	w_OPM	#%00000010,#$01
+
+	w_OPM	#%00000000,#$08
+	w_OPM	#%00000001,#$08
+	w_OPM	#%00000010,#$08
+	w_OPM	#%00000011,#$08
+	w_OPM	#%00000100,#$08
+	w_OPM	#%00000101,#$08
+	w_OPM	#%00000110,#$08
+	w_OPM	#%00000111,#$08
+
+	w_OPM	#%00000000,#$0f
+*
+*	ＰＳＧトーン周波数 －＞ ノート番号 変換テーブルの作成
+*
+*	テーブルのフォーマット
+*		：
+*	.dc.b	キーコード, キーフラクション
+*	.dc.b	キーコード, キーフラクション
+*		：
+*
+*　　（備考）
+*	６８はＯＰＭのマニュアルと192.27セント（約１音）ずれている。よってノート番号で
+*	-200セント(半音)調整し、キーフラクションで+7.8125セント調整する。
+*
+	move.l	#$10D7*4,-(sp)			* 本当は $1000*2でよくも出来るけど
+	DOS	_MALLOC				* 手抜きのため。
+	lea.l	4(sp),sp
+
+	tst.l	d0
+	bmi	err_PSG_INIT
+	move.l	d0,PSG2OPM_tbl
+	movea.l	d0,a0
+
+	move.w	#$17-1,d0
+@@:	move.w	#%01111110_11111100,(a0)+	* ＯＰＭで出せる最高音
+	dbra	d0,@b
+
+	move.w	#%01111110_10010100,(a0)+	* D と D#の中間音
+	move.w	#%01111110_00010100,(a0)+	* D の中
+
+	lea.l	tone_tbl_end-2,a1
+	lea.l	note_tbl,a2
+	move.b	#%01111011,d0			* キーコード初期値
+	move.b	#%00010100,d1			* キーフラクション初期値（7.8125セント）
+	move.w	#(tone_tbl_end-tone_tbl)/2-1,d2	* ループカウンタ
+
+1:
+	move.w	-(a1),d3
+	sub.w	2(a1),d3			* d3 = (x-y)	ループの回数
+	clr.w	d4
+2:
+	addq.w	#1,d4
+	clr.l	d5
+	move.w	d4,d5
+	lsl.w	#8,d5				* d5 = 64*d4*4
+	divu.w	d3,d5				* d5 = 64*d4*4/(x-y)
+
+	move.b	d0,d6				* キーコードを一時読み込み
+	move.b	d1,d7				* キーフラクションを一時読み込み
+	sub.b	d5,d7				* キーフラクションを設定
+	bcs	3f				* キーフラクションが負になったか
+	tst.b	d5				* d5.w は２５６か？
+	bne	@f
+3:	subq.b	#1,d6				* キーコードを－１
+	move.b	d6,d5
+	andi.b	#%00001111,d5
+	cmpi.b	#%00001111,d5
+	bne	@f
+	subq.b	#4,d6 
+@@:
+	move.b	d6,-(sp)
+	move.b	d6,d5				* キーコードセット
+	andi.w	#$0f,d5
+	andi.b	#$f0,d6
+	or.b	0(a2,d5.w),d6
+	move.b	d6,(a0)+
+	move.b	d7,(a0)+			* キーフラクションセット
+	move.b	(sp)+,d6
+
+	cmp.w	d4,d3
+	bne	2b
+
+	move.b	d6,d0				* 新しいキーコードをセット
+	move.b	#%00010100,d1			* 新しいキーフラクションをセット
+
+	dbra	d2,1b
+
+
+;	ＰＳＧ音色設定
+;
+; OPMにはチャンネル1-8(CH1-8)の8音があるが、これにPSGの3音(CH.A、CH.B、CH.C) と
+; ノイズを割り当てる。OPMのノイズはスロット32にしか接続できないので、必然的にCH8のC2に
+; 割り当てることになるため、以下のようにする
+
+; * CH1:
+;	* PSG CH.A に割り当てる
+;	* CON (AL) は 4番	(理由は忘れましたが、PSGっぽい音を出し続けるために使った記憶がある)
+; * CH2:
+;	* PSG CH.B に割り当てる
+;	* CON (AL) は 4番	(理由は忘れましたが、PSGっぽい音を出し続けるために使った記憶がある)
+; * CH3:
+;	* PSG CH.C に割り当てる
+;	* CON (AL) は 4番	(理由は忘れましたが、PSGっぽい音を出し続けるために使った記憶がある)
+; * CH4-7:
+;	* SCCの CH1-4 に割り当てる (CH5は鳴らない)
+; * CH8:
+;	* PSG ノイズに割り当てる
+;	* CON (AL) は 7番にして、M1、C1、M2は無音にしてC2だけ使用する
+;	* PSGはCH.A、CH.B、CH.Cの3つに割り当て可能だが、OPMは1つしかないので、どれか一つがONならノイズを出す
+;	* PSGのノイズ音源は1つなのでそれで問題はない
+;	* もしPSGで複数のチャンネルのノイズをオンにすると音量が変わるのであれば、それはCH8のC2のTLで調整可能
+;	* PSGのノイズは、ノイズ音を各チャンネルの値にXORして出力しているらしく、必ずしも複数のチャンネルで鳴らした時に
+;	* 音量が変わるとは限らないらしい。なので、3つのチャンネルのうち、ノイズが鳴っているうち最も音量が大きいものを
+;	* ノイズの音量として使うのが良いと思われる
+
+	move.w	#$40,d1
+	move.w	#7-1,d3				* PSG CH.A,B,Cの３パート、SCCのCH1-4にＰＳＧ音色をセット
+
+@@:	lea.l	PSG_data,a0
+	;M1
+	bsr	SLOT_set			* M1 セット
+	;C1
+	add.w	#16,d1				* C1 セット
+	lea.l	11(a0),a0
+	bsr	SLOT_set
+	;M2
+	subq.w	#8,d1				* M2 セット
+	lea.l	11(a0),a0
+	bsr	SLOT_set
+	;C2
+	add.w	#16,d1				* C2 セット
+	lea.l	11(a0),a0
+	bsr	SLOT_set
+
+	sub.w	#24-1,d1	
+	dbra	d3,@b
+
+	; ノイズオペレータのセット
+	move.w	#$47,d1
+	lea.l	PSG_noise_data,a0
+	;M1
+	bsr	SLOT_set			* M1 セット
+	;C1
+	add.w	#16,d1				* C1 セット
+	lea.l	11(a0),a0
+	bsr	SLOT_set
+	;M2
+	subq.w	#8,d1				* M2 セット
+	lea.l	11(a0),a0
+	bsr	SLOT_set
+	;C2
+	add.w	#16,d1				* C2 セット
+	lea.l	11(a0),a0
+	bsr	SLOT_set
+
+
+	; 共通項目のセット
+	w_OPM	#$00,#$1b			* WF
+
+	w_OPM	#$00,#$18
+	w_OPM	#$00,#$19			* AMD
+	w_OPM	#$80,#$19			* PMD
+
+	w_OPM	#$00,#$38			* PMS AMS ch.1
+	w_OPM	#$00,#$39			*	  ch.2
+	w_OPM	#$00,#$3a			*	  ch.3
+
+	w_OPM	#$00,#$3b			* PMS AMS SCC ch.1
+	w_OPM	#$00,#$3c			*	  SCC ch.2
+	w_OPM	#$00,#$3d			*	  SCC ch.3
+	w_OPM	#$00,#$3e			*	  SCC ch.4
+
+*	ノイズジェネレータの初期化
+	w_OPM	#%1_0000001,#$0f		* b7を1にすると、CH8のC2がノイズジェネレータになる b4-b0 はノイズ周波数
+
+*	すべてキーオン状態にするが、R-ch enable/L-ch enable で出力をON/OFFする
+	w_OPM	#%00_111_100,#$20		* PSG CH1の L/R enableを OFFにする(b7,b6) (b5-3はFL、b2-0はAL=CON)
+	w_OPM	#%00_111_100,#$21		* PSG CH2の L/R enableを OFFにする(b7,b6) (b5-3はFL、b2-0はAL=CON)
+	w_OPM	#%00_111_100,#$22		* PSG CH3の L/R enableを OFFにする(b7,b6) (b5-3はFL、b2-0はAL=CON)
+	w_OPM	#%00_111_100,#$23		* SCC CH1の L/R enableを OFFにする(b7,b6) (b5-3はFL、b2-0はAL=CON)
+	w_OPM	#%00_111_100,#$24		* SCC CH2の L/R enableを OFFにする(b7,b6) (b5-3はFL、b2-0はAL=CON)
+	w_OPM	#%00_111_100,#$25		* SCC CH3の L/R enableを OFFにする(b7,b6) (b5-3はFL、b2-0はAL=CON)
+	w_OPM	#%00_111_100,#$26		* SCC CH4の L/R enableを OFFにする(b7,b6) (b5-3はFL、b2-0はAL=CON)
+	w_OPM	#%00_111_100,#$27		* PSG Noiseの L/R enableを OFFにする(b7,b6) (b5-3はFL、b2-0はAL=CON)
+
+	w_OPM	#%0_1111_000,#$08		* PSG CH1: キーオン(OP.4-1すべてON)
+	w_OPM	#%0_1111_001,#$08		* PSG CH2: キーオン(OP.4-1すべてON)
+	w_OPM	#%0_1111_010,#$08		* PSG CH3: キーオン(OP.4-1すべてON)
+	w_OPM	#%0_1111_011,#$08		* SCC CH1: キーオン(OP.4-1すべてON)
+	w_OPM	#%0_1111_100,#$08		* SCC CH2: キーオン(OP.4-1すべてON)
+	w_OPM	#%0_1111_101,#$08		* SCC CH3: キーオン(OP.4-1すべてON)
+	w_OPM	#%0_1111_110,#$08		* SCC CH4: キーオン(OP.4-1すべてON)
+	w_OPM	#%0_1000_111,#$08		* PSG Noise: キーオン(OP.4=C2のみON)
+
+
+*	割り込みの設定
+	lea.l	OPM_int,a1
+	IOCS	_OPMINTST
+	tst.l	d0
+	beq	@f
+
+	pea.l	errms_OPM_int			* 既に使用中のとき
+	DOS	_PRINT
+	lea.l	4(sp),sp
+	move.w	sr,d0
+	move.w	d0,-(sp)
+	or.w	#%00000111_00000000,d0		* 割り込み禁止
+	move.w	d0,sr
+	clr.l	a1
+	IOCS	_OPMINTST
+	move.w	(sp)+,sr			* 割り込み復帰
+	lea.l	OPM_int,a1
+	IOCS	_OPMINTST
+
+@@:	w_OPM	#$dc,#$10			* CLKA = 881
+	w_OPM	#$01,#$11			* 143*16μｓごとに割り込み
+
+	w_OPM	#%00000101,#$14			* 割り込み開始
+
+	movem.l	(sp)+,d3-d7/a0-a5
+	moveq.l	#1,d0
+
+	rts
+
+err_PSG_INIT:
+	movem.l	(sp)+,d3-d7/a0-a5
+	moveq.l	#0,d0
+	rts
+
+ms_psg_deinit_mac:
+	move.w	sr,d0
+	move.w	d0,-(sp)		* sr を保存
+	or.w	#%00000111_00000000,d0	* 一時的に割り込み禁止
+	move.w	d0,sr
+	clr.l	a1			* OPM割り込みを禁止
+	IOCS	_OPMINTST
+	move.w	(sp)+,sr		* sr を復元
+
+*	すべてキーオフ
+	w_OPM	#%00000000,#$08		* キーオフ
+	w_OPM	#%00000001,#$08		* キーオフ
+	w_OPM	#%00000010,#$08		* キーオフ
+	w_OPM	#%00000011,#$08		* キーオフ
+	w_OPM	#%00000100,#$08		* キーオフ
+	w_OPM	#%00000101,#$08		* キーオフ
+	w_OPM	#%00000110,#$08		* キーオフ
+	w_OPM	#%00000111,#$08		* キーオフ
+
+	w_OPM	#%00_111_100,#$20	* PSG CH1の L/R enableを OFFにする(b7,b6)
+	w_OPM	#%00_111_100,#$21	* PSG CH2の L/R enableを OFFにする(b7,b6)
+	w_OPM	#%00_111_100,#$22	* PSG CH3の L/R enableを OFFにする(b7,b6)
+	w_OPM	#%00_111_100,#$23	* SCC CH1の L/R enableを OFFにする(b7,b6)
+	w_OPM	#%00_111_100,#$24	* SCC CH2の L/R enableを OFFにする(b7,b6)
+	w_OPM	#%00_111_100,#$25	* SCC CH3の L/R enableを OFFにする(b7,b6)
+	w_OPM	#%00_111_100,#$26	* SCC CH4の L/R enableを OFFにする(b7,b6)
+	w_OPM	#%00_111_100,#$27	* PSG Noiseの L/R enableを OFFにする(b7,b6)
+
+	rts
+
+OPM_int:
+	btst.b	#1,OPM_port
+	bne	@f
+	rte
+@@:						* タイマＡの割り込みだ
+*	w_OPM	#%00010101,#$14			* タイマＡオーバーフローフラグの
+						* リセット
+
+	rte
+
+***************************************************************
+*	スロットに音色データを出力
+*
+*	d1.w	スロット番号－１＋＄４０	チャンネル１はスロット１，９，１７，２５
+*						で構成される
+*	a0.l	出力データのアドレス
+*
+*	a0,d1 変化せず。	d2 破壊
+*
+***************************************************************
+SLOT_set:
+	move.b	8(a0),d2			* DT1
+	lsl.b	#4,d2
+	or.b	7(a0),d2			* MUL
+	w_OPM	d2,d1
+	add.w	#$20,d1
+
+	w_OPM	5(a0),d1			* TL
+	add.w	#$20,d1
+
+	move.b	6(a0),d2			* KS
+	lsl.b	#6,d2
+	or.b	 (a0),d2			* AR
+	w_OPM	d2,d1
+	add.w	#$20,d1
+
+	move.b	10(a0),d2			* AMS Enable
+	lsl.b	#7,d2
+	or.b	1(a0),d2			* 1DR
+	w_OPM	d2,d1
+	add.w	#$20,d1
+
+	move.b	9(a0),d2			* DT2
+	lsl.b	#6,d2
+	or.b	2(a0),d2			* 2DR
+	w_OPM	d2,d1
+	add.w	#$20,d1
+
+	move.b	4(a0),d2			* 1DL
+	lsl.b	#4,d2
+	or.b	3(a0),d2			* RR
+	w_OPM	d2,d1
+
+	sub.w	#$a0,d1				* ずれた分を戻す 
+
+	rts
+
+***************************************************************
+*
+*	ＰＳＧレジスタからの読み込みルーチン群
+*
+*    (返り値）
+*	d0.b ・・・ 読み込んだ値
+*
+***************************************************************
+r_port_A0:
+	move.w	p_A0,d0
+	rts
+
+r_port_A2:
+	move.w	p_A0,d0
+	add.w	d0,d0
+	add.w	d0,d0
+	move.l	r_psg_reg_jpt(pc,d0.w),a0
+	jmp	(a0)
+
+r_psg_reg_jpt:
+	.dc.l	r_PSG_R00
+	.dc.l	r_PSG_R01
+	.dc.l	r_PSG_R02
+	.dc.l	r_PSG_R03
+	.dc.l	r_PSG_R04
+	.dc.l	r_PSG_R05
+	.dc.l	r_PSG_R06
+	.dc.l	r_PSG_R07
+	.dc.l	r_PSG_R08
+	.dc.l	r_PSG_R09
+	.dc.l	r_PSG_R10
+	.dc.l	r_PSG_R11
+	.dc.l	r_PSG_R12
+	.dc.l	r_PSG_R13
+	.dc.l	r_PSG_R14
+	.dc.l	r_PSG_R15
+
+r_PSG_R00:				* チャンネルＡ音程分周比 下位８ビット
+	move.w	PSG_R00,d0
+	rts
+r_PSG_R01:				* チャンネルＡ音程分周比 上位４ビット
+	move.w	PSG_R00,d0
+	lsr.w	#8,d0
+	rts
+
+r_PSG_R02:				* チャンネルＢ音程分周比 下位８ビット
+	move.w	PSG_R02,d0
+	rts
+r_PSG_R03:				* チャンネルＢ音程分周比 上位４ビット
+	move.w	PSG_R02,d0
+	lsr.w	#8,d0
+	rts
+
+r_PSG_R04:				* チャンネルＣ音程分周比 下位８ビット
+	move.w	PSG_R04,d0
+	rts
+r_PSG_R05:				* チャンネルＣ音程分周比 上位４ビット
+	move.w	PSG_R04,d0
+	lsr.w	#8,d0
+	rts
+
+r_PSG_R06:
+	move.b	PSG_R06,d0
+	rts
+r_PSG_R07:
+	move.b	PSG_R07,d0
+	rts
+
+r_PSG_R08:
+	move.b	PSG_R08,d0
+	rts
+r_PSG_R09:
+	move.b	PSG_R09,d0
+	rts
+r_PSG_R10:
+	move.b	PSG_R10,d0
+	rts
+
+r_PSG_R11:				* エンベロープ周期 下位８ビット
+	move.w	PSG_R12_R11,d0
+	rts
+r_PSG_R12:				* エンベロープ周期 上位８ビット
+	move.w	PSG_R12_R11,d0
+	lsr.w	#8,d0
+	rts
+
+r_PSG_R13:
+	move.b	PSG_R13,d0
+	rts
+
+r_PSG_R14:				* ＰＯＲＴ Ａ
+	move.w	port_sel,d0		* R15のbit6に書き込んだ値で、ジョイスティックポート1と2の選択が切り替わる(0:JOY1, 1:JOY2)
+	bne	1f
+	move.b	portA_8255,d0
+	bra	@f
+1:	move.b	portB_8255,d0
+
+@@:	move.b	d0,d1
+	lsr.b	#1,d1
+	andi.b	#%00001111,d0
+	andi.b	#%00110000,d1
+	or.b	d1,d0
+	ori.b	#%01000000,d0		* JIS配列キーボード固定
+*
+*	bit7のカセット処理は未実装
+*	ori.b	#%10000000,d0		* bit7: カセット入力
+
+	rts
+
+r_PSG_R15:				* R15は書き込みポートだが、どうやら読み出しもできるらしい
+	move.b	PSG_R15,d0
+	andi.b	#$f0,d0			* 下位4bitは0固定
+	rts
+
+
+***************************************************************
+*
+*	ＰＳＧレジスターへの書き込みルーチン群
+*
+*    (引数）
+*	d1.b ・・・ 書き込む値
+*
+***************************************************************
+w_port_A0:
+	move.l	4(sp),d1
+	andi.w	#$0f,d1
+	move.w	d1,p_A0
+	rts
+
+w_port_A1:
+	move.l	4(sp),d1
+	move.w	p_A0,d0
+	add.w	d0,d0
+	add.w	d0,d0
+	lea	w_psg_reg_jpt,a0
+	move.l	(a0,d0.w),a0
+	jmp	(a0)
+
+	.data
+
+w_psg_reg_jpt:
+	.dc.l	w_PSG_R00
+	.dc.l	w_PSG_R01
+	.dc.l	w_PSG_R02
+	.dc.l	w_PSG_R03
+	.dc.l	w_PSG_R04
+	.dc.l	w_PSG_R05
+	.dc.l	w_PSG_R06
+	.dc.l	w_PSG_R07
+	.dc.l	w_PSG_R08
+	.dc.l	w_PSG_R09
+	.dc.l	w_PSG_R10
+	.dc.l	w_PSG_R11
+	.dc.l	w_PSG_R12
+	.dc.l	w_PSG_R13
+	.dc.l	w_PSG_R14
+	.dc.l	w_PSG_R15
+
+	.text
+
+w_PSG_R00:
+	move.b	d1,PSG_R00+1		* チャンネルＡ音程分周比の下位８ビット
+	move.w	PSG_R00,d1
+	add.w	d1,d1
+	movea.l	PSG2OPM_tbl,a0
+
+	w_OPM	0(a0,d1.w),#$28		* キーコード設定
+	w_OPM	1(a0,d1.w),#$30		* キーフラクション設定
+	rts
+w_PSG_R01:
+	andi.b	#%00001111,d1
+	move.b	d1,PSG_R00		* チャンネルＡ音程分周比の上位４ビット
+	move.w	PSG_R00,d1
+	add.w	d1,d1
+	movea.l	PSG2OPM_tbl,a0
+
+	w_OPM	0(a0,d1.w),#$28		* キーコード設定
+	w_OPM	1(a0,d1.w),#$30		* キーフラクション設定
+	rts
+
+w_PSG_R02:
+	move.b	d1,PSG_R02+1		* チャンネルＢ音程分周比の下位８ビット
+	move.w	PSG_R02,d1
+	add.w	d1,d1
+	movea.l	PSG2OPM_tbl,a0
+
+	w_OPM	0(a0,d1.w),#$29		* キーコード設定
+	w_OPM	1(a0,d1.w),#$31		* キーフラクション設定
+	rts
+w_PSG_R03:
+	andi.b	#%00001111,d1
+	move.b	d1,PSG_R02		* チャンネルＢ音程分周比の上位４ビット
+	move.w	PSG_R02,d1
+	add.w	d1,d1
+	movea.l	PSG2OPM_tbl,a0
+
+	w_OPM	0(a0,d1.w),#$29		* キーコード設定
+	w_OPM	1(a0,d1.w),#$31		* キーフラクション設定
+	rts
+
+w_PSG_R04:
+	move.b	d1,PSG_R04+1		* チャンネルＣ音程分周比の下位８ビット
+	move.w	PSG_R04,d1
+	add.w	d1,d1
+	movea.l	PSG2OPM_tbl,a0
+
+	w_OPM	0(a0,d1.w),#$2a		* キーコード設定
+	w_OPM	1(a0,d1.w),#$32		* キーフラクション設定
+
+	rts
+w_PSG_R05:
+	andi.b	#%00001111,d1
+	move.b	d1,PSG_R04		* チャンネルＣ音程分周比の上位４ビット
+	move.w	PSG_R04,d1
+	add.w	d1,d1
+	movea.l	PSG2OPM_tbl,a0
+
+	w_OPM	0(a0,d1.w),#$2a		* キーコード設定
+	w_OPM	1(a0,d1.w),#$32		* キーフラクション設定
+	rts
+
+; ノイズ周波数の設定
+; ● PSGも2151もノイズ周波数の設定範囲は1-31で同じだが、計算式が異なる
+; 設定値をNとすると、
+; * PSG: 111861/N Hz
+; * OPM: 125000/N Hz
+; 若干ずれてしまうが、PSGのノイズ周波数をそのままOPMに設定するしかないのでそうする
+; それとどうやら、
+; * PSG: 1が最も高い周波数
+; * OPM: 31が最も高い周波数
+; という違いがあるようだ
+w_PSG_R06:
+	move.b	d1,PSG_R06
+	move.b	#31,d1
+	sub.b	PSG_R06,d1
+	andi.b	#%00011111,d1
+	or.b	#%10000000,d1		* b7を1にすると、CH8のC2がノイズジェネレータになる b4-b0 はノイズ周波数
+	w_OPM	d1,#$0f
+	rts
+
+; キーオン/オフ
+w_PSG_R07:
+	move.b	d1,PSG_R07
+
+	; PSGサウンドの発音
+	; キーのON/OFFは L-ch enable/R-ch enable で行う
+
+	btst.l	#0,d1			* 0: 出力、1: 非出力
+	beq	1f
+	w_OPM	#%00_111_100,#$20	* CH1の L/R enableを OFFにする(b7,b6) (b5-3はFL、b2-0はAL=CON)
+	bra	@f
+1:	w_OPM	#%11_111_100,#$20	* CH1の L/R enableを ONにする(b7,b6) (b5-3はFL、b2-0はAL=CON)
+
+@@:	btst.l	#1,d1			* 0: 出力、1: 非出力
+	beq	1f
+	w_OPM	#%00_111_100,#$21	* CH2の L/R enableを OFFにする(b7,b6) (b5-3はFL、b2-0はAL=CON)
+	bra	@f
+1:	w_OPM	#%11_111_100,#$21	* CH2の L/R enableを ONにする(b7,b6) (b5-3はFL、b2-0はAL=CON)
+
+@@:	btst.l	#2,d1			* 0: 出力、1: 非出力
+	beq	1f
+	w_OPM	#%00_111_100,#$22	* CH3の L/R enableを OFFにする(b7,b6) (b5-3はFL、b2-0はAL=CON)
+	bra	@f
+1:	w_OPM	#%11_111_100,#$22	* CH3の L/R enableを ONにする(b7,b6) (b5-3はFL、b2-0はAL=CON)
+
+	; PSGノイズの発音
+@@:	andi.b	#%00_111_000,d1		* ノイズ出力
+	cmpi.b	#%00_111_000,d1
+	bne	1f
+	w_OPM	#%00_111_100,#$27	* CH8の L/R enableを OFFにする(b7,b6) (b5-3はFL、b2-0はAL=CON)
+	bra	@f
+1:	w_OPM	#%11_111_100,#$27	* CH8の L/R enableを ONにする(b7,b6) (b5-3はFL、b2-0はAL=CON)
+@@:
+	rts
+
+; ノイズの音量設定
+update_noise_volume:
+	; ノイズが鳴っているチャンネルの音量が最も大きいものをノイズ音量として使う
+	; 音量はTLで調整する
+	move.b	PSG_R07,d0
+	lea.l	noise_volume_tbl,a0
+	clr.w	d1
+	; CH.A
+	btst.l	#3,d0
+	bne	@f			* ノイズ音量は0でONなので、1なら鳴ってない
+	move.b	PSG_R08,d2
+	andi.w	#$000f,d2		* TODO エンベロープがノイズに与える影響を調べる
+	cmp.w	d2,d1
+	bge	@f
+	move.w	d2,d1
+	; CH.B
+@@:	btst.l	#4,d0
+	bne	@f			* ノイズ音量は0でONなので、1なら鳴ってない
+	move.b	PSG_R09,d2
+	andi.w	#$000f,d2		* TODO エンベロープがノイズに与える影響を調べる
+	cmp.w	d2,d1
+	bge	@f
+	move.w	d2,d1
+	; CH.C
+@@:	btst.l	#5,d0
+	bne	@f			* ノイズ音量は0でONなので、1なら鳴ってない
+	move.b	PSG_R10,d2
+	andi.w	#$000f,d2		* TODO エンベロープがノイズに与える影響を調べる
+	cmp.w	d2,d1
+	bge	@f
+	move.w	d2,d1
+@@:
+	w_OPM	0(a0,d1.w),#$7f		* テーブルを引いてTL をセット (SLOT32=CH8のC2)
+
+	rts
+
+; CH.A 音量設定
+w_PSG_R08:
+	move.b	d1,PSG_R08
+	; 音量はTLで調整する
+	lea.l	volume_tbl,a0
+	btst.l	#4,d1			* b4が1の時はエンベロープモードだが、サポートしていないので音量10として扱う
+	beq	1f
+	moveq.l	#10,d1
+1:	andi.w	#$000f,d1		* PSGの音量を取得
+	w_OPM	0(a0,d1.w),#$70		* テーブルを引いて TL をセット
+
+	bsr	update_noise_volume
+	rts
+
+; CH.B 音量設定
+w_PSG_R09:
+	move.b	d1,PSG_R09
+	; 音量はTLで調整する
+	lea.l	volume_tbl,a0
+	btst.l	#4,d1			* b4が1の時はエンベロープモードだが、サポートしていないので音量10として扱う
+	beq	1f
+	moveq.l	#10,d1
+1:	andi.w	#$000f,d1		* PSGの音量を取得
+	w_OPM	0(a0,d1.w),#$71		* テーブルを引いて TL をセット
+
+	bsr	update_noise_volume
+	rts
+
+; CH.C 音量設定
+w_PSG_R10:
+	move.b	d1,PSG_R10
+	; 音量はTLで調整する
+	lea.l	volume_tbl,a0
+	btst.l	#4,d1			* b4が1の時はエンベロープモードだが、サポートしていないので音量10として扱う
+	beq	1f
+	moveq.l	#10,d1
+1:	andi.w	#$000f,d1		* PSGの音量を取得
+	w_OPM	0(a0,d1.w),#$72		* テーブルを引いて TL をセット
+
+	bsr	update_noise_volume
+	rts
+
+w_PSG_R11:
+	move.b	d1,PSG_R12_R11+1
+	rts
+w_PSG_R12:
+	move.b	d1,PSG_R12_R11+0
+	rts
+w_PSG_R13:
+	move.b	d1,PSG_R13
+	rts
+
+w_PSG_R14:
+	pea.l	errms_PSG_R14_wr
+	DOS	_PRINT
+	lea.l	4(sp),sp
+	rts
+
+w_PSG_R15:
+	move.b	d1,PSG_R15
+
+	move.b	d1,d0
+	andi.b	#%10000000,d0		* bit7: かなLEDの状態
+	lsr.b	#7,d0			* フラグを保存して、VSYNC期間に反映させる
+	eori.b	#%00000001,d0		* ビット反転
+	move.b	d0,_ms_peripherals_led_kana
+
+	* R15のbit6に書き込んだ値で、ジョイスティックポート1と2の選択が切り替わる(0:JOY1, 1:JOY2)
+	btst.l	#6,d1
+	beq	1f
+	move.w	#1,port_sel
+	bra	@f
+
+1:	clr.w	port_sel
+
+@@:	move.b	d1,d0
+	move.b	#%1_00_10010,cont_8255	* port A,B を入力に
+
+	move.b	d0,d1			*R15のbit0は、ジョイスティックポート1の6番端子の出力(0:L, 1:H)
+	andi.b	#%00000001,d1		*X68000は8255のPC6、つまりPORT Cの6番ピンで制御できるが論理が逆
+	eori.b	#%00000001,d1
+	or.b	#%0000_110_0,d1		* PC6(PORT Cのビット6)から出力
+	move.b	d1,cont_8255
+
+	move.b	d0,d1			*R15のbit1は、ジョイスティックポート1の7番端子の出力(0:L, 1:H)
+	andi.b	#%00000010,d1		*X68000は8255のPC7、つまりPORT Cの7番ピンで制御できるが論理が逆
+	lsr.b	#1,d1
+	eori.b	#%00000001,d1
+	or.b	#%0000_111_0,d1		* PC7(PORT Cのビット7)から出力
+	move.b	d1,cont_8255
+
+	* R15のbit2は、ジョイスティックポート2の6番端子の出力
+	* R15のbit3は、ジョイスティックポート2の7番端子の出力
+	* 上記2つは、X68000ではPORT Bを出力モードにしないと使えないのでサポートしない
+
+	move.b	d0,d1			* R15のbit4は、ジョイスティックポート1の8番端子の出力(0:L, 1:H)
+	andi.b	#%00010000,d1		* X68000は8255のPC4、つまりPORT Cの4番ピンで制御できる
+	lsr.b	#4,d1			* bit0の位置に移動
+	or.b	#%0000_100_0,d1		* PC4(PORT Cのビット4)から出力
+	move.b	d1,cont_8255
+
+					* R15のbit5は、ジョイスティックポート2の8番端子の出力(0:L, 1:H)
+	andi.b	#%00100000,d0		* X68000は8255のPC5、つまりPORT Cの5番ピンで制御できる
+	lsr.b	#5,d0			* bit0の位置に移動
+	or.b	#%0000_101_0,d0		* PC5(PORT Cのビット5)から出力
+	move.b	d0,cont_8255
+
+	rts
+
+
+*
+*	SCC対応(仮対応)
+*
+
+w_SCC_freq:
+	link	a6,#0
+	movem.l	d2-d7/a0-a5,-(sp)
+
+	; 引数からチャンネル番号(0-3)を取得
+	move.l	8(a6),d0
+	and.w	#$03,d0
+	add.w	#$2b,d0			* OPMのレジスタ番号に変換
+	; 引数から周波数(12bit)
+	move.l	12(a6),d1
+	add.w	#1,d1			* SCCとPSGは1ずれているらしいので補正(http://d4.princess.ne.jp/msx/scc/scc2.html)
+	add.w	d1,d1
+
+	movea.l	PSG2OPM_tbl,a0
+	w_OPM	0(a0,d1.w),d0		* キーコード設定
+	add.w	#8,d0
+	w_OPM	1(a0,d1.w),d0		* キーフラクション設定
+
+	movem.l (sp)+,d2-d7/a0-a5
+	unlk	a6
+	rts
+
+w_SCC_volume:
+	link	a6,#0
+	movem.l	d2-d7/a0-a5,-(sp)
+
+	; 引数からチャンネル番号(0-3)を取得
+	move.l	8(a6),d0
+	and.w	#$03,d0
+	add.w	#$73,d0			* OPMのレジスタ番号に変換
+	; 引数からボリューム(0-15)
+	move.l	12(a6),d1
+
+	; 音量はTLで調整する
+	lea.l	scc_volume_tbl,a0
+	andi.w	#$000f,d1		* SCCの音量を取得
+	w_OPM	0(a0,d1.w),d0		* テーブルを引いて TL をセット
+
+	movem.l (sp)+,d2-d7/a0-a5
+	unlk	a6
+	rts
+
+w_SCC_keyon:
+	link	a6,#0
+	movem.l	d2-d7/a0-a5,-(sp)
+
+	; 引数からチャンネルごとのOn/Off(b0-b3で制御)を取得
+	move.l	8(a6),d0
+
+	; SCCの有効ビットを見てマスクする
+	and.b	scc_enable,d0
+
+	; PSGサウンドの発音
+	; キーのON/OFFは L-ch enable/R-ch enable で行う
+
+	btst.l	#0,d0			* 1: 出力、0: 非出力
+	bne	1f
+	w_OPM	#%00_111_100,#$23	* SCC CH1の L/R enableを OFFにする(b7,b6) (b5-3はFL、b2-0はAL=CON)
+	bra	@f
+1:	w_OPM	#%11_111_100,#$23	* SCC CH1の L/R enableを ONにする(b7,b6) (b5-3はFL、b2-0はAL=CON)
+
+@@:	btst.l	#1,d0			* 1: 出力、0: 非出力
+	bne	1f
+	w_OPM	#%00_111_100,#$24	* SCC CH2の L/R enableを OFFにする(b7,b6) (b5-3はFL、b2-0はAL=CON)
+	bra	@f
+1:	w_OPM	#%11_111_100,#$24	* SCC CH2の L/R enableを ONにする(b7,b6) (b5-3はFL、b2-0はAL=CON)
+
+@@:	btst.l	#2,d0			* 1: 出力、0: 非出力
+	bne	1f
+	w_OPM	#%00_111_100,#$25	* SCC CH3の L/R enableを OFFにする(b7,b6) (b5-3はFL、b2-0はAL=CON)
+	bra	@f
+1:	w_OPM	#%11_111_100,#$25	* SCC CH3の L/R enableを ONにする(b7,b6) (b5-3はFL、b2-0はAL=CON)
+
+@@:	btst.l	#3,d0			* 1: 出力、0: 非出力
+	bne	1f
+	w_OPM	#%00_111_100,#$26	* SCC CH4の L/R enableを OFFにする(b7,b6) (b5-3はFL、b2-0はAL=CON)
+	bra	@f
+1:	w_OPM	#%11_111_100,#$26	* SCC CH4の L/R enableを ONにする(b7,b6) (b5-3はFL、b2-0はAL=CON)
+
+@@:	movem.l (sp)+,d2-d7/a0-a5
+	unlk	a6
+	rts
+
+
+w_SCC_enable:
+	link	a6,#0
+	movem.l	d2-d7/a0-a5,-(sp)
+
+	; 引数からチャンネルごとの有効無効(b0-b3で制御)を取得
+	move.l	8(a6),d0
+
+	move.b	d0,scc_enable
+
+	movem.l (sp)+,d2-d7/a0-a5
+	unlk	a6
+	rts
+
+
+w_SCC_deformation:
+	link	a6,#0
+	movem.l	d2-d7/a0-a5,-(sp)
+	movem.l (sp)+,d2-d7/a0-a5
+	unlk	a6
+	rts
+
+*
+*		ワークエリア
+*
+
+	.data
+
+*	PSG registers
+
+	.even
+PSG_R00:				* R00 R01
+	.dc.w	0
+PSG_R02:				* R02 R03
+	.dc.w	0
+PSG_R04:				* R04 R05
+	.dc.w	0
+
+PSG_R06:
+	.dc.b	0
+PSG_R07:
+	.dc.b	0
+PSG_R08:
+	.dc.b	0
+PSG_R09:
+	.dc.b	0
+PSG_R10:
+	.dc.b	0
+
+	.even
+PSG_R12_R11:
+	.dc.w	0
+PSG_R13:
+	.dc.b	0
+
+PSG_R15:
+	.dc.b	0
+
+	.even
+
+port_sel:			* R15 のビット６の保存用
+	.dc.w	0
+
+
+*	Ｉ／Ｏポートの値保存場所
+
+p_A0:	.dc.w	0		* PSG register access no
+
+
+*	トーンテーブル
+*		 C    C#    D   D#    E    F   F#    G   G#    A    A#   B
+tone_tbl:
+	.dc.w					       $10D6,$FE4,$EFF,$E28
+	.dc.w	$D5D,$C9C,$BE7,$B3C,$A9B,$A02,$973,$8EB,$86B,$7F2,$780,$714
+	.dc.w	$6AF,$6AE,$5F4,$59E,$54E,$501,$4BA,$476,$436,$3F9,$3C0,$38A
+	.dc.w	$357,$327,$2FA,$2CF,$2A7,$281,$25D,$23B,$21B,$1FD,$1E0,$1C5
+	.dc.w	$1AC,$194,$17D,$168,$153,$140,$12E,$11D,$10D,$0FE,$0F0,$0E3
+	.dc.w	$0D6,$0CA,$0BE,$0B4,$0AA,$0A0,$097,$08F,$087,$07F,$078,$071
+	.dc.w	$06B,$065,$05F,$05A,$055,$050,$04C,$047,$043,$040,$03C,$039
+	.dc.w	$035,$032,$030,$02D,$02A,$028,$026,$024,$022,$020,$01E,$01C
+	.dc.w	$01B,$019,$018
+tone_tbl_end:
+	.dc.w	0		* ダミー
+
+
+PSG_data:
+*		AR 1DR 2DR  RR 1DL  TL  RS MUL DT1 DT2 AME    ＰＳＧ
+	.dc.b	31,  0,  0,  0,  0, 27,  0,  2,  0,  0,  0	* M1
+	.dc.b	31,  0,  0,  0,  0,127,  0,  1,  0,  0,  0	* C1	(レジスタの並び順じゃないので注意)
+	.dc.b	31,  0,  0, 15,  0,127,  0,  2,  0,  0,  0	* M2	TL=127は消音(OPを使わない)
+	.dc.b	31,  0,  0, 15,  0,127,  0,  1,  0,  0,  0	* C2	TL=127は消音(OPを使わない)
+
+PSG_noise_data:
+*		AR 1DR 2DR  RR 1DL  TL  RS MUL DT1 DT2 AME    ＰＳＧ Noise
+	.dc.b	31,  0,  0, 15,  0,127,  0,  2,  0,  0,  0	* M1
+	.dc.b	31,  0,  0, 15,  0,127,  0,  1,  0,  0,  0	* C1
+	.dc.b	31,  0,  0, 15,  0,127,  0,  2,  0,  0,  0	* M2
+	.dc.b	31,  0,  0,  0,  0,127,  0,  0,  0,  0,  0	* C2
+
+PSG_data_common: ; 使ってない
+*		AL  FB  OM PAN  WF  SY  SP PMD AMD PMS AMS	（AL:接続アルゴリズム = CON)
+	.dc.b	 4,  7, 15,  3,  0,  0,  0,  0,  0,  0,  0
+
+volume_tbl:
+* https://github.com/digital-sound-antiques/vgm-conv/blob/main/src/converter/ay8910-to-opm-coverter.ts#L6
+*		  0   1   2   3   4   5   6   7   8   9   a   b   c   d   e   f
+	.dc.b	127, 70, 64, 60, 54, 50, 44, 40, 36, 32, 28, 24, 20, 16, 12,  8	* ノイズとのバランス調整のため、+8する
+
+noise_volume_tbl:
+* https://github.com/digital-sound-antiques/vgm-conv/blob/780a20ed505e23eb21aa9c6ce3f349029718b5a0/src/converter/ay8910-to-opm-coverter.ts#L7C1-L8C1
+*		  0   1   2   3   4   5   6   7   8   9   a   b   c   d   e   f
+	.dc.b	127,126,125,124,123,122,121,120,116,112,105, 96, 82, 64, 37,  0
+
+scc_volume_tbl:
+* SCCの音量変化はPSGとは違うらしい
+* https://www.tiny-yarou.com/msx_sccforbasic.html
+*		  0   1   2   3   4   5   6   7   8   9   a   b   c   d   e   f
+	.dc.b	127, 60, 40, 36, 32, 30, 28, 26, 24, 22, 20, 18, 16, 14, 12,  8
+
+scc_enable:
+	.dc.b	0xff
+
+	.even
+
+note_tbl:
+	.dc.b	$0,$1,$2,$4,$5,$6,$8,$9,$a,$c,$d,$e,$0,$0,$0,$0
+
+	.even
+
+errms_OPM_int:
+	.dc.b	'ＯＰＭのタイマＡを強制使用します。',0x0d,0x0a,0x00,0x00
+
+errms_PSG_R14_wr:
+	.dc.b	'ＰＳＧレジスターＲ１４は読み込み専用です。',0x0d,0x0a,0x00,0x00
+errms_PSG_R15_rd:
+	.dc.b	'ＰＳＧレジスターＲ１5は書き込み専用です。',0x0d,0x0a,0x00,0x00
+
+	.end
+
