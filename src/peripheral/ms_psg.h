@@ -6,6 +6,10 @@
 #include "../ms_iomap.h"
 
 typedef struct ms_psg {
+	// PSGの分周パラメータnからOPMのoct,note,kfに変換するテーブル
+	uint8_t psg2octnote[4096];
+	uint8_t psg2kf[4096];
+
 	// I/O port アクセスを提供
 	ms_ioport_t io_port_A0;
 	ms_ioport_t io_port_A1;
