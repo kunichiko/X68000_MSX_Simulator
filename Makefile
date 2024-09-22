@@ -156,10 +156,10 @@ $(SRC_DIR)/ms.h: $(SRC_DIR)/../version.h
 	touch $(SRC_DIR)/ms.h
 
 ${BUILD_DIR}/ms.x: $(OBJS)
-	$(LD) $(LDFLAGS) -o $@ $^
+	$(LD) -o $@ $^ $(LDFLAGS) 
 
 ${BUILD_DIR}/ms_debug.x: $(OBJS_DEBUG)
-	$(LD) $(LDFLAGS) -o $@ $^
+	$(LD) -o $@ $^ $(LDFLAGS) 
 
 ${BUILD_DIR}/%.o: $(SRC_DIR)/%.c $(SRC_DIR)/ms_R800.h $(SRC_DIR)/ms.h
 	$(CC) $(CFLAGS) $< -o $@

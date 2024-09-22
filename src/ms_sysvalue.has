@@ -4,16 +4,9 @@
 *				1995.3.			by Kuni.
 *
 
-	.xdef	PSG2OPM_tbl
 	.xdef	native_jpt_add
 
 	.xdef	HEX
-
-*
-*	ＭＳ に必用な値は、ここに格納される			値をセットする関数名
-*
-PSG2OPM_tbl:
-	.dc.l	0	* ＰＳＧ－＞ＯＰＭ変換テーブルの先頭
 
 native_jpt_add:		* ネイティブルーチンジャンプテーブルのあるアドレス
 	.dc.l	0						initialize

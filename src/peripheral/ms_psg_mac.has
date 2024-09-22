@@ -10,7 +10,6 @@
 	.include	doscall.equ
 
 
-	.xref	PSG2OPM_tbl
 	.xref	_ms_peripherals_led_kana
 
 	.xdef	ms_psg_init_mac
@@ -59,17 +58,21 @@ w_OPM	macro	val,regnum
 *
 *	ＰＳＧ初期化ルーチン
 *
-*	int ms_psg_init_mac();
-*
+*	int ms_psg_init_mac(uint8_t* psg2octnote, uint8_t* psg2kf);
 *	返り値
 *		1・・・・・正常終了
 *		0・・・異状終了
 *
 ***************************************************************
 ms_psg_init_mac:
+	link	a6,#0
 	movem.l	d3-d7/a0-a5,-(sp)
 
-*	レジスタ初期化
+	; 引数の保存
+	move.l	8(a6),psg2octnote
+	move.l	12(a6),psg2kf
+
+	; レジスタ初期化
 	w_OPM	#%00000010,#$01
 
 	w_OPM	#%00000000,#$08
@@ -82,82 +85,6 @@ ms_psg_init_mac:
 	w_OPM	#%00000111,#$08
 
 	w_OPM	#%00000000,#$0f
-*
-*	ＰＳＧトーン周波数 －＞ ノート番号 変換テーブルの作成
-*
-*	テーブルのフォーマット
-*		：
-*	.dc.b	キーコード, キーフラクション
-*	.dc.b	キーコード, キーフラクション
-*		：
-*
-*　　（備考）
-*	６８はＯＰＭのマニュアルと192.27セント（約１音）ずれている。よってノート番号で
-*	-200セント(半音)調整し、キーフラクションで+7.8125セント調整する。
-*
-	move.l	#$10D7*4,-(sp)			* 本当は $1000*2でよくも出来るけど
-	DOS	_MALLOC				* 手抜きのため。
-	lea.l	4(sp),sp
-
-	tst.l	d0
-	bmi	err_PSG_INIT
-	move.l	d0,PSG2OPM_tbl
-	movea.l	d0,a0
-
-	move.w	#$17-1,d0
-@@:	move.w	#%01111110_11111100,(a0)+	* ＯＰＭで出せる最高音
-	dbra	d0,@b
-
-	move.w	#%01111110_10010100,(a0)+	* D と D#の中間音
-	move.w	#%01111110_00010100,(a0)+	* D の中
-
-	lea.l	tone_tbl_end-2,a1
-	lea.l	note_tbl,a2
-	move.b	#%01111011,d0			* キーコード初期値
-	move.b	#%00010100,d1			* キーフラクション初期値（7.8125セント）
-	move.w	#(tone_tbl_end-tone_tbl)/2-1,d2	* ループカウンタ
-
-1:
-	move.w	-(a1),d3
-	sub.w	2(a1),d3			* d3 = (x-y)	ループの回数
-	clr.w	d4
-2:
-	addq.w	#1,d4
-	clr.l	d5
-	move.w	d4,d5
-	lsl.w	#8,d5				* d5 = 64*d4*4
-	divu.w	d3,d5				* d5 = 64*d4*4/(x-y)
-
-	move.b	d0,d6				* キーコードを一時読み込み
-	move.b	d1,d7				* キーフラクションを一時読み込み
-	sub.b	d5,d7				* キーフラクションを設定
-	bcs	3f				* キーフラクションが負になったか
-	tst.b	d5				* d5.w は２５６か？
-	bne	@f
-3:	subq.b	#1,d6				* キーコードを－１
-	move.b	d6,d5
-	andi.b	#%00001111,d5
-	cmpi.b	#%00001111,d5
-	bne	@f
-	subq.b	#4,d6 
-@@:
-	move.b	d6,-(sp)
-	move.b	d6,d5				* キーコードセット
-	andi.w	#$0f,d5
-	andi.b	#$f0,d6
-	or.b	0(a2,d5.w),d6
-	move.b	d6,(a0)+
-	move.b	d7,(a0)+			* キーフラクションセット
-	move.b	(sp)+,d6
-
-	cmp.w	d4,d3
-	bne	2b
-
-	move.b	d6,d0				* 新しいキーコードをセット
-	move.b	#%00010100,d1			* 新しいキーフラクションをセット
-
-	dbra	d2,1b
-
 
 ;	ＰＳＧ音色設定
 ;
@@ -291,12 +218,14 @@ ms_psg_init_mac:
 	w_OPM	#%00000101,#$14			* 割り込み開始
 
 	movem.l	(sp)+,d3-d7/a0-a5
-	moveq.l	#1,d0
+	unlk	a6
 
+	moveq.l	#1,d0
 	rts
 
 err_PSG_INIT:
 	movem.l	(sp)+,d3-d7/a0-a5
+	unlk	a6
 	moveq.l	#0,d0
 	rts
 
@@ -550,62 +479,61 @@ w_psg_reg_jpt:
 w_PSG_R00:
 	move.b	d1,PSG_R00+1		* チャンネルＡ音程分周比の下位８ビット
 	move.w	PSG_R00,d1
-	add.w	d1,d1
-	movea.l	PSG2OPM_tbl,a0
 
-	w_OPM	0(a0,d1.w),#$28		* キーコード設定
-	w_OPM	1(a0,d1.w),#$30		* キーフラクション設定
+	move.l	psg2octnote,a0
+	w_OPM	(a0,d1.w),#$28		* キーコード設定
+	move.l	psg2kf,a0
+	w_OPM	(a0,d1.w),#$30		* キーフラクション設定
 	rts
 w_PSG_R01:
 	andi.b	#%00001111,d1
 	move.b	d1,PSG_R00		* チャンネルＡ音程分周比の上位４ビット
 	move.w	PSG_R00,d1
-	add.w	d1,d1
-	movea.l	PSG2OPM_tbl,a0
 
-	w_OPM	0(a0,d1.w),#$28		* キーコード設定
-	w_OPM	1(a0,d1.w),#$30		* キーフラクション設定
+	move.l	psg2octnote,a0
+	w_OPM	(a0,d1.w),#$28		* キーコード設定
+	move.l	psg2kf,a0
+	w_OPM	(a0,d1.w),#$30		* キーフラクション設定
 	rts
 
 w_PSG_R02:
 	move.b	d1,PSG_R02+1		* チャンネルＢ音程分周比の下位８ビット
 	move.w	PSG_R02,d1
-	add.w	d1,d1
-	movea.l	PSG2OPM_tbl,a0
 
-	w_OPM	0(a0,d1.w),#$29		* キーコード設定
-	w_OPM	1(a0,d1.w),#$31		* キーフラクション設定
+	move.l	psg2octnote,a0
+	w_OPM	(a0,d1.w),#$29		* キーコード設定
+	move.l	psg2kf,a0
+	w_OPM	(a0,d1.w),#$31		* キーフラクション設定
 	rts
 w_PSG_R03:
 	andi.b	#%00001111,d1
 	move.b	d1,PSG_R02		* チャンネルＢ音程分周比の上位４ビット
 	move.w	PSG_R02,d1
-	add.w	d1,d1
-	movea.l	PSG2OPM_tbl,a0
 
-	w_OPM	0(a0,d1.w),#$29		* キーコード設定
-	w_OPM	1(a0,d1.w),#$31		* キーフラクション設定
+	move.l	psg2octnote,a0
+	w_OPM	(a0,d1.w),#$29		* キーコード設定
+	move.l	psg2kf,a0
+	w_OPM	(a0,d1.w),#$31		* キーフラクション設定
 	rts
 
 w_PSG_R04:
 	move.b	d1,PSG_R04+1		* チャンネルＣ音程分周比の下位８ビット
 	move.w	PSG_R04,d1
-	add.w	d1,d1
-	movea.l	PSG2OPM_tbl,a0
 
-	w_OPM	0(a0,d1.w),#$2a		* キーコード設定
-	w_OPM	1(a0,d1.w),#$32		* キーフラクション設定
-
+	move.l	psg2octnote,a0
+	w_OPM	(a0,d1.w),#$2a		* キーコード設定
+	move.l	psg2kf,a0
+	w_OPM	(a0,d1.w),#$32		* キーフラクション設定
 	rts
 w_PSG_R05:
 	andi.b	#%00001111,d1
 	move.b	d1,PSG_R04		* チャンネルＣ音程分周比の上位４ビット
 	move.w	PSG_R04,d1
-	add.w	d1,d1
-	movea.l	PSG2OPM_tbl,a0
 
-	w_OPM	0(a0,d1.w),#$2a		* キーコード設定
-	w_OPM	1(a0,d1.w),#$32		* キーフラクション設定
+	move.l	psg2octnote,a0
+	w_OPM	(a0,d1.w),#$2a		* キーコード設定
+	move.l	psg2kf,a0
+	w_OPM	(a0,d1.w),#$32		* キーフラクション設定
 	rts
 
 ; ノイズ周波数の設定
@@ -823,12 +751,12 @@ w_SCC_freq:
 	; 引数から周波数(12bit)
 	move.l	12(a6),d1
 	add.w	#1,d1			* SCCとPSGは1ずれているらしいので補正(http://d4.princess.ne.jp/msx/scc/scc2.html)
-	add.w	d1,d1
 
-	movea.l	PSG2OPM_tbl,a0
-	w_OPM	0(a0,d1.w),d0		* キーコード設定
+	move.l	psg2octnote,a0
+	w_OPM	(a0,d1.w),d0		* キーコード設定
+	move.l	psg2kf,a0
 	add.w	#8,d0
-	w_OPM	1(a0,d1.w),d0		* キーフラクション設定
+	w_OPM	(a0,d1.w),d0		* キーフラクション設定
 
 	movem.l (sp)+,d2-d7/a0-a5
 	unlk	a6
@@ -965,20 +893,10 @@ p_A0:	.dc.w	0		* PSG register access no
 
 
 *	トーンテーブル
-*		 C    C#    D   D#    E    F   F#    G   G#    A    A#   B
-tone_tbl:
-	.dc.w					       $10D6,$FE4,$EFF,$E28
-	.dc.w	$D5D,$C9C,$BE7,$B3C,$A9B,$A02,$973,$8EB,$86B,$7F2,$780,$714
-	.dc.w	$6AF,$6AE,$5F4,$59E,$54E,$501,$4BA,$476,$436,$3F9,$3C0,$38A
-	.dc.w	$357,$327,$2FA,$2CF,$2A7,$281,$25D,$23B,$21B,$1FD,$1E0,$1C5
-	.dc.w	$1AC,$194,$17D,$168,$153,$140,$12E,$11D,$10D,$0FE,$0F0,$0E3
-	.dc.w	$0D6,$0CA,$0BE,$0B4,$0AA,$0A0,$097,$08F,$087,$07F,$078,$071
-	.dc.w	$06B,$065,$05F,$05A,$055,$050,$04C,$047,$043,$040,$03C,$039
-	.dc.w	$035,$032,$030,$02D,$02A,$028,$026,$024,$022,$020,$01E,$01C
-	.dc.w	$01B,$019,$018
-tone_tbl_end:
-	.dc.w	0		* ダミー
-
+psg2octnote:
+	.dc.l	0
+psg2kf:
+	.dc.l	0
 
 PSG_data:
 *		AR 1DR 2DR  RR 1DL  TL  RS MUL DT1 DT2 AME    ＰＳＧ
@@ -1016,11 +934,6 @@ scc_volume_tbl:
 
 scc_enable:
 	.dc.b	0xff
-
-	.even
-
-note_tbl:
-	.dc.b	$0,$1,$2,$4,$5,$6,$8,$9,$a,$c,$d,$e,$0,$0,$0,$0
 
 	.even
 
