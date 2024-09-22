@@ -750,9 +750,12 @@ w_SCC_freq:
 	add.w	#$2b,d0			* OPMのレジスタ番号に変換
 	; 引数から周波数(12bit)
 	move.l	12(a6),d1
+	andi.w	#$0fff,d1
 	add.w	#1,d1			* SCCとPSGは1ずれているらしいので補正(http://d4.princess.ne.jp/msx/scc/scc2.html)
-
-	move.l	psg2octnote,a0
+	btst.l	#12,d1
+	beq	@f
+	move.w	#$0fff,d1
+@@:	move.l	psg2octnote,a0
 	w_OPM	(a0,d1.w),d0		* キーコード設定
 	move.l	psg2kf,a0
 	add.w	#8,d0

@@ -104,10 +104,10 @@ void ms_psg_shared_init(ms_iomap_t* iomap) {
 		double log2n = log2(227.50607967018821 / n);
 		int oct  = (int)(  log2n + 4);
 		int note = (int)( (log2n + 4 - oct) * 12 + 8);
-		int K    = (int)(((log2n + 4 - oct) * 12 - note + 8) * 64 + 0.5);
-		if (K > 63) {
+		int kf   = (int)(((log2n + 4 - oct) * 12 - note + 8) * 64 + 0.5);
+		if (kf > 63) {
 			// 誤差で 64 になる場合があるので、調整
-			K = 63;
+			kf = 63;
 		}
 		if (note >= 12) {
 			oct++;
@@ -116,15 +116,15 @@ void ms_psg_shared_init(ms_iomap_t* iomap) {
 		if ( oct < 0 ) {
 			oct = 0;
 			note = 0;
-			K = 0;
+			kf = 0;
 		} else if ( oct > 7) {
 			oct = 7;
 			note = 11;
-			K = 63;
+			kf = 63;
 		}
 		_shared->psg2octnote[n] = (oct<<4) | n2value[note];
-		_shared->psg2kf[n] = K;
-		MS_LOG(MS_LOG_TRACE, "n=%d, Oct=%d, Note=%d, Kf=%d, octnote=%02x, kf=%02x\n", n, oct, note, K, _shared->psg2octnote[n], _shared->psg2kf[n]);
+		_shared->psg2kf[n] = kf << 2;
+		MS_LOG(MS_LOG_TRACE, "n=%d, Oct=%d, Note=%d, Kf=%d, octnote=%02x, kf=%02x\n", n, oct, note, kf, _shared->psg2octnote[n], _shared->psg2kf[n]);
 	}
 
 	// アセンブラルーチンの初期化
