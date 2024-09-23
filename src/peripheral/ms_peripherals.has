@@ -6,8 +6,8 @@
 *				1995.9.15		by Kuni.
 *
 
-	.include	iocscall.equ
-*	.include	doscall.equ
+	.include	iocscall.mac
+*	.include	doscall.mac
 
 	.xdef	r_port_90
 	.xdef	r_port_A9

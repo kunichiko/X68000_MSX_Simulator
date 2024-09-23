@@ -15,9 +15,9 @@
 #include <unistd.h>
 #include <fcntl.h>
 #include <ctype.h>
-#include <iocslib.h>
-#include <doslib.h>
 #include <getopt.h>
+#include <x68k/iocs.h>
+#include <x68k/dos.h>
 #include "ms.h"
 #include "ms_R800.h"
 #include "ms_iomap.h"

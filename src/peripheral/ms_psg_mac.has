@@ -6,8 +6,8 @@
 *				1995.10.19		by Kuni.
 *
 
-	.include	iocscall.equ
-	.include	doscall.equ
+	.include	iocscall.mac
+	.include	doscall.mac
 
 
 	.xref	_ms_peripherals_led_kana
@@ -195,22 +195,22 @@ ms_psg_init_mac:
 
 *	割り込みの設定
 	lea.l	OPM_int,a1
-	IOCS	_OPMINTST
+	IOCS	__OPMINTST
 	tst.l	d0
 	beq	@f
 
 	pea.l	errms_OPM_int			* 既に使用中のとき
-	DOS	_PRINT
+	DOS	__PRINT
 	lea.l	4(sp),sp
 	move.w	sr,d0
 	move.w	d0,-(sp)
 	or.w	#%00000111_00000000,d0		* 割り込み禁止
 	move.w	d0,sr
 	clr.l	a1
-	IOCS	_OPMINTST
+	IOCS	__OPMINTST
 	move.w	(sp)+,sr			* 割り込み復帰
 	lea.l	OPM_int,a1
-	IOCS	_OPMINTST
+	IOCS	__OPMINTST
 
 @@:	w_OPM	#$dc,#$10			* CLKA = 881
 	w_OPM	#$01,#$11			* 143*16μｓごとに割り込み
@@ -235,7 +235,7 @@ ms_psg_deinit_mac:
 	or.w	#%00000111_00000000,d0	* 一時的に割り込み禁止
 	move.w	d0,sr
 	clr.l	a1			* OPM割り込みを禁止
-	IOCS	_OPMINTST
+	IOCS	__OPMINTST
 	move.w	(sp)+,sr		* sr を復元
 
 *	すべてキーオフ
@@ -680,7 +680,7 @@ w_PSG_R13:
 
 w_PSG_R14:
 	pea.l	errms_PSG_R14_wr
-	DOS	_PRINT
+	DOS	__PRINT
 	lea.l	4(sp),sp
 	rts
 
