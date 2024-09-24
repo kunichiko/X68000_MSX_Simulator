@@ -309,7 +309,8 @@ offset_ms_vdp_text_color	equ	120
 offset_ms_vdp_back_color	equ	122
 offset_ms_vdp_vram_addr		equ	124
 offset_ms_vdp_gram_addr		equ	128
-;offset_ms_vdp_display_mode	equ	132
+offset_ms_vdp_disablehsyncint	equ	132
+offset_ms_vdp_dummy4		equ	133
 offset_ms_vdp_current_mode	equ	134
 offset_ms_vdp_tx_active		equ	138
 offset_ms_vdp_gr_active		equ	140
@@ -458,6 +459,8 @@ vsync_interrupt:
 raster_interrupt:
 	movem.l	d0/a0/a5,-(sp)
 	movea.l	ms_vdp_shared,a5
+	cmp.b	#0,offset_ms_vdp_disablehsyncint(a5)
+	bne	@f				* HSYNCŠ„‚è‚İ‚ª‹Ö~‚³‚ê‚Ä‚¢‚éê‡‚Í‰½‚à‚µ‚È‚¢
 	btst.b	#4,offset_ms_vdp_r00(a5)	* VDP IE1 (R#0‚Ìbit4) ‚ğ‚İ‚ÄAHSYNCŠ„‚è‚İ‚ª‹–‰Â‚³‚ê‚Ä‚¢‚é‚©‚ğ’²‚×‚é
 	beq	@f
 	; ‘–¸üŠ„‚è‚İ‚ğ‚©‚¯‚é

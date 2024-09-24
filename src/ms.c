@@ -134,8 +134,11 @@ void printHelpAndExit(char* progname) {
 	fprintf(stderr, "    enable host process debug mode.\n");
 	fprintf(stderr, " --disablekanji\n");
 	fprintf(stderr, "    disable kanji ROM.\n");
+	fprintf(stderr, " --disablehsyncint\n");
+	fprintf(stderr, "    disable HSYNC interrupt.\n");
 	fprintf(stderr, " --disablescc\n");
 	fprintf(stderr, "    disable SCC sound.\n");
+	fprintf(stderr, "    You can specify which SCC channel to enable. 1: CH1, 2: CH2, 4: CH3, 8: CH4\n");
 	fprintf(stderr, " --disablekey\n");
 	fprintf(stderr, "    disable key input for performance test.\n");
 //	fprintf(stderr, " --debuglevel N\n");
@@ -146,8 +149,8 @@ void printHelpAndExit(char* progname) {
 }
 
 int disablekanji = 0;
+int disablehsyncint = 0;
 int disablekey = 0;
-int disablescc = 0;
 int safemode = 0;
 int hostdebug = 0;
 
@@ -210,16 +213,17 @@ int main(int argc, char *argv[]) {
     const char* optstring = "hm:s:w:r:" ; // optstringを定義します
     const struct option longopts[] = {
       //{          *name,           has_arg,       *flag, val },
-        {       "vsrate", required_argument,             0, 'A' },
-        {     "intblock", required_argument,             0, 'B' },
-        {     "hostrate", required_argument,             0, 'C' },
-        {    "hostdelay", required_argument,             0, 'D' },
-		{    "hostdebug",       no_argument,    &hostdebug,  1  },
-		{ "disablekanji",       no_argument, &disablekanji,  1  },
-		{   "disablekey",       no_argument,   &disablekey,  1  },
-		{  "disablescc",        no_argument,   &disablescc,  1  },
-		{         "safe",       no_argument,     &safemode,  1  },
-        {              0,                 0,             0,  0  }, // termination
+        {         "vsrate", required_argument,               0, 'A' },
+        {       "intblock", required_argument,               0, 'B' },
+        {       "hostrate", required_argument,               0, 'C' },
+        {      "hostdelay", required_argument,               0, 'D' },
+		{      "hostdebug",       no_argument,      &hostdebug,  1  },
+		{   "disablekanji",       no_argument,   &disablekanji,  1  },
+		{"disablehsyncint",       no_argument,&disablehsyncint,  1  },
+		{    "disablescc",  optional_argument,               0, 'S' },
+		{     "disablekey",       no_argument,     &disablekey,  1  },
+		{           "safe",       no_argument,       &safemode,  1  },
+        {                0,                 0,               0,  0  }, // termination
     };
 	const struct option* longopt;
     int longindex = 0;
@@ -253,6 +257,8 @@ int main(int argc, char *argv[]) {
 	default_param.mainrom = "cbios_main_msx2_jp.rom";
 	default_param.subrom = "cbios_sub.rom";
 	default_param.slot_path[0][2] = "cbios_logo_msx2.rom";
+	default_param.scc_enable = 0x0f;	// CH1-Ch4 enable
+	default_param.disablehsyncint = 0;
 
 	// ユーザー設定ファイルの読み込み
 	if( load_user_param() ) {
@@ -422,7 +428,7 @@ int main(int argc, char *argv[]) {
 		case 'A': // --vsrate N オプション
 			// VSYNCレートの設定
 			longopt = &longopts[longindex];
-			if (longopt->has_arg == required_argument & optarg != NULL) {
+			if (longopt->has_arg == required_argument && optarg != NULL) {
 				ms_vdp_vsync_rate = atoi(optarg);
 				if (ms_vdp_vsync_rate < 1 || ms_vdp_vsync_rate > 61) {
 					printf("VSYNCレートが不正です\n");
@@ -436,7 +442,7 @@ int main(int argc, char *argv[]) {
 		case 'B': // --intblock N オプション
 			// 割り込みブロックカウントの設定
 			longopt = &longopts[longindex];
-			if (longopt->has_arg == required_argument & optarg != NULL) {
+			if (longopt->has_arg && optarg != NULL) {
 				int_block_count = atoi(optarg);
 				if (int_block_count < 1 || int_block_count > 9999) {
 					printf("割り込みブロックカウントが不正です\n");
@@ -450,7 +456,7 @@ int main(int argc, char *argv[]) {
 		case 'C': // --hostrate N オプション
 			// ホスト処理レートの設定
 			longopt = &longopts[longindex];
-			if (longopt->has_arg == required_argument & optarg != NULL) {
+			if (longopt->has_arg && optarg != NULL) {
 				host_rate = atoi(optarg);
 				if (host_rate < 1 || host_rate > 61) {
 					printf("ホスト処理レートが不正です\n");
@@ -464,7 +470,7 @@ int main(int argc, char *argv[]) {
 		case 'D': // --hostdelay N オプション
 			// ホスト処理遅延カウントの設定
 			longopt = &longopts[longindex];
-			if (longopt->has_arg == required_argument & optarg != NULL) {
+			if (longopt->has_arg && optarg != NULL) {
 				host_delay = atoi(optarg);
 				if (host_delay < 1 || host_delay > 9999) {
 					printf("ホスト処理遅延カウントが不正です\n");
@@ -473,6 +479,19 @@ int main(int argc, char *argv[]) {
 			} else {
 				printf("ホスト処理遅延カウントが指定されていません\n");
 				printHelpAndExit(argv[0]);
+			}
+			break;
+		case 'S': // --disablescc オプション
+			// SCC音源の無効化
+			longopt = &longopts[longindex];
+			if (longopt->has_arg && optarg != NULL) {
+				init_param.scc_enable = atoi(optarg);
+				if (init_param.scc_enable < 1 || init_param.scc_enable > 0x10) {
+					printf("SCC有効チャンネルの指定がおかしいです。\n");
+					printHelpAndExit(argv[0]);
+				}
+			} else {
+				init_param.scc_enable = 0;
 			}
 			break;
 		default: /* '?' */
@@ -493,6 +512,12 @@ int main(int argc, char *argv[]) {
 		}
 	}
 
+	// 
+	if (disablehsyncint) {
+		init_param.disablehsyncint = 1;
+	}
+
+	//
 	if (_iocs_b_super(0) < 0)
 	{
 		printf("スーパーバイザーモードに移行できませんでした\n");
@@ -521,6 +546,7 @@ int main(int argc, char *argv[]) {
 		printf("VDPシステムの初期化に失敗しました\n");
 		ms_exit();
 	}
+	vdp->disablehsyncint = init_param.disablehsyncint;
 
 	/*
 	 I/Oシステムの初期化
@@ -537,6 +563,10 @@ int main(int argc, char *argv[]) {
 	printf("[[ MSX Simulator MS.X %s]]\n", MS_dot_X_VERSION);
 	printf(" この画面は HELP キーで消せます\n");
 
+	if (init_param.disablehsyncint) {
+		printf("HSYNC割り込みを無効化します\n");
+	}
+
 	/*
 	 PSGシステムの初期化
 	 */
@@ -549,9 +579,19 @@ int main(int argc, char *argv[]) {
 	ms_psg_shared_init(iomap);
 
 	// SCC
-	if (disablescc) {
-		printf("擬似SCC音源を無効化します\n");
-		w_SCC_enable(0);
+	if (init_param.scc_enable != 0x0f) {
+		if (init_param.scc_enable == 0) {
+			printf("擬似SCC音源を無効化します\n");
+		} else{
+			printf("擬似SCC音源の");
+			for(i=0;i<4;i++) {
+				if (init_param.scc_enable & (1 << i)) {
+					printf(" CH%d", i+1);
+				}
+			}
+			printf("のみ有効にします\n");
+		}
+		w_SCC_enable(init_param.scc_enable);
 	}
 
 	/*
@@ -1357,6 +1397,24 @@ uint8_t load_user_param() {
 				user_param.diskimages[user_param.diskcount++] = value;
 			}
 		}
+		else if (strcmp(param, "max_wait") == 0 ) {
+			if (value == NULL) {
+				printf("max_waitの値が不正です\n");
+			} else {
+				user_param.max_wait = atoi(value);
+			}
+		}
+		else if (strcmp(param, "disablehsyncint") == 0 ) {
+			user_param.disablehsyncint = 1;
+		}
+		else if (strcmp(param, "disablescc") == 0) {
+			if (value == NULL) {
+				user_param.scc_enable = 0;
+			} else {
+				user_param.scc_enable = atoi(value);
+			}
+		}
+
 	}
 
 	return 1;

@@ -25,6 +25,7 @@
 	.xdef	w_SCC_volume
 	.xdef	w_SCC_keyon
 	.xdef	w_SCC_enable
+	.xdef	r_SCC_enable
 	.xdef	w_SCC_deformation
 
 OPM_regset	equ	$e90001		* ＯＰＭアクセスレジスタ設定ポート
@@ -838,6 +839,11 @@ w_SCC_enable:
 
 	movem.l (sp)+,d2-d7/a0-a5
 	unlk	a6
+	rts
+
+r_SCC_enable:
+	clr.l	d0
+	move.b	scc_enable,d0
 	rts
 
 

@@ -314,7 +314,7 @@ void cmd_LINE(ms_vdp_t* vdp, uint8_t cmd, uint8_t logiop) {
 	int i;
 	if( (vdp->arg & 0x1) == 0 ) { //MAJ
 		// 長辺がX軸と並行な場合
-		for(i=0;i<maj;i++) {
+		for(i=0;i<=maj;i++) {
 			cmd_PSET_exe(vdp, x, y, color, logiop);
 			acc += min;
 			if (acc >= maj) {
@@ -325,7 +325,7 @@ void cmd_LINE(ms_vdp_t* vdp, uint8_t cmd, uint8_t logiop) {
 		}
 	} else {
 		// 長辺がY軸と並行な場合
-		for(i=0;i<maj;i++) {
+		for(i=0;i<=maj;i++) {
 			cmd_PSET_exe(vdp, x, y, color, logiop);
 			acc += min;
 			if (acc >= maj) {
@@ -342,9 +342,11 @@ void cmd_LINE(ms_vdp_t* vdp, uint8_t cmd, uint8_t logiop) {
 	LMMV
 */
 void cmd_LMMV(ms_vdp_t* vdp, uint8_t cmd, uint8_t logiop) {
-	MS_LOG(MS_LOG_FINE,"LMMV START****\n");
-	MS_LOG(MS_LOG_FINE,"  dx=0x%03x, dy=0x%03x\n", vdp->dx, vdp->dy);
-	MS_LOG(MS_LOG_FINE,"  nx=0x%03x, ny=0x%03x\n", vdp->nx, vdp->ny);
+	if(MS_LOG_FINE_ENABLED) {
+		MS_LOG(MS_LOG_FINE,"LMMV START****\n");
+		MS_LOG(MS_LOG_FINE,"  dx=0x%03x, dy=0x%03x\n", vdp->dx, vdp->dy);
+		MS_LOG(MS_LOG_FINE,"  nx=0x%03x, ny=0x%03x\n", vdp->nx, vdp->ny);
+	}
 
 	int	crt_width = vdp->ms_vdp_current_mode->crt_width;
 	int dots_per_byte = vdp->ms_vdp_current_mode->dots_per_byte;
@@ -410,10 +412,12 @@ void cmd_LMMV(ms_vdp_t* vdp, uint8_t cmd, uint8_t logiop) {
 	LMMM
 */
 void cmd_LMMM(ms_vdp_t* vdp, uint8_t cmd, uint8_t logiop) {
-	MS_LOG(MS_LOG_FINE,"LMMM START****\n");
-	MS_LOG(MS_LOG_FINE,"  sx=0x%03x, sy=0x%03x\n", vdp->sx, vdp->sy);
-	MS_LOG(MS_LOG_FINE,"  dx=0x%03x, dy=0x%03x\n", vdp->dx, vdp->dy);
-	MS_LOG(MS_LOG_FINE,"  nx=0x%03x, ny=0x%03x\n", vdp->nx, vdp->ny);
+	if(MS_LOG_FINE_ENABLED) {
+		MS_LOG(MS_LOG_FINE,"LMMM START****\n");
+		MS_LOG(MS_LOG_FINE,"  sx=0x%03x, sy=0x%03x\n", vdp->sx, vdp->sy);
+		MS_LOG(MS_LOG_FINE,"  dx=0x%03x, dy=0x%03x\n", vdp->dx, vdp->dy);
+		MS_LOG(MS_LOG_FINE,"  nx=0x%03x, ny=0x%03x\n", vdp->nx, vdp->ny);
+	}
 
 	int	crt_width = vdp->ms_vdp_current_mode->crt_width;
 	int dots_per_byte = vdp->ms_vdp_current_mode->dots_per_byte;
@@ -490,7 +494,7 @@ void cmd_LMMM(ms_vdp_t* vdp, uint8_t cmd, uint8_t logiop) {
 void cmd_LMMC_exe(ms_vdp_t* vdp, uint8_t value);
 
 void cmd_LMMC(ms_vdp_t* vdp, uint8_t cmd, uint8_t logiop) {
-	MS_LOG(MS_LOG_FINE,"LMMC STAR********\n");
+	MS_LOG(MS_LOG_FINE,"LMMC START********\n");
 
 	int mod;
 	vdp->cmd_current = cmd;
@@ -578,9 +582,11 @@ void cmd_LMMC_exe(ms_vdp_t* vdp, uint8_t value) {
 	HMMV
 */
 void cmd_HMMV(ms_vdp_t* vdp, uint8_t cmd) {
-	MS_LOG(MS_LOG_FINE,"HMMV START********\n");
-	MS_LOG(MS_LOG_FINE,"  dx=0x%03x, dy=0x%03x\n", vdp->dx, vdp->dy);
-	MS_LOG(MS_LOG_FINE,"  nx=0x%03x, ny=0x%03x\n", vdp->nx, vdp->ny);
+	if(MS_LOG_FINE_ENABLED) {
+		MS_LOG(MS_LOG_FINE,"HMMV START********\n");
+		MS_LOG(MS_LOG_FINE,"  dx=0x%03x, dy=0x%03x\n", vdp->dx, vdp->dy);
+		MS_LOG(MS_LOG_FINE,"  nx=0x%03x, ny=0x%03x\n", vdp->nx, vdp->ny);
+	}
 
 	// 高速化のためのキャッシュ
 	int	crt_width = vdp->ms_vdp_current_mode->crt_width;
@@ -710,10 +716,12 @@ void cmd_YMMM(ms_vdp_t* vdp, uint8_t cmd) {
 }
 
 void cmd_HMMM(ms_vdp_t* vdp, uint8_t cmd) {
-	MS_LOG(MS_LOG_FINE,"HMMM START****\n");
-	MS_LOG(MS_LOG_FINE,"  sx=0x%03x, sy=0x%03x\n", vdp->sx, vdp->sy);
-	MS_LOG(MS_LOG_FINE,"  dx=0x%03x, dy=0x%03x\n", vdp->dx, vdp->dy);
-	MS_LOG(MS_LOG_FINE,"  nx=0x%03x, ny=0x%03x\n", vdp->nx, vdp->ny);
+	if(MS_LOG_FINE_ENABLED) {
+		MS_LOG(MS_LOG_FINE,"HMMM START****\n");
+		MS_LOG(MS_LOG_FINE,"  sx=0x%03x, sy=0x%03x\n", vdp->sx, vdp->sy);
+		MS_LOG(MS_LOG_FINE,"  dx=0x%03x, dy=0x%03x\n", vdp->dx, vdp->dy);
+		MS_LOG(MS_LOG_FINE,"  nx=0x%03x, ny=0x%03x\n", vdp->nx, vdp->ny);
+	}
 
 	// 高速化のためのキャッシュ
 	int	crt_width = vdp->ms_vdp_current_mode->crt_width;
@@ -789,9 +797,11 @@ void cmd_HMMC_exe(ms_vdp_t* vdp, uint8_t value);
 static uint8_t debug_count = 0;
 
 void cmd_HMMC(ms_vdp_t* vdp, uint8_t cmd) {
-	MS_LOG(MS_LOG_FINE,"HMMC START********\n");
-	MS_LOG(MS_LOG_FINE,"  dx=0x%03x, dy=0x%03x\n", vdp->dx, vdp->dy);
-	MS_LOG(MS_LOG_FINE,"  nx=0x%03x, ny=0x%03x\n", vdp->nx, vdp->ny);
+	if(MS_LOG_FINE_ENABLED) {
+		MS_LOG(MS_LOG_FINE,"HMMC START********\n");
+		MS_LOG(MS_LOG_FINE,"  dx=0x%03x, dy=0x%03x\n", vdp->dx, vdp->dy);
+		MS_LOG(MS_LOG_FINE,"  nx=0x%03x, ny=0x%03x\n", vdp->nx, vdp->ny);
+	}
 
 	int	crt_width = vdp->ms_vdp_current_mode->crt_width;
 	int dots_per_byte = vdp->ms_vdp_current_mode->dots_per_byte;
@@ -877,6 +887,11 @@ void vdp_command_exec(ms_vdp_t* vdp, uint8_t cmd) {
 	uint8_t command = (cmd & 0b11110000) >> 4;
 	int logiop = cmd & 0b00001111;
 	switch(command){
+	case 0b0000: // STOP
+	case 0b0001:
+	case 0b0010:
+	case 0b0011:
+		break;
 	// case 0b0100: // POINT
 	// 	break;
 	case 0b0101: // PSET
