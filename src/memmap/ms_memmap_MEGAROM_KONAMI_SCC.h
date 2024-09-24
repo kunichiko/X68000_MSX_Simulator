@@ -12,6 +12,9 @@ typedef struct ms_memmap_driver_MEGAROM_KONAMI_SCC {
 	ms_memmap_driver_t base;
 	// extended properties
 
+	// SCCモード
+	uint8_t scc_mode;	// 0: SCC, 1: SCC+
+
 	// SCCレジスタセグメント(セグメント番号0x3fをセットするとアクセス可能になる)
 	uint8_t* scc_segment;
 

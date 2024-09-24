@@ -148,8 +148,8 @@ void write_sprite_pattern_512(ms_vdp_t* vdp, int offset, uint32_t pattern);
 
 /*
  スプライトパターンジェネレータテーブルへの書き込み
-     offset: パターンジェネレータテーブルのベースアドレスからのオフセットバイト
-     pattern: 書き込むパターン(下位8bitのみ使用)
+	 offset: パターンジェネレータテーブルのベースアドレスからのオフセットバイト
+	 pattern: 書き込むパターン(下位8bitのみ使用)
 */
 void write_sprite_pattern(ms_vdp_t* vdp, int offset, uint32_t pattern, int32_t old_pattern) {
 	if(vdp->ms_vdp_current_mode->sprite_mode & 0x80) {
@@ -168,7 +168,7 @@ void write_sprite_pattern_256(ms_vdp_t* vdp, int offset, uint32_t pattern) {
 	int pcgLine = pLine; // MSXの1ラインはX68000でも1ライン
 	uint32_t pcg_pattern=0; // x68000の16x16のパターンに変換したもの
 
-    // 右端のドットから処理
+	// 右端のドットから処理
 	for(i =0; i < 8; i++) {
 		pcg_pattern >>= 4;
 		if(pattern & 1) {
@@ -187,7 +187,7 @@ void write_sprite_pattern_512(ms_vdp_t* vdp, int offset, uint32_t pattern) {
 	int pcgLine = pLine * 2; // MSXの1ラインはX68000では2ライン
 	uint32_t pLeft=0,pRight=0; // 1ラインの左4ドットと右4ドットを X68000の8x8のパターン2つに変換
 
-    // 右端のドットから処理
+	// 右端のドットから処理
 	for(i =0; i < 4; i++) {
 		pRight >>= 8;
 		if(pattern & 1) {
@@ -195,7 +195,7 @@ void write_sprite_pattern_512(ms_vdp_t* vdp, int offset, uint32_t pattern) {
 		}
 		pattern >>= 1;
 	}
-    // 残りの左4ドットの処理
+	// 残りの左4ドットの処理
 	for(i =0; i < 4;i++) {
 		pLeft >>= 8;
 		if(pattern & 1) {
@@ -672,8 +672,8 @@ void refresh_sprite_512_mode1(ms_vdp_t* vdp, int plNum) {
 
 /*
  スプライトカラーテーブルへの書き込み
-     offset: カラーテーブルのベースアドレスからのオフセットバイト
-     pattern: 書き込む値(下位8bitのみ使用)
+	 offset: カラーテーブルのベースアドレスからのオフセットバイト
+	 pattern: 書き込む値(下位8bitのみ使用)
 */
 void write_sprite_color(ms_vdp_t* vdp, int offset, uint32_t color, int32_t old_color) {
 	if((vdp->ms_vdp_current_mode->sprite_mode & 0x3) != 2) {

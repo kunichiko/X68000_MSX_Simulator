@@ -84,7 +84,7 @@ static uint32_t last_pnametbl_baddr = 0xffffffff;
 
 void update_pnametbl_baddr_GRAPHIC1(ms_vdp_t* vdp) {
 	MS_LOG(MS_LOG_FINE,"update_pnametbl_baddr_GRAPHIC1\n");
-    update_pnametbl_baddr_DEFAULT(vdp);
+	update_pnametbl_baddr_DEFAULT(vdp);
 	MS_LOG(MS_LOG_FINE, "  %06x -> %06x\n", last_pnametbl_baddr, vdp->pnametbl_baddr);
 	if (last_pnametbl_baddr != vdp->pnametbl_baddr) {
 		last_pnametbl_baddr = vdp->pnametbl_baddr;

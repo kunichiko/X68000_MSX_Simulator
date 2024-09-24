@@ -65,6 +65,8 @@ typedef struct ms_init_params {
 	int diskcount;
 	char* diskimages[16];
 	uint32_t max_wait;
+	int disablehsyncint;
+	int scc_enable;
 } ms_init_params_t;
 
 #endif // MS_H

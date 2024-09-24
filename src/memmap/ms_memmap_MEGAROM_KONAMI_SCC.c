@@ -23,6 +23,10 @@ static void _write8(ms_memmap_driver_t* driver, uint16_t addr, uint8_t data);
 static uint16_t _read16(ms_memmap_driver_t* driver, uint16_t addr);
 static void _write16(ms_memmap_driver_t* driver, uint16_t addr, uint16_t data);
 
+static void _write_scc_v1_reg(THIS* d, uint16_t addr, uint8_t data);
+static void _write_scc_v2_reg(THIS* d, uint16_t addr, uint8_t data);
+
+
 /*
 	確保ルーチン
  */
@@ -65,16 +69,26 @@ void ms_memmap_MEGAROM_KONAMI_SCC_init(THIS* instance, ms_memmap_t* memmap, uint
 		_select_bank(instance, page8k, page8k-2);	// KONAMI SCCメガロムの場合、初期値は0,1,2,3
 	}
 
-	uint8_t* scc_segment = (uint8_t*)new_malloc( 8*1024 );
-	if(scc_segment == NULL) {
-		printf("メモリが確保できません。\n");
-		return;
-	}
+	// SCCレジスタの初期化
+	instance->scc_mode = 0;
+
 	int i;
-	for (i = 0; i < 8*1024; i++) {
-		scc_segment[i] = 0xff;
+	uint8_t* scc_segment;
+	if (instance->num_segments == 0x40) {
+		// 512KBの場合、セグメント番号 0x3f (63) はSCCレジスタとしても使用できる
+		scc_segment = instance->base.buffer + (0x3f * 0x2000);
+	} else {
+		// 64セグメント未満の場合でも、セグメント番号63はSCCレジスタとして使用できるので、その領域を確保
+		scc_segment = (uint8_t*)new_malloc( 8*1024 );
+		if(scc_segment == NULL) {
+			printf("メモリが確保できません。\n");
+			return;
+		}
+		for (i = 0; i < 8*1024; i++) {
+			scc_segment[i] = 0xff;
+		}
 	}
-	// SCC Registers
+	// init SCC registers
 	for (i= 0x9800; i <= 0x98ff; i++) {
 		scc_segment[i & 0x1fff] = 0;
 	}
@@ -92,25 +106,6 @@ int _will_detach(ms_memmap_driver_t* driver) {
 
 static void _did_update_memory_mapper(ms_memmap_driver_t* driver, int slot, uint8_t segment_num) {
 }
-
-static void _select_bank(THIS* d, int page8k, int segment) {
-	if ( segment == 0x3f) {
-		// SCC register
-		d->base.page8k_pointers[page8k] = d->scc_segment;
-		d->selected_segment[page8k] = segment;
-	} else if ( segment >= d->num_segments) {
-		MS_LOG(MS_LOG_DEBUG,"MEGAROM_KONAMI_SCC: segment out of range: %d\n", segment);
-		return;
-	} else {
-		d->base.page8k_pointers[page8k] = d->base.buffer + (segment * 0x2000);
-		d->selected_segment[page8k] = segment;
-	}
-
-	// 切り替えが起こったことを memmap に通知
-	d->base.memmap->update_page_pointer( d->base.memmap, (ms_memmap_driver_t*)d, page8k);
-	return;
-}
-
 
 static uint8_t _read8(ms_memmap_driver_t* driver, uint16_t addr) {
 	THIS* d = (THIS*)driver;
@@ -133,7 +128,7 @@ static uint16_t _read16(ms_memmap_driver_t* driver, uint16_t addr) {
 }
 
 /*
-	SCC無しのKONAMI_SCCメガロムの切り替え処理
+	SCC付きのKONAMI_SCCメガロムの切り替え処理
 	https://www.msx.org/wiki/MegaROM_Mappers#Konami_MegaROMs_with_SCC
 
 	* 4000h~5FFFh (mirror: C000h~DFFFh)
@@ -148,11 +143,58 @@ static uint16_t _read16(ms_memmap_driver_t* driver, uint16_t addr) {
 	* A000h~BFFFh (mirror: 2000h~3FFFh)
 		* 切り替えアドレス	b000h (mirrors: B001h~B7FFh)
 		* 初期セグメント	Random
+
+	SCC+の場合、0xb800-0xbfffにSCC+のレジスタがある。
+	特に、0xbffe, 0xbfffにSCC+のモードレジスタがある。両者は同一のレジスタ。
+
+	SCC+を使用するためにはまず、0xbffeの bit4を1にする必要がある。
+	その後、SCCのバンク4(A000h~BFFFh, page8k=5)の選択レジスタのbit7を1にすると、SCC+のレジスタがアクセス可能になる。
  */
+static void _select_bank(THIS* d, int page8k, int segment) {
+	if ( d->scc_mode == 0 ) {
+		segment &= 0x3f;
+		if ( segment == 0x3f) {
+			// SCC register
+			d->base.page8k_pointers[page8k] = d->scc_segment;
+			d->selected_segment[page8k] = segment;
+		} else {
+			if ( segment >= d->num_segments) {
+				MS_LOG(MS_LOG_DEBUG,"MEGAROM_KONAMI_SCC: segment out of range: %d\n", segment);
+				return;
+			} else {
+				d->base.page8k_pointers[page8k] = d->base.buffer + (segment * 0x2000);
+				d->selected_segment[page8k] = segment;
+			}
+		}
+	} else {	
+		if ( (page8k == 5) && (segment & 0x80) ) {
+			// SCC+の場合、バンク4の選択レジスタのbit7を1にすると、SCC+のレジスタがアクセス可能になる
+			d->base.page8k_pointers[page8k] = d->scc_segment;
+			d->selected_segment[page8k] = 0x80;
+		} else {
+			segment &= 0x3f;
+			if ( segment >= d->num_segments) {
+				MS_LOG(MS_LOG_DEBUG,"MEGAROM_KONAMI_SCC: segment out of range: %d\n", segment);
+				return;
+			} else {
+				d->base.page8k_pointers[page8k] = d->base.buffer + (segment * 0x2000);
+				d->selected_segment[page8k] = segment;
+			}
+		}
+	}
+
+	// 切り替えが起こったことを memmap に通知
+	d->base.memmap->update_page_pointer( d->base.memmap, (ms_memmap_driver_t*)d, page8k);
+	return;
+}
+
+
+/*
+*/
 uint32_t conv_freq(THIS* d, uint32_t freq) {
 	switch (d->scc_segment[0x18e0] & 0x3) {
 		case 0:
-			return freq & 0x3ff;
+			return freq & 0xfff;
 		case 1:
 			return (freq & 0xf) << 8;
 		case 2:
@@ -162,6 +204,182 @@ uint32_t conv_freq(THIS* d, uint32_t freq) {
 	}
 	// ????
 	return (freq & 0xf) << 8;
+}
+
+static void _write_scc_mode_reg(THIS* d, uint16_t addr, uint8_t data) {
+	if (addr == 0xbffe || addr == 0xbfff) {
+		d->scc_mode = (data & 0b00010000) >> 4;
+	}
+}
+
+static void _write_scc_v1_reg(THIS* d, uint16_t addr, uint8_t data) {
+	MS_LOG(MS_LOG_TRACE, "SCC: write %04x <- %02x\n", addr, data);
+	int32_t freq;
+	switch(addr) {
+		case 0x9880:
+		case 0x9881:
+		case 0x9890:
+		case 0x9891:
+			d->scc_segment[addr & 0x1fef] = data;
+			freq = d->scc_segment[0x1880] | (d->scc_segment[0x1881] << 8);
+			w_SCC_freq(0, conv_freq(d, freq));
+			break;
+		case 0x9882:
+		case 0x9883:
+		case 0x9892:
+		case 0x9893:
+			d->scc_segment[addr & 0x1fef] = data;
+			freq = d->scc_segment[0x1882] | (d->scc_segment[0x1883] << 8);
+			w_SCC_freq(1, conv_freq(d, freq));
+			break;
+		case 0x9884:
+		case 0x9885:
+		case 0x9894:
+		case 0x9895:
+			d->scc_segment[addr & 0x1fef] = data;
+			freq = d->scc_segment[0x1884] | (d->scc_segment[0x1885] << 8);
+			w_SCC_freq(2, conv_freq(d, freq));
+			break;
+		case 0x9886:
+		case 0x9887:
+		case 0x9896:
+		case 0x9897:
+			d->scc_segment[addr & 0x1fef] = data;
+			freq = d->scc_segment[0x1886] | (d->scc_segment[0x1887] << 8);
+			w_SCC_freq(3, conv_freq(d, freq));
+			break;
+		case 0x9888:
+		case 0x9889:
+		case 0x9898:
+		case 0x9899:
+			d->scc_segment[addr & 0x1fef] = data;
+			freq = d->scc_segment[0x1888] | (d->scc_segment[0x1889] << 8);
+			//w_SCC_freq(4, conv_freq(d, freq)); サポートしていない
+			break;
+		case 0x988a:
+		case 0x989a:
+			d->scc_segment[addr & 0x1fef] = data;
+			w_SCC_volume(0, data);
+			break;
+		case 0x988b:
+		case 0x989b:
+			d->scc_segment[addr & 0x1fef] = data;
+			w_SCC_volume(1, data);
+			break;
+		case 0x988c:
+		case 0x989c:
+			d->scc_segment[addr & 0x1fef] = data;
+			w_SCC_volume(2, data);
+			break;
+		case 0x988d:
+		case 0x989d:
+			d->scc_segment[addr & 0x1fef] = data;
+			w_SCC_volume(3, data);
+			break;
+		case 0x988e:
+		case 0x989e:
+			d->scc_segment[addr & 0x1fef] = data;
+			//w_SCC_volume(4, data); サポートしていない
+			break;
+		case 0x988f:
+		case 0x989f:
+			d->scc_segment[addr & 0x1fef] = data;
+			w_SCC_keyon(data);
+			break;
+		default:
+			if (addr >= 0x98e0 && addr <= 0x98ff) {
+				d->scc_segment[0x18e0] = data;
+				w_SCC_deformation(data);
+			} else {
+				d->scc_segment[addr & 0x1fff] = data;						
+			}
+			break;
+	}
+}
+
+static void _write_scc_v2_reg(THIS* d, uint16_t addr, uint8_t data) {
+	MS_LOG(MS_LOG_TRACE, "SCC+: write %04x <- %02x\n", addr, data);
+	int32_t freq;
+	switch(addr) {
+		case 0xb8a0:
+		case 0xb8a1:
+		case 0xb8b0:
+		case 0xb8b1:
+			d->scc_segment[addr & 0x1fef] = data;
+			freq = d->scc_segment[0x18a0] | (d->scc_segment[0x18a1] << 8);
+			w_SCC_freq(0, conv_freq(d, freq));
+			break;
+		case 0xb8a2:
+		case 0xb8a3:
+		case 0xb8b2:
+		case 0xb8b3:
+			d->scc_segment[addr & 0x1fef] = data;
+			freq = d->scc_segment[0x18a2] | (d->scc_segment[0x18a3] << 8);
+			w_SCC_freq(1, conv_freq(d, freq));
+			break;
+		case 0xb8a4:
+		case 0xb8a5:
+		case 0xb8b4:
+		case 0xb8b5:
+			d->scc_segment[addr & 0x1fef] = data;
+			freq = d->scc_segment[0x18a4] | (d->scc_segment[0x18a5] << 8);
+			w_SCC_freq(2, conv_freq(d, freq));
+			break;
+		case 0xb8a6:
+		case 0xb8a7:
+		case 0xb8b6:
+		case 0xb8b7:
+			d->scc_segment[addr & 0x1fef] = data;
+			freq = d->scc_segment[0x18a6] | (d->scc_segment[0x18a7] << 8);
+			w_SCC_freq(3, conv_freq(d, freq));
+			break;
+		case 0xb8a8:
+		case 0xb8a9:
+		case 0xb8b8:
+		case 0xb8b9:
+			d->scc_segment[addr & 0x1fef] = data;
+			freq = d->scc_segment[0x18a8] | (d->scc_segment[0x18a9] << 8);
+			//w_SCC_freq(4, conv_freq(d, freq)); サポートしていない
+			break;
+		case 0xb8aa:
+		case 0xb8ba:
+			d->scc_segment[addr & 0x1fef] = data;
+			w_SCC_volume(0, data);
+			break;
+		case 0xb8ab:
+		case 0xb8bb:
+			d->scc_segment[addr & 0x1fef] = data;
+			w_SCC_volume(1, data);
+			break;
+		case 0xb8ac:
+		case 0xb8bc:
+			d->scc_segment[addr & 0x1fef] = data;
+			w_SCC_volume(2, data);
+			break;
+		case 0xb8ad:
+		case 0xb8bd:
+			d->scc_segment[addr & 0x1fef] = data;
+			w_SCC_volume(3, data);
+			break;
+		case 0xb8ae:
+		case 0xb8be:
+			d->scc_segment[addr & 0x1fef] = data;
+			//w_SCC_volume(4, data); サポートしていない
+			break;
+		case 0xb8af:
+		case 0xb8bf:
+			d->scc_segment[addr & 0x1fef] = data;
+			w_SCC_keyon(data);
+			break;
+		default:
+			if (addr >= 0xb8e0 && addr <= 0xb8ff) {
+				d->scc_segment[0x18e0] = data;
+				w_SCC_deformation(data);
+			} else {
+				d->scc_segment[addr & 0x1fff] = data;						
+			}
+			break;
+	}
 }
 
 static void _write8(ms_memmap_driver_t* driver, uint16_t addr, uint8_t data) {
@@ -180,94 +398,21 @@ static void _write8(ms_memmap_driver_t* driver, uint16_t addr, uint8_t data) {
 		page8k = 4;
 		break;
 	case 0x9*2+1:	// 0x9800-0x9fff には SCCのレジスタがある
-		if (d->selected_segment[4] == 0x3f) {
-			MS_LOG(MS_LOG_TRACE, "SCC: write %04x <- %02x\n", addr, data);
-
-			int32_t freq;
-			switch(addr) {
-			case 0x9880:
-			case 0x9881:
-			case 0x9890:
-			case 0x9891:
-				d->scc_segment[addr & 0x1fef] = data;
-				freq = d->scc_segment[0x1880] | (d->scc_segment[0x1881] << 8);
-				w_SCC_freq(0, conv_freq(d, freq));
-				break;
-			case 0x9882:
-			case 0x9883:
-			case 0x9892:
-			case 0x9893:
-				d->scc_segment[addr & 0x1fef] = data;
-				freq = d->scc_segment[0x1882] | (d->scc_segment[0x1883] << 8);
-				w_SCC_freq(1, conv_freq(d, freq));
-				break;
-			case 0x9884:
-			case 0x9885:
-			case 0x9894:
-			case 0x9895:
-				d->scc_segment[addr & 0x1fef] = data;
-				freq = d->scc_segment[0x1884] | (d->scc_segment[0x1885] << 8);
-				w_SCC_freq(2, conv_freq(d, freq));
-				break;
-			case 0x9886:
-			case 0x9887:
-			case 0x9896:
-			case 0x9897:
-				d->scc_segment[addr & 0x1fef] = data;
-				freq = d->scc_segment[0x1886] | (d->scc_segment[0x1887] << 8);
-				w_SCC_freq(3, conv_freq(d, freq));
-				break;
-			case 0x9888:
-			case 0x9889:
-			case 0x9898:
-			case 0x9899:
-				d->scc_segment[addr & 0x1fef] = data;
-				freq = d->scc_segment[0x1888] | (d->scc_segment[0x1889] << 8);
-				//w_SCC_freq(4, conv_freq(d, freq)); サポートしていない
-				break;
-			case 0x988a:
-			case 0x989a:
-				d->scc_segment[addr & 0x1fef] = data;
-				w_SCC_volume(0, data);
-				break;
-			case 0x988b:
-			case 0x989b:
-				d->scc_segment[addr & 0x1fef] = data;
-				w_SCC_volume(1, data);
-				break;
-			case 0x988c:
-			case 0x989c:
-				d->scc_segment[addr & 0x1fef] = data;
-				w_SCC_volume(2, data);
-				break;
-			case 0x988d:
-			case 0x989d:
-				d->scc_segment[addr & 0x1fef] = data;
-				w_SCC_volume(3, data);
-				break;
-			case 0x988e:
-			case 0x989e:
-				d->scc_segment[addr & 0x1fef] = data;
-				//w_SCC_volume(4, data); サポートしていない
-				break;
-			case 0x988f:
-			case 0x989f:
-				d->scc_segment[addr & 0x1fef] = data;
-				w_SCC_keyon(data);
-				break;
-			default:
-				if (addr >= 0x98e0 && addr <= 0x98ff) {
-					d->scc_segment[0x18e0] = data;
-					w_SCC_deformation(data);
-				} else {
-					d->scc_segment[addr & 0x1fff] = data;						
-				}
-				break;
-			}
+		if ((d->selected_segment[4] == 0x3f) && (d->scc_mode == 0) && (r_SCC_enable() != 0) ) {
+			_write_scc_v1_reg(d, addr, data);
 		}
 		break;
 	case 0xb*2:
 		page8k = 5;
+		break;
+	case 0xb*2+1:	// 0xb800-0xbfff には SCC+のレジスタがある
+		if (r_SCC_enable() != 0) {
+			if ((addr == 0xbffe) || (addr == 0xbfff)) {
+				_write_scc_mode_reg(d, addr, data);
+			} else if ( (d->scc_mode != 0) && (d->selected_segment[5] == 0x80) ) {
+				_write_scc_v2_reg(d, addr, data);
+			}
+		}
 		break;
 	}
 	if (page8k != -1) {

@@ -127,19 +127,19 @@ void update_pnametbl_baddr_GRAPHIC7(ms_vdp_t* vdp) {
 }
 
 void update_colortbl_baddr_GRAPHIC7(ms_vdp_t* vdp) {
-    update_colortbl_baddr_DEFAULT(vdp);
+	update_colortbl_baddr_DEFAULT(vdp);
 }
 
 void update_pgentbl_baddr_GRAPHIC7(ms_vdp_t* vdp) {
-    update_pgentbl_baddr_DEFAULT(vdp);
+	update_pgentbl_baddr_DEFAULT(vdp);
 }
 
 void update_sprattrtbl_baddr_GRAPHIC7(ms_vdp_t* vdp) {
-    update_sprattrtbl_baddr_MODE2(vdp);
+	update_sprattrtbl_baddr_MODE2(vdp);
 }
 
 void update_sprpgentbl_baddr_GRAPHIC7(ms_vdp_t* vdp) {
-    update_sprpgentbl_baddr_MODE2(vdp);
+	update_sprpgentbl_baddr_MODE2(vdp);
 }
 
 void update_r7_color_GRAPHIC7(ms_vdp_t* vdp, uint8_t data) {
