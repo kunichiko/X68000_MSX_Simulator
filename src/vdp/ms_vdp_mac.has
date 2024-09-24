@@ -437,6 +437,8 @@ ms_vdp_init_mac:
 
 	rts
 
+RASTERDEBUG	.equ	0		* 1: ラスタ割り込みのデバッグを有効にする
+
 vsync_interrupt:
 	movem.l	d0/a0/a5,-(sp)
 	addq.w	#1,ms_vsync_interrupt_tick
@@ -453,6 +455,12 @@ vsync_interrupt:
 @@:	; MSX側と関係なく、ホスト(X68000)側の処理が必要なので、emu_yieldをセット
 	move.w	host_delay,emu_yield		* emu_yield
 
+	.if 	RASTERDEBUG=1
+	; どこでラスタ割り込みがかかっているかを確認するためにテキストパレットの色を変える(ここで戻す)
+	move.w	#%11111_11111_11111_1,t_palette+$3*2
+	;move.w	#%11111_00000_11111_1,raster_debug
+	.endif
+
 	movem.l	(sp)+,d0/a0/a5
 	rte
 
@@ -467,20 +475,20 @@ raster_interrupt:
 	bset.b	#0,offset_ms_vdp_s01(a5)	* VDP S#1の bit0に、HSYNC割り込み発生フラグを立てる。これとS#0の VSYNC割り込みがZ80のINT端子の状態を表している。
 	bset.b	#1,ms_vdp_int			* HSYNC割り込み要求フラグを立てる
 	move.b	#$01,sub_yield			* sub_yield 
-	;
-	; move.w	raster_scroll_offset,d0
-	; eor.w	#3,d0
-	; move.w	d0,raster_scroll_offset
-	; lea.l	CRTR_12,a0
-	; move.w	d0,(a0)
-	; move.w	d0,4(a0)
-	; move.w	d0,8(a0)
-	; move.w	d0,12(a0)
+
+	; どこでラスタ割り込みがかかっているかを確認するためにテキストパレットの色を変える
+	.if 	RASTERDEBUG=1
+	move.w	raster_debug,d0
+	move.w	d0,t_palette+$3*2
+	eor.w	#%11111_11111_11111_0,d0
+	move.w	d0,raster_debug
+	.endif
+
 @@:	movem.l	(sp)+,d0/a0/a5
 	rte
 
-raster_scroll_offset:
-	.dc.w	0
+raster_debug:
+	.dc.w	%11111_00000_11111_1
 ;
 ; ＶＤＰの終了処理
 ;
