@@ -88,7 +88,7 @@ static uint32_t last_pnametbl_baddr = 0xffffffff;
 
 void update_pnametbl_baddr_GRAPHIC2(ms_vdp_t* vdp) {
 	MS_LOG(MS_LOG_FINE,"update_pnametbl_baddr_GRAPHIC2\n");
-    update_pnametbl_baddr_DEFAULT(vdp);
+	update_pnametbl_baddr_DEFAULT(vdp);
 	MS_LOG(MS_LOG_FINE,"  %06x -> %06x\n", last_pnametbl_baddr, vdp->pnametbl_baddr);
 	if (last_pnametbl_baddr != vdp->pnametbl_baddr) {
 		last_pnametbl_baddr = vdp->pnametbl_baddr;
@@ -122,12 +122,12 @@ void update_pgentbl_baddr_GRAPHIC2(ms_vdp_t* vdp) {
 
 void update_sprattrtbl_baddr_GRAPHIC2(ms_vdp_t* vdp) {
 	MS_LOG(MS_LOG_FINE,"update sprattrtbl baddr GR2\n");
-    update_sprattrtbl_baddr_MODE1(vdp);
+	update_sprattrtbl_baddr_MODE1(vdp);
 }
 
 void update_sprpgentbl_baddr_GRAPHIC2(ms_vdp_t* vdp) {
 	MS_LOG(MS_LOG_FINE,"update sprpgentbl baddr GR2\n");
-    update_sprpgentbl_baddr_MODE1(vdp);
+	update_sprpgentbl_baddr_MODE1(vdp);
 }
 
 void update_r7_color_GRAPHIC2(ms_vdp_t* vdp, uint8_t data) {

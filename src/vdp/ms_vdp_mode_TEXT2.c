@@ -111,16 +111,16 @@ void update_palette_TEXT2(ms_vdp_t* vdp) {
 }
 
 void update_pnametbl_baddr_TEXT2(ms_vdp_t* vdp) {
-    update_pnametbl_baddr_DEFAULT(vdp);
+	update_pnametbl_baddr_DEFAULT(vdp);
 	vdp->pnametbl_baddr &= 0x1f000;
 }
 
 void update_colortbl_baddr_TEXT2(ms_vdp_t* vdp) {
-    update_colortbl_baddr_DEFAULT(vdp);
+	update_colortbl_baddr_DEFAULT(vdp);
 }
 
 void update_pgentbl_baddr_TEXT2(ms_vdp_t* vdp) {
-    update_pgentbl_baddr_DEFAULT(vdp);
+	update_pgentbl_baddr_DEFAULT(vdp);
 }
 
 void update_sprattrtbl_baddr_TEXT2(ms_vdp_t* vdp) {

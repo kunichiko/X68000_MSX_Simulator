@@ -107,9 +107,9 @@ volatile extern unsigned short host_delay;
 volatile extern unsigned int int_skip_counter;
 volatile extern unsigned int int_exec_counter;
 typedef struct interrupt_history_st {
-    unsigned short int_tick;
-    unsigned short process_type;
-    unsigned long emu_counter;
+	unsigned short int_tick;
+	unsigned short process_type;
+	unsigned long emu_counter;
 } interrupt_history_t;
 
 volatile extern interrupt_history_t* interrupt_history_ptr;
@@ -198,35 +198,35 @@ int main(int argc, char *argv[]) {
 	// argv[0]から、実行ファイル名を取り除き、ディレクトリ名を取得
 	// そのディレクトリをベースディレクトリとして設定
 	strncpy(base_dir, argv[0], sizeof(base_dir) - 1);
-    base_dir[sizeof(base_dir) - 1] = '\0'; // 文字列の終端を保証
+	base_dir[sizeof(base_dir) - 1] = '\0'; // 文字列の終端を保証
 	char *last_separator = strrchr(base_dir, '\\');
 	if (last_separator != NULL) {
 		// 最後の \ は残す
 		*(last_separator+1) = '\0';
 	} else {
-        printf("ディレクトリ名の取得に失敗しました\n");
-        return 1;
-    }
+		printf("ディレクトリ名の取得に失敗しました\n");
+		return 1;
+	}
 
 	int i, j;
 	int opt;
-    const char* optstring = "hm:s:w:r:" ; // optstringを定義します
-    const struct option longopts[] = {
-      //{          *name,           has_arg,       *flag, val },
-        {         "vsrate", required_argument,               0, 'A' },
-        {       "intblock", required_argument,               0, 'B' },
-        {       "hostrate", required_argument,               0, 'C' },
-        {      "hostdelay", required_argument,               0, 'D' },
+	const char* optstring = "hm:s:w:r:" ; // optstringを定義します
+	const struct option longopts[] = {
+	  //{          *name,           has_arg,       *flag, val },
+	    {         "vsrate", required_argument,               0, 'A' },
+	    {       "intblock", required_argument,               0, 'B' },
+	    {       "hostrate", required_argument,               0, 'C' },
+	    {      "hostdelay", required_argument,               0, 'D' },
 		{      "hostdebug",       no_argument,      &hostdebug,  1  },
 		{   "disablekanji",       no_argument,   &disablekanji,  1  },
 		{"disablehsyncint",       no_argument,&disablehsyncint,  1  },
 		{    "disablescc",  optional_argument,               0, 'S' },
 		{     "disablekey",       no_argument,     &disablekey,  1  },
 		{           "safe",       no_argument,       &safemode,  1  },
-        {                0,                 0,               0,  0  }, // termination
-    };
+	    {                0,                 0,               0,  0  }, // termination
+	};
 	const struct option* longopt;
-    int longindex = 0;
+	int longindex = 0;
 
 	printf("[[ MSX Simulator MS.X %s]]\n", MS_dot_X_VERSION);
 
@@ -500,7 +500,7 @@ int main(int argc, char *argv[]) {
 		}
 	}
 
-    // getoptのループが終了した後、通常の引数を処理する
+	// getoptのループが終了した後、通常の引数を処理する
 	// init_param.diskcountはこの時点で 1以上になっていることもあるので注意
 	for (i = optind; i < argc; i++) {
 		if (strcasestr(argv[i], ".dsk") != 0) {
@@ -1220,10 +1220,10 @@ int search_open(const char *filename, int flag) {
 	if(filename == NULL) {
 		return -1;
 	}
-    int fh = open(filename, flag);
-    if (fh != -1) {
-        return fh;
-    }
+	int fh = open(filename, flag);
+	if (fh != -1) {
+	    return fh;
+	}
 	// ベースディレクトリも検索
 	char base_filename[256];
 	sprintf(base_filename, "%s%s", base_dir, filename);
@@ -1231,7 +1231,7 @@ int search_open(const char *filename, int flag) {
 	if (fh != -1) {
 		return fh;
 	}
-    return -1;
+	return -1;
 }
 
 int file_exists(const char *filename) {
@@ -1272,20 +1272,20 @@ void set_system_roms() {
 
 			allocateAndSetDISKBIOSROM(init_param.diskrom, disk_container);
 		}
-    } else {
+	} else {
 		if (fh_mainrom != -1) {
 			close(fh_mainrom);
 		}
 		if (fh_subrom != -1) {
 			close(fh_subrom);
 		}
-        // Load default CBIOS ROMs
+	    // Load default CBIOS ROMs
 		printf("BIOS ROMが見つかりません。ファイルを確認してください。\n");
 		printf(" BIOS ROM: %s\n", init_param.mainrom);
 		printf(" SUB ROM : %s\n", init_param.subrom);
 		ms_exit();
 		return;
-    }
+	}
 }
 
 /**

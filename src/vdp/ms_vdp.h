@@ -165,7 +165,7 @@ typedef struct ms_vdp {
 	uint32_t gram_addr;
 
 	//
-	uint8_t	disablehsyncint;
+	uint8_t disablehsyncint;
 	uint8_t dummy4;
 
 	//

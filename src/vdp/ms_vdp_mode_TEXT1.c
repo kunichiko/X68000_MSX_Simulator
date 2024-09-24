@@ -122,15 +122,15 @@ void update_palette_TEXT1(ms_vdp_t* vdp) {
 }
 
 void update_pnametbl_baddr_TEXT1(ms_vdp_t* vdp) {
-    update_pnametbl_baddr_DEFAULT(vdp);
+	update_pnametbl_baddr_DEFAULT(vdp);
 }
 
 void update_colortbl_baddr_TEXT1(ms_vdp_t* vdp) {
-    update_colortbl_baddr_DEFAULT(vdp);
+	update_colortbl_baddr_DEFAULT(vdp);
 }
 
 void update_pgentbl_baddr_TEXT1(ms_vdp_t* vdp) {
-    update_pgentbl_baddr_DEFAULT(vdp);
+	update_pgentbl_baddr_DEFAULT(vdp);
 }
 
 void update_sprattrtbl_baddr_TEXT1(ms_vdp_t* vdp) {
