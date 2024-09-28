@@ -20,4 +20,7 @@ typedef struct ms_psg {
 ms_psg_t* ms_psg_shared_instance();
 void ms_psg_shared_deinit(ms_iomap_t* iomap);
 
+void w_PSG_ch_enable(int32_t enable);
+int32_t r_PSG_ch_enable();
+
 #endif
