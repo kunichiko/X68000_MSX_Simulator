@@ -298,7 +298,7 @@ SLOT_set:
 
 	move.b	10(a0),d2			* AMS Enable
 	lsl.b	#7,d2
-	or.b	1(a0),d2			* 1DR
+	or.b	1(a0),d2			* D1R
 	w_OPM	d2,d1
 	add.w	#$20,d1
 
@@ -354,26 +354,26 @@ r_psg_reg_jpt:
 	.dc.l	r_PSG_R14
 	.dc.l	r_PSG_R15
 
-r_PSG_R00:				* チャンネルＡ音程分周比 下位８ビット
+r_PSG_R00:				* CH1音程分周比 下位８ビット
 	move.w	PSG_R00,d0
 	rts
-r_PSG_R01:				* チャンネルＡ音程分周比 上位４ビット
+r_PSG_R01:				* CH1音程分周比 上位４ビット
 	move.w	PSG_R00,d0
 	lsr.w	#8,d0
 	rts
 
-r_PSG_R02:				* チャンネルＢ音程分周比 下位８ビット
+r_PSG_R02:				* CH2音程分周比 下位８ビット
 	move.w	PSG_R02,d0
 	rts
-r_PSG_R03:				* チャンネルＢ音程分周比 上位４ビット
+r_PSG_R03:				* CH2音程分周比 上位４ビット
 	move.w	PSG_R02,d0
 	lsr.w	#8,d0
 	rts
 
-r_PSG_R04:				* チャンネルＣ音程分周比 下位８ビット
+r_PSG_R04:				* CH3音程分周比 下位８ビット
 	move.w	PSG_R04,d0
 	rts
-r_PSG_R05:				* チャンネルＣ音程分周比 上位４ビット
+r_PSG_R05:				* CH3音程分周比 上位４ビット
 	move.w	PSG_R04,d0
 	lsr.w	#8,d0
 	rts
@@ -385,14 +385,14 @@ r_PSG_R07:
 	move.b	PSG_R07,d0
 	rts
 
-r_PSG_R08:
+r_PSG_R08:				* CH1の音量
 	move.b	PSG_R08,d0
 	rts
 r_PSG_R09:
-	move.b	PSG_R09,d0
+	move.b	PSG_R09,d0		* CH2の音量
 	rts
 r_PSG_R10:
-	move.b	PSG_R10,d0
+	move.b	PSG_R10,d0		* CH3の音量
 	rts
 
 r_PSG_R11:				* エンベロープ周期 下位８ビット
@@ -557,6 +557,45 @@ w_PSG_R06:
 	rts
 
 ; キーオン/オフ
+PSG_KEY_ONOFF	macro	ch
+	btst.l	#ch,d0			* 元の値のチェック
+	bne	1f
+	btst.l	#ch,d1			* 変更後の値のチェック
+	beq	@f
+	; 0→1に変わったのでキーオフ
+	w_OPM	#%00_111_100,#$20+ch	* CH?の L/R enableを OFFにする(b7,b6) (b5-3はFL、b2-0はAL=CON)
+	w_OPM	#%0_0000_000+ch,#$08	* PSG CH?: キーオフ(OP.4-1すべてOFF)
+	bra	@f
+1:	btst.l	#ch,d1			* 変更後の値のチェック
+	bne	@f
+	; 1→0に変わったのでキーオン
+	btst.b	#4,PSG_R08+ch		* エンベロープモードかどうかのチェック
+	beq	3f
+	; エンベロープパターンのチェック
+	move.b	PSG_R13,d0
+	cmpi.b	#%1001,d0		* 1001 : _|＼_____
+	beq	2f
+	cmpi.b	#%1010,d0		* 1010 : _|＼|
+	beq	5f
+	andi.b	#%00001100,d0		* 00** : _|＼_____
+	bne	3f
+2:	; エンベロープパターンが _|＼_____ の場合
+	; C1のファーストディケイを使って実現する
+	; D1R : 1st Decay Rate (0-31) 通常は0で「減衰しない」になっているので、これを 12にする (本当はPSGのパラメータに合わせる必要がある)
+	; D1L : 1st Decay Level (0-15) 15が最小音量、0が最大音量。矩形波の時はD1Rが0なので何がセットされていても良いため、15で固定しておく
+	w_OPM	envelope_d1r,#$a0+16+ch	; CH? - C1: D1R
+	bra	4f
+5:	; エンベロープパターンが _|＼| の場合
+	w_OPM	envelope_d1r,#$a0+16+ch	; CH? - C1: D1R
+	bra	4f
+3:	; 通常音 or サポートしていないエンベロープの場合
+	w_OPM	#0,#$a0+16+ch		; CH? - C1: D1R
+4:	; 発音
+	w_OPM	#%11_111_100,#$20+ch	* CH?の L/R enableを ONにする(b7,b6) (b5-3はFL、b2-0はAL=CON)
+	w_OPM	#%0_0011_000+ch,#$08	* PSG CH?: キーオン(OP.2-1ON)
+@@:	; 終了
+	endm
+
 w_PSG_R07:
 	move.b	PSG_R07,d0
 	move.b	d1,PSG_R07
@@ -567,46 +606,14 @@ w_PSG_R07:
 	; 0: 出力、1: 非出力
 
 	; CH1のキーオン/オフ
-	btst.l	#0,d0			* 元の値のチェック
-	bne	1f
-	btst.l	#0,d1			* 変更後の値のチェック
-	beq	@f
-	; 0→1に変わったのでキーオフ
-	w_OPM	#%00_111_100,#$20	* CH1の L/R enableを OFFにする(b7,b6) (b5-3はFL、b2-0はAL=CON)
-	bra	@f
-1:	btst.l	#0,d1			* 変更後の値のチェック
-	bne	@f
-	; 1→0に変わったのでキーオン
-	w_OPM	#%11_111_100,#$20	* CH1の L/R enableを ONにする(b7,b6) (b5-3はFL、b2-0はAL=CON)
-
+	PSG_KEY_ONOFF	0
 	; CH2のキーオン/オフ
-@@:	btst.l	#1,d0
-	bne	1f
-	btst.l	#1,d1			* 変更後の値のチェック
-	beq	@f
-	; 0→1に変わったのでキーオフ
-	w_OPM	#%00_111_100,#$21	* CH2の L/R enableを OFFにする(b7,b6) (b5-3はFL、b2-0はAL=CON)
-	bra	@f
-1:	btst.l	#1,d1			* 変更後の値のチェック
-	bne	@f
-	; 1→0に変わったのでキーオン
-	w_OPM	#%11_111_100,#$21	* CH2の L/R enableを ONにする(b7,b6) (b5-3はFL、b2-0はAL=CON)
-
+	PSG_KEY_ONOFF	1
 	; CH3のキーオン/オフ
-@@:	btst.l	#2,d0
-	bne	1f
-	btst.l	#2,d1			* 変更後の値のチェック
-	beq	1f
-	; 0→1に変わったのでキーオフ
-	w_OPM	#%00_111_100,#$22	* CH3の L/R enableを OFFにする(b7,b6) (b5-3はFL、b2-0はAL=CON)
-	bra	@f
-1:	btst.l	#2,d1			* 変更後の値のチェック
-	bne	@f
-	; 1→0に変わったのでキーオン
-	w_OPM	#%11_111_100,#$22	* CH3の L/R enableを ONにする(b7,b6) (b5-3はFL、b2-0はAL=CON)
+	PSG_KEY_ONOFF	2
 
 	; PSGノイズの発音
-@@:	andi.b	#%00_111_000,d1		* ノイズ出力
+	andi.b	#%00_111_000,d1		* ノイズ出力
 	cmpi.b	#%00_111_000,d1
 	bne	1f
 	w_OPM	#%00_111_100,#$27	* CH8の L/R enableを OFFにする(b7,b6) (b5-3はFL、b2-0はAL=CON)
@@ -614,6 +621,107 @@ w_PSG_R07:
 1:	w_OPM	#%11_111_100,#$27	* CH8の L/R enableを ONにする(b7,b6) (b5-3はFL、b2-0はAL=CON)
 @@:
 	rts
+
+; 	btst.l	#0,d0			* 元の値のチェック
+; 	bne	1f
+; 	btst.l	#0,d1			* 変更後の値のチェック
+; 	beq	@f
+; 	; 0→1に変わったのでキーオフ
+; 	w_OPM	#%00_111_100,#$20	* CH1の L/R enableを OFFにする(b7,b6) (b5-3はFL、b2-0はAL=CON)
+; 	w_OPM	#%0_0000_000,#$08	* PSG CH1: キーオフ(OP.4-1すべてOFF)
+; 	bra	@f
+; 1:	btst.l	#0,d1			* 変更後の値のチェック
+; 	bne	@f
+; 	; 1→0に変わったのでキーオン
+; 	btst.b	#4,PSG_R08		* エンベロープモードかどうかのチェック
+; 	beq	4f
+; 	; エンベロープパターンのチェック
+; 	move.b	PSG_R13,d0
+; 	cmpi.b	#%1001,d0		* 1001 : _|＼_____
+; 	beq	2f
+; 	andi.b	#%00001100,d0		* 00** : _|＼_____
+; 	bne	3f
+; 2:	; エンベロープパターンが _|＼_____ の場合
+; 	; C1のファーストディケイを使って実現する
+; 	; D1R : 1st Decay Rate (0-31) 通常は0で「減衰しない」になっているので、これを 16にする (本当はPSGのパラメータに合わせる必要がある)
+; 	; D1L : 1st Decay Level (0-15) 0が最小音量、15が最大音量。矩形波の時はD1Rが0なので何がセットされていても良いため、0で固定しておく
+; 	w_OPM	#16,#$a0+16		; CH1 - C1: D1R
+; 	bra	4f
+; 3:	; サポートしていないエンベロープの場合
+; 	w_OPM	#0,#$a0+16		; CH1 - C1: D1R
+; 4:	; 発音
+; 	;w_OPM	#%11_111_100,#$20	* CH1の L/R enableを ONにする(b7,b6) (b5-3はFL、b2-0はAL=CON)
+; 	;w_OPM	#%0_1111_000,#$08	* PSG CH1: キーオン(OP.4-1すべてON)
+
+; 	; CH2のキーオン/オフ
+; @@:	btst.l	#1,d0			* 元の値のチェック
+; 	bne	1f
+; 	btst.l	#1,d1			* 変更後の値のチェック
+; 	beq	@f
+; 	; 0→1に変わったのでキーオフ
+; 	w_OPM	#%00_111_100,#$21	* CH2の L/R enableを OFFにする(b7,b6) (b5-3はFL、b2-0はAL=CON)
+; 	w_OPM	#%0_0000_001,#$08	* PSG CH2: キーオフ(OP.4-1すべてOFF)
+; 	bra	@f
+; 1:	btst.l	#1,d1			* 変更後の値のチェック
+; 	bne	@f
+; 	; 1→0に変わったのでキーオン
+; 	btst.b	#4,PSG_R09		* エンベロープモードかどうかのチェック
+; 	beq	3f
+; 	; エンベロープパターンのチェック
+; 	move.b	PSG_R13,d0
+; 	cmpi.b	#%1001,d0		* 1001 : _|＼_____
+; 	beq	2f
+; 	cmpi.b	#%1010,d0		* 1010 : _|＼|
+; 	beq	5f
+; 	andi.b	#%00001100,d0		* 00** : _|＼_____
+; 	bne	3f
+; 2:	; エンベロープパターンが _|＼_____ の場合
+; 	; C1のファーストディケイを使って実現する
+; 	; D1R : 1st Decay Rate (0-31) 通常は0で「減衰しない」になっているので、これを 12にする (本当はPSGのパラメータに合わせる必要がある)
+; 	; D1L : 1st Decay Level (0-15) 15が最小音量、0が最大音量。矩形波の時はD1Rが0なので何がセットされていても良いため、15で固定しておく
+; 	w_OPM	envelope_d1r,#$a0+17		; CH2 - C1: D1R
+; 	bra	4f
+; 5:	; エンベロープパターンが _|＼| の場合
+; 	w_OPM	envelope_d1r,#$a0+17		; CH2 - C1: D1R
+; 	bra	4f
+; 3:	; 通常音 or サポートしていないエンベロープの場合
+; 	w_OPM	#0,#$a0+17		; CH2 - C1: D1R
+; 4:	; 発音
+; 	w_OPM	#%11_111_100,#$21	* CH2の L/R enableを ONにする(b7,b6) (b5-3はFL、b2-0はAL=CON)
+; 	w_OPM	#%0_0011_001,#$08	* PSG CH2: キーオン(OP.2-1ON)
+
+; 	; CH3のキーオン/オフ
+; @@:	btst.l	#2,d0			* 元の値のチェック
+; 	bne	1f
+; 	btst.l	#2,d1			* 変更後の値のチェック
+; 	beq	@f
+; 	; 0→1に変わったのでキーオフ
+; 	w_OPM	#%00_111_100,#$22	* CH3の L/R enableを OFFにする(b7,b6) (b5-3はFL、b2-0はAL=CON)
+; 	w_OPM	#%0_0000_010,#$08	* PSG CH3: キーオフ(OP.4-1すべてOFF)
+; 	bra	@f
+; 1:	btst.l	#2,d1			* 変更後の値のチェック
+; 	bne	@f
+; 	; 1→0に変わったのでキーオン
+; 	btst.b	#4,PSG_R10		* エンベロープモードかどうかのチェック
+; 	beq	4f
+; 	; エンベロープパターンのチェック
+; 	move.b	PSG_R13,d0
+; 	cmpi.b	#%1001,d0		* 1001 : _|＼_____
+; 	beq	2f
+; 	andi.b	#%00001100,d0		* 00** : _|＼_____
+; 	bne	3f
+; 2:	; エンベロープパターンが _|＼_____ の場合
+; 	; C1のファーストディケイを使って実現する
+; 	; D1R : 1st Decay Rate (0-31) 通常は0で「減衰しない」になっているので、これを 16にする (本当はPSGのパラメータに合わせる必要がある)
+; 	; D1L : 1st Decay Level (0-15) 0が最小音量、15が最大音量。矩形波の時はD1Rが0なので何がセットされていても良いため、0で固定しておく
+; 	w_OPM	#16,#$a0+18		; CH3 - C1: D1R
+; 	bra	4f
+; 3:	; サポートしていないエンベロープの場合
+; 	w_OPM	#0,#$a0+18		; CH3 - C1: D1R
+; 4:	; 発音
+; 	;w_OPM	#%11_111_100,#$22	* CH3の L/R enableを ONにする(b7,b6) (b5-3はFL、b2-0はAL=CON)
+; 	;w_OPM	#%0_1111_011,#$08	* PSG CH3: キーオン(OP.4-1すべてON)
+
 
 ; ノイズの音量設定
 update_noise_volume:
@@ -656,9 +764,9 @@ w_PSG_R08:
 	move.b	d1,PSG_R08
 	; 音量はTLで調整する
 	lea.l	volume_tbl,a0
-	btst.l	#4,d1			* b4が1の時はエンベロープモードだが、サポートしていないので音量10として扱う
+	btst.l	#4,d1			* b4が1の時はエンベロープモードなので、最大音量とする
 	beq	1f
-	moveq.l	#10,d1
+	moveq.l	#15,d1
 1:	andi.w	#$000f,d1		* PSGの音量を取得
 	w_OPM	0(a0,d1.w),#$70		* テーブルを引いて TL をセット
 
@@ -670,9 +778,9 @@ w_PSG_R09:
 	move.b	d1,PSG_R09
 	; 音量はTLで調整する
 	lea.l	volume_tbl,a0
-	btst.l	#4,d1			* b4が1の時はエンベロープモードだが、サポートしていないので音量10として扱う
+	btst.l	#4,d1			* b4が1の時はエンベロープモードなので、最大音量とする
 	beq	1f
-	moveq.l	#10,d1
+	moveq.l	#15,d1
 1:	andi.w	#$000f,d1		* PSGの音量を取得
 	w_OPM	0(a0,d1.w),#$71		* テーブルを引いて TL をセット
 
@@ -684,21 +792,79 @@ w_PSG_R10:
 	move.b	d1,PSG_R10
 	; 音量はTLで調整する
 	lea.l	volume_tbl,a0
-	btst.l	#4,d1			* b4が1の時はエンベロープモードだが、サポートしていないので音量10として扱う
+	btst.l	#4,d1			* b4が1の時はエンベロープモードなので、最大音量とする
 	beq	1f
-	moveq.l	#10,d1
+	moveq.l	#15,d1
 1:	andi.w	#$000f,d1		* PSGの音量を取得
 	w_OPM	0(a0,d1.w),#$72		* テーブルを引いて TL をセット
 
 	bsr	update_noise_volume
 	rts
 
+; エンベロープ周期
 w_PSG_R11:
 	move.b	d1,PSG_R12_R11+1
+	bsr	calc_envelope_time
 	rts
 w_PSG_R12:
 	move.b	d1,PSG_R12_R11+0
+	bsr	calc_envelope_time
 	rts
+
+calc_envelope_time:
+	; PSGのエンベロープ周期はR11,R12の16ビットレジスタできまる。この値をEPとすると、
+	; 143.03493*EP [usec] = 0.143*EP [msec]
+	; となる。値域は 0(?)から9373[msec]で線形。
+	; たとえば エンベロープパターン _|＼_____ をファーストディケイで再現する場合、
+	; D1Rで決まるディケイレートがこのエンベロープ周期にだいたい一致するようにする必要がある。
+	; D1Rは0から31が設定できるが、ディケイタイム(D1T)は指数関数的に変化するため、変換が必要。
+	; D1Tは、YM2151のApplication Noteに3.6MHz駆動時の表が載っている。KS(キースケーリング)の
+	; 影響を受けるので正確ではないが、およそ、
+	; 31: 1msec 前後
+	; 24: 6-10msec
+	; 16: 100-150msec
+	; 12: 500-700msec
+	;  8: 2000-3000msec
+	;  5: 7000-8000msec
+	; となるようだ。
+	; PSGのEP(16bit)をこれに変換するためにまず log(EP) を計算する。最上位ビットの位置をみれば
+	; 0-15の値が得られるが、32段階にしたいので、最上位ビットとその次のビットが0か1かを見るようにする。
+	; その結果得られる0-31の値をLEPとすると、
+	; LEP=31 -> EP=0xc000-0xffff -> 7030-9373[msec] -> D1R=5
+	; LEP=30 -> EP=0x8000-0xbfff -> 4686-7030[msec] -> D1R=6
+	; LEP=29 -> EP=0x6000-0x7fff -> 3515-4686[msec] -> D1R=7
+	; LEP=28 -> EP=0x4000-0x5fff -> 2343-3515[msec] -> D1R=8
+	; LEP= 6 -> EP=0x0008-0x000B -> 1.14-1.71[msec] -> D1R=30
+	; LEP= 5 -> EP=0x0004-0x0007 -> 0.85-1.14[msec] -> D1R=31　　　　　　　　　　　　　　　　　　　　　　　
+	; という変換ができる
+	
+	; まず、最上位ビットとその次のビットの0/1を判定しLEPを計算する
+	; 左にローテートしながらキャリーフラグを見る
+	clr.w	d0			; LEP=0
+	move.w	PSG_R12_R11,d1
+	beq	9f			; すべて0の場合
+	move.w	#30,d0			; LEP=30からスタート
+@@:	rol.w	d1
+	bcs	1f
+	subq.w	#2,d0
+	bne	@b			; 必ずどこかで1があるので、braでもいいが一応
+1:	; この時点で d0は30,28,26……と偶数の値が入っているので、最上位ビットの次のビットの0/1を見て+1するか決める
+	; 次のビットがd1の最上位に入っているのでもう一ビットローテートして最下位ビットまで持ってくる
+	rol.w	d1
+	andi.w	#1,d1
+	add.w	d1,d0			; 次のビットの0/1を足すことで LEPが得られる
+9:	; この時点で d0=LEP
+	; LEPを D1Rに変換する。理論値は D1R=36-LEP だが、実際はもう少し早く変化させた方がそれっぽかったので 39-LEPにしている
+	move.w	#39,d1
+	sub.w	d0,d1
+	cmpi.w	#32,d1			; 32以上になった場合は31に丸める
+	blt	@f
+	move.w	#31,d1
+@@:	; この時点で d1=D1Rの値
+	move.b	d1,envelope_d1r
+	rts
+
+; エンベロープパターン
 w_PSG_R13:
 	move.b	d1,PSG_R13
 	rts
@@ -915,13 +1081,14 @@ PSG_R15:
 	.dc.b	0
 
 	.even
-
 port_sel:			* R15 のビット６の保存用
 	.dc.w	0
 
+envelope_d1r:
+	.dc.b	0		* エンベロープ周期から計算されたD1Rの値
 
 *	Ｉ／Ｏポートの値保存場所
-
+	.even
 p_A0:	.dc.w	0		* PSG register access no
 
 
@@ -932,14 +1099,14 @@ psg2kf:
 	.dc.l	0
 
 PSG_data:
-*		AR 1DR 2DR  RR 1DL  TL  RS MUL DT1 DT2 AME    ＰＳＧ
-	.dc.b	31,  0,  0,  0,  0, 27,  0,  2,  0,  0,  0	* M1
-	.dc.b	31,  0,  0,  0,  0,127,  0,  1,  0,  0,  0	* C1	(レジスタの並び順じゃないので注意)
+*		AR D1R 2DR  RR 1DL  TL  RS MUL DT1 DT2 AME    ＰＳＧ
+	.dc.b	31,  0,  0,  0, 15, 27,  0,  2,  0,  0,  0	* M1
+	.dc.b	31,  0,  0,  0, 15,127,  0,  1,  0,  0,  0	* C1	(レジスタの並び順じゃないので注意)
 	.dc.b	31,  0,  0, 15,  0,127,  0,  2,  0,  0,  0	* M2	TL=127は消音(OPを使わない)
 	.dc.b	31,  0,  0, 15,  0,127,  0,  1,  0,  0,  0	* C2	TL=127は消音(OPを使わない)
 
 PSG_noise_data:
-*		AR 1DR 2DR  RR 1DL  TL  RS MUL DT1 DT2 AME    ＰＳＧ Noise
+*		AR D1R 2DR  RR 1DL  TL  RS MUL DT1 DT2 AME    ＰＳＧ Noise
 	.dc.b	31,  0,  0, 15,  0,127,  0,  2,  0,  0,  0	* M1
 	.dc.b	31,  0,  0, 15,  0,127,  0,  1,  0,  0,  0	* C1
 	.dc.b	31,  0,  0, 15,  0,127,  0,  2,  0,  0,  0	* M2
@@ -957,13 +1124,15 @@ volume_tbl:
 noise_volume_tbl:
 * https://github.com/digital-sound-antiques/vgm-conv/blob/780a20ed505e23eb21aa9c6ce3f349029718b5a0/src/converter/ay8910-to-opm-coverter.ts#L7C1-L8C1
 *		  0   1   2   3   4   5   6   7   8   9   a   b   c   d   e   f
-	.dc.b	127,126,125,124,123,122,121,120,116,112,105, 96, 82, 64, 37,  0
+;	.dc.b	127,126,125,124,123,122,121,120,116,112,105, 96, 82, 64, 37,  0
+	.dc.b	108,107,106,105,104,103,101, 99, 95, 91, 85, 77, 66, 50, 30,  0
 
 scc_volume_tbl:
 * SCCの音量変化はPSGとは違うらしい
 * https://www.tiny-yarou.com/msx_sccforbasic.html
 *		  0   1   2   3   4   5   6   7   8   9   a   b   c   d   e   f
-	.dc.b	127, 60, 40, 36, 32, 30, 28, 26, 24, 22, 20, 18, 16, 14, 12,  8
+;	.dc.b	127, 60, 40, 36, 32, 30, 28, 26, 24, 22, 20, 18, 16, 14, 12,  8
+	.dc.b   127, 39, 31, 27, 23, 21, 19, 17, 15, 14, 13, 12, 11, 10,  9,  8
 
 scc_enable:
 	.dc.b	0xff
