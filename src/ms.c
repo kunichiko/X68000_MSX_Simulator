@@ -33,6 +33,9 @@ ms_init_params_t default_param;
 ms_init_params_t init_param;
 ms_init_params_t user_param;
 
+//
+volatile uint8_t* BITSNS_WORK = (uint8_t*)0x800;
+
 // プロトタイプ宣言
 void ms_exit( void);
 uint8_t load_user_param();
@@ -582,6 +585,7 @@ int main(int argc, char *argv[]) {
 	if (init_param.scc_enable != 0x0f) {
 		if (init_param.scc_enable == 0) {
 			printf("擬似SCC音源を無効化します\n");
+			w_SCC_enable(0);
 		} else{
 			printf("擬似SCC音源の");
 			for(i=0;i<4;i++) {
@@ -590,8 +594,9 @@ int main(int argc, char *argv[]) {
 				}
 			}
 			printf("のみ有効にします\n");
+			w_SCC_enable(1);
+			w_SCC_ch_enable(init_param.scc_enable);
 		}
-		w_SCC_enable(init_param.scc_enable);
 	}
 
 	/*
@@ -698,9 +703,6 @@ int main(int argc, char *argv[]) {
 }
 
 void ms_exit() {
-	printf("終了します。何かキーを押してください。\n");
-	_iocs_b_keyinp();
-
 	_iocs_crtmod(0x10);
 
 	if( disk_container != NULL ) {
@@ -743,40 +745,40 @@ void ms_exit() {
  - MSX側のマトリクス
 	- MSXデータパック p12 「2.5 キーボード」 参照
  */
-unsigned short KEY_MAP[][8] = {
-	//   BIT0  BIT1  BIT2  BIT3  BIT4  BIT5  BIT6  BIT7
-	//0 [    ][ESC ][1   ][2   ][3   ][4   ][5   ][6   ] 
-	{   0xf00,0xf10,0xf11,0xf12,0xf13,0xf14,0xf15,0xf16},
-	//1 [7   ][8   ][9   ][0   ][-   ][^   ][\   ][BS  ] 
-	{   0xf17,0xf18,0xf19,0x001,0x104,0x108,0x110,0x720},
-	//2 [TAB ][Q   ][W   ][E   ][R   ][T   ][Y   ][U   ] 
-	{   0x708,0x440,0x510,0x304,0x480,0x502,0x540,0x504},
-	//3 [I   ][O   ][P   ][@   ][ [  ][RET ][ A  ][ S  ] 
-	{   0x340,0x410,0x420,0x120,0x140,0x780,0x240,0x501},
-	//4 [ D  ][ F  ][ G  ][ H  ][ J  ][ K  ][ L  ][ ;+ ] 
-	{   0x302,0x308,0x310,0x320,0x380,0x401,0x402,0x180},
-	//5 [ :* ][ ]  ][ Z  ][ X  ][ C  ][ V  ][ B  ][ N  ] 
-	{   0x201,0x203,0x580,0x520,0x301,0x508,0x280,0x408},
-	//6 [ M  ][ ,< ][ .> ][ /  ][ _  ][ SP ][HOME][DEL ]  HOME=CLS
-	{   0x404,0x204,0x208,0x210,0x220,0x801,0x802,0x808}, 
-	//7 [RUP ][RDWN][UNDO][LEFT][UP  ][RIGT][DOWN][CLR ]
-	{   0xf00,0xf00,0xf00,0xff1,0xff2,0xff4,0xff3,0xf00},
-	//8 [(/) ][(*) ][(-) ][(7) ][(8) ][(9) ][(+) ][(4) ]  TEN KEYs
-	{   0x902,0x904,0xa20,0xa04,0xa08,0xa10,0x901,0x980},
-	//9 [(5) ][(6) ][(=) ][(1) ][(2) ][(3) ][ENTR][(0) ]  TEN KEYs
-	{   0xa01,0xa02,0xf00,0x910,0x920,0x940,0xf00,0x908},
-	//a [(,) ][(.) ][KIGO][TORK][HELP][XF1 ][XF2 ][XF3 ]  登録=エミュレータ終了, XF1=GRAPH
-	{   0xa40,0xa80,0xffd,0xfff,0xffe,0x604,0xf00,0xf00}, 
-	//b [XF4 ][XF5 ][KANA][ROME][CODE][CAPS][INS ][HIRA]
-	{   0xf00,0xf00,0x610,0xf00,0xf00,0xf00,0x804,0xf00},
-	//c [ZENK][BRAK][COPY][ F1 ][ F2 ][ F3 ][ F4 ][ F5 ]  BRAK=STOP
-	{   0xf00,0x710,0xf00,0x620,0x640,0x680,0x701,0x702},
-	//d [ F6 ][ F7 ][ F8 ][ F9 ][ F10][    ][    ][    ]  F6=DebugLevel
-	{   0xffc,0xf00,0xf00,0xf00,0xf00,0xf00,0xf00,0xf00},
-	//e [SHFT][CTRL][OPT1][OPT2][    ][    ][    ][    ]  OPT1=Disk Change
-	{   0xff0,0x602,0xff8,0xff9,0xf00,0xf00,0xf00,0xf00},
-	//f [    ][    ][    ][    ][    ][    ][    ][    ]
-	{   0xf00,0xf00,0xf00,0xf00,0xf00,0xf00,0xf00,0xf00}
+uint32_t KEY_MAP[][8] = {
+	//    BIT0    BIT1    BIT2    BIT3    BIT4    BIT5    BIT6    BIT7
+	//0 [      ][ ESC  ][ 1    ][ 2    ][ 3    ][ 4    ][ 5    ][ 6    ]
+	{   0x00000,0x10704,0x11002,0x12004,0x13008,0x14010,0x15020,0x16040},
+	//1 [ 7    ][ 8    ][ 9    ][ 0    ][ -    ][ ^    ][ \    ][ BS   ]
+	{   0x17080,0x18101,0x19102,0x1a001,0x00104,0x00108,0x00110,0x00720},
+	//2 [ TAB  ][ Q    ][ W    ][ E    ][ R    ][ T    ][ Y    ][ U    ]
+	{   0x00708,0x00440,0x00510,0x00304,0x00480,0x00502,0x00540,0x00504},
+	//3 [ I    ][ O    ][ P    ][ @    ][  [   ][ RET  ][  A   ][  S   ]
+	{   0x00340,0x00410,0x00420,0x00120,0x00140,0x00780,0x00240,0x00501},
+	//4 [  D   ][  F   ][  G   ][  H   ][  J   ][  K   ][  L   ][  ;+  ]
+	{   0x00302,0x00308,0x00310,0x00320,0x00380,0x00401,0x00402,0x00180},
+	//5 [  :*  ][   ]  ][  Z   ][  X   ][  C   ][  V   ][  B   ][  N   ]
+	{   0x00201,0x00203,0x00580,0x00520,0x00301,0x00508,0x00280,0x00408},
+	//6 [  M   ][  ,<  ][  .>  ][  /   ][  _   ][  SP  ][ HOME ][ DEL  ] HOME=CLS
+	{   0x00404,0x00204,0x00208,0x00210,0x00220,0x00801,0x00802,0x00808}, 
+	//7 [ RUP  ][ RDWN ][ UNDO ][ LEFT ][ UP   ][ RIGT ][ DOWN ][ CLR  ]
+	{   0x00000,0x00000,0x00000,0x21810,0x22820,0x24880,0x23840,0x00000},
+	//8 [ (/)  ][ (*)  ][ (-)  ][ (7)  ][ (8)  ][ (9)  ][ (+)  ][ (4)  ] TEN KEYs
+	{   0x00902,0x00904,0x00a20,0x00a04,0x00a08,0x00a10,0x00901,0x00980},
+	//9 [ (5)  ][ (6)  ][ (=)  ][ (1)  ][ (2)  ][ (3)  ][ ENTR ][ (0)  ] TEN KEYs
+	{   0x00a01,0x00a02,0x00000,0x00910,0x00920,0x00940,0x00000,0x00908},
+	//a [ (,)  ][ (.)  ][ KIGO ][TOROKU][ HELP ][ XF1  ][ XF2  ][ XF3  ] 登録=エミュレータ終了, XF1=GRAPH
+	{   0x00a40,0x00a80,0xfd000,0xff000,0xfe000,0x00604,0x00000,0x00000}, 
+	//b [ XF4  ][ XF5  ][ KANA ][ ROME ][ CODE ][ CAPS ][ INS  ][ HIRA ]
+	{   0x00000,0x00000,0x00610,0x00000,0x00000,0x00000,0x00804,0x00000},
+	//c [ ZENK ][ BRAK ][ COPY ][  F1  ][  F2  ][  F3  ][  F4  ][  F5  ] BRAK=STOP
+	{   0x00000,0x00710,0x00000,0x00620,0x00640,0x00680,0x00701,0x00702},
+	//d [  F6  ][  F7  ][  F8  ][  F9  ][  F10 ][      ][      ][      ] F6=DebugLevel, F7=Sound Channel On/Off
+	{   0xf3000,0xf4000,0xf5000,0xf6000,0xf7000,0x00000,0x00000,0x00000},
+	//e [ SHFT ][ CTRL ][ OPT1 ][ OPT2 ][      ][      ][      ][      ] OPT1=Disk Change
+	{   0xf0601,0x00602,0xf1000,0xf2000,0x00000,0x00000,0x00000,0x00000},
+	//f [      ][      ][      ][      ][      ][      ][      ][      ]
+	{   0x00000,0x00000,0x00000,0x00000,0x00000,0x00000,0x00000,0x00000}
 };
 
 extern unsigned char* KEYSNS_tbl_ptr;
@@ -815,15 +817,20 @@ int emuLoopImpl(unsigned int pc, unsigned int counter) {
 	static uint8_t last_bitsns[16];
 
 	int i,j;
-	unsigned short map;
-	unsigned char X, Y;
+	uint32_t map;
+	uint8_t S, X, Y;
 	int hitkey = 0;
-	int shiftKeyPress = 0;
-	int cursorKeyHit = 0; // 1=LEFT, 2=UP, 3=DOWN, 4=RIGHT
-	int f6KeyHit = 0;
-	int kigoKeyHit = 0;
-	int helpKeyHit = 0;
-	int disk_change = -1; // 0=Eject, 1=Disk1, 2=Disk2, 3=Disk3, 4=Disk4
+	int shift_pressed = 0;
+	int opt1_pressed = 0;
+	int opt2_pressed = 0;
+	int f6_key_hit = 0;
+	int f7_pressed = 0;
+	int esc_key_hit = 0;
+	int num_key_hit = 0;
+	int cursor_key_hit = 0; // 1=LEFT, 2=UP, 3=DOWN, 4=RIGHT
+	int kigo_key_hit = 0;
+	int help_key_hit = 0;
+	int toroku_key_hit = 0;
 
 	emuLoopCounter++;
 
@@ -837,208 +844,109 @@ int emuLoopImpl(unsigned int pc, unsigned int counter) {
 
 	sync_keyboard_leds();
 
-	for ( i = 0x00; i < 0x0f; i++)
-	{
+	for ( i = 0x00; i < 0x0f; i++) {
 		KEYSNS_tbl_ptr[i] = 0xff;
 	}
-	for ( i = 0x00; i < 0x0f; i++)
-	{
-		if (disablekey == 1 && i != 0x0a)
-		{
+	for ( i = 0x00; i < 0x0f; i++) {
+		if (disablekey == 1 && i != 0x0a) {
 			continue;
 		}
 		//int v = _iocs_bitsns(i);
-		int v = ((uint8_t*)0x800)[i];	// IOCS BITSNSのワークエリア直接参照
+		int v = BITSNS_WORK[i];	// IOCS BITSNSのワークエリア直接参照
 		int mask = 1;
 		for ( j = 0; j < 8; j++) {
 			if (v & mask) {
 				hitkey = 1;
 				map = KEY_MAP[i][j];
+				S = (map & 0xff000) >> 12;
 				Y = (map & 0xf00) >> 8;
 				X = (map & 0xff);
-				if (Y == 0xf)
-				{
-					int opt1_pressed = ((uint8_t*)0x800)[0xe] & 0x04;
-					// 特殊キー
-					switch (X)
-					{
-					// *********************************************
-					// 0x10-0x1f: Disk Change (Opt.1のPressが必要)
-					case 0x10: // ESCキー 0x704 (Eject)
-						if(opt1_pressed) {
-							if( !(last_bitsns[i] & mask)) { // edge detect
-								disk_change = 0;
-							}
-						} else {
-							Y = 0x7;
-							X = 0x04;
+				KEYSNS_tbl_ptr[Y] &= ~X;
+				int edge = !(last_bitsns[i] & mask);
+				if (S != 0)	{
+					// Sが0以外の場合は、特殊キーで、ホスト側の操作を行う
+					// 0x10-0x1a: [ESC] [1] [2] [3] [4] [5] [6] [7] [8] [9] [0]
+					// 0x21-0x24: [LEFT] [UP] [DOWN] [RIGHT]
+					// 0xf0-0xf7: [SHIFT] [OPT1] [OPT2] [F6] [F7] [F8] [F9] [F10]
+					// 0xfd: [KIGO]
+					// 0xfe: [HELP]
+					// 0xff: [TORK]
+					switch (S) {
+					case 0x10:
+						if(edge) {
+							esc_key_hit = 1;
 						}
 						break;
-					case 0x11: // 1キー 0x002 (Disk1)
-						if(opt1_pressed) {
-							if( !(last_bitsns[i] & mask)) { // edge detect
-								disk_change = 1;
-							}
-						} else {
-							Y = 0x0;
-							X = 0x02;
+					case 0x11:
+					case 0x12:
+					case 0x13:
+					case 0x14:
+					case 0x15:
+					case 0x16:
+					case 0x17:
+					case 0x18:
+					case 0x19:
+					case 0x1a:
+						if(edge) {
+							num_key_hit = S - 0x10;
 						}
 						break;
-					case 0x12: // 2キー 0x004 (Disk2)
-						if(opt1_pressed) {
-							if( !(last_bitsns[i] & mask)) { // edge detect
-								disk_change = 2;
-							}
-						} else {
-							Y = 0x0;
-							X = 0x04;
+					case 0x21:
+					case 0x22:
+					case 0x23:
+					case 0x24:
+						if(edge) {
+							cursor_key_hit = S-0x20;
 						}
 						break;
-					case 0x13: // 3キー 0x008 (Disk3)
-						if(opt1_pressed) {
-							if( !(last_bitsns[i] & mask)) { // edge detect
-								disk_change = 3;
-							}
-						} else {
-							Y = 0x0;
-							X = 0x08;
+					case 0xf0:
+						shift_pressed = 1;
+						break;
+					case 0xf1:
+						opt1_pressed = 1;
+						break;
+					case 0xf2:
+						opt2_pressed = 1;
+						break;
+					case 0xf3:
+						if(edge) {
+							f6_key_hit = 1;
 						}
 						break;
-					case 0x14: // 4キー 0x010 (Disk4)
-						if(opt1_pressed) {
-							if( !(last_bitsns[i] & mask)) { // edge detect
-								disk_change = 4;
-							}
-						} else {
-							Y = 0x0;
-							X = 0x10;
+					case 0xf4:
+						f7_pressed = 1;
+						break;
+					case 0xfd:
+						if(edge) {
+							kigo_key_hit = 1;
 						}
 						break;
-					case 0x15: // 5キー 0x020 (Disk5)
-						if(opt1_pressed) {
-							if( !(last_bitsns[i] & mask)) { // edge detect
-								disk_change = 5;
-							}
-						} else {
-							Y = 0x0;
-							X = 0x20;
+					case 0xfe:
+						if(edge) {
+							help_key_hit = 1;
 						}
 						break;
-					case 0x16: // 6キー 0x040 (Disk6)
-						if(opt1_pressed) {
-							if( !(last_bitsns[i] & mask)) { // edge detect
-								disk_change = 6;
-							}
-						} else {
-							Y = 0x0;
-							X = 0x40;
+					case 0xff:
+						if(edge) {
+							toroku_key_hit = 1;
 						}
 						break;
-					case 0x17: // 7キー 0x080 (Disk7)
-						if(opt1_pressed) {
-							if( !(last_bitsns[i] & mask)) { // edge detect
-								disk_change = 7;
-							}
-						} else {
-							Y = 0x0;
-							X = 0x80;
-						}
-						break;
-					case 0x18: // 8キー 0x101 (Disk8)
-						if(opt1_pressed) {
-							if( !(last_bitsns[i] & mask)) { // edge detect
-								disk_change = 8;
-							}
-						} else {
-							Y = 0x1;
-							X = 0x01;
-						}
-						break;
-					case 0x19: // 9キー 0x102 (Disk9)
-						if(opt1_pressed) {
-							if( !(last_bitsns[i] & mask)) { // edge detect
-								disk_change = 9;
-							}
-						} else {
-							Y = 0x1;
-							X = 0x02;
-						}
-						break;
-					// *********************************************
-					case 0xf0: // SHIFTキー 0x601
-						Y = 0x6;
-						X = 0x01;
-						shiftKeyPress = 1;
-						break;
-					case 0xf1: // LEFTキー 0x810
-						Y = 0x8; 
-						X = 0x10;
-						if(!(last_bitsns[i] & mask)) { // edge detect
-							cursorKeyHit = 1;
-						}
-						break;
-					case 0xf2: // UPキー 0x820
-						Y = 0x8; 
-						X = 0x20;
-						if(!(last_bitsns[i] & mask)) { // edge detect
-							cursorKeyHit = 2;
-						}
-						break;
-					case 0xf3: // DOWNキー 0x840
-						Y = 0x8; 
-						X = 0x40;
-						if(!(last_bitsns[i] & mask)) { // edge detect
-							cursorKeyHit = 3;
-						}
-						break;
-					case 0xf4: // RIGHTキー 0x880
-						Y = 0x8; 
-						X = 0x80;
-						if(!(last_bitsns[i] & mask)) { // edge detect
-							cursorKeyHit = 4;
-						}
-						break;
-					case 0xf8: // OPT.1
-						break;
-					case 0xf9: // OPT.2
-						break;
-					case 0xfc: // F6キーを押すと、デバッグレベル変更
-						if(!(last_bitsns[i] & mask)) { // edge detect
-							f6KeyHit = 1;
-						}
-						break;
-					case 0xfd: // 記号キーを押すと、PC周辺のメモリダンプ
-						if(!(last_bitsns[i] & mask)) { // edge detect
-							kigoKeyHit = 1;
-						}
-						break;
-					case 0xfe: // HELPキーを押すとテキスト表示切り替え
-						if(!(last_bitsns[i] & mask)) { // edge detect
-							helpKeyHit = 1;
-						}
-						break;
-					case 0xff: // 登録キーによる終了
-						_setTextPlane(1);
-						return 1;
 					default:
+						MS_LOG(MS_LOG_ERROR, "Unknown special key: %d\n", S);
 						break;
 					}
-				}
-				if (Y != 0xf) { // elseにしてはダメ
-					KEYSNS_tbl_ptr[Y] &= ~X;
 				}
 			}
 			mask <<= 1;
 		}
 	}
-	if (hitkey)
-	{
+	if (hitkey) {
 		// 文字入力を読み捨てて、キーバッファを空にする
 		_dos_kflushio(0xff);
 	}
 
-	if (f6KeyHit) {
-		if(shiftKeyPress) {
+	if (f6_key_hit) {
+		if(shift_pressed) {
 			// シフトキーと同時押しの場合は、デバッグログレベルを下げる
 			debug_log_level = max(0, debug_log_level - 1);
 		} else {
@@ -1048,27 +956,102 @@ int emuLoopImpl(unsigned int pc, unsigned int counter) {
 		printf("デバッグログレベル=%d\n", debug_log_level);
 	}
 
-	if (kigoKeyHit) {
+	if (toroku_key_hit) {
+		// 登録キーが押されたらポーズ
+		_setTextPlane(1);
+		uint32_t psg_ch_enable = r_PSG_ch_enable();
+		uint32_t scc_ch_enable = r_SCC_ch_enable();
+		w_PSG_ch_enable(0);
+		w_SCC_ch_enable(0);
+		printf("Paused:\n[TOROKU]: Resume [RET]: Exit\n");
+		while(1) {
+			int va = BITSNS_WORK[0xa];	// IOCS BITSNSのワークエリア直接参照
+			if (!(va & 0x08)) {	// 登録キーが離されるまで待つ
+				break;
+			}
+		}
+		while(1) {
+			int va = BITSNS_WORK[0xa];	// IOCS BITSNSのワークエリア直接参照
+			if (va & 0x08) {	// もう一度登録キーが押されたら再開
+				break;
+			}
+			int v3 = BITSNS_WORK[0x3];	// IOCS BITSNSのワークエリア直接参照
+			if (v3 & 0x20) {	// リターンキーが押されたら終了
+				return 1;
+			}
+		}
+		printf("->Resumed\n");
+		while(1) {
+			int va = BITSNS_WORK[0xa];	// IOCS BITSNSのワークエリア直接参照
+			if (!(va & 0x08)) {	// 登録キーが離されるまで待つ
+				break;
+			}
+		}
+		_setTextPlane(textPlaneMode);
+		w_PSG_ch_enable(psg_ch_enable);
+		w_SCC_ch_enable(scc_ch_enable);
+	}
+
+	if (kigo_key_hit) {
 		printf("\n");
 		printf("loop count=%08d\ncycle=%08ld wait=%ld\n", emuLoopCounter, cpu_cycle_last, cpu_cycle_wait);
 		printf("COUNTER=%08x, inttick=%08d\n", counter, ms_vsync_interrupt_tick);
 		dump(pc >> 16, pc & 0x1fff);
 	}
 
-	if (helpKeyHit) {
+	if (help_key_hit) {
 		_toggleTextPlane();
 	}
 
-	if (shiftKeyPress && cursorKeyHit ) {
-		_moveTextPlane(cursorKeyHit);
+	if (shift_pressed && cursor_key_hit ) {
+		_moveTextPlane(cursor_key_hit);
 	}
 
-	if( disk_change == 0) {
-		disk_container->eject_disk(disk_container);
-		printf("Disk ejected\n");
-	} else if (disk_change > 0) {
-		disk_container->change_disk(disk_container, disk_change - 1);
-		printf("Disk changed: %s\n", disk_container->current_disk->name);
+	if (opt1_pressed) {
+		if(esc_key_hit) {
+			disk_container->eject_disk(disk_container);
+			printf("Disk ejected\n");
+		}
+		if(num_key_hit) {
+			disk_container->change_disk(disk_container, num_key_hit - 1);
+			printf("Disk changed: %s\n", disk_container->current_disk->name);
+		}
+	}
+
+	if(f7_pressed) {
+		if (esc_key_hit) {
+			// escが押されたら全チャンネルをトグル
+			uint32_t psg_ch = r_PSG_ch_enable();
+			uint32_t scc_ch = r_SCC_ch_enable();
+			if(psg_ch && scc_ch) {
+				w_PSG_ch_enable(0);
+				w_SCC_ch_enable(0);
+			} else {
+				w_PSG_ch_enable(0x07);
+				w_SCC_ch_enable(0x0f);
+			}
+		}
+		switch(num_key_hit) {
+			case 1:
+			case 2:
+			case 3:
+				// PSG チャンネルのトグル
+				uint32_t ch = r_PSG_ch_enable();
+				ch ^= 1 << (num_key_hit - 1);
+				w_PSG_ch_enable(ch);
+				break;
+			case 4:
+			case 5:
+			case 6:
+			case 7:
+				// SCC チャンネルのトグル
+				uint32_t scc_ch = r_SCC_ch_enable();
+				scc_ch ^= 1 << (num_key_hit - 4);
+				w_SCC_ch_enable(scc_ch);
+				break;
+			default:
+				break;
+		}
 	}
 
 	for(i=0;i<16;i++) {
