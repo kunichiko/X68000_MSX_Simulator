@@ -28,7 +28,7 @@ ASFLAGS = -i $(SRC_DIR) -i $(ASMINC_DIR) -i $(VDP_DIR) -i $(MEMMAP_DIR) -i ${DIS
 ASFLAGS_DEBUG = -d -s DEBUG $(ASFLAGS)
 
 # オブジェクトファイルのリストを変数にまとめる
-OBJS = $(BUILD_DIR)/ms.o \
+OBJS = $(BUILD_DIR)/main.o $(BUILD_DIR)/ms.o \
 		$(BUILD_DIR)/ms_R800_mac_30.o \
 		$(BUILD_DIR)/ms_R800_flag.o \
 		$(BUILD_DIR)/ms_iomap.o \
@@ -79,7 +79,7 @@ OBJS = $(BUILD_DIR)/ms.o \
 		$(BUILD_DIR)/ms_disk_controller_TC8566AF.o \
 		$(BUILD_DIR)/ms_disk_bios_Panasonic.o
 
-OBJS_DEBUG = $(BUILD_DIR)/ms_d.o \
+OBJS_DEBUG = $(BUILD_DIR)/main_d.o $(BUILD_DIR)/ms_d.o \
 		$(BUILD_DIR)/ms_R800_mac_30_d.o \
 		$(BUILD_DIR)/ms_R800_flag_d.o \
 		$(BUILD_DIR)/ms_iomap_d.o \
@@ -179,6 +179,12 @@ ${BUILD_DIR}/%_d.o: $(SRC_DIR)/%.has $(SRC_DIR)/ms.mac
 	$(AS) $(ASFLAGS_DEBUG) $< -o $@.tmp
 	x68k2elf.py $@.tmp $@
 	rm $@.tmp
+
+${BUILD_DIR}/main.o: $(SRC_DIR)/main.c $(SRC_DIR)/ms.h
+	$(CC) $(CFLAGS) -m68000 $< -o $@
+
+${BUILD_DIR}/main_d.o: $(SRC_DIR)/main.c $(SRC_DIR)/ms.h
+	$(CC) $(CFLAGS_DEBUG) -m68000 $< -o $@
 
 
 # VDP files
