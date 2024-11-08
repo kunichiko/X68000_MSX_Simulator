@@ -3,8 +3,8 @@
 #include <stdint.h>
 #include <stddef.h>
 #include <fcntl.h>
-#include <doslib.h>
 #include <unistd.h>
+#include <x68k/dos.h>
 #include "ms_disk.h"
 #include "ms_disk_media_dskformat.h"
 #include "../ms.h"

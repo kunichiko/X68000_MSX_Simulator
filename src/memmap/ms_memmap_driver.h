@@ -18,6 +18,8 @@ typedef struct ms_memmap_driver {
 	void (*did_attach)(ms_memmap_driver_t* driver);
 	// memmapモジュールが本ドライバをデタッチする際に呼び出します
 	int (*will_detach)(ms_memmap_driver_t* driver);
+	// シミュレータがポーズしたときに呼び出します
+	void (*did_pause)(ms_memmap_driver_t* driver);
 	// メモリマッパーセグメント選択レジスタ(port FCh,FDh,FEh,FFh) の値が変更された際に呼び出します
 	void (*did_update_memory_mapper)(ms_memmap_driver_t* driver, int page, uint8_t segment_num);
 	// 8ビットの読み出し処理

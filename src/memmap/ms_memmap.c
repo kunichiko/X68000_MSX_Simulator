@@ -54,7 +54,7 @@ ms_memmap_t* ms_memmap_shared_instance() {
 	for(base = 0; base < 4; base++) {
 		for(ex = 0; ex < 4; ex++) {
 			for(page = 0; page < 4; page++) {
-				_shared->attached_driver[base][ex][page] = (ms_memmap_driver_t*)_shared->nothing_driver;
+				_shared->driver_page_map[base][ex][page] = (ms_memmap_driver_t*)_shared->nothing_driver;
 			}
 		}
 	}
@@ -78,6 +78,8 @@ ms_memmap_t* ms_memmap_shared_instance() {
 	return _shared;
 }
 
+void _clear_driver(ms_memmap_driver_t* driver);
+
 void ms_memmap_shared_deinit() {
 	if( _shared == NULL) {
 		return;
@@ -87,24 +89,19 @@ void ms_memmap_shared_deinit() {
 		new_free(_shared->mainram_driver);
 		_shared->mainram_driver = NULL;
 	}
-	int base, ex, page;
-	for(base = 0; base < 4; base++) {
-		for(ex = 0; ex < 4; ex++) {
-			for(page = 0; page < 4; page++) {
-				ms_memmap_driver_t* driver = _shared->attached_driver[base][ex][page];
-				// TODO 一つのドライバが複数のページにまたがっているケースがあるので、
-				// TODO ちゃんとデタッチして外してから deinit しないと二重解放になる
-				//if( driver != NULL && driver->type != ROM_TYPE_NOTHING && driver->type != ) {
-				//	driver->deinit(driver);
-				//}
-			}
+	int i;
+	for(i = 0; i < 64; i++) {
+		ms_memmap_driver_t* driver = _shared->attached_drivers[i];
+		if( driver != NULL) {
+			driver->will_detach(driver);
+			driver->deinit(driver);
 		}
 	}
+
 	// シングルトンの場合だけ例外的に deinitで freeする
 	new_free(_shared);
 	_shared = NULL;
 }
-
 
 /**
  * @brief スロットにドライバをアタッチします
@@ -130,12 +127,25 @@ int ms_memmap_attach_driver(ms_memmap_t* memmap, ms_memmap_driver_t* driver, con
 		slot_ex_fallback = slot_ex;
 	}
 
+	// ドライバリストに追加
+	int i;
+	for (i = 0; i < 64; i++) {
+		if (memmap->attached_drivers[i] == NULL) {
+			memmap->attached_drivers[i] = driver;
+			break;
+		}
+	}
+	if (i == 64) {
+		printf("アタッチ可能なドライバの数を超えました\n");
+		return -1;
+	}
+
 	// 衝突検出
 	int conflict = 0;
 	int page;
 	for(page = 0; page < 4; page++) {
 		if ( ((driver->page8k_pointers[page*2+0] !=  NULL) || (driver->page8k_pointers[page*2+1] !=  NULL)) && //
-			memmap->attached_driver[slot_base][slot_ex_fallback][page]->type != ROM_TYPE_NOTHING) {
+			memmap->driver_page_map[slot_base][slot_ex_fallback][page]->type != ROM_TYPE_NOTHING) {
 			conflict = 1;
 			break;
 		}
@@ -148,7 +158,7 @@ int ms_memmap_attach_driver(ms_memmap_t* memmap, ms_memmap_driver_t* driver, con
 	// ドライバをアタッチ
 	for(page = 0; page < 4; page++) {
 		if ( (driver->page8k_pointers[page*2+0] !=  NULL) || (driver->page8k_pointers[page*2+1] !=  NULL)) {
-			memmap->attached_driver[slot_base][slot_ex_fallback][page] = driver;
+			memmap->driver_page_map[slot_base][slot_ex_fallback][page] = driver;
 			// このアタッチによって、今見えているページが更新された可能性があるので呼び出す
 			select_slot_base_impl(memmap, page, memmap->slot_sel[page]);
 		}
@@ -160,6 +170,24 @@ int ms_memmap_attach_driver(ms_memmap_t* memmap, ms_memmap_driver_t* driver, con
 
 	return 0;
 }
+
+/**
+ * @brief 
+ * 
+ * @param memmap 
+ * @return int 
+ */
+int ms_memmap_did_pause(ms_memmap_t* memmap) {
+	int i;
+	for(i = 0; i < 64; i++) {
+		ms_memmap_driver_t* driver = memmap->attached_drivers[i];
+		if( (driver != NULL) && (driver->did_pause != NULL) ) {
+			driver->did_pause(driver);
+		}
+	}
+	return 0;
+}
+
 
 /**
  * @brief メモリマッパーやメガロムのように、ドライバ内部でページが更新された場合のコールバック
@@ -203,9 +231,9 @@ void select_slot_base_impl(ms_memmap_t* memmap, int page, int slot_base) {
 	if ( memmap->slot_expanded.flag[slot_base] ) {
 		// 拡張されている場合は拡張スロット選択レジスタを見る
 		int slot_ex = memmap->slot_sel_ex[slot_base][page];
-		memmap->current_driver[page] = memmap->attached_driver[slot_base][slot_ex][page];
+		memmap->current_driver[page] = memmap->driver_page_map[slot_base][slot_ex][page];
 	} else {
-		memmap->current_driver[page] = memmap->attached_driver[slot_base][0][page];
+		memmap->current_driver[page] = memmap->driver_page_map[slot_base][0][page];
 	}
 
 	// CPUが見てるポインタを更新
@@ -247,7 +275,7 @@ void select_slot_ex(ms_memmap_t* memmap, int page, int slot_ex) {
 void select_slot_ex_impl(ms_memmap_t* memmap, int slot_base, int page, int slot_ex) {
 	if ( memmap->slot_sel[page] == slot_base) {
 		// 今回変更した拡張スロットが見えている場合だけ更新
-		memmap->current_driver[page] = memmap->attached_driver[slot_base][slot_ex][page];
+		memmap->current_driver[page] = memmap->driver_page_map[slot_base][slot_ex][page];
 		// CPUが見てるポインタを更新
 		memmap->current_ptr[page*2+0] = memmap->current_driver[page]->page8k_pointers[page*2+0];
 		memmap->current_ptr[page*2+1] = memmap->current_driver[page]->page8k_pointers[page*2+1];

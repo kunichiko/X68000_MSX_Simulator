@@ -3,6 +3,7 @@ VDP_DIR = $(SRC_DIR)/vdp
 MEMMAP_DIR = $(SRC_DIR)/memmap
 DISK_DIR = $(SRC_DIR)/disk
 PERIPHERAL_DIR = $(SRC_DIR)/peripheral
+ASMINC_DIR = $(SRC_DIR)/include
 BUILD_DIR = build
 EXE_DIR = exe
 
@@ -21,8 +22,10 @@ LDFLAGS = -lm -lbas -liocs -ldos
 #LD = m68k-xelf-ld.x
 #LD_OPTS = -L /Users/ohnaka/work/XEiJ/HFS/XGCC/LIB/
 
-ASFLAGS = -i $(SRC_DIR) -i $(VDP_DIR) -i $(MEMMAP_DIR) -i ${DISK_DIR} -i ${PERIPHERAL_DIR} -i /Users/ohnaka/work/XEiJ/HFS/XGCC/INCLUDE/ -w0
-ASFLAGS_DEBUG = -d -s DEBUG -i $(SRC_DIR) -i $(VDP_DIR) -i $(MEMMAP_DIR) -i ${DISK_DIR} -i ${PERIPHERAL_DIR} -i /Users/ohnaka/work/XEiJ/HFS/XGCC/INCLUDE/ -w0
+-include ~/.human68k.mk
+
+ASFLAGS = -i $(SRC_DIR) -i $(ASMINC_DIR) -i $(VDP_DIR) -i $(MEMMAP_DIR) -i ${DISK_DIR} -i ${PERIPHERAL_DIR} -w0
+ASFLAGS_DEBUG = -d -s DEBUG $(ASFLAGS)
 
 # オブジェクトファイルのリストを変数にまとめる
 OBJS = $(BUILD_DIR)/ms.o \
@@ -50,6 +53,7 @@ OBJS = $(BUILD_DIR)/ms.o \
 		$(BUILD_DIR)/ms_memmap_MEGAROM_ASCII_8K.o \
 		$(BUILD_DIR)/ms_memmap_MEGAROM_KONAMI.o \
 		$(BUILD_DIR)/ms_memmap_MEGAROM_KONAMI_SCC.o \
+		$(BUILD_DIR)/ms_memmap_PAC.o \
 		$(BUILD_DIR)/ms_vdp.o \
 		$(BUILD_DIR)/ms_vdp_mac.o \
 		$(BUILD_DIR)/ms_vdp_sprite.o \
@@ -101,6 +105,7 @@ OBJS_DEBUG = $(BUILD_DIR)/ms_d.o \
 		$(BUILD_DIR)/ms_memmap_MEGAROM_ASCII_8K_d.o \
 		$(BUILD_DIR)/ms_memmap_MEGAROM_KONAMI_d.o \
 		$(BUILD_DIR)/ms_memmap_MEGAROM_KONAMI_SCC_d.o \
+		$(BUILD_DIR)/ms_memmap_PAC_d.o \
 		$(BUILD_DIR)/ms_vdp_d.o \
 		$(BUILD_DIR)/ms_vdp_mac_d.o \
 		$(BUILD_DIR)/ms_vdp_sprite_d.o \
