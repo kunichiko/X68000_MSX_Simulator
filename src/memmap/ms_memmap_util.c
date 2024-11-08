@@ -13,7 +13,10 @@
 #include "ms_memmap_MEGAROM_ASCII_8K.h"
 #include "ms_memmap_MEGAROM_KONAMI.h"
 #include "ms_memmap_MEGAROM_KONAMI_SCC.h"
+#include "ms_memmap_PAC.h"
 #include "../disk/ms_disk_bios_Panasonic.h"
+
+int detect_rom_type(uint8_t* buffer, int length);
 
 int filelength(int fh) {
 	struct stat st;
@@ -33,6 +36,7 @@ int filelength(int fh) {
 void allocateAndSetCartridge(const char *romFileName, int slot_base, int kind) {
 	int crt_fh;
 	int crt_length;
+	int buf_length;
 	uint8_t *crt_buff;
 	int i;
 
@@ -51,11 +55,13 @@ void allocateAndSetCartridge(const char *romFileName, int slot_base, int kind) {
 	}
 	// length が 8Kの境界にない場合は8Kに切り上げ
 	if(crt_length % 0x2000 != 0) {
-		crt_length = (crt_length + 0x1fff) & 0xffffe000;
+		buf_length = (crt_length + 0x1fff) & 0xffffe000;
+	} else {
+		buf_length = crt_length;
 	}
 
 	// ROMデータをロードして、ROMの種類を判定
-	crt_buff =  (uint8_t*)new_malloc(crt_length);
+	crt_buff =  (uint8_t*)new_malloc(buf_length);
 	if(crt_buff == NULL) {
 		printf("メモリが確保できません。\n");
 		return;
@@ -86,7 +92,7 @@ void allocateAndSetCartridge(const char *romFileName, int slot_base, int kind) {
 				printf("MIRROREDROMの初期化に失敗しました\n");
 				return;
 			}
-			ms_memmap_MIRROREDROM_init(mir, ms_memmap_shared_instance(), crt_buff, crt_length);
+			ms_memmap_MIRROREDROM_init(mir, ms_memmap_shared_instance(), crt_buff, buf_length);
 			break;
 		case ROM_TYPE_MEGAROM_GENERIC_8K:
 			// GENERIC 8K メガロム
@@ -96,7 +102,7 @@ void allocateAndSetCartridge(const char *romFileName, int slot_base, int kind) {
 				printf("MEGAROM GENERIC 8Kの初期化に失敗しました\n");
 				return;
 			}
-			ms_memmap_MEGAROM_GENERIC_8K_init(g8k, ms_memmap_shared_instance(), crt_buff, crt_length);
+			ms_memmap_MEGAROM_GENERIC_8K_init(g8k, ms_memmap_shared_instance(), crt_buff, buf_length);
 			break;
 		case ROM_TYPE_MEGAROM_ASCII_8K:
 			// ASCII 8K メガロム
@@ -106,7 +112,7 @@ void allocateAndSetCartridge(const char *romFileName, int slot_base, int kind) {
 				printf("MEGAROM 8Kの初期化に失敗しました\n");
 				return;
 			}
-			ms_memmap_MEGAROM_ASCII_8K_init(a8k, ms_memmap_shared_instance(), crt_buff, crt_length);
+			ms_memmap_MEGAROM_ASCII_8K_init(a8k, ms_memmap_shared_instance(), crt_buff, buf_length);
 			break;
 		case ROM_TYPE_MEGAROM_KONAMI:
 			// MEGAROM KONAMIとしてロードする
@@ -116,7 +122,7 @@ void allocateAndSetCartridge(const char *romFileName, int slot_base, int kind) {
 				printf("MEGAROM KONAMIの初期化に失敗しました\n");
 				return;
 			}
-			ms_memmap_MEGAROM_KONAMI_init(kon, ms_memmap_shared_instance(), crt_buff, crt_length);
+			ms_memmap_MEGAROM_KONAMI_init(kon, ms_memmap_shared_instance(), crt_buff, buf_length);
 			break;
 		case ROM_TYPE_MEGAROM_KONAMI_SCC:
 			// MEGAROM KONAMI SCCとしてロードする
@@ -126,7 +132,17 @@ void allocateAndSetCartridge(const char *romFileName, int slot_base, int kind) {
 				printf("MEGAROM KONAMI SCCの初期化に失敗しました\n");
 				return;
 			}
-			ms_memmap_MEGAROM_KONAMI_SCC_init(scc, ms_memmap_shared_instance(), crt_buff, crt_length);
+			ms_memmap_MEGAROM_KONAMI_SCC_init(scc, ms_memmap_shared_instance(), crt_buff, buf_length);
+			break;
+		case ROM_TYPE_PAC:
+			// PACとしてロードする
+			ms_memmap_driver_PAC_t* pac = ms_memmap_PAC_alloc();
+			driver = (ms_memmap_driver_t*)pac;
+			if( driver == NULL) {
+				printf("PACの初期化に失敗しました\n");
+				return;
+			}
+			ms_memmap_PAC_init(pac, ms_memmap_shared_instance(), crt_buff, buf_length, crt_length, (uint8_t*)romFileName);
 			break;
 		default:
 			break;
@@ -165,6 +181,18 @@ int detect_rom_type(uint8_t* buffer, int length) {
 	int ascii8k = 0;
 	int ascii16k = 0;
 	int i;
+
+	// 8206 = 16 + 8192 - 2
+	if ( (length == 8206) && (memcmp(buffer, "PAC2 BACKUP DATA", 16UL) == 0)) {
+		printf("PACと推定しました。\n");
+		return ROM_TYPE_PAC;
+	}
+
+	// これ以降は8Kバイト単位のものしかないのでここでブロック
+	if( (length & 0x1fff) != 0 ) {
+		printf("不明なROMです。\n");
+		return ROM_TYPE_NOTHING;
+	}
 
 	if (length <= 32 * 1024) {
 		printf("通常のミラーロムと推定しました。\n");
