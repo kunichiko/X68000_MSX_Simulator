@@ -63,8 +63,10 @@ typedef struct ms_memmap {
 
 	// 全てのスロット配置
 	// 基本スロット4 x 拡張スロット4 x ページ4
-	ms_memmap_driver_t* attached_driver[4][4][4];
+	ms_memmap_driver_t* driver_page_map[4][4][4];
 
+	// アタッチされているすべてのドライバのリスト
+	ms_memmap_driver_t* attached_drivers[64];
 
 	// CPU側と共有しているポインタの配列へのポインタ
 	uint8_t** current_ptr;
@@ -95,6 +97,7 @@ void ms_memmap_deinit_mac();
 void ms_memmap_set_main_mem( void *, int);
 
 int ms_memmap_attach_driver(ms_memmap_t* memmap, ms_memmap_driver_t* driver, int slot_base, int slot_ex);
+int ms_memmap_did_pause(ms_memmap_t* memmap);
 
 int allocateAndSetNORMALROM(int fh, int kind, int slot_base, int slot_ex, int page);
 void allocateAndSetDISKBIOSROM(const char *romFileName, ms_disk_container_t* disk_container);

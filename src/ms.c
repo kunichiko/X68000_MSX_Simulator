@@ -935,7 +935,7 @@ int emuLoopImpl(unsigned int pc, unsigned int counter) {
 						MS_LOG(MS_LOG_ERROR, "Unknown special key: %d\n", S);
 						break;
 					}
-				}
+		 		}
 			}
 			mask <<= 1;
 		}
@@ -964,6 +964,11 @@ int emuLoopImpl(unsigned int pc, unsigned int counter) {
 		w_PSG_ch_enable(0);
 		w_SCC_ch_enable(0);
 		printf("Paused:\n[TOROKU]: Resume [RET]: Exit\n");
+
+		// このタイミングで各ドライバのコールバックを呼び出す
+		ms_memmap_did_pause(memmap);
+
+		//
 		while(1) {
 			int va = BITSNS_WORK[0xa];	// IOCS BITSNSのワークエリア直接参照
 			if (!(va & 0x08)) {	// 登録キーが離されるまで待つ
