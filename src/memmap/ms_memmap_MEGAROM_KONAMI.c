@@ -55,6 +55,7 @@ void ms_memmap_MEGAROM_KONAMI_init(THIS* instance, ms_memmap_t* memmap, uint8_t*
 
 	//
 	instance->base.buffer = (uint8_t*)buffer;
+	instance->base.buffer_length = length;
 	instance->num_segments = length / 0x2000;
 
 	int page8k;

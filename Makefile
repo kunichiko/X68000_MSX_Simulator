@@ -54,6 +54,8 @@ OBJS = $(BUILD_DIR)/ms.o \
 		$(BUILD_DIR)/ms_memmap_MEGAROM_KONAMI.o \
 		$(BUILD_DIR)/ms_memmap_MEGAROM_KONAMI_SCC.o \
 		$(BUILD_DIR)/ms_memmap_PAC.o \
+		$(BUILD_DIR)/ms_memmap_ESE_RAM.o \
+		$(BUILD_DIR)/ms_memmap_ESE_SCC.o \
 		$(BUILD_DIR)/ms_vdp.o \
 		$(BUILD_DIR)/ms_vdp_mac.o \
 		$(BUILD_DIR)/ms_vdp_sprite.o \
@@ -106,6 +108,8 @@ OBJS_DEBUG = $(BUILD_DIR)/ms_d.o \
 		$(BUILD_DIR)/ms_memmap_MEGAROM_KONAMI_d.o \
 		$(BUILD_DIR)/ms_memmap_MEGAROM_KONAMI_SCC_d.o \
 		$(BUILD_DIR)/ms_memmap_PAC_d.o \
+		$(BUILD_DIR)/ms_memmap_ESE_RAM_d.o \
+		$(BUILD_DIR)/ms_memmap_ESE_SCC_d.o \
 		$(BUILD_DIR)/ms_vdp_d.o \
 		$(BUILD_DIR)/ms_vdp_mac_d.o \
 		$(BUILD_DIR)/ms_vdp_sprite_d.o \

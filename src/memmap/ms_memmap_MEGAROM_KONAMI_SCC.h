@@ -19,7 +19,7 @@ typedef struct ms_memmap_driver_MEGAROM_KONAMI_SCC {
 	uint8_t* scc_segment;
 
 	int num_segments;
-	int selected_segment[4];	// Page0-3のそれぞれのセグメント選択状態
+	int selected_segment[4];	// region 0-3のそれぞれのセグメント選択状態
 } ms_memmap_driver_MEGAROM_KONAMI_SCC_t;
 
 ms_memmap_driver_MEGAROM_KONAMI_SCC_t* ms_memmap_MEGAROM_KONAMI_SCC_alloc();

@@ -12,7 +12,7 @@
 
 static char* driver_name = "MEGAROM_KONAMI_SCC";
 
-static void _select_bank(THIS* d, int rom_page, int bank);
+static void _select_bank(THIS* d, int region, int bank);
 static void _did_attach(ms_memmap_driver_t* driver);
 static int _will_detach(ms_memmap_driver_t* driver);
 
@@ -58,6 +58,7 @@ void ms_memmap_MEGAROM_KONAMI_SCC_init(THIS* instance, ms_memmap_t* memmap, uint
 
 	//
 	instance->base.buffer = (uint8_t*)buffer;
+	instance->base.buffer_length = length;
 	instance->num_segments = length / 0x2000;
 
 	int page8k;
@@ -65,8 +66,9 @@ void ms_memmap_MEGAROM_KONAMI_SCC_init(THIS* instance, ms_memmap_t* memmap, uint
 		instance->base.page8k_pointers[page8k] = NULL;
 	}
 
-	for(page8k = 2; page8k < 6; page8k++) {
-		_select_bank(instance, page8k, page8k-2);	// KONAMI SCCメガロムの場合、初期値は0,1,2,3
+	int region;
+	for(region = 0; region < 4; region++) {
+		_select_bank(instance, region, region);	// KONAMI SCCメガロムの場合、初期値は0,1,2,3
 	}
 
 	// SCCレジスタの初期化
@@ -74,19 +76,15 @@ void ms_memmap_MEGAROM_KONAMI_SCC_init(THIS* instance, ms_memmap_t* memmap, uint
 
 	int i;
 	uint8_t* scc_segment;
-	if (instance->num_segments == 0x40) {
-		// 512KBの場合、セグメント番号 0x3f (63) はSCCレジスタとしても使用できる
-		scc_segment = instance->base.buffer + (0x3f * 0x2000);
-	} else {
-		// 64セグメント未満の場合でも、セグメント番号63はSCCレジスタとして使用できるので、その領域を確保
-		scc_segment = (uint8_t*)new_malloc( 8*1024 );
-		if(scc_segment == NULL) {
-			printf("メモリが確保できません。\n");
-			return;
-		}
-		for (i = 0; i < 8*1024; i++) {
-			scc_segment[i] = 0xff;
-		}
+
+	// セグメント番号63はSCCレジスタとして使用できるので、その領域を確保
+	scc_segment = (uint8_t*)new_malloc( 8*1024 );
+	if(scc_segment == NULL) {
+		printf("メモリが確保できません。\n");
+		return;
+	}
+	for (i = 0; i < 8*1024; i++) {
+		scc_segment[i] = 0xff;
 	}
 	// init SCC registers
 	for (i= 0x9800; i <= 0x98ff; i++) {
@@ -150,48 +148,47 @@ static uint16_t _read16(ms_memmap_driver_t* driver, uint16_t addr) {
 	SCC+を使用するためにはまず、0xbffeの bit4を1にする必要がある。
 	その後、SCCのバンク4(A000h~BFFFh, page8k=5)の選択レジスタのbit7を1にすると、SCC+のレジスタがアクセス可能になる。
  */
-static void _select_bank(THIS* d, int page8k, int segment) {
+static void _select_bank(THIS* d, int region, int segment) {
+	uint8_t* buf = NULL;
+
 	if ( d->scc_mode == 0 ) {
 		segment &= 0x3f;
 		if ( segment == 0x3f) {
 			// SCC register
-			d->base.page8k_pointers[page8k] = d->scc_segment;
-			d->selected_segment[page8k] = segment;
+			buf = d->scc_segment;
 		} else {
 			if ( segment >= d->num_segments) {
 				MS_LOG(MS_LOG_DEBUG,"MEGAROM_KONAMI_SCC: segment out of range: %d\n", segment);
-				return;
+				buf = NULL;
 			} else {
-				d->base.page8k_pointers[page8k] = d->base.buffer + (segment * 0x2000);
-				d->selected_segment[page8k] = segment;
+				buf = d->base.buffer + (segment * 0x2000);
 			}
 		}
 	} else {	
-		if ( (page8k == 5) && (segment & 0x80) ) {
-			// SCC+の場合、バンク4の選択レジスタのbit7を1にすると、SCC+のレジスタがアクセス可能になる
-			d->base.page8k_pointers[page8k] = d->scc_segment;
-			d->selected_segment[page8k] = 0x80;
+		if ( (segment == 3) && (segment & 0x80) ) {
+			// SCC+の場合、region 3の選択レジスタのbit7を1にすると、SCC+のレジスタがアクセス可能になる
+			buf =  d->scc_segment;
+			segment = 0x80;
 		} else {
 			segment &= 0x3f;
 			if ( segment >= d->num_segments) {
 				MS_LOG(MS_LOG_DEBUG,"MEGAROM_KONAMI_SCC: segment out of range: %d\n", segment);
-				return;
+				buf = NULL;
 			} else {
-				d->base.page8k_pointers[page8k] = d->base.buffer + (segment * 0x2000);
-				d->selected_segment[page8k] = segment;
+				buf = d->base.buffer + (segment * 0x2000);
 			}
 		}
 	}
 
-	// 切り替えが起こったことを memmap に通知
-	d->base.memmap->update_page_pointer( d->base.memmap, (ms_memmap_driver_t*)d, page8k);
-	return;
+	d->selected_segment[region] = segment;
+	d->base.page8k_pointers[(region+2)&0x7] = buf;
+	d->base.memmap->update_page_pointer( d->base.memmap, (ms_memmap_driver_t*)d, (region+2)&0x7);	// 切り替えが起こったことを memmap に通知
 }
 
 
 /*
 */
-uint32_t conv_freq(THIS* d, uint32_t freq) {
+static uint32_t conv_freq(THIS* d, uint32_t freq) {
 	switch (d->scc_segment[0x18e0] & 0x3) {
 		case 0:
 			return freq & 0xfff;
@@ -385,40 +382,35 @@ static void _write_scc_v2_reg(THIS* d, uint16_t addr, uint8_t data) {
 static void _write8(ms_memmap_driver_t* driver, uint16_t addr, uint8_t data) {
 	THIS* d = (THIS*)driver;
 	// バンク切り替え処理
-	int page8k = -1;
 	int area = addr >> 11;
 	switch(area) {
 	case 0x5*2:
-		page8k = 2;
+		_select_bank(d, 0, data);
 		break;
 	case 0x7*2:
-		page8k = 3;
+		_select_bank(d, 1, data);
 		break;
 	case 0x9*2:
-		page8k = 4;
+		_select_bank(d, 2, data);
 		break;
 	case 0x9*2+1:	// 0x9800-0x9fff には SCCのレジスタがある
-		if ((d->selected_segment[4] == 0x3f) && (d->scc_mode == 0) && (r_SCC_enable() != 0) ) {
+		if ((d->selected_segment[2] == 0x3f) && (d->scc_mode == 0) && (r_SCC_enable() != 0) ) {
 			_write_scc_v1_reg(d, addr, data);
 		}
 		break;
 	case 0xb*2:
-		page8k = 5;
+		_select_bank(d, 3, data);
 		break;
 	case 0xb*2+1:	// 0xb800-0xbfff には SCC+のレジスタがある
 		if (r_SCC_enable() != 0) {
 			if ((addr == 0xbffe) || (addr == 0xbfff)) {
 				_write_scc_mode_reg(d, addr, data);
-			} else if ( (d->scc_mode != 0) && (d->selected_segment[5] == 0x80) ) {
+			} else if ( (d->scc_mode != 0) && (d->selected_segment[3] == 0x80) ) {
 				_write_scc_v2_reg(d, addr, data);
 			}
 		}
 		break;
 	}
-	if (page8k != -1) {
-		_select_bank(d, page8k, data);
-	}
-	return;
 }
 
 static void _write16(ms_memmap_driver_t* driver, uint16_t addr, uint16_t data) {

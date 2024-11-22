@@ -174,6 +174,10 @@ char* separate_rom_kind(char* path, int* kind) {
 			*kind = ROM_TYPE_MEGAROM_KONAMI;
 		} else if (strcasecmp(p, "SCC") == 0) {
 			*kind = ROM_TYPE_MEGAROM_KONAMI_SCC;
+		} else if (strcasecmp(p, "ERAM") == 0) {
+			*kind = ROM_TYPE_ESE_RAM;
+		} else if (strcasecmp(p, "ESCC") == 0) {
+			*kind = ROM_TYPE_ESE_SCC;
 		} else {
 			*kind = -1;
 		}
