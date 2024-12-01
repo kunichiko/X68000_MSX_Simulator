@@ -196,7 +196,7 @@ char* separate_rom_kind(char* path, int* kind) {
 			xx: 10の位 = スロット番号, 1の位 = ページ番号
 			例：-r11 GAME1.ROM	: スロット1-ページ1にGAME1.ROMをセット				
 */
-int main(int argc, char *argv[]) {
+int msx_main(int argc, char *argv[]) {
 #ifdef DEBUG
 	debug_log_level = MS_LOG_DEBUG;
 #else 
@@ -234,14 +234,6 @@ int main(int argc, char *argv[]) {
 	};
 	const struct option* longopt;
 	int longindex = 0;
-
-	printf("[[ MSX Simulator MS.X %s]]\n", MS_dot_X_VERSION);
-
-	unsigned int mpu_type = _iocs_mpu_stat();
-	if( (mpu_type & 0xf) < 3) {
-		printf("MS.X の動作には 68030以上が必要です\n");
-		ms_exit();
-	}
 
 	// デフォルトの初期化
 	default_param.buf = NULL;
