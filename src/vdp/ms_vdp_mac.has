@@ -18,7 +18,11 @@
 	.xref	cpu_yield
 	.xref	sub_yield
 	.xref	emu_yield
-	.xref	host_delay
+	.xref	host_line
+
+	.xref	emu_counter
+	.xref	emu_counter_latch
+	.xref	int_block_count
 
 	.xref	ms_vdp_set_mode
 	.xref	ms_vdp_update_visibility
@@ -71,7 +75,8 @@
 	.xdef	LMMC_G5
 
 
-MFP_GPIP_6	equ	$000138		* 水平割り込みのベクタアドレス
+V_MFP_GPIP_6	equ	$000138		* 水平割り込みのベクタアドレス
+V_MFP_GPIP_7	equ	$00013C		* H-SYNC割り込み(全ラスタ割り込み)
 
 gram		equ	$c00000
 
@@ -111,7 +116,8 @@ VCRR_01		equ	$e82500		* ビデオコントロールレジスタ１
 VCRR_02		equ	$e82600		* ビデオコントロールレジスタ２
 
 GPIP		equ	$e88001
-IERA		equ	$e88007
+IERA		equ	$e88007		* 割り込み許可レジスタA。Bit7がGPIP7(HSYNC)
+IMRA		equ	$e88013		* 割り込みマスクレジスタA。Bit7がGPIP7(HSYNC)
 
 X68_SSR		equ	$eb0000		* スプライトスクロールレジスタ
 
@@ -427,7 +433,35 @@ ms_vdp_init_mac:
 	IOCS	__CRTCRAS
 	bra	@b
 @@:
-	;
+	; HSYNC割り込みを設定(テスト)
+	; GPIP7のHSYNC割り込みを設定し、以下の目的に使用する
+	; ●目的1: VSYNC直後の画面リフレッシュ
+	; MSX側がVSYNC割り込みでスプライトの書き換えを行った後、X68000側のスプライトに
+	; その変更を反映したい。元々はVSYNC割り込みでMSX側に割り込みをかけた後、 hostdelayで
+	; 指定された命令が実行された後にホスト側の処理(スプライトのアップデートなど)を行っていたが、
+	; その方法だと、タイミングが制御しづらい
+	; そこで、HSYNC割り込みでラスタ番号をカウントし、hostdelayではなく、特定の走査線番号で
+	; ホスト側の処理を呼び出せるようにしたい
+	; --hostdelayを廃止し、--hostlineに変更
+	;	
+	; ●目的2: HSYNCが2倍発生してしまう問題への対処
+	; MSX側は192 or 212ラインしかないが、X68000側はたとえ256ドットモードにしたとしても
+	; 31kHzモードだと、その倍のHSYNCが発生している
+	; 通常は問題が起きないが VDP S#2 の b5で 水平帰線期間(0:帰線期間,1:表示期間)を計測
+	; されてしまうと、実機の2倍のHSYNCが見えてしまう。
+	; よくある処理としては、ラスタ割り込みを1ライン手前で発生させ、割り込み中に VDP #2を
+	; ポーリングして、帰線期間に入ったら実際の処理を行うという手法がある。
+	; MSXのラスタ割り込みはX68000側のCRTCRASで行なっているので、その後にポーリングされると
+	; 中間のラインで処理が行われることになる。走査線番号が偶数の時だけ拾えるようにすれば
+	; よいのだが、X68000には現在の走査線番号を取得するレジスタがないので、HSYNC割り込みを使って
+	; カウンタで数える必要がある
+	andi.b	#%01111111,IERA		* GPIP7のHSYNC割り込みを禁止
+	ori.b	#%10000000,IMRA		* GPIP7のHSYNC割り込みマスクを剥がす（1=マスクしない）
+	move.l	V_MFP_GPIP_7,hsync_vec_original	* 元のベクタを保存
+	move.l	#hsync_interrupt,V_MFP_GPIP_7	* HSYNC割り込みベクタを設定
+	ori.b	#%10000000,IERA		* GPIP7のHSYNC割り込みを許可
+
+	; 
 	move.w	(sp)+,sr			* 割り込み復帰
 
 	movem.l	(sp)+,d3-d7/a0-a5
@@ -443,25 +477,33 @@ vsync_interrupt:
 	movem.l	d0/a0/a5,-(sp)
 	addq.w	#1,ms_vsync_interrupt_tick
 
-	movea.l	ms_vdp_shared,a5
+	; HSYNCカウンタを0に戻す
+	move.w	#0,hsync_counter
 
-;	VDPの割り込み処理
-@@:	btst.b	#5,offset_ms_vdp_r01(a5)	* VDP IE0 (R#1のbit5) をみて、VSYNC割り込みが許可されているかを調べる
+	; emu_counter の増加量が int_block_count に達していなかったら割り込みを一回スキップ(実験)
+	move.l	emu_counter,d0
+	sub.l	emu_counter_latch2,d0
+	cmp.l	int_block_count,d0
+	bgt	@f
+	bra	9f
+
+@@:
+	move.l	emu_counter,emu_counter_latch2
+	;	VDPの割り込み処理
+	movea.l	ms_vdp_shared,a5
+	btst.b	#5,offset_ms_vdp_r01(a5)	* VDP IE0 (R#1のbit5) をみて、VSYNC割り込みが許可されているかを調べる
 	beq	@f
 	bset.b	#7,offset_ms_vdp_s00(a5)	* VDP S#0の bit7に、VSYNC割り込み発生フラグを立てる。これとS#1の HSYNC割り込みがZ80のINT端子の状態を表している。
 	bset.b	#0,ms_vdp_int			* VSYNC割り込み要求フラグを立てる
 	move.b	#$01,cpu_yield			* cpu_yield
 
-@@:	; MSX側と関係なく、ホスト(X68000)側の処理が必要なので、emu_yieldをセット
-	move.w	host_delay,emu_yield		* emu_yield
-
-	.if 	RASTERDEBUG=1
+@@:	.if 	RASTERDEBUG=1
 	; どこでラスタ割り込みがかかっているかを確認するためにテキストパレットの色を変える(ここで戻す)
 	move.w	#%11111_11111_11111_1,t_palette+$3*2
 	;move.w	#%11111_00000_11111_1,raster_debug
 	.endif
 
-	movem.l	(sp)+,d0/a0/a5
+9:	movem.l	(sp)+,d0/a0/a5
 	rte
 
 raster_interrupt:
@@ -489,6 +531,32 @@ raster_interrupt:
 
 raster_debug:
 	.dc.w	%11111_00000_11111_1
+
+hsync_interrupt:
+	move.l	d0,-(sp)
+	;
+	move.w	hsync_counter,d0
+	add.w	#1,d0
+	move.w	d0,hsync_counter
+	cmp.w	host_line,d0
+	bne	@f
+	; ホスト(X68000)側の処理を行うためのフラグ、emu_yieldをセット
+	move.w	#$1,emu_yield
+
+	;
+@@:	move.l	(sp)+,d0	
+	rte
+
+	.data
+emu_counter_latch2:
+	.dc.l	0
+
+hsync_vec_original:
+	.dc.l	0
+hsync_counter:
+	.dc.w	0
+
+	.text
 ;
 ; ＶＤＰの終了処理
 ;
@@ -498,9 +566,16 @@ ms_vdp_deinit_mac:
 	or.w	#%00000111_00000000,d0	* 一時的に割り込み禁止
 	move.w	d0,sr
 
+	; HSYNC割り込みを戻す
+	andi.b	#%01111111,IERA		* GPIP7のHSYNC割り込みを禁止
+	andi.b	#%01111111,IMRA		* GPIP7のHSYNC割り込みマスク（0=マスク）
+	move.l	hsync_vec_original,V_MFP_GPIP_7	* 元のベクタに戻す
+
+	; ラスタ割り込みを戻す
 	clr.l	a1			* ラスタ割り込みの禁止
 	IOCS	__CRTCRAS
 
+	; HSYNC割り込みを戻す
 	clr.l	a1			* 垂直同期割り込みを禁止
 	IOCS	__VDISPST
 
@@ -1166,19 +1241,50 @@ w_R17:	move.b	d1,offset_ms_vdp_r17(a5)
 
 ; R#18 は set adjust
 w_R18:
+	move.b	offset_ms_vdp_r18(a5),d0	* 現在の値を保持
 	move.b	d1,offset_ms_vdp_r18(a5)
 	; 水平方向だけ仮対応
+	; R18の下位4ビットが水平方向のAdjust値。4ビットの符号あり整数で -8 ～ +7 の範囲の値を取る。
+	; -8(0x8)の時、画面は右に8ドットずれる
+	;  0(0x0)の時は、画面は中央に表示される
+	; +7(0x7)の時は、画面は左に7ドットずれる
+	; 一方、X68000のCRTR #12 は水平スクロール量で
+	; -8(0xfff8)の時、画面は右に8ドットずれる
+	;  0(0x0000)の時は、画面は中央に表示される
+	; +7(0x0007)の時は、画面は左に7ドットずれる
+	;となるので、符号拡張してCRTR #12に書き込めばよい
 	andi.w	#$000f,d1
 	btst.l	#3,d1
 	beq	@f		* 正の数
-	or.w	#$fff0,d1	* 歩の数を符号拡張
+	or.w	#$fff0,d1	* 負の数を符号拡張
 @@:	lea.l	CRTR_12,a0
 	move.w	d1,(a0)
 	move.w	d1,4(a0)
 	move.w	d1,8(a0)
 	move.w	d1,12(a0)
-	* set adjustの変更があったら、スプライト位置を再計算
-	move.w	#SPRITE_REFRESH_FLAG_COORD,offset_ms_vdp_sprite_refresh_flag(a5)
+	; MS.Xでは、set adjustをグラフィック面のX方向のスクロール(CRTR_12)で実現しているが
+	; MSXの set adjustは、画面の起点そのものを動かすものなので、グラフィック面だけでなく
+	; スプライトも移動してしまう
+	; そのため、set adjustの変更があったら、スプライトX座標も調整する必要がある
+	; 次回のリフレッシュを待っていると間に合わないので、この場で全スプライトのX座標を
+	; 強制的に書き換える
+	; 以前の値が0(中央)で、今回が1(左に1ドットスクロール)の場合、全スプライトを左に移動する、
+	; つまりスプライトのX座標を1減らす必要がある。ということは (前回)-(今回)を dとして
+	; 全てのスプライトにdを足せばよいことになる
+	;move.w	#SPRITE_REFRESH_FLAG_COORD,offset_ms_vdp_sprite_refresh_flag(a5)
+	andi.w	#$000f,d0	* X方向の値の取り出し(4bit符号付き整数)
+	sub.w	d1,d0		* d0 = (前回)-(今回) = d
+	andi.w	#$000f,d0
+	btst.l	#3,d0
+	beq	@f		* 正の数
+	or.w	#$fff0,d0	* 負の数を符号拡張
+@@:
+	lea.l	X68_SSR,a0
+	move.w	#128-1,d1
+@@:	add.w	d0,(a0)
+	lea.l	8(a0),a0
+	dbra	d1,@b
+
 	rts
 
 ; R#19 はラスタ割り込み番号の指定

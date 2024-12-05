@@ -106,7 +106,7 @@ unsigned short host_rate = 1;
 volatile extern unsigned short ms_vsync_interrupt_tick;
 volatile extern unsigned short ms_vdp_vsync_rate;
 volatile extern unsigned int int_block_count;
-volatile extern unsigned short host_delay;
+volatile extern unsigned short host_line;
 volatile extern unsigned int int_skip_counter;
 volatile extern unsigned int int_exec_counter;
 typedef struct interrupt_history_st {
@@ -126,13 +126,13 @@ void printHelpAndExit(char* progname) {
 	fprintf(stderr, " --vsrate vsync rate (1-60)\n");
 	fprintf(stderr, "    1: every frame, 2: every 2 frames, ...\n");
 	fprintf(stderr, "    default is 1.\n");
-	fprintf(stderr, " --intblock block cycle (1-9999)\n");
+	fprintf(stderr, " --intblock block cycle (1-99999)\n");
 	fprintf(stderr, "    default is 2048 cycles.\n");
 	fprintf(stderr, " --hostrate host key operation rate (1-60)\n");
 	fprintf(stderr, "    1: every frame, 2: every 2 frames, ...\n");
 	fprintf(stderr, "    default is 3.\n");
-	fprintf(stderr, " --hostdelay host key interruption delay cycle (1-9999)\n");
-	fprintf(stderr, "    default is 100 cycles.\n");
+	fprintf(stderr, " --hostline host interruption line (1-500)\n");
+	fprintf(stderr, "    default is 100th line.\n");
 	fprintf(stderr, " --hostdebug\n");
 	fprintf(stderr, "    enable host process debug mode.\n");
 	fprintf(stderr, " --disablekanji\n");
@@ -223,7 +223,7 @@ int main(int argc, char *argv[]) {
 	    {         "vsrate", required_argument,               0, 'A' },
 	    {       "intblock", required_argument,               0, 'B' },
 	    {       "hostrate", required_argument,               0, 'C' },
-	    {      "hostdelay", required_argument,               0, 'D' },
+	    {       "hostline", required_argument,               0, 'D' },
 		{      "hostdebug",       no_argument,      &hostdebug,  1  },
 		{   "disablekanji",       no_argument,   &disablekanji,  1  },
 		{"disablehsyncint",       no_argument,&disablehsyncint,  1  },
@@ -451,7 +451,7 @@ int main(int argc, char *argv[]) {
 			longopt = &longopts[longindex];
 			if (longopt->has_arg && optarg != NULL) {
 				int_block_count = atoi(optarg);
-				if (int_block_count < 1 || int_block_count > 9999) {
+				if (int_block_count < 1 || int_block_count > 99999) {
 					printf("割り込みブロックカウントが不正です\n");
 					printHelpAndExit(argv[0]);
 				}
@@ -474,13 +474,13 @@ int main(int argc, char *argv[]) {
 				printHelpAndExit(argv[0]);
 			}
 			break;
-		case 'D': // --hostdelay N オプション
-			// ホスト処理遅延カウントの設定
+		case 'D': // --hostline N オプション
+			// ホスト処理ライン番号の設定
 			longopt = &longopts[longindex];
 			if (longopt->has_arg && optarg != NULL) {
-				host_delay = atoi(optarg);
-				if (host_delay < 1 || host_delay > 9999) {
-					printf("ホスト処理遅延カウントが不正です\n");
+				host_line = atoi(optarg);
+				if (host_line < 1 || host_line > 500) {
+					printf("ホスト処理ライン番号が不正です\n");
 					printHelpAndExit(argv[0]);
 				}
 			} else {
@@ -979,7 +979,12 @@ int emuLoopImpl(unsigned int pc, unsigned int counter) {
 				break;
 			}
 		}
+		// 画面(スプライト)の状態を最新にする(デバッグ)
+		//vdp->sprite_refresh_flag = SPRITE_REFRESH_FLAG_PGEN;
+		//ms_vdp_vsync_draw(vdp, hostdebug);
+		//
 		while(1) {
+			//
 			int va = BITSNS_WORK[0xa];	// IOCS BITSNSのワークエリア直接参照
 			if (va & 0x08) {	// もう一度登録キーが押されたら再開
 				break;

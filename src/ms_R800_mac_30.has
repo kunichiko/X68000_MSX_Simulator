@@ -117,6 +117,9 @@
 	.xdef	ms_cpu_registers_ptr
 	.xdef	ms_cpu_needs_refresh_PC
 
+	.xdef	emu_counter
+	.xdef	emu_counter_latch
+
 	;.xdef	cpu_main
 	.xdef	cpu_sub_emu_yield
 	.xdef	cpu_yield		* 一定周期(VSYNC)などで必ず呼び出される割り込み要求
@@ -777,17 +780,17 @@ check_interrupt:
 	cmpi.b	#0,ms_cpu_int
 	beq	next_emu_yield
 	; emu_counter の増加量が int_block_count に達していなかったら割り込みを一回スキップ(実験)
-	move.l	emu_counter,d0
-	sub.l	emu_counter_latch,d0
-	cmp.l	int_block_count,d0
-	bgt	1f
-	; Skip処理
-	addq.l	#1,int_skip_counter
+	; move.l	emu_counter,d0
+	; sub.l	emu_counter_latch,d0
+	; cmp.l	int_block_count,d0
+	; bgt	1f
+	; ; Skip処理
+	; addq.l	#1,int_skip_counter
 
-	move.w	#1,d0
-	bsr	add_interrupt_history
+	; move.w	#1,d0
+	; bsr	add_interrupt_history
 
-	bra	check_yield_rts
+	; bra	check_yield_rts
 
 1:
 	addq.l	#1,int_exec_counter

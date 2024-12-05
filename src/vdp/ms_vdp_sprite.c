@@ -336,8 +336,8 @@ void refresh_sprite_256_mode1(ms_vdp_t* vdp, int plNum) {
 　通常のゲームなどで色合成を使う場合、以下のような使い方をしているはず。
 	* X,Y座標は完全に一致させる
 	* 連続するスプライトプレーンを使用する
-		* モード2の使用上は「同一ライン上に並んでいる物の中で合成」なので必ずしも連続していなくても良い
-		* が、スプライトが横切る際などに破綻するので、通常は連続させるはず
+		* モード2の使用上は「同一ライン上に並んでいる物の中で合成」なので必ずしも連続していなくても良いが、
+		* スプライトが横切る際などに破綻するので、通常は連続させるはず
 	* 最大4枚の合成まで
 		* 4ビットあれば16色全てが表現できるので5枚以上重ねるケースはないと想定
 　以上を前提として、以下のように合成する。
@@ -350,8 +350,7 @@ void refresh_sprite_256_mode1(ms_vdp_t* vdp, int plNum) {
 	* プラーンn+1からmまで以下を繰り返す
 		* yライン目の色データを取得し、それぞれの色コードを掛ける
 		* CC=1の場合は、その色を直前のCC=0のプレーンと合成する
-		* CC=0の場合は、それ自身ののプレーン(本来のプレーン)に色を描画する
-	OR合成する
+		* CC=0の場合は、それ自身のプレーン(本来のプレーン)に色を描画する
 	* y=y+1して繰り返す
 	* 全てのライン(8x8モードの場合は8ライン、16x16モードの場合は16ライン)に対して繰り返す
 	* nを m+1に更新し、nが31を超えるまで繰り返す
@@ -426,7 +425,7 @@ void refresh_sprite_256_mode2(ms_vdp_t* vdp) {
 						i=j+1;
 						break;
 					}
-					j++; // j==mを先に判定しているので、i+1がmをオーバーすることはない
+					j++; // j==mを先に判定しているので、j+1がmをオーバーすることはない
 					if( (sprite_cc_flags[j]&mask) == 0) {
 						// CC=0に遭遇したら、それ以降は合成しない
 						X68_PCG[i*PCG_UNIT+yybase+8*0] = pattern0;
@@ -747,7 +746,7 @@ void ms_vdp_sprite_vsync_draw(ms_vdp_t* vdp, int hostdebugmode) {
 				sprite_cc_flags[plNum] = ccflag;
 			}
 		}
-		flag |= SPRITE_REFRESH_FLAG_ATTR;	// スプライトアトリビュートテーブルの更新も行う
+		flag |= SPRITE_REFRESH_FLAG_ATTR;	// スプライトアトリビュートテーブル(パターン番号)の更新も行う
 	}
 	if (flag & SPRITE_REFRESH_FLAG_ATTR) {
 		if(hostdebugmode) {
@@ -773,13 +772,13 @@ void ms_vdp_sprite_vsync_draw(ms_vdp_t* vdp, int hostdebugmode) {
 				refresh_sprite_256_mode2(vdp);
 			}
 		}
-		flag |= SPRITE_REFRESH_FLAG_COORD;	// スプライトアトリビュートテーブルの更新も行う
+		flag |= SPRITE_REFRESH_FLAG_COORD;	// スプライトアトリビュートテーブル(表示位置)の更新も行う
 	}
 	if (flag & SPRITE_REFRESH_FLAG_COORD) {
 		if(hostdebugmode) {
 			X68_TX_PAL[0] = 0x1f << 11 | 0x1f << 6;	// Yellow
 		}
-		// スプライトアトリビュートテーブルのみの更新
+		// スプライトアトリビュートテーブルのXY座標のみの更新
 		int HY = (vdp->ms_vdp_current_mode->sprite_mode & 0x3) == 1 ? 208 : 216;
 		uint8_t* sprattr = vram + vdp->sprattrtbl_baddr;
 		uint8_t* sprcolr = vram + vdp->sprcolrtbl_baddr;

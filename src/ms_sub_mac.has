@@ -28,19 +28,19 @@
 	.xdef	ms_vdp_int
 	.xdef	ms_cpu_int
 	.xdef	int_block_count
-	.xdef	host_delay
+	.xdef	host_line
 
 headerlength	equ	8
 
-MFP_GPIP_4	equ	$000118		* V-DISP割り込みのベクタアドレス
-MFP_GPIP_6	equ	$000138		* 特定ラスタ(CRTC R#9)での割り込みのベクタアドレス
-MFP_GPIP_7	equ	$00013C		* H-SYNC割り込み(全ラスタ割り込み)
-MFP_MPSC_EMP	equ	$000130		* キー入力ベクタアドレス
-IERA		equ	$e88007
+V_MFP_GPIP_4	equ	$000118		* V-DISP割り込みのベクタアドレス
+V_MFP_GPIP_6	equ	$000138		* 特定ラスタ(CRTC R#9)での割り込みのベクタアドレス
+V_MFP_GPIP_7	equ	$00013C		* H-SYNC割り込み(全ラスタ割り込み)
+V_MFP_MPSC_EMP	equ	$000130		* キー入力ベクタアドレス
+IERA		equ	$e88007		* 割り込み許可レジスタA。Bit7がGPIP7(HSYNC)
 IERB		equ	$e88009
 ISRA		equ	$e8800F
 ISRB		equ	$e88011
-IMRA		equ	$e88013
+IMRA		equ	$e88013		* 割り込みマスクレジスタA。Bit7がGPIP7(HSYNC)
 IMRB		equ	$e88015
 VR		equ	$e88017		* ベクタレジスタ
 
@@ -256,7 +256,7 @@ ms_iocs_ledctrl:
 
 int_block_count:
 	.dc.l	2048
-host_delay:
+host_line:
 	.dc.w	100
 original:
 	.dc.l	0

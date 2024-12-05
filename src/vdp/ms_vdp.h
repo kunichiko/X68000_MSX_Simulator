@@ -218,6 +218,7 @@ typedef struct ms_vdp {
 	uint16_t sprite_refresh_flag;
 
 	// VDPコマンドのワークエリア
+	// VDPを時分割で処理する際に使用するもので、コマンド実行時にセットされる
 	// これ以降は ms_vdp_mac.has に定義されているオフセットに影響しないので増減してもOK
 	uint8_t cmd_current;
 	uint8_t cmd_logiop;
