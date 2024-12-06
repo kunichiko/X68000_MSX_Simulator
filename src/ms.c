@@ -3,7 +3,7 @@
 		ＭＳＸ.Ｓｉｍｕｌａｔｅｒ [[ MS ]]
 				[[スタートアッププログラム ]]
 
-	ver. 0.01	prpgramed by Kuni.
+	ver. 0.01	programmed by Kuni.
 										1995.9.15
 
 */
