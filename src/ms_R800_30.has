@@ -832,7 +832,7 @@ next_emu_yield:
 	bra	emu_end
 
 check_yield_rts:
-	move.w	(sp)+,sr
+	move.w	(sp)+,sr			* ‚±‚±‚ÅŠ„‚è‚İ‹–‰Â‚É–ß‚·
 	rts
 
 ; emu_yield‚Ìˆ—

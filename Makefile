@@ -29,13 +29,13 @@ ASFLAGS_DEBUG = -d -s DEBUG $(ASFLAGS)
 
 # オブジェクトファイルのリストを変数にまとめる
 OBJS = $(BUILD_DIR)/ms.o \
-		$(BUILD_DIR)/ms_R800_mac_30.o \
-		$(BUILD_DIR)/ms_R800_flag.o \
+		$(BUILD_DIR)/ms_R800_30_mac.o \
+		$(BUILD_DIR)/ms_R800_flag_mac.o \
 		$(BUILD_DIR)/ms_iomap.o \
 		$(BUILD_DIR)/ms_iomap_mac.o \
-		$(BUILD_DIR)/ms_sysvalue.o \
+		$(BUILD_DIR)/ms_sysvalue_mac.o \
 		$(BUILD_DIR)/ms_sub_mac.o \
-		$(BUILD_DIR)/ms_peripherals.o \
+		$(BUILD_DIR)/ms_peripherals_mac.o \
 		$(BUILD_DIR)/ms_rtc.o \
 		$(BUILD_DIR)/ms_psg.o \
 		$(BUILD_DIR)/ms_psg_mac.o \
@@ -83,13 +83,13 @@ OBJS = $(BUILD_DIR)/ms.o \
 		$(BUILD_DIR)/ms_disk_bios_Panasonic.o
 
 OBJS_DEBUG = $(BUILD_DIR)/ms_d.o \
-		$(BUILD_DIR)/ms_R800_mac_30_d.o \
-		$(BUILD_DIR)/ms_R800_flag_d.o \
+		$(BUILD_DIR)/ms_R800_30_mac_d.o \
+		$(BUILD_DIR)/ms_R800_flag_mac_d.o \
 		$(BUILD_DIR)/ms_iomap_d.o \
 		$(BUILD_DIR)/ms_iomap_mac_d.o \
-		$(BUILD_DIR)/ms_sysvalue_d.o \
+		$(BUILD_DIR)/ms_sysvalue_mac_d.o \
 		$(BUILD_DIR)/ms_sub_mac_d.o \
-		$(BUILD_DIR)/ms_peripherals_d.o \
+		$(BUILD_DIR)/ms_peripherals_mac_d.o \
 		$(BUILD_DIR)/ms_rtc_d.o \
 		$(BUILD_DIR)/ms_psg_d.o \
 		$(BUILD_DIR)/ms_psg_mac_d.o \
@@ -176,12 +176,12 @@ ${BUILD_DIR}/%.o: $(SRC_DIR)/%.c $(SRC_DIR)/ms_R800.h $(SRC_DIR)/ms.h
 ${BUILD_DIR}/%_d.o: $(SRC_DIR)/%.c $(SRC_DIR)/ms_R800.h $(SRC_DIR)/ms.h
 	$(CC) $(CFLAGS_DEBUG) $< -o $@
 
-${BUILD_DIR}/%.o: $(SRC_DIR)/%.has
+${BUILD_DIR}/%_mac.o: $(SRC_DIR)/%.has
 	$(AS) $(ASFLAGS) $< -o $@.tmp
 	x68k2elf.py $@.tmp $@
 	rm $@.tmp
 
-${BUILD_DIR}/%_d.o: $(SRC_DIR)/%.has $(SRC_DIR)/ms.mac
+${BUILD_DIR}/%_mac_d.o: $(SRC_DIR)/%.has $(SRC_DIR)/ms.mac
 	$(AS) $(ASFLAGS_DEBUG) $< -o $@.tmp
 	x68k2elf.py $@.tmp $@
 	rm $@.tmp
@@ -194,12 +194,12 @@ ${BUILD_DIR}/%.o: $(VDP_DIR)/%.c $(VDP_DIR)/ms_vdp.h $(SRC_DIR)/ms.h
 ${BUILD_DIR}/%_d.o: $(VDP_DIR)/%.c $(VDP_DIR)/ms_vdp.h $(SRC_DIR)/ms.h
 	$(CC) $(CFLAGS_DEBUG) $< -o $@
 
-${BUILD_DIR}/%.o: $(VDP_DIR)/%.has
+${BUILD_DIR}/%_mac.o: $(VDP_DIR)/%.has
 	$(AS) $(ASFLAGS) $< -o $@.tmp
 	x68k2elf.py $@.tmp $@
 	rm $@.tmp
 
-${BUILD_DIR}/%_d.o: $(VDP_DIR)/%.has $(SRC_DIR)/ms.mac
+${BUILD_DIR}/%_mac_d.o: $(VDP_DIR)/%.has $(SRC_DIR)/ms.mac
 	$(AS) $(ASFLAGS_DEBUG) $< -o $@.tmp
 	x68k2elf.py $@.tmp $@
 	rm $@.tmp
@@ -211,12 +211,12 @@ ${BUILD_DIR}/%.o: $(MEMMAP_DIR)/%.c $(MEMMAP_DIR)/ms_memmap.h $(SRC_DIR)/ms.h
 ${BUILD_DIR}/%_d.o: $(MEMMAP_DIR)/%.c $(MEMMAP_DIR)/ms_memmap.h $(SRC_DIR)/ms.h
 	$(CC) $(CFLAGS_DEBUG) $< -o $@
 
-${BUILD_DIR}/%.o: $(MEMMAP_DIR)/%.has
+${BUILD_DIR}/%_mac.o: $(MEMMAP_DIR)/%.has
 	$(AS) $(ASFLAGS) $< -o $@.tmp
 	x68k2elf.py $@.tmp $@
 	rm $@.tmp
 
-${BUILD_DIR}/%_d.o: $(MEMMAP_DIR)/%.has $(SRC_DIR)/ms.mac
+${BUILD_DIR}/%_mac_d.o: $(MEMMAP_DIR)/%.has $(SRC_DIR)/ms.mac
 	$(AS) $(ASFLAGS_DEBUG) $< -o $@.tmp
 	x68k2elf.py $@.tmp $@
 	rm $@.tmp
@@ -228,12 +228,12 @@ ${BUILD_DIR}/%.o: $(DISK_DIR)/%.c $(DISK_DIR)/ms_disk.h $(SRC_DIR)/ms.h
 ${BUILD_DIR}/%_d.o: $(DISK_DIR)/%.c $(DISK_DIR)/ms_disk.h $(SRC_DIR)/ms.h
 	$(CC) $(CFLAGS_DEBUG) $< -o $@
 
-${BUILD_DIR}/%.o: $(DISK_DIR)/%.has
+${BUILD_DIR}/%_mac.o: $(DISK_DIR)/%.has
 	$(AS) $(ASFLAGS) $< -o $@.tmp
 	x68k2elf.py $@.tmp $@
 	rm $@.tmp
 
-${BUILD_DIR}/%_d.o: $(DISK_DIR)/%.has $(SRC_DIR)/ms.mac
+${BUILD_DIR}/%_mac_d.o: $(DISK_DIR)/%.has $(SRC_DIR)/ms.mac
 	$(AS) $(ASFLAGS_DEBUG) $< -o $@.tmp
 	x68k2elf.py $@.tmp $@
 	rm $@.tmp
@@ -245,12 +245,12 @@ ${BUILD_DIR}/%.o: $(PERIPHERAL_DIR)/%.c $(SRC_DIR)/ms.h
 ${BUILD_DIR}/%_d.o: $(PERIPHERAL_DIR)/%.c $(SRC_DIR)/ms.h
 	$(CC) $(CFLAGS_DEBUG) $< -o $@
 
-${BUILD_DIR}/%.o: $(PERIPHERAL_DIR)/%.has
+${BUILD_DIR}/%_mac.o: $(PERIPHERAL_DIR)/%.has
 	$(AS) $(ASFLAGS) $< -o $@.tmp
 	x68k2elf.py $@.tmp $@
 	rm $@.tmp
 
-${BUILD_DIR}/%_d.o: $(PERIPHERAL_DIR)/%.has $(SRC_DIR)/ms.mac
+${BUILD_DIR}/%_mac_d.o: $(PERIPHERAL_DIR)/%.has $(SRC_DIR)/ms.mac
 	$(AS) $(ASFLAGS_DEBUG) $< -o $@.tmp
 	x68k2elf.py $@.tmp $@
 	rm $@.tmp
