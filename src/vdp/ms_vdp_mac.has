@@ -480,6 +480,9 @@ vsync_interrupt:
 	; HSYNCカウンタを0に戻す
 	move.w	#0,hsync_counter
 
+	; VSYNC割り込みをスキップする/しないに関わらず、cpu_yieldは 1/60秒ごとにセットする (ウェイトの計算などで実時間を知る必要があるため)
+	move.b	#$01,cpu_yield			* cpu_yield
+
 	; emu_counter の増加量が int_block_count に達していなかったら割り込みを一回スキップ(実験)
 	move.l	emu_counter,d0
 	sub.l	emu_counter_latch2,d0
@@ -495,7 +498,6 @@ vsync_interrupt:
 	beq	@f
 	bset.b	#7,offset_ms_vdp_s00(a5)	* VDP S#0の bit7に、VSYNC割り込み発生フラグを立てる。これとS#1の HSYNC割り込みがZ80のINT端子の状態を表している。
 	bset.b	#0,ms_vdp_int			* VSYNC割り込み要求フラグを立てる
-	move.b	#$01,cpu_yield			* cpu_yield
 
 @@:	.if 	RASTERDEBUG=1
 	; どこでラスタ割り込みがかかっているかを確認するためにテキストパレットの色を変える(ここで戻す)
