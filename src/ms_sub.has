@@ -27,7 +27,7 @@
 
 	.xdef	ms_vdp_int
 	.xdef	ms_cpu_int
-	.xdef	int_block_count
+	.xdef	framerate_control
 	.xdef	host_line
 
 headerlength	equ	8
@@ -254,8 +254,8 @@ ms_iocs_ledctrl:
 
 	.data
 
-int_block_count:
-	.dc.l	2048
+framerate_control:
+	.dc.l	$ffffffff	* $ffffffff: auto, $0: none, other: count
 host_line:
 	.dc.w	100
 original:

@@ -73,6 +73,8 @@
 
 extern uint32_t* ms_vdp_rewrite_flag_tbl;
 
+extern uint16_t framerate_last;
+
 typedef struct ms_vdp_mode ms_vdp_mode_t;
 
 /**
@@ -166,7 +168,7 @@ typedef struct ms_vdp {
 
 	//
 	uint8_t disablehsyncint;
-	uint8_t dummy4;
+	uint8_t hostdebugmode;
 
 	//
 	ms_vdp_mode_t *ms_vdp_current_mode;
@@ -217,6 +219,10 @@ typedef struct ms_vdp {
 	// X68000側のスプライトパターンを全て再描画しなおします。
 	uint16_t sprite_refresh_flag;
 
+	// スプライト合成フラグ bit0が Plane #0、bit1が Plane #1、bit2が Plane #2、bit3が Plane #3
+	// 合成されている場合は、そのプレーンは手前のプレーンに含まれているので、非表示にする
+	uint32_t sprite_composition_flag;
+
 	// VDPコマンドのワークエリア
 	// VDPを時分割で処理する際に使用するもので、コマンド実行時にセットされる
 	// これ以降は ms_vdp_mac.has に定義されているオフセットに影響しないので増減してもOK
@@ -237,6 +243,7 @@ typedef struct ms_vdp {
 #define SPRITE_REFRESH_FLAG_ATTR	0x02
 #define SPRITE_REFRESH_FLAG_CC		0x04
 #define SPRITE_REFRESH_FLAG_PGEN	0x08
+#define SPRITE_REFRESH_FLAG_FULL	0x10
 
 /*
  MSXの画面モードごとに切り替える処理群
@@ -280,7 +287,7 @@ ms_vdp_t* ms_vdp_shared_instance();
 void ms_vdp_shared_deinit();
 
 void ms_vdp_set_mode(ms_vdp_t* vdp, int mode);
-void ms_vdp_vsync_draw(ms_vdp_t* vdp, int hostdebugmode);
+void ms_vdp_vsync_draw(ms_vdp_t* vdp);
 
 void write_sprite_pattern(ms_vdp_t* vdp, int offset, uint32_t pattern, int32_t old_pattern);
 void write_sprite_attribute(ms_vdp_t* vdp, int offset, uint32_t attribute, int32_t old_attribute);
@@ -312,6 +319,6 @@ void vdp_command_write(ms_vdp_t* vdp, uint8_t data);
 void ms_vdp_update_resolution_COMMON(ms_vdp_t* vdp, unsigned int res, unsigned int color, unsigned int bg);
 void ms_vdp_update_visibility(ms_vdp_t* vdp);
 void ms_vdp_update_sprite_area(ms_vdp_t* vdp);
-void ms_vdp_sprite_vsync_draw(ms_vdp_t* vdp, int hostdebugmode);
+void ms_vdp_sprite_vsync_draw(ms_vdp_t* vdp);
 
 #endif

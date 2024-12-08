@@ -19,7 +19,7 @@
 	.xdef	HEX
 	.xdef	native_jpt_add
 	.xdef	ms_cpu_int
-	.xdef	int_block_count
+	.xdef	framerate_control
 	.xdef	ms_vsync_interrupt_tick
 
 	.text
@@ -73,8 +73,8 @@ ms_cpu_int:
 native_jpt_add:		* ネイティブルーチンジャンプテーブルのあるアドレス
 	.dc.l	0	
 HEX:	.dc.b	'0123456789ABCDEF'
-int_block_count:
-	.dc.l	2048
+framerate_control:
+	.dc.l	0
 ms_vsync_interrupt_tick:
 	.dc.w	0
 

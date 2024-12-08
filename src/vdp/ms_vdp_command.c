@@ -53,14 +53,14 @@ void rewrite_sprite_if_needed(ms_vdp_t* vdp) {
 		if( (vdp->cmd_ny_sprite_start < vdp->dy + vdp->ny) && //
 			(vdp->cmd_ny_sprite_end >= vdp->dy)) {
 			// TODO パターンジェネレータテーブル、カラーテーブル、アトリビュートテーブルをそれぞれ別に検査する
-			vdp->sprite_refresh_flag |= SPRITE_REFRESH_FLAG_PGEN;
+			vdp->sprite_refresh_flag |= SPRITE_REFRESH_FLAG_FULL;
 		}
 	} else {
 		// DIY = 0
 		if( (vdp->cmd_ny_sprite_start <= vdp->dy) && //
 			(vdp->cmd_ny_sprite_end > vdp->dy - vdp->ny)) {
 			// TODO パターンジェネレータテーブル、カラーテーブル、アトリビュートテーブルをそれぞれ別に検査する
-			vdp->sprite_refresh_flag |= SPRITE_REFRESH_FLAG_PGEN;
+			vdp->sprite_refresh_flag |= SPRITE_REFRESH_FLAG_FULL;
 		}
 	}
 }
@@ -647,7 +647,12 @@ void cmd_HMMV(ms_vdp_t* vdp, uint8_t cmd) {
 }
 
 void cmd_YMMM(ms_vdp_t* vdp, uint8_t cmd) {
-	MS_LOG(MS_LOG_FINE,"YMMM START********\n");
+	if(MS_LOG_FINE_ENABLED) {
+		MS_LOG(MS_LOG_FINE,"YMMM START********\n");
+		MS_LOG(MS_LOG_FINE,"  dx=0x%03x, sy=0x%03x\n", vdp->dx, vdp->sy);
+		MS_LOG(MS_LOG_FINE,"  dx=0x%03x, dy=0x%03x\n", vdp->dx, vdp->dy);
+		MS_LOG(MS_LOG_FINE,"             ny=0x%03x\n",          vdp->ny);
+	}
 	// 高速化のためのキャッシュ
 	int	crt_width = vdp->ms_vdp_current_mode->crt_width;
 	int dots_per_byte = vdp->ms_vdp_current_mode->dots_per_byte;
@@ -662,7 +667,7 @@ void cmd_YMMM(ms_vdp_t* vdp, uint8_t cmd) {
 	uint32_t dst_vram_addr = get_vram_address(vdp, vdp->dx, vdp->dy, NULL);
 
 	// DIXによってX方向のどちらの画面端まで転送するかが変わるのでnxが変化する
-	int nx = DIX == 0 ? (crt_width-vdp->dx) : vdp->dx;
+	int nx = DIX == 0 ? (crt_width-vdp->dx) : vdp->dx+1;
 
 	int x,y,i;
 	for(y=0; y < vdp->ny; y++) {

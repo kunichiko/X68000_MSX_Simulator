@@ -40,7 +40,7 @@ extern uint16_t ms_cpu_needs_refresh_PC;
 
 extern ms_cpu_registers *ms_cpu_registers_ptr;
 
-int ms_cpu_emulate(int(*)(unsigned int, unsigned int), uint32_t max_wait);
+int ms_cpu_emulate(int(*)(unsigned int, unsigned int), uint32_t cpu_wait);
 
 void ms_cpu_step(ms_cpu_state* z, int steps);
 
