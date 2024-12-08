@@ -83,8 +83,17 @@ void ms_memmap_MEGAROM_KONAMI_SCC_init(THIS* instance, ms_memmap_t* memmap, uint
 		printf("メモリが確保できません。\n");
 		return;
 	}
-	for (i = 0; i < 8*1024; i++) {
-		scc_segment[i] = 0xff;
+	if (instance->num_segments == 0x40) {
+		// 512KBの場合、セグメント番号 0x3f (63) はSCCレジスタと領域がかぶっているいので、
+		// SCCレジスタ以外の部分にはROMのデータが見えるように初期化する
+		for (i = 0; i < 8*1024; i++) {
+			scc_segment[i] = buffer[0x3f*0x2000 + i];
+		}
+	} else {
+		// それ以外の場合は0xffで埋める
+		for (i = 0; i < 8*1024; i++) {
+			scc_segment[i] = 0xff;
+		}
 	}
 	// init SCC registers
 	for (i= 0x9800; i <= 0x98ff; i++) {
