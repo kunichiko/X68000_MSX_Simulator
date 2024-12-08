@@ -3,7 +3,7 @@
 		ＭＳＸ.Ｓｉｍｕｌａｔｅｒ [[ MS ]]
 				[[スタートアッププログラム ]]
 
-	ver. 0.01	prpgramed by Kuni.
+	ver. 0.01	programmed by Kuni.
 										1995.9.15
 
 */
@@ -105,8 +105,8 @@ unsigned short host_rate = 1;
 
 volatile extern unsigned short ms_vsync_interrupt_tick;
 volatile extern unsigned short ms_vdp_vsync_rate;
-volatile extern unsigned int int_block_count;
-volatile extern unsigned short host_delay;
+volatile extern unsigned int framerate_control;
+volatile extern unsigned short host_line;
 volatile extern unsigned int int_skip_counter;
 volatile extern unsigned int int_exec_counter;
 typedef struct interrupt_history_st {
@@ -120,19 +120,19 @@ volatile extern unsigned short interrupt_history_wr;
 volatile extern unsigned short interrupt_history_rd;
 
 void printHelpAndExit(char* progname) {
-	fprintf(stderr, "Usage: %s  [-w MAX_WAIT] [-rm MAINROM] [-rs SUBROM] [-rd DISKBIOS] [-rk KANJIROM] [-r1 ROM_PATH for slot 1][,KIND] [-r2 ROM_PATH for slot 2][,KIND] [-rNM ROM_PATH for slot N page M] [IMAGE1.DSK] [IMAGE2.DSK]..\n", progname);
+	fprintf(stderr, "Usage: %s  [-w CPU_WAIT] [-rm MAINROM] [-rs SUBROM] [-rd DISKBIOS] [-rk KANJIROM] [-r1 ROM_PATH for slot 1][,KIND] [-r2 ROM_PATH for slot 2][,KIND] [-rNM ROM_PATH for slot N page M] [IMAGE1.DSK] [IMAGE2.DSK]..\n", progname);
 	fprintf(stderr, " KIND is ROM type:\n");
 	fprintf(stderr, "    NOR: Normal ROM, G8K: GENERIC 8K, A8K: ASCII 8K, A16: ASCII 16K, KON: Konami, SCC: Konami SCC\n");
 	fprintf(stderr, " --vsrate vsync rate (1-60)\n");
 	fprintf(stderr, "    1: every frame, 2: every 2 frames, ...\n");
 	fprintf(stderr, "    default is 1.\n");
-	fprintf(stderr, " --intblock block cycle (1-9999)\n");
-	fprintf(stderr, "    default is 2048 cycles.\n");
+	fprintf(stderr, " --framecon framerate control (auto, none, 1-99999)\n");
+	fprintf(stderr, "    default is auto.\n");
 	fprintf(stderr, " --hostrate host key operation rate (1-60)\n");
 	fprintf(stderr, "    1: every frame, 2: every 2 frames, ...\n");
 	fprintf(stderr, "    default is 3.\n");
-	fprintf(stderr, " --hostdelay host key interruption delay cycle (1-9999)\n");
-	fprintf(stderr, "    default is 100 cycles.\n");
+	fprintf(stderr, " --hostline host interruption line (1-500)\n");
+	fprintf(stderr, "    default is 100th line.\n");
 	fprintf(stderr, " --hostdebug\n");
 	fprintf(stderr, "    enable host process debug mode.\n");
 	fprintf(stderr, " --disablekanji\n");
@@ -174,6 +174,10 @@ char* separate_rom_kind(char* path, int* kind) {
 			*kind = ROM_TYPE_MEGAROM_KONAMI;
 		} else if (strcasecmp(p, "SCC") == 0) {
 			*kind = ROM_TYPE_MEGAROM_KONAMI_SCC;
+		} else if (strcasecmp(p, "ERAM") == 0) {
+			*kind = ROM_TYPE_ESE_RAM;
+		} else if (strcasecmp(p, "ESCC") == 0) {
+			*kind = ROM_TYPE_ESE_SCC;
 		} else {
 			*kind = -1;
 		}
@@ -217,9 +221,9 @@ int main(int argc, char *argv[]) {
 	const struct option longopts[] = {
 	  //{          *name,           has_arg,       *flag, val },
 	    {         "vsrate", required_argument,               0, 'A' },
-	    {       "intblock", required_argument,               0, 'B' },
+	    {       "framecon", required_argument,               0, 'B' },
 	    {       "hostrate", required_argument,               0, 'C' },
-	    {      "hostdelay", required_argument,               0, 'D' },
+	    {       "hostline", required_argument,               0, 'D' },
 		{      "hostdebug",       no_argument,      &hostdebug,  1  },
 		{   "disablekanji",       no_argument,   &disablekanji,  1  },
 		{"disablehsyncint",       no_argument,&disablehsyncint,  1  },
@@ -252,7 +256,7 @@ int main(int argc, char *argv[]) {
 	default_param.cartridge_kind_slot1 = -1;
 	default_param.cartridge_path_slot2 = NULL;
 	default_param.cartridge_kind_slot2 = -1;
-	default_param.max_wait = 0x7fffffff;
+	default_param.cpu_wait = 0;
 	default_param.diskcount = 0;
 	for(i=0;i<16;i++) {
 		default_param.diskimages[i] = NULL;
@@ -262,6 +266,7 @@ int main(int argc, char *argv[]) {
 	default_param.slot_path[0][2] = "cbios_logo_msx2.rom";
 	default_param.scc_enable = 0x0f;	// CH1-Ch4 enable
 	default_param.disablehsyncint = 0;
+	default_param.framerate_control = 0xffffffff; // auto
 
 	// ユーザー設定ファイルの読み込み
 	if( load_user_param() ) {
@@ -304,7 +309,7 @@ int main(int argc, char *argv[]) {
 		case 'w': // -w オプション
 			if (optarg != NULL)
 			{
-				init_param.max_wait = atoi(optarg);
+				init_param.cpu_wait = atoi(optarg);
 			}
 			break;
 		case 's': // -s オプション
@@ -442,14 +447,23 @@ int main(int argc, char *argv[]) {
 				printHelpAndExit(argv[0]);
 			}
 			break;
-		case 'B': // --intblock N オプション
-			// 割り込みブロックカウントの設定
+		case 'B': // --framecon N オプション
+			// フレームレート制御の設定
+			// "auto" - 自動。割り込み処理が重くなると自動でフレームスキップする
+			// "none" - フレームスキップしない。処理が重くなるとフリーズするリスクあり
+			// 1-99999 - 1フレーム中の最小実行命令数を指定(大きな数を指定するとフレーム落ちしやすくなるが、動くソフトが増える)
 			longopt = &longopts[longindex];
 			if (longopt->has_arg && optarg != NULL) {
-				int_block_count = atoi(optarg);
-				if (int_block_count < 1 || int_block_count > 9999) {
-					printf("割り込みブロックカウントが不正です\n");
-					printHelpAndExit(argv[0]);
+				if (strcasecmp(optarg, "auto") == 0) {
+					init_param.framerate_control = 0xffffffff;
+				} else if (strcasecmp(optarg, "none") == 0) {
+					init_param.framerate_control = 0;
+				} else {
+					init_param.framerate_control = atoi(optarg);
+					if (init_param.framerate_control < 1 || init_param.framerate_control > 99999) {
+						printf("フレームレート制御ルールの指定が不正です\n");
+						printHelpAndExit(argv[0]);
+					}
 				}
 			} else {
 				printf("割り込みブロックカウントが指定されていません\n");
@@ -470,13 +484,13 @@ int main(int argc, char *argv[]) {
 				printHelpAndExit(argv[0]);
 			}
 			break;
-		case 'D': // --hostdelay N オプション
-			// ホスト処理遅延カウントの設定
+		case 'D': // --hostline N オプション
+			// ホスト処理ライン番号の設定
 			longopt = &longopts[longindex];
 			if (longopt->has_arg && optarg != NULL) {
-				host_delay = atoi(optarg);
-				if (host_delay < 1 || host_delay > 9999) {
-					printf("ホスト処理遅延カウントが不正です\n");
+				host_line = atoi(optarg);
+				if (host_line < 1 || host_line > 500) {
+					printf("ホスト処理ライン番号が不正です\n");
 					printHelpAndExit(argv[0]);
 				}
 			} else {
@@ -520,6 +534,9 @@ int main(int argc, char *argv[]) {
 		init_param.disablehsyncint = 1;
 	}
 
+	// フレームレート制御の設定
+	framerate_control = init_param.framerate_control;
+
 	//
 	if (_iocs_b_super(0) < 0)
 	{
@@ -550,6 +567,7 @@ int main(int argc, char *argv[]) {
 		ms_exit();
 	}
 	vdp->disablehsyncint = init_param.disablehsyncint;
+	vdp->hostdebugmode = hostdebug;
 
 	/*
 	 I/Oシステムの初期化
@@ -694,7 +712,7 @@ int main(int argc, char *argv[]) {
 	_setTextPlane(textPlaneMode);
 
 	if (1) {
-		ms_cpu_emulate(emuLoop, init_param.max_wait);
+		ms_cpu_emulate(emuLoop, init_param.cpu_wait);
 	} else {
 		debugger();
 	}
@@ -835,7 +853,7 @@ int emuLoopImpl(unsigned int pc, unsigned int counter) {
 	emuLoopCounter++;
 
 	if( vdp != NULL) {
-		ms_vdp_vsync_draw(vdp, hostdebug);
+		ms_vdp_vsync_draw(vdp);
 	}
 
 	if(emuLoopCounter % host_rate != 0) {
@@ -976,6 +994,7 @@ int emuLoopImpl(unsigned int pc, unsigned int counter) {
 			}
 		}
 		while(1) {
+			//
 			int va = BITSNS_WORK[0xa];	// IOCS BITSNSのワークエリア直接参照
 			if (va & 0x08) {	// もう一度登録キーが押されたら再開
 				break;
@@ -999,7 +1018,7 @@ int emuLoopImpl(unsigned int pc, unsigned int counter) {
 
 	if (kigo_key_hit) {
 		printf("\n");
-		printf("loop count=%08d\ncycle=%08ld wait=%ld\n", emuLoopCounter, cpu_cycle_last, cpu_cycle_wait);
+		printf("loop=%08d [%d/60]\ncycle=%08ld wait=%ld\n", emuLoopCounter, framerate_last, cpu_cycle_last, cpu_cycle_wait);
 		printf("COUNTER=%08x, inttick=%08d\n", counter, ms_vsync_interrupt_tick);
 		dump(pc >> 16, pc & 0x1fff);
 	}
@@ -1296,9 +1315,9 @@ uint8_t load_user_param() {
 		close(fh);
 		return 0;
 	}
-	read(fh, user_param.buf, size);
+	int readsize = read(fh, user_param.buf, size); // TEXT MODEなので2バイトの改行が1バイトに減っている
 	close(fh);
-	user_param.buf[size] = '\0';
+	user_param.buf[readsize] = '\0';
 
 	user_param.diskcount = 0;
 	// 1行ずつ読みながらパラメータを設定
@@ -1330,6 +1349,9 @@ uint8_t load_user_param() {
 		// Parse the line to extract the parameter and value
 		char* param = strtok(line, "=");
 		char* value = strtok(NULL, "=");
+		if (param == NULL || value == NULL) {
+			continue;
+		}
 
 		// Check if the parameter is "mainrom"
 		if (strcmp(param, "mainrom") == 0) {
@@ -1385,11 +1407,11 @@ uint8_t load_user_param() {
 				user_param.diskimages[user_param.diskcount++] = value;
 			}
 		}
-		else if (strcmp(param, "max_wait") == 0 ) {
+		else if (strcmp(param, "cpu_wait") == 0 ) {
 			if (value == NULL) {
-				printf("max_waitの値が不正です\n");
+				printf("cpu_waitの値が不正です\n");
 			} else {
-				user_param.max_wait = atoi(value);
+				user_param.cpu_wait = atoi(value);
 			}
 		}
 		else if (strcmp(param, "disablehsyncint") == 0 ) {
@@ -1402,7 +1424,27 @@ uint8_t load_user_param() {
 				user_param.scc_enable = atoi(value);
 			}
 		}
-
+		else if (strcmp(param, "framecon") == 0) {
+			if (value == NULL) {
+				printf("frameconの値が不正です\n");
+			} else {
+				if (strcmp(value, "auto") == 0) {
+					user_param.framerate_control = 0xffffffff;
+					printf("framecon=auto\n");
+				} else if (strcmp(value, "none") == 0) {
+					user_param.framerate_control = 0;
+					printf("framecon=none\n");
+				} else {
+					user_param.framerate_control = atoi(value);
+					if (user_param.framerate_control < 1 || user_param.framerate_control > 99999) {
+						printf("frameconの値が不正です\n");
+						user_param.framerate_control = 0;
+					} else {
+						printf("framecon=%d\n", user_param.framerate_control);
+					}
+				}
+			}
+		}
 	}
 
 	return 1;

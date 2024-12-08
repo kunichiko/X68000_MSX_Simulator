@@ -12,7 +12,9 @@
 
 static ms_memmap_t* _shared = NULL;
 
-void ms_memmap_update_page_pointer(ms_memmap_t* memmap, ms_memmap_driver_t* driver, int page8k);
+static uint8_t ff_buffer[8*1024];
+
+static void _update_page_pointer(ms_memmap_t* memmap, ms_memmap_driver_t* driver, int page8k);
 
 void select_slot_base_impl(ms_memmap_t* memmap, int page, int slot_base);
 void select_slot_ex_impl(ms_memmap_t* memmap, int slot_base, int page, int slot_ex);
@@ -30,8 +32,13 @@ ms_memmap_t* ms_memmap_shared_instance() {
 		return NULL;
 	}
 
+	int i;
+	for(i = 0; i<8*1024; i++) {
+		ff_buffer[i] = 0xff;
+	}
+
 	// メンバの初期化
-	_shared->update_page_pointer = ms_memmap_update_page_pointer;
+	_shared->update_page_pointer = _update_page_pointer;
 	_shared->current_ptr = ms_memmap_current_ptr;
 
 	_shared->mainram_driver = ms_memmap_MAINRAM_alloc();
@@ -196,15 +203,14 @@ int ms_memmap_did_pause(ms_memmap_t* memmap) {
  * @param driver 
  * @param page8k 
  */
-void ms_memmap_update_page_pointer(ms_memmap_t* memmap, ms_memmap_driver_t* driver, int page8k) {
-	int slot_base = driver->attached_slot_base;
-	int slot_ex = driver->attached_slot_ex;
-	if (slot_ex < 0) {
-		slot_ex = 0;
-	}
-
+static void _update_page_pointer(ms_memmap_t* memmap, ms_memmap_driver_t* driver, int page8k) {
 	// CPUが見ているページを更新
-	memmap->current_ptr[page8k] = memmap->current_driver[page8k/2]->page8k_pointers[page8k];
+	uint8_t* ptr = memmap->current_driver[page8k/2]->page8k_pointers[page8k];
+	if( ptr != NULL) {
+		memmap->current_ptr[page8k] = ptr;
+	} else {
+		memmap->current_ptr[page8k] = ff_buffer;
+	}
 
 	// CPU側に通知
 	ms_cpu_needs_refresh_PC = 1;
@@ -237,11 +243,8 @@ void select_slot_base_impl(ms_memmap_t* memmap, int page, int slot_base) {
 	}
 
 	// CPUが見てるポインタを更新
-	memmap->current_ptr[page*2+0] = memmap->current_driver[page]->page8k_pointers[page*2+0];
-	memmap->current_ptr[page*2+1] = memmap->current_driver[page]->page8k_pointers[page*2+1];
-
-	// CPU側に通知
-	ms_cpu_needs_refresh_PC = 1;
+	_update_page_pointer(memmap, NULL, page*2+0);
+	_update_page_pointer(memmap, NULL, page*2+1);
 
 	memmap->slot_sel[page] = slot_base;
 }
@@ -277,11 +280,8 @@ void select_slot_ex_impl(ms_memmap_t* memmap, int slot_base, int page, int slot_
 		// 今回変更した拡張スロットが見えている場合だけ更新
 		memmap->current_driver[page] = memmap->driver_page_map[slot_base][slot_ex][page];
 		// CPUが見てるポインタを更新
-		memmap->current_ptr[page*2+0] = memmap->current_driver[page]->page8k_pointers[page*2+0];
-		memmap->current_ptr[page*2+1] = memmap->current_driver[page]->page8k_pointers[page*2+1];
-
-		// CPU側に通知
-		ms_cpu_needs_refresh_PC = 1;
+		_update_page_pointer(memmap, NULL, page*2+0);
+		_update_page_pointer(memmap, NULL, page*2+1);
 	}
 	memmap->slot_sel_ex[slot_base][page] = slot_ex;
 }

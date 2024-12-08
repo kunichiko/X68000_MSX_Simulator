@@ -53,14 +53,14 @@ void rewrite_sprite_if_needed(ms_vdp_t* vdp) {
 		if( (vdp->cmd_ny_sprite_start < vdp->dy + vdp->ny) && //
 			(vdp->cmd_ny_sprite_end >= vdp->dy)) {
 			// TODO パターンジェネレータテーブル、カラーテーブル、アトリビュートテーブルをそれぞれ別に検査する
-			vdp->sprite_refresh_flag |= SPRITE_REFRESH_FLAG_PGEN;
+			vdp->sprite_refresh_flag |= SPRITE_REFRESH_FLAG_FULL;
 		}
 	} else {
 		// DIY = 0
 		if( (vdp->cmd_ny_sprite_start <= vdp->dy) && //
 			(vdp->cmd_ny_sprite_end > vdp->dy - vdp->ny)) {
 			// TODO パターンジェネレータテーブル、カラーテーブル、アトリビュートテーブルをそれぞれ別に検査する
-			vdp->sprite_refresh_flag |= SPRITE_REFRESH_FLAG_PGEN;
+			vdp->sprite_refresh_flag |= SPRITE_REFRESH_FLAG_FULL;
 		}
 	}
 }
@@ -244,8 +244,8 @@ void cmd_SRCH(ms_vdp_t* vdp, uint8_t cmd) {
 	int sx = vdp->sx;
 	uint8_t color = vdp->clr & ((1<<vdp->ms_vdp_current_mode->bits_per_dot)-1);
 	int	crt_width = vdp->ms_vdp_current_mode->crt_width;
-	uint8_t DIX = vdp->cmd_arg & 0x04;
-	uint8_t EQ = vdp->cmd_arg & 0x02;
+	uint8_t DIX = vdp->arg & 0x04;
+	uint8_t EQ = vdp->arg & 0x02;
 
 	if(MS_LOG_FINE_ENABLED) {
 		MS_LOG(MS_LOG_FINE,"SRCH START****\n");
@@ -351,8 +351,8 @@ void cmd_LMMV(ms_vdp_t* vdp, uint8_t cmd, uint8_t logiop) {
 	int	crt_width = vdp->ms_vdp_current_mode->crt_width;
 	int dots_per_byte = vdp->ms_vdp_current_mode->dots_per_byte;
 	int bits_per_dot = vdp->ms_vdp_current_mode->bits_per_dot;
-	uint8_t DIX = vdp->cmd_arg & 0x04;
-	uint8_t DIY = vdp->cmd_arg & 0x08;
+	uint8_t DIX = vdp->arg & 0x04;
+	uint8_t DIY = vdp->arg & 0x08;
 	uint16_t nx = vdp->nx == 0 ? crt_width : vdp->nx;
 	uint16_t ny = vdp->ny == 0 ? crt_width : vdp->ny;
 	uint8_t clr = vdp->clr & ((1<<vdp->ms_vdp_current_mode->bits_per_dot)-1);
@@ -586,6 +586,7 @@ void cmd_HMMV(ms_vdp_t* vdp, uint8_t cmd) {
 		MS_LOG(MS_LOG_FINE,"HMMV START********\n");
 		MS_LOG(MS_LOG_FINE,"  dx=0x%03x, dy=0x%03x\n", vdp->dx, vdp->dy);
 		MS_LOG(MS_LOG_FINE,"  nx=0x%03x, ny=0x%03x\n", vdp->nx, vdp->ny);
+		MS_LOG(MS_LOG_FINE,"  arg=%02x\n", vdp->arg);
 	}
 
 	// 高速化のためのキャッシュ
@@ -593,8 +594,8 @@ void cmd_HMMV(ms_vdp_t* vdp, uint8_t cmd) {
 	int dots_per_byte = vdp->ms_vdp_current_mode->dots_per_byte;
 	int bits_per_dot = vdp->ms_vdp_current_mode->bits_per_dot;
 	uint8_t* vram = vdp->vram;
-	uint8_t DIX = vdp->cmd_arg & 0x04;
-	uint8_t DIY = vdp->cmd_arg & 0x08;
+	uint8_t DIX = vdp->arg & 0x04;
+	uint8_t DIY = vdp->arg & 0x08;
 	uint16_t nx = vdp->nx == 0 ? crt_width : vdp->nx; // TODO ドラクエ2でNX=0が使われている
 	nx &= ~(dots_per_byte-1);	// 1行のドット数をdots_per_byteの倍数にする
 	uint16_t ny = vdp->ny;
@@ -611,7 +612,6 @@ void cmd_HMMV(ms_vdp_t* vdp, uint8_t cmd) {
 			uint8_t data = clr;
 			// VRAMに書き込む
 			if( vram[dst_vram_addr] != data ) {
-				vram[dst_vram_addr] = data;
 				vram[dst_vram_addr] = data;
 				// GRAMに書き込む
 				for(i=0; i < dots_per_byte; i++) {
@@ -647,14 +647,19 @@ void cmd_HMMV(ms_vdp_t* vdp, uint8_t cmd) {
 }
 
 void cmd_YMMM(ms_vdp_t* vdp, uint8_t cmd) {
-	MS_LOG(MS_LOG_FINE,"YMMM START********\n");
+	if(MS_LOG_FINE_ENABLED) {
+		MS_LOG(MS_LOG_FINE,"YMMM START********\n");
+		MS_LOG(MS_LOG_FINE,"  dx=0x%03x, sy=0x%03x\n", vdp->dx, vdp->sy);
+		MS_LOG(MS_LOG_FINE,"  dx=0x%03x, dy=0x%03x\n", vdp->dx, vdp->dy);
+		MS_LOG(MS_LOG_FINE,"             ny=0x%03x\n",          vdp->ny);
+	}
 	// 高速化のためのキャッシュ
 	int	crt_width = vdp->ms_vdp_current_mode->crt_width;
 	int dots_per_byte = vdp->ms_vdp_current_mode->dots_per_byte;
 	int bits_per_dot = vdp->ms_vdp_current_mode->bits_per_dot;
 	uint8_t* vram = vdp->vram;
-	uint8_t DIX = vdp->cmd_arg & 0x04;
-	uint8_t DIY = vdp->cmd_arg & 0x08;
+	uint8_t DIX = vdp->arg & 0x04;
+	uint8_t DIY = vdp->arg & 0x08;
 
 	vdp->cmd_current = cmd;
 	vdp->cmd_arg = vdp->arg;
@@ -662,7 +667,7 @@ void cmd_YMMM(ms_vdp_t* vdp, uint8_t cmd) {
 	uint32_t dst_vram_addr = get_vram_address(vdp, vdp->dx, vdp->dy, NULL);
 
 	// DIXによってX方向のどちらの画面端まで転送するかが変わるのでnxが変化する
-	int nx = DIX == 0 ? (crt_width-vdp->dx) : vdp->dx;
+	int nx = DIX == 0 ? (crt_width-vdp->dx) : vdp->dx+1;
 
 	int x,y,i;
 	for(y=0; y < vdp->ny; y++) {
@@ -728,8 +733,8 @@ void cmd_HMMM(ms_vdp_t* vdp, uint8_t cmd) {
 	int dots_per_byte = vdp->ms_vdp_current_mode->dots_per_byte;
 	int bits_per_dot = vdp->ms_vdp_current_mode->bits_per_dot;
 	uint8_t* vram = vdp->vram;
-	uint8_t DIX = vdp->cmd_arg & 0x04;
-	uint8_t DIY = vdp->cmd_arg & 0x08;
+	uint8_t DIX = vdp->arg & 0x04;
+	uint8_t DIY = vdp->arg & 0x08;
 	uint16_t nx = vdp->nx == 0 ? crt_width : vdp->nx; // TODO ドラクエ2でNX=0が使われている
 	nx &= ~(dots_per_byte-1);	// 1行のドット数をdots_per_byteの倍数にする
 	uint16_t ny = vdp->ny;

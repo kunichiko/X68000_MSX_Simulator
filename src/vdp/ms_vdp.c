@@ -258,7 +258,7 @@ void ms_vdp_set_mode(ms_vdp_t* vdp, int mode) {
 	MS_LOG(MS_LOG_INFO,"VDP Mode: %s\n", vdp->ms_vdp_current_mode->get_mode_name(vdp));
 
 	// スプライトの初期化処理
-	vdp->sprite_refresh_flag |= SPRITE_REFRESH_FLAG_PGEN;
+	vdp->sprite_refresh_flag |= SPRITE_REFRESH_FLAG_FULL;
 }
 
 
@@ -412,7 +412,7 @@ uint8_t last_vdp_R23 = 0;
 
 /*
 */
-void ms_vdp_vsync_draw(ms_vdp_t* vdp, int hostdebugmode) {
+void ms_vdp_vsync_draw(ms_vdp_t* vdp) {
 	// 画面モードごとの再描画処理を呼び出す
 	vdp->ms_vdp_current_mode->vsync_draw(vdp);
 
@@ -424,7 +424,7 @@ void ms_vdp_vsync_draw(ms_vdp_t* vdp, int hostdebugmode) {
 	}
 	if ( (vdp->r01 & 0x02) != (last_vdp_R1 & 0x02) ) {
 		// スプライトサイズ(8x8 or 16x16)が変化
-		vdp->sprite_refresh_flag |= SPRITE_REFRESH_FLAG_PGEN;
+		vdp->sprite_refresh_flag |= SPRITE_REFRESH_FLAG_FULL;
 	}
 	if ( (vdp->r08 & 0x02) != (last_vdp_R8 & 0x02) ) {
 		// スプライト表示 ON/OFFフラグが変化
@@ -434,7 +434,7 @@ void ms_vdp_vsync_draw(ms_vdp_t* vdp, int hostdebugmode) {
 		// スクロール量が変化
 		vdp->sprite_refresh_flag |= SPRITE_REFRESH_FLAG_COORD;
 	}
-	ms_vdp_sprite_vsync_draw(vdp, hostdebugmode);
+	ms_vdp_sprite_vsync_draw(vdp);
 	last_vdp_R1 = vdp->r01;
 	last_vdp_R8 = vdp->r08;
 	last_vdp_R23 = vdp->r23;

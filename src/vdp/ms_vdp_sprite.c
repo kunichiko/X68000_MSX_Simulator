@@ -140,7 +140,8 @@ void init_sprite(ms_vdp_t* vdp) {
 	vdp->last_visible_sprite_size = 0;
 
 	// 初期化処理
-	vdp->sprite_refresh_flag |= SPRITE_REFRESH_FLAG_PGEN;
+	vdp->sprite_refresh_flag |= SPRITE_REFRESH_FLAG_FULL;
+	vdp->sprite_composition_flag = 0;
 }
 
 void write_sprite_pattern_256(ms_vdp_t* vdp, int offset, uint32_t pattern);
@@ -304,6 +305,13 @@ void refresh_sprite_256(ms_vdp_t* vdp, int plNum) {
 	}
 }
 
+uint32_t colorex_tbl[16] = {
+	0x00000000, 0x11111111, 0x22222222, 0x33333333,
+	0x44444444, 0x55555555, 0x66666666, 0x77777777,
+	0x88888888, 0x99999999, 0xaaaaaaaa, 0xbbbbbbbb,
+	0xcccccccc, 0xdddddddd, 0xeeeeeeee, 0xffffffff
+};
+
 void refresh_sprite_256_mode1(ms_vdp_t* vdp, int plNum) {
 	int i,j;
 	uint8_t* p = vdp->vram + vdp->sprattrtbl_baddr;
@@ -311,8 +319,21 @@ void refresh_sprite_256_mode1(ms_vdp_t* vdp, int plNum) {
 	uint32_t ptNum = p[plNum*SAT_SIZE+2];
 	ptNum &= (vdp->sprite_size == 0) ? 0xff : 0xfc;
 	uint32_t color = p[plNum*SAT_SIZE+3] & 0xf;
-	color = color == 0 ? vdp->alt_color_zero : color; // 「色コード0」のスプライトが消えてしまう問題への暫定対応
-	uint32_t colorex = color << 28 | color << 24 | color << 20 | color << 16 | color << 12 | color << 8 | color << 4 | color;
+	//color = color == 0 ? vdp->alt_color_zero : color; // 「色コード0」のスプライトが消えてしまう問題への暫定対応
+	// Spmode 1はcoloe 0は透明色
+	// if (color == 0) {
+	// 	// 色コード0のスプライトは表示しない
+	// 	for( i=0; i<4; i++) {
+	// 		X68_SSR[plNum*SSR_UNIT+i*4+3] = 0;	// スプライトは非表示
+	// 	}
+	// 	return;
+	// } else {
+	// 	for( i=0; i<4; i++) {
+	// 		X68_SSR[plNum*SSR_UNIT+i*4+3] = 3; // スプライト表示
+	// 	}
+	// }
+	//uint32_t colorex ;= color << 28 | color << 24 | color << 20 | color << 16 | color << 12 | color << 8 | color << 4 | color;
+	uint32_t colorex = colorex_tbl[color];
 	if (vdp->sprite_size == 0) {
 		// 8x8
 		for( i = 0; i < 8; i++) { 
@@ -336,8 +357,8 @@ void refresh_sprite_256_mode1(ms_vdp_t* vdp, int plNum) {
 　通常のゲームなどで色合成を使う場合、以下のような使い方をしているはず。
 	* X,Y座標は完全に一致させる
 	* 連続するスプライトプレーンを使用する
-		* モード2の使用上は「同一ライン上に並んでいる物の中で合成」なので必ずしも連続していなくても良い
-		* が、スプライトが横切る際などに破綻するので、通常は連続させるはず
+		* モード2の使用上は「同一ライン上に並んでいる物の中で合成」なので必ずしも連続していなくても良いが、
+		* スプライトが横切る際などに破綻するので、通常は連続させるはず
 	* 最大4枚の合成まで
 		* 4ビットあれば16色全てが表現できるので5枚以上重ねるケースはないと想定
 　以上を前提として、以下のように合成する。
@@ -345,13 +366,13 @@ void refresh_sprite_256_mode1(ms_vdp_t* vdp, int plNum) {
 	* プレーンn番のスプライトのXY座標を取得
 	* プレーンn+1番から31のスプライトのうち、XY座標が同一のものかつ、CC=1のラインが一つでもあるものを抽出(連続している物のみ)
 		* 連続した最後の番号をmとする
-	* y=0から以下を繰り返す
+		* 合成がない場合は m == n となる
+	* ラインごとに合成するためy=0から以下を繰り返す
 	* プレーンn番のyライン目のパターンに色コードを掛ける
-	* プラーンn+1からmまで以下を繰り返す
+	* プレーンn+1からmまで以下を繰り返す
 		* yライン目の色データを取得し、それぞれの色コードを掛ける
 		* CC=1の場合は、その色を直前のCC=0のプレーンと合成する
-		* CC=0の場合は、それ自身ののプレーン(本来のプレーン)に色を描画する
-	OR合成する
+		* CC=0の場合は、それ自身のプレーン(本来のプレーン)に色を描画する
 	* y=y+1して繰り返す
 	* 全てのライン(8x8モードの場合は8ライン、16x16モードの場合は16ライン)に対して繰り返す
 	* nを m+1に更新し、nが31を超えるまで繰り返す
@@ -371,6 +392,7 @@ void refresh_sprite_256_mode2(ms_vdp_t* vdp) {
 	uint8_t* pcol = vdp->vram + vdp->sprcolrtbl_baddr;
 	uint8_t* patr = vdp->vram + vdp->sprattrtbl_baddr;
 	// スプライトモード2の色合成を行う
+	vdp->sprite_composition_flag = 0;
 	for (plNum=0;plNum<32;plNum++) {
 		int m = plNum;
 		for(n=plNum+1;n<32;n++) {
@@ -413,7 +435,8 @@ void refresh_sprite_256_mode2(ms_vdp_t* vdp) {
 			while(i<=m) {
 				uint32_t color = pcol[i*COL_SIZE+y] & 0xf;
 				color = color == 0 ? vdp->alt_color_zero : color; // 「色コード0」のスプライトが消えてしまう問題への暫定対応
-				uint32_t colorex = color << 28 | color << 24 | color << 20 | color << 16 | color << 12 | color << 8 | color << 4 | color;
+				//uint32_t colorex = color << 28 | color << 24 | color << 20 | color << 16 | color << 12 | color << 8 | color << 4 | color;
+				uint32_t colorex = colorex_tbl[color];
 				uint32_t ptNum = patr[i*SAT_SIZE+2];
 				uint32_t pattern0 = vdp->x68_pcg_buffer[(ptNum & ptNumMask)*PCG_BUF_UNIT_D1X+yybase+8*0 ] & colorex;	// lr=0
 				uint32_t pattern1 = vdp->x68_pcg_buffer[(ptNum & ptNumMask)*PCG_BUF_UNIT_D1X+yybase+8*2 ] & colorex;	// lr=1
@@ -426,7 +449,7 @@ void refresh_sprite_256_mode2(ms_vdp_t* vdp) {
 						i=j+1;
 						break;
 					}
-					j++; // j==mを先に判定しているので、i+1がmをオーバーすることはない
+					j++; // j==mを先に判定しているので、j+1がmをオーバーすることはない
 					if( (sprite_cc_flags[j]&mask) == 0) {
 						// CC=0に遭遇したら、それ以降は合成しない
 						X68_PCG[i*PCG_UNIT+yybase+8*0] = pattern0;
@@ -437,7 +460,8 @@ void refresh_sprite_256_mode2(ms_vdp_t* vdp) {
 					// CC=1のものが見つかったので合成する
 					uint32_t color_add = pcol[j*COL_SIZE+y] & 0xf;
 					color_add = color_add == 0 ? vdp->alt_color_zero : color_add; // 「色コード0」のスプライトが消えてしまう問題への暫定対応
-					uint32_t colorex_add = color_add << 28 | color_add << 24 | color_add << 20 | color_add << 16 | color_add << 12 | color_add << 8 | color_add << 4 | color_add;
+					//uint32_t colorex_add = color_add << 28 | color_add << 24 | color_add << 20 | color_add << 16 | color_add << 12 | color_add << 8 | color_add << 4 | color_add;
+					uint32_t colorex_add = colorex_tbl[color_add];
 					uint32_t ptNum_add = patr[j*SAT_SIZE+2];
 					uint32_t pattern_add0 = vdp->x68_pcg_buffer[(ptNum_add & 0xff)*PCG_BUF_UNIT_D1X+yybase+8*0 ] & colorex_add;
 					uint32_t pattern_add1 = vdp->x68_pcg_buffer[(ptNum_add & 0xff)*PCG_BUF_UNIT_D1X+yybase+8*2 ] & colorex_add;
@@ -452,6 +476,15 @@ void refresh_sprite_256_mode2(ms_vdp_t* vdp) {
 			i=plNum;
 			X68_PCG[i*PCG_UNIT+yybase+8*0] = 0;
 			X68_PCG[i*PCG_UNIT+yybase+8*2] = 0;
+		}
+
+		// 次のプレーンへ
+		X68_SSR[plNum*SSR_UNIT+3] = 3;	// スプライトは表示
+		vdp->sprite_composition_flag &= ~(1 << plNum);
+		while(plNum < m) {
+			plNum++;
+			X68_SSR[plNum*SSR_UNIT+3] = 0;	// 合成したスプライトは非表示
+			vdp->sprite_composition_flag |= 1 << plNum;
 		}
 	}
 }
@@ -518,7 +551,8 @@ void refresh_sprite_512_mode2(ms_vdp_t* vdp) {
 			while(i<=m) {
 				uint32_t color = pcol[i*COL_SIZE+y] & 0xf;
 				color = color == 0 ? vdp->alt_color_zero : color; // 「色コード0」のスプライトが消えてしまう問題への暫定対応
-				uint32_t colorex = color << 28 | color << 24 | color << 20 | color << 16 | color << 12 | color << 8 | color << 4 | color;
+				//uint32_t colorex = color << 28 | color << 24 | color << 20 | color << 16 | color << 12 | color << 8 | color << 4 | color;
+				uint32_t colorex = colorex_tbl[color];
 				uint32_t ptNum = patr[i*SAT_SIZE+2];
 				uint32_t pattern0 = vdp->x68_pcg_buffer[(ptNum & ptNumMask)*PCG_BUF_UNIT_D2X+yybase+8*0 ] & colorex;	// lr=0
 				uint32_t pattern1 = vdp->x68_pcg_buffer[(ptNum & ptNumMask)*PCG_BUF_UNIT_D2X+yybase+8*2 ] & colorex;	// lr=1
@@ -584,6 +618,21 @@ void refresh_sprite_512_mode2(ms_vdp_t* vdp) {
 			X68_PCG[i*PCG_UNIT+yybase+8*8 +1] = 0;
 			X68_PCG[i*PCG_UNIT+yybase+8*10+0] = 0;
 			X68_PCG[i*PCG_UNIT+yybase+8*10+1] = 0;
+		}
+
+		// 次のプレーンへ
+		X68_SSR[plNum*SSR_UNIT+4*0+3] = 3;	// スプライトは表示
+		X68_SSR[plNum*SSR_UNIT+4*1+3] = 3;	// スプライトは表示
+		X68_SSR[plNum*SSR_UNIT+4*2+3] = 3;	// スプライトは表示
+		X68_SSR[plNum*SSR_UNIT+4*3+3] = 3;	// スプライトは表示
+		vdp->sprite_composition_flag &= ~(1 << plNum);
+		while(plNum < m) {
+			plNum++;
+			X68_SSR[plNum*SSR_UNIT+4*0+3] = 0;	// 合成したスプライトは非表示
+			X68_SSR[plNum*SSR_UNIT+4*1+3] = 0;	// 合成したスプライトは非表示
+			X68_SSR[plNum*SSR_UNIT+4*2+3] = 0;	// 合成したスプライトは非表示
+			X68_SSR[plNum*SSR_UNIT+4*3+3] = 0;	// 合成したスプライトは非表示
+			vdp->sprite_composition_flag |= 1 << plNum;
 		}
 	}
 }
@@ -658,7 +707,9 @@ void refresh_sprite_512_mode1(ms_vdp_t* vdp, int plNum) {
 	unsigned int ptNum = pattr[plNum*SAT_SIZE+2];
 	uint32_t color = pattr[plNum*SAT_SIZE+3] & 0xf;
 	color = color == 0 ? vdp->alt_color_zero : color; // 「色コード0」のスプライトが消えてしまう問題への暫定対応
-	uint32_t colorex = color << 28 | color << 24 | color << 20 | color << 16 | color << 12 | color << 8 | color << 4 | color; // MSXの4ドット分(X68000だと2倍の8ドットに拡大)
+	// MSXの4ドット分(X68000だと2倍の8ドットに拡大)
+	//uint32_t colorex = color << 28 | color << 24 | color << 20 | color << 16 | color << 12 | color << 8 | color << 4 | color;
+	uint32_t colorex = colorex_tbl[color];
 	if (vdp->sprite_size == 0) { // 8x8
 		for( i = 0; i < 32; i++) { 
 			X68_PCG[plNum*PCG_UNIT+i] = vdp->x68_pcg_buffer[(ptNum & 0xff)*PCG_BUF_UNIT_D2X+i] & colorex;
@@ -699,7 +750,7 @@ void write_sprite_color(ms_vdp_t* vdp, int offset, uint32_t color, int32_t old_c
  * 
  * @param vdp 
  */
-void ms_vdp_sprite_vsync_draw(ms_vdp_t* vdp, int hostdebugmode) {
+void ms_vdp_sprite_vsync_draw(ms_vdp_t* vdp) {
 	//vdp->sprite_refresh_flag |= SPRITE_REFRESH_FLAG_PGEN;	// 全書き換え
 	//vdp->sprite_refresh_flag |= SPRITE_REFRESH_FLAG_ATTR;	// アトリビュートテーブルのみ再検査
 	//vdp->sprite_refresh_flag |= SPRITE_REFRESH_FLAG_COORD;	// 実験的に、位置調整は毎回行うようにしてみる
@@ -707,6 +758,8 @@ void ms_vdp_sprite_vsync_draw(ms_vdp_t* vdp, int hostdebugmode) {
 	if (!vdp->sprite_refresh_flag) {
 		return;
 	}
+
+	int hostdebugmode = vdp->hostdebugmode;
 
 	uint8_t* vram = vdp->vram;
 
@@ -717,6 +770,24 @@ void ms_vdp_sprite_vsync_draw(ms_vdp_t* vdp, int hostdebugmode) {
 	int i,j;
 	int plNum;
 	uint16_t flag = vdp->sprite_refresh_flag;
+	if (flag & SPRITE_REFRESH_FLAG_FULL) {
+		vdp->sprite_composition_flag = 1;
+		for(plNum = 0; plNum < 32; plNum++) {
+			if( mag512 == 2 && spSize == 16) {
+				// 512ドットモード、16x16サイズの時
+				for( i=0; i<4; i++) {
+				X68_SSR[plNum*SSR_UNIT+i*4+2] = 0x100 + plNum*4+i; // パレット0x10-0x1fを使用するので 0x100を足す
+				}
+			} else {
+				// 256ドットモードの時、512ドットモードで8x8サイズの時
+				X68_SSR[plNum*SSR_UNIT+2] = 0x100 + plNum*4; // パレット0x10-0x1fを使用するので 0x100を足す					
+				for( i=1; i<4; i++) {
+					X68_SSR[plNum*SSR_UNIT+i*4+3] = 0;	// 8x8の時は後ろ3枚のスプライトは非表示
+				}
+			}
+		}
+		flag |= SPRITE_REFRESH_FLAG_PGEN;	// 以降の処理も全て行う
+	}
 	if (flag & SPRITE_REFRESH_FLAG_PGEN) {
 		if(hostdebugmode) {
 			X68_TX_PAL[0] = 0x1f << 11;	// Green
@@ -747,7 +818,7 @@ void ms_vdp_sprite_vsync_draw(ms_vdp_t* vdp, int hostdebugmode) {
 				sprite_cc_flags[plNum] = ccflag;
 			}
 		}
-		flag |= SPRITE_REFRESH_FLAG_ATTR;	// スプライトアトリビュートテーブルの更新も行う
+		flag |= SPRITE_REFRESH_FLAG_ATTR;	// スプライトアトリビュートテーブル(パターン番号)の更新も行う
 	}
 	if (flag & SPRITE_REFRESH_FLAG_ATTR) {
 		if(hostdebugmode) {
@@ -773,13 +844,13 @@ void ms_vdp_sprite_vsync_draw(ms_vdp_t* vdp, int hostdebugmode) {
 				refresh_sprite_256_mode2(vdp);
 			}
 		}
-		flag |= SPRITE_REFRESH_FLAG_COORD;	// スプライトアトリビュートテーブルの更新も行う
+		flag |= SPRITE_REFRESH_FLAG_COORD;	// スプライトアトリビュートテーブル(表示位置)の更新も行う
 	}
 	if (flag & SPRITE_REFRESH_FLAG_COORD) {
 		if(hostdebugmode) {
 			X68_TX_PAL[0] = 0x1f << 11 | 0x1f << 6;	// Yellow
 		}
-		// スプライトアトリビュートテーブルのみの更新
+		// スプライトアトリビュートテーブルのXY座標のみの更新
 		int HY = (vdp->ms_vdp_current_mode->sprite_mode & 0x3) == 1 ? 208 : 216;
 		uint8_t* sprattr = vram + vdp->sprattrtbl_baddr;
 		uint8_t* sprcolr = vram + vdp->sprcolrtbl_baddr;
@@ -798,8 +869,20 @@ void ms_vdp_sprite_vsync_draw(ms_vdp_t* vdp, int hostdebugmode) {
 					break;
 				}
 				if(spMode == 1) {
+					if( (sprattr[plNum*SAT_SIZE+3] & 0x04) == 0) {
+						// 色コード0のスプライトは表示しない
+						for( i=0; i<4; i++) {
+						//	X68_SSR[plNum*SSR_UNIT+i*4+3] = 0;	// スプライトは非表示
+						}
+						//continue;
+					}
 					ec = (sprattr[plNum*SAT_SIZE+3] & 0x80) >> 7;
 				} else {
+					if(vdp->sprite_composition_flag & (1 << plNum)) {
+						// 合成されたスプライトプレーンは手前のプレーンに合成済みなのでスキップ
+						X68_SSR[plNum*SSR_UNIT+3] = 0; // スプライト悲表示
+						continue;
+					}
 					ec = (sprcolr[plNum*COL_SIZE+0] & 0x80) >> 7; // ラインごとのECはサポートしないので1ライン目だけみる
 				}
 				y = ((y + 1 - scroll_offset) & 0xff) * mag512 + 16;
@@ -809,18 +892,13 @@ void ms_vdp_sprite_vsync_draw(ms_vdp_t* vdp, int hostdebugmode) {
 					for( i=0; i<4; i++) {
 						X68_SSR[plNum*SSR_UNIT+i*4+0] = x + (i/2)*16;
 						X68_SSR[plNum*SSR_UNIT+i*4+1] = y + (i%2)*16;
-						X68_SSR[plNum*SSR_UNIT+i*4+2] = 0x100 + plNum*4+i; // パレット0x10-0x1fを使用するので 0x100を足す
 						X68_SSR[plNum*SSR_UNIT+i*4+3] = 3; // スプライト表示
 					}
 				} else {
 					// 256ドットモードの時、512ドットモードで8x8サイズの時
 					X68_SSR[plNum*SSR_UNIT+0] = x;
 					X68_SSR[plNum*SSR_UNIT+1] = y;
-					X68_SSR[plNum*SSR_UNIT+2] = 0x100 + plNum*4; // パレット0x10-0x1fを使用するので 0x100を足す					
 					X68_SSR[plNum*SSR_UNIT+3] = 3; // スプライト表示
-					for( i=1; i<4; i++) {
-						X68_SSR[plNum*SSR_UNIT+i*4+3] = 0;	// 8x8の時は後ろ3枚のスプライトは非表示
-					}
 				}
 			}
 		}

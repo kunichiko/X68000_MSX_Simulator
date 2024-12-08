@@ -98,7 +98,7 @@
 	.xref	ms_cpu_int
 
 	.xref	HEX
-	.xref	int_block_count
+	.xref	framerate_control
 
 	.xref	ms_vsync_interrupt_tick	; TODO VDP依存を除去
 
@@ -117,6 +117,9 @@
 	.xdef	ms_cpu_registers_ptr
 	.xdef	ms_cpu_needs_refresh_PC
 
+	.xdef	emu_counter
+	.xdef	emu_counter_latch
+
 	;.xdef	cpu_main
 	.xdef	cpu_sub_emu_yield
 	.xdef	cpu_yield		* 一定周期(VSYNC)などで必ず呼び出される割り込み要求
@@ -130,6 +133,7 @@
 	.xdef	interrupt_history_ptr
 	.xdef	interrupt_history_wr
 	.xdef	interrupt_history_rd
+	.xdef	cpu_in_interrupt
 
 	.xdef	base
 
@@ -259,8 +263,6 @@ cpu_cycle_last:			* C側に見せている値(デバッグ表示中に重くなって値が変わるのを回
 	.dc.l	0
 cpu_cycle_wait:
 	.dc.l	0
-cpu_cycle_wait_max:
-	.dc.l	$7fffffff
 emu_counter:
 	.dc.l	0
 emu_counter_latch:
@@ -286,7 +288,7 @@ interrupt_history:
 	; int_tick はその時点の interrupt_tick の値
 	; reason は割り込みが発生した時にどう処理したかを示す
 	; 0x00: EI状態で、正常にZ80に割り込みがかかった
-	; 0x01: EIだったが、emu_counterが int_block_count に達していなかったのでスキップ
+	; 0x01: EIだったが、emu_counterが framerate_control に達していなかったのでスキップ
 	; 0x02: DI状態のため、Z80の割り込みがスキップされた
 	; emu_counterには、割り込み時の emu_counter - emu_counter_latch の値を格納
 
@@ -298,14 +300,14 @@ interrupt_history_rd:
 
 	.text
 *
-*	void ms_cpu_emulate(emu_loop_func, max_wait);
+*	void ms_cpu_emulate(emu_loop_func, cpu_wait);
 *
 ms_cpu_emulate:
 	link	a6,#0
 	movem.l	d3-d7/a0-a5,-(sp)	* ※1 emu_endと対応
 	
-	move.l	8(a6),emu_loop_func		* 引数1のループ関数のポインタを保存しておく
-	move.l	12(a6),cpu_cycle_wait_max	* 引数2の最大ウエイトを保存しておく
+	move.l	8(a6),emu_loop_func	* 引数1のループ関数のポインタを保存しておく
+	move.l	12(a6),cpu_cycle_wait	* 引数2のCPUウエイトを保存しておく
 
 	lea.l	registers,a3
 	clr.w	d7			* pc = 0
@@ -703,14 +705,16 @@ next_sub_yield:
 	beq	next_emu_yield
 	subq.b	#1,sub_yield
 	bne	next_emu_yield
-	; HSYNC割り込み処理
+	; sub_yieldが1→0になったので、走査線割り込み処理
 	cmpi.b	#0,interrupt_enable
 	beq	next_emu_yield	* DIなら割り込まない
 	; EI = 1だった場合、割り込みを処理するが、
 	; EIの実行直後の場合は割り込みをスキップする
 	cmpi.b	#$fb,last_opcode
-	beq	next_emu_yield
-	; あらためて割り込み要求端子の値(ms_cpu_int)を見て割り込み要求があるかどうかを見る
+	bne	@f
+	move.b	#1,sub_yield	; 1つ命令を実行した後にもう一度割り込みを確認するためにsub_yieldを1にする
+	bra	next_emu_yield
+@@:	; あらためて割り込み要求端子の値(ms_cpu_int)を見て割り込み要求があるかどうかを見る
 	cmpi.b	#0,ms_cpu_int
 	beq	next_emu_yield
 	bsr	INT
@@ -718,52 +722,11 @@ next_sub_yield:
 
 next_cpu_yield:
 	; cpu_yieldが1→0になったので、1/60ごとの定期処理を行う
-	; まずはCPUサイクル数を見て早すぎる場合のウエイト量を計算
+
+	; まずはCPUサイクル数の保存
 	move.l	cpu_cycle,d0
 	move.l	d0,cpu_cycle_latch
 	clr.l	cpu_cycle
-	cmp.l	#3579545/60*4/5,d0	* 1/60秒分のサイクル数 (MSXのM1ウエイトを考慮して4/5倍している) = 47727 = $BA6F
-	blt	calc_wait_slow
-calc_wait_fast:
-	; 速い時
-	; d0には正の数が入っているので、まずこの値と $BA6Fとの比率を計算する
-	divu.w	#3579545/60*4/5,d0
-	; d0:下位に商、上位に余りが入る
-	; 例: 速度が1.1倍早かった時、$BA6F * 1.1 / $BA6F = $0001 (余り $12A5)
-	; ひとまず、余りの1/4096 + 1をウエイトに加算(+1?+12)し、商が2以上の場合はさらに+16を加算する
-	clr.l	d1
-	swap	d0
-	move.w	d0,d1
-	clr.w	d0
-	swap	d0
-	lsr.w	#8,d1
-	lsr.w	#4,d1
-	add.l	#1,d1
-	add.l	cpu_cycle_wait,d1
-	bcc	1f
-	; オーバーフローした場合(ないと思うが)
-	move.l	#$7fffffff,d1
-1:	cmp.w	#1,d0
-	beq	1f
-	add.l	#16,d1
-	bcc	1f
-	; オーバーフローした場合(ないと思うが)
-	move.l	#$7fffffff,d1
-1:	cmp.l	cpu_cycle_wait_max,d1
-	bcs	1f
-	move.l	cpu_cycle_wait_max,d1
-1:	; ウエイトをセット
-	move.l	d1,cpu_cycle_wait
-	bra	check_interrupt
-calc_wait_slow:
-	; 遅い時
-	; ウエイトを3/4倍にする(動作速度が4/3倍になるわけではないのでひとまずこれでOK)
-	move.l	cpu_cycle_wait,d0
-	move.l	d0,d1
-	lsr.l	#1,d0		; 1/2倍
-	lsr.l	#2,d1		; 1/4倍
-	add.l	d1,d0		; 3/4倍
-	move.l	d0,cpu_cycle_wait
 
 	; 割り込み処理
 check_interrupt:
@@ -772,24 +735,12 @@ check_interrupt:
 	; EI = 1だった場合、割り込みを処理するが、
 	; EIの実行直後の場合は割り込みをスキップする
 	cmpi.b	#$fb,last_opcode
-	beq	skip_interrupt
-	; あらためて割り込み要求端子の値(ms_cpu_int)を見て割り込み要求があるかどうかを見る
+	bne	@f
+	move.b	#1,cpu_yield	; 1つ命令を実行した後にもう一度割り込みを確認するためにcpu_yieldを1にする
+	bra	skip_interrupt
+@@:	; あらためて割り込み要求端子の値(ms_cpu_int)を見て割り込み要求があるかどうかを見る
 	cmpi.b	#0,ms_cpu_int
-	beq	next_emu_yield
-	; emu_counter の増加量が int_block_count に達していなかったら割り込みを一回スキップ(実験)
-	move.l	emu_counter,d0
-	sub.l	emu_counter_latch,d0
-	cmp.l	int_block_count,d0
-	bgt	1f
-	; Skip処理
-	addq.l	#1,int_skip_counter
-
-	move.w	#1,d0
-	bsr	add_interrupt_history
-
-	bra	check_yield_rts
-
-1:
+	beq	next_emu_yield			* 割り込み要求がない場合は次の処理へ
 	addq.l	#1,int_exec_counter
 	bsr	INT
 	move.w	#0,d0
@@ -829,7 +780,7 @@ next_emu_yield:
 	bra	emu_end
 
 check_yield_rts:
-	move.w	(sp)+,sr
+	move.w	(sp)+,sr			* ここで割り込み許可に戻す
 	rts
 
 ; emu_yieldの処理
@@ -8126,6 +8077,7 @@ interrupt_mode:
 
 	.even
 
+cpu_in_interrupt:		* CPUが割り込み処理中の時 0以外の値が入っている（実際は割り込み処理の戻り先アドレス）
 interrupt_return:
 	.dc.w	0		* 割り込み処理の戻り先アドレス。割り込みが終わったら0クリアされます。
 

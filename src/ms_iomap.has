@@ -168,7 +168,7 @@ ms_io_output_table:
 *	8
 	.dc.l	ms_iomap_out,	ms_iomap_out,	ms_iomap_out,	ms_iomap_out
 	.dc.l	ms_iomap_out,	ms_iomap_out,	ms_iomap_out,	ms_iomap_out
-	.dc.l	write_vdp_0,	write_vdp_1,	write_vdp_2,	write_vdp_3
+	.dc.l	ms_iomap_out,	ms_iomap_out,	ms_iomap_out,	ms_iomap_out
 	.dc.l	ms_iomap_out,	ms_iomap_out,	ms_iomap_out,	ms_iomap_out
 *	9
 	.dc.l	w_port_90,	w_port_91,	ms_iomap_out,	ms_iomap_out

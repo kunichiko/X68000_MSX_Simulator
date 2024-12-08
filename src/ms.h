@@ -64,9 +64,10 @@ typedef struct ms_init_params {
 	uint8_t* slot_path[4][4];
 	int diskcount;
 	char* diskimages[16];
-	uint32_t max_wait;
+	uint32_t cpu_wait;
 	int disablehsyncint;
 	int scc_enable;
+	uint32_t framerate_control;
 } ms_init_params_t;
 
 #endif // MS_H

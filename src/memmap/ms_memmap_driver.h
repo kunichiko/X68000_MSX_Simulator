@@ -50,6 +50,7 @@ typedef struct ms_memmap_driver {
 
 	// buffer (各ドライバが使用するバッファ領域)
 	uint8_t* buffer;
+	uint32_t buffer_length;
 
 } ms_memmap_driver_t;
 

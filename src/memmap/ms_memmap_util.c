@@ -14,6 +14,8 @@
 #include "ms_memmap_MEGAROM_KONAMI.h"
 #include "ms_memmap_MEGAROM_KONAMI_SCC.h"
 #include "ms_memmap_PAC.h"
+#include "ms_memmap_ESE_RAM.h"
+#include "ms_memmap_ESE_SCC.h"
 #include "../disk/ms_disk_bios_Panasonic.h"
 
 int detect_rom_type(uint8_t* buffer, int length);
@@ -143,6 +145,26 @@ void allocateAndSetCartridge(const char *romFileName, int slot_base, int kind) {
 				return;
 			}
 			ms_memmap_PAC_init(pac, ms_memmap_shared_instance(), crt_buff, buf_length, crt_length, (uint8_t*)romFileName);
+			break;
+		case ROM_TYPE_ESE_RAM:
+			// ESE_RAMとしてロードする
+			ms_memmap_driver_ESE_RAM_t* eram = ms_memmap_ESE_RAM_alloc();
+			driver = (ms_memmap_driver_t*)eram;
+			if( driver == NULL) {
+				printf("ESE-RAMの初期化に失敗しました\n");
+				return;
+			}
+			ms_memmap_ESE_RAM_init(eram, ms_memmap_shared_instance(), crt_buff, buf_length, (uint8_t*)romFileName);
+			break;
+		case ROM_TYPE_ESE_SCC:
+			// ESE_SCCとしてロードする
+			ms_memmap_driver_ESE_SCC_t* escc = ms_memmap_ESE_SCC_alloc();
+			driver = (ms_memmap_driver_t*)escc;
+			if( driver == NULL) {
+				printf("ESE-SCCの初期化に失敗しました\n");
+				return;
+			}
+			ms_memmap_ESE_SCC_init(escc, ms_memmap_shared_instance(), crt_buff, buf_length, (uint8_t*)romFileName);
 			break;
 		default:
 			break;
