@@ -583,9 +583,9 @@ raster_interrupt:
 	movem.l	d0/a0/a5,-(sp)
 	movea.l	ms_vdp_shared,a5
 	cmp.b	#0,offset_ms_vdp_disablehsyncint(a5)
-	bne	@f				* HSYNC割り込みが禁止されている場合は何もしない
+	bne	9f				* HSYNC割り込みが禁止されている場合は何もしない
 	btst.b	#4,offset_ms_vdp_r00(a5)	* VDP IE1 (R#0のbit4) をみて、HSYNC割り込みが許可されているかを調べる
-	beq	@f
+	beq	9f
 	; 走査線割り込みをかける
 	bset.b	#0,offset_ms_vdp_s01(a5)	* VDP S#1の bit0に、HSYNC割り込み発生フラグを立てる。これとS#0の VSYNC割り込みがZ80のINT端子の状態を表している。
 	bset.b	#1,ms_vdp_int			* HSYNC割り込み要求フラグを立てる
@@ -593,13 +593,15 @@ raster_interrupt:
 
 	; どこでラスタ割り込みがかかっているかを確認するためにテキストパレットの色を変える
 	.if 	RASTERDEBUG=1
+		cmp.b	#0,offset_ms_vdp_hostdebugmode(a5)
+		beq	@f
 		move.w	raster_debug,d0
 		move.w	d0,t_palette+$3*2
 		eor.w	#%11111_11111_11111_0,d0
 		move.w	d0,raster_debug
-	.endif
+@@:	.endif
 
-@@:	movem.l	(sp)+,d0/a0/a5
+9:	movem.l	(sp)+,d0/a0/a5
 	rts
 
 raster_debug:
