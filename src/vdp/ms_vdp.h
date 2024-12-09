@@ -73,7 +73,7 @@
 
 extern uint32_t* ms_vdp_rewrite_flag_tbl;
 
-extern uint16_t framerate_last;
+extern uint32_t framerate_count_his;
 
 typedef struct ms_vdp_mode ms_vdp_mode_t;
 

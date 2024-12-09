@@ -584,6 +584,19 @@ int main(int argc, char *argv[]) {
 	printf("[[ MSX Simulator MS.X %s]]\n", MS_dot_X_VERSION);
 	printf(" この画面は HELP キーで消せます\n");
 
+	// 設定値の表示
+	switch(user_param.framerate_control) {
+	case 0x00000000:
+		printf("framecon=none\n");
+		break;
+	case 0xffffffff:
+		printf("framecon=auto\n");
+		break;
+	default:
+		printf("framecon=%d\n", user_param.framerate_control);
+		break;
+	}
+
 	if (init_param.disablehsyncint) {
 		printf("HSYNC割り込みを無効化します\n");
 	}
@@ -1018,7 +1031,11 @@ int emuLoopImpl(unsigned int pc, unsigned int counter) {
 
 	if (kigo_key_hit) {
 		printf("\n");
-		printf("loop=%08d [%d/60]\ncycle=%08ld wait=%ld\n", emuLoopCounter, framerate_last, cpu_cycle_last, cpu_cycle_wait);
+		uint32_t h = framerate_count_his;
+		uint32_t framerate = ( ((h>>24)&0xff) + ((h>>16)&0xff) + ((h>>8)&0xff) + (h&0xff) ) / 4;
+		framerate /= ms_vdp_vsync_rate;
+		int frac = 60 / ms_vdp_vsync_rate;
+		printf("loop=%08d [%d/%d]\ncycle=%08ld wait=%ld\n", emuLoopCounter, framerate, frac, cpu_cycle_last, cpu_cycle_wait);
 		printf("COUNTER=%08x, inttick=%08d\n", counter, ms_vsync_interrupt_tick);
 		dump(pc >> 16, pc & 0x1fff);
 	}
@@ -1430,17 +1447,14 @@ uint8_t load_user_param() {
 			} else {
 				if (strcmp(value, "auto") == 0) {
 					user_param.framerate_control = 0xffffffff;
-					printf("framecon=auto\n");
 				} else if (strcmp(value, "none") == 0) {
 					user_param.framerate_control = 0;
-					printf("framecon=none\n");
 				} else {
 					user_param.framerate_control = atoi(value);
 					if (user_param.framerate_control < 1 || user_param.framerate_control > 99999) {
 						printf("frameconの値が不正です\n");
 						user_param.framerate_control = 0;
 					} else {
-						printf("framecon=%d\n", user_param.framerate_control);
 					}
 				}
 			}
