@@ -73,7 +73,7 @@ void rewrite_sprite_if_needed(ms_vdp_t* vdp) {
 	GRAPHIC6	: addr = DY×256 + dx/2
 	GRAPHIC7	: addr = DY×256 + dx
 */
-uint32_t get_vram_address(ms_vdp_t* vdp, uint32_t x, uint32_t y, int* mod) {
+inline uint32_t get_vram_address(ms_vdp_t* vdp, uint32_t x, uint32_t y, int* mod) {
 	switch(vdp->crt_mode) {
 	case CRT_MODE_GRAPHIC4:
 		if (mod != NULL) {
@@ -103,7 +103,7 @@ uint32_t get_vram_address(ms_vdp_t* vdp, uint32_t x, uint32_t y, int* mod) {
 /*
 	VRAMアドレスからX68000側のGRAMアドレスを求める
 */
-uint16_t* to_gram(ms_vdp_t* vdp, uint32_t vaddr, int mod) {
+inline uint16_t* to_gram(ms_vdp_t* vdp, uint32_t vaddr, int mod) {
 	uint16_t p;
 	uint16_t y;
 	uint16_t x;
@@ -672,7 +672,7 @@ void cmd_YMMM(ms_vdp_t* vdp, uint8_t cmd) {
 	int x,y,i;
 	for(y=0; y < vdp->ny; y++) {
 		uint16_t* gram = to_gram(vdp, dst_vram_addr, 0);
-		for(x=0; x < nx; x+=dots_per_byte) {	// dots_per_byte ドットずつ処理
+		for(x=0; x < nx; x+=dots_per_byte) {	// dots_per_byte ドット分ずつ(1バイトずつ)処理
 			uint8_t data = vram[src_vram_addr];
 			// VRAMに書き込む
 			if( vram[dst_vram_addr] != data ) {
@@ -744,17 +744,20 @@ void cmd_HMMM(ms_vdp_t* vdp, uint8_t cmd) {
 	uint32_t src_vram_addr = get_vram_address(vdp, vdp->sx, vdp->sy, NULL);
 	uint32_t dst_vram_addr = get_vram_address(vdp, vdp->dx, vdp->dy, NULL);
 
+	int dotmask = (1<<bits_per_dot)-1;
+	int nxbyte = nx / dots_per_byte;
+	int widthbyte = crt_width / dots_per_byte;
 	int x,y,i;
 	for(y=0; y < ny; y++) {
 		uint16_t* gram = to_gram(vdp, dst_vram_addr, 0);
-		for(x=0; x < nx; x+=dots_per_byte) {	// dots_per_byte ドットずつ処理
+		for(x=0; x < nx; x+=dots_per_byte) {	// dots_per_byte ドット分ずつ(1バイトずつ)処理
 			uint8_t data = vram[src_vram_addr];
 			// VRAMに書き込む
 			if( vram[dst_vram_addr] != data ) {
 				vram[dst_vram_addr] = data;
 				// GRAMに書き込む
 				for(i=0; i < dots_per_byte; i++) {
-					uint16_t dst = (data >> ((dots_per_byte-1-i)*bits_per_dot)) & ((1<<bits_per_dot)-1);
+					uint16_t dst = (data >> ((dots_per_byte-1-i)*bits_per_dot)) & dotmask;
 					gram[0+i] = dst;
 					if(crt_width == 256) gram[256*512+i] = dst;
 				}
@@ -773,20 +776,20 @@ void cmd_HMMM(ms_vdp_t* vdp, uint8_t cmd) {
 			}
 		}
 		if ( DIX == 0 ) {
-			src_vram_addr -= nx / dots_per_byte;
-			dst_vram_addr -= nx / dots_per_byte;
+			src_vram_addr -= nxbyte;
+			dst_vram_addr -= nxbyte;
 		} else {
-			src_vram_addr += nx / dots_per_byte;
-			dst_vram_addr += nx / dots_per_byte;
+			src_vram_addr += nxbyte;
+			dst_vram_addr += nxbyte;
 		}
 		if ( DIY == 0 ) {
-			src_vram_addr += crt_width / dots_per_byte;
-			dst_vram_addr += crt_width / dots_per_byte;
+			src_vram_addr += widthbyte;
+			dst_vram_addr += widthbyte;
 			vdp->sy += 1;						// DYは書き換わる
 			vdp->dy += 1;						// DYは書き換わる
 		} else {
-			src_vram_addr -= crt_width / dots_per_byte;
-			dst_vram_addr -= crt_width / dots_per_byte;
+			src_vram_addr -= widthbyte;
+			dst_vram_addr -= widthbyte;
 			vdp->sy -= 1;						// DYは書き換わる
 			vdp->dy -= 1;						// DYは書き換わる
 		}
