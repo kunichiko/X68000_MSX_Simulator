@@ -75,7 +75,7 @@
 	.xdef	LINE_G5
 	.xdef	LMMC_G5
 
-	.xdef	framerate_last
+	.xdef	framerate_count_his
 
 
 V_MFP_GPIP_6	equ	$000138		* 水平割り込みのベクタアドレス
@@ -480,14 +480,16 @@ vsync_interrupt:
 	move.w	#0,hsync_counter
 
 	; フレームレートの計測 (4秒の移動平均)
-	addq.w	#1,frame_counter
-	cmp.w	#60*4,frame_counter
+	addq.b	#1,frame_counter
+	cmp.b	#60,frame_counter
 	bne	@f
-	move.w	framerate_count,d0
-	lsr.w	#2,d0
-	move.w	d0,framerate_last
-	move.w	#0,frame_counter
-	move.w	#0,framerate_count
+	; 1秒分計測が終わった
+	move.l	framerate_count_his,d0
+	lsl.l	#8,d0
+	move.b	framerate_count,d0
+	move.l	d0,framerate_count_his
+	move.b	#0,frame_counter
+	move.b	#0,framerate_count
 @@:
 
 	; どこでVSYNC割り込みがかかっているかを確認するためにテキストパレットの色を変える
@@ -515,33 +517,33 @@ vsync_interrupt:
 
 	cmp.l	#0,framerate_control
 	bgt	1f	* 1 - 99999 - 指定命令数CPUが動いていない場合にスキップ
-	beq	9f	* none - 常に割り込みをかける
+	beq	8f	* none - 常に割り込みをかける
 
 	; auto
 	; autoの場合：CPUがまだ割り込み処理から戻っていない場合は、割り込みをスキップ
 	cmp.w	#0,cpu_in_interrupt
-	bne	@f
-	bra	9f	* 割り込みをかける
+	bne	9f	* 割り込みスキップ
+	bra	8f	* 割り込みをかける
 
 1:	; 1 - 99999
 	; emu_counter の増加量が framerate_control に達していなかったら割り込みを一回スキップ(実験)
 	move.l	emu_counter,d0
 	sub.l	emu_counter_latch2,d0
 	cmp.l	framerate_control,d0
-	ble	@f
+	ble	9f	* 割り込みスキップ
 	move.l	emu_counter,emu_counter_latch2
-	bra	9f	* 割り込みをかける
+	bra	8f	* 割り込みをかける
 
-9:	;	VDPの割り込み処理
+8:	;	VDPの割り込み処理
 	btst.b	#7,offset_ms_vdp_s00(a5)	* VDP S#0の bit7に、前回のVSYNC割り込み発生フラグが立ったままかどうかを調べる
 	bne	@f
-	addq.w	#1,framerate_count		* ちゃんとクリアされていた場合は割り込みがかかったと判断しカウントアップ
+	addq.b	#1,framerate_count		* ちゃんとクリアされていた場合は割り込みがかかったと判断しカウントアップ
 @@:	btst.b	#5,offset_ms_vdp_r01(a5)	* VDP IE0 (R#1のbit5) をみて、VSYNC割り込みが許可されているかを調べる
-	beq	@f
+	beq	9f				* 割り込みスキップ
 	bset.b	#7,offset_ms_vdp_s00(a5)	* VDP S#0の bit7に、VSYNC割り込み発生フラグを立てる。これとS#1の HSYNC割り込みがZ80のINT端子の状態を表している。
 	bset.b	#0,ms_vdp_int			* VSYNC割り込み要求フラグを立てる
 
-@@:	movem.l	(sp)+,d0/a0/a5
+9:	movem.l	(sp)+,d0/a0/a5
 	rte
 
 hsync_interrupt:
@@ -618,11 +620,11 @@ hsync_counter:
 	.dc.w	0
 
 frame_counter:
-	.dc.w	0
+	.dc.b	0
 framerate_count:
-	.dc.w	0
-framerate_last:
-	.dc.w	0
+	.dc.b	0
+framerate_count_his:
+	.dc.l	$3c3c3c3c	; all 60fps
 
 	.text
 ;
