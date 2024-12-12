@@ -56,7 +56,7 @@ void rewrite_sprite_if_needed(ms_vdp_t* vdp) {
 			vdp->sprite_refresh_flag |= SPRITE_REFRESH_FLAG_FULL;
 		}
 	} else {
-		// DIY = 0
+		// DIY = 1
 		if( (vdp->cmd_ny_sprite_start <= vdp->dy) && //
 			(vdp->cmd_ny_sprite_end > vdp->dy - vdp->ny)) {
 			// TODO パターンジェネレータテーブル、カラーテーブル、アトリビュートテーブルをそれぞれ別に検査する
