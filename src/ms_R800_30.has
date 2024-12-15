@@ -76,6 +76,10 @@
 	.text
 	.even
 
+	.xref	ms_vdp_slice_exec
+	.xref	ms_vdp_shared
+offset_ms_vdp_s02		equ	50
+
 	; CPUから見える8Kバイト単位のメモリのポインタ配列
 	.xref	ms_cpu_mem_ptr_array
 
@@ -332,6 +336,19 @@ cpu_main:
 @@:	move.l	cpu_sub_emu_yield,d0
 	beq	cpu_main_next
 	bsr	check_yield
+
+	; VDPコマンドの時分割実行
+	;cmp.w	#0,cpu_in_interrupt		* 割り込み中は実行しない
+ 	;bne	cpu_main_next
+	movea.l	ms_vdp_shared,a0
+	btst.b	#0,offset_ms_vdp_s02(a0)
+	beq	cpu_main_next
+	movem.l	d1-d7/a1-a5,-(sp)
+	move.l	a0,-(sp)	* 構造体のアドレスを引数に
+	jsr	ms_vdp_slice_exec
+	lea	4(sp),sp
+	movem.l	(sp)+,d1-d7/a1-a5
+
 cpu_main_next:
 	.ifdef	DEBUG
 	bsr	debug_log_pc
@@ -360,7 +377,7 @@ debug_log_pc:
 	cmp.w	#MS_LOG_CPUTRACE,debug_log_level
 	bge	@f				* ログレベルがCPUTRACEの時のみ
 	rts
-@@:	cmp.w	#0,interrupt_return		* 割り込み中はログを出力しない
+@@:	cmp.w	#0,cpu_in_interrupt		* 割り込み中はログを出力しない
  	beq	@f
  	rts
 @@:	link	a6,#-2

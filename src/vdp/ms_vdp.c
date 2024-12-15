@@ -138,6 +138,8 @@ ms_vdp_t* ms_vdp_shared_instance() {
 	_shared->s06 = 0b11111100; // 上位ビットは1固定
 	_shared->s09 = 0b11111100; // 上位ビットは1固定
 
+	_shared->current_command_exec = NULL;
+
 	// 初期画面モードを 512x512にする
 	// 実際には、MSXの画面モードに応じてこの後色々変化する
 	_iocs_crtmod(4);	// 512x512, 31kHz, 16色 4枚

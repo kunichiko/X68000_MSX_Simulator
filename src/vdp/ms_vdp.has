@@ -27,11 +27,15 @@
 
 	.xref	ms_vdp_set_mode
 	.xref	ms_vdp_update_visibility
+	.xref	ms_vdp_slice_exec
+	.xref	ms_vdp_vsync_draw
 
 	;.xdef	ms_vdp
 	; functions
 	.xdef	ms_vdp_init_mac
 	.xdef	ms_vdp_deinit_mac
+
+	.xdef	ms_vdp_shared
 
 	.xdef	set_TEXT1_mac
 	.xdef	set_TEXT2_mac
@@ -547,7 +551,8 @@ vsync_interrupt:
 	rte
 
 hsync_interrupt:
-	move.l	d0,-(sp)
+	movem.l	d0/a5,-(sp)
+	movea.l	ms_vdp_shared,a5
 
 	; どこでVSYNC割り込みがかかっているかを確認するためにテキストパレットの色を変えている場合
 	; ここで割り込み終了を判定してパレットを戻す
@@ -572,18 +577,41 @@ hsync_interrupt:
 ; 	bsr	vsync_interrupt_2
 ; @@:
 
-	; ホスト(X68000)側の処理を行うタイミングに達したら、emu_yieldをセット
+	; ホスト(X68000)側の処理を行うタイミングに達したら、emu_yieldをセット	
 	cmp.w	host_line,d0
 	bne	@f
 	move.w	#$1,emu_yield
 
+	; VSYNCの割り込みが終わったタイミングで、VDPの再描画処理を呼び出す
+@@:	move.w	cpu_in_interrupt_d,d0
+	beq	@f
+	move.w	cpu_in_interrupt,d0
+	bne	@f
+	; cpu_in_interrupt が1から0になった(falling edge)
+ 	movem.l	d1-d7/a0-a4,-(sp)
+ 	move.l	ms_vdp_shared,-(sp)	* 構造体のアドレスを引数に
+	jsr	ms_vdp_vsync_draw
+ 	lea	4(sp),sp
+	movem.l	(sp)+,d1-d7/a0-a4
+@@:	move.w	cpu_in_interrupt,cpu_in_interrupt_d
+
+; 	; VDPコマンドの時分割実行
+; @@:	move.w	hsync_counter,d0
+; 	andi.w	#3,d0
+; 	bne	@f
+; 	btst.b	#0,offset_ms_vdp_s02(a5)
+; 	beq	@f
+; 	movem.l	d1-d7/a0-a4,-(sp)
+; 	move.l	ms_vdp_shared,-(sp)	* 構造体のアドレスを引数に
+; 	jsr	ms_vdp_slice_exec
+; 	lea	4(sp),sp
+; 	movem.l	(sp)+,d1-d7/a0-a4
 	;
-@@:	move.l	(sp)+,d0	
+@@:	movem.l	(sp)+,d0/a5	
 	rte
 
 raster_interrupt:
-	movem.l	d0/a0/a5,-(sp)
-	movea.l	ms_vdp_shared,a5
+	movem.l	d0/a0,-(sp)
 	cmp.b	#0,offset_ms_vdp_disablehsyncint(a5)
 	bne	9f				* HSYNC割り込みが禁止されている場合は何もしない
 	btst.b	#4,offset_ms_vdp_r00(a5)	* VDP IE1 (R#0のbit4) をみて、HSYNC割り込みが許可されているかを調べる
@@ -603,7 +631,7 @@ raster_interrupt:
 		move.w	d0,raster_debug
 @@:	.endif
 
-9:	movem.l	(sp)+,d0/a0/a5
+9:	movem.l	(sp)+,d0/a0
 	rts
 
 raster_debug:
@@ -670,6 +698,10 @@ errms_timer_A_in_use:
 	.dc.b	'タイマＡは使用中です',0,0
 errms_raster_in_use:
 	.dc.b	'ラスタ割り込みは使用中です',0,0
+
+	.even
+cpu_in_interrupt_d:		* エッジ検出用
+	.dc.w	0
 
 	.text
 
@@ -756,6 +788,12 @@ r_SReg_1:
 	rts
 
 r_SReg_2:
+ 	movem.l	d1-d7/a0-a4,-(sp)
+ 	move.l	a5,-(sp)	* 構造体のアドレスを引数に
+ 	jsr	ms_vdp_slice_exec
+ 	lea	4(sp),sp
+ 	movem.l	(sp)+,d1-d7/a0-a4
+
 	move.b	offset_ms_vdp_s02(a5),d0
 	move.b	GPIP,d1			* いったんレジスタに読む
 	; VDP S#2 b6:垂直帰線期間(0:帰線期間,1:表示期間) の設定
@@ -2634,20 +2672,18 @@ w_GRAPHIC4_mac:
 
 	movea.l	offset_ms_vdp_vram(a5),a0
 	move.l	offset_ms_vdp_vram_addr(a5),d0	* D0 ・・書き込むアドレス
-	.if DIFFDRAW=1 ;差分描画の実験
 	move.b	(a0,d0.l),d2
-	sub.b	d1,d2
-	move.b	d2,-2(a6)			* 差分フラグをセット
+	.if DIFFDRAW=1 ;差分描画の実験
+	cmp.b	d1,d2
+	bne	@f
+	lea	4(a0),a0			* GRAMアドレスインクリメント
+	bra	8f
 	.endif
-	move.b	(a0,d0.l),-4(a6)		* 以前の値を保存
-	move.b	d1,(a0,d0.l)			* VRAM へ書き込み
+@@:	move.b	d2,-4(a6)		* 以前の値を保存
 
 ; GRAM書き換え
+	move.b	d1,(a0,d0.l)			* VRAM へ書き込み
 	movea.l	offset_ms_vdp_gram_addr(a5),a0
-	.if DIFFDRAW=1 ;差分がある時のみ書き込み
-	cmp.b	#0,-2(a6)			* 差分フラグをチェック
-	beq	@f
-	.endif
 	move.b	d1,d2
 	lsr.w	#4,d2
 	move.w	d2,(a0)				* 上位4ビット
@@ -2665,11 +2701,6 @@ w_GRAPHIC4_mac:
 	cmp.l	d2,d0
 	bne	@f
 
-	.if DIFFDRAW=1 ;差分がある時のみ書き込み
-	cmp.b	#0,-2(a6)			* 差分フラグをチェック
-	beq	9f
-	.endif
-
 	move.b	-4(a6),d0			* 以前の値を取得
 	bsr	w_SP_attr			* スプライトアトリビュートテーブルへの書き込み
 
@@ -2681,11 +2712,6 @@ w_GRAPHIC4_mac:
 	andi.w	#%11111110_00000000,d2
 	cmp.l	d2,d0
 	bne	@f
-
-	.if DIFFDRAW=1 ;差分がある時のみ書き込み
-	cmp.b	#0,-2(a6)			* 差分フラグをチェック
-	beq	9f
-	.endif
 
 	move.b	-4(a6),d0			* 以前の値を取得
 	bsr	w_SP_color			* スプライトカラーテーブルへの書き込み
@@ -2699,11 +2725,6 @@ w_GRAPHIC4_mac:
 	cmp.l	d2,d0
 	bne	@f
 
-	.if DIFFDRAW=1 ;差分がある時のみ書き込み
-	cmp.b	#0,-2(a6)			* 差分フラグをチェック
-	beq	9f
-	.endif
-
 	move.b	-4(a6),d0			* 以前の値を取得
 	bsr	w_SP_p_gene			* スプライトパターンジェネレータテーブルへの書き込み
 
@@ -2712,7 +2733,7 @@ w_GRAPHIC4_mac:
 @@:	* VRAM書き込みアドレスをインクリメント
 9:	move.l	(sp)+,a0
 
-	move.l	offset_ms_vdp_vram_addr(a5),d1
+8:	move.l	offset_ms_vdp_vram_addr(a5),d1
 	addq.l	#1,d1				* インクリメント	
 	andi.l	#%00000001_11111111_11111111,d1
 	move.l	d1,offset_ms_vdp_vram_addr(a5)

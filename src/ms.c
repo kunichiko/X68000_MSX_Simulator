@@ -820,9 +820,12 @@ void dump(unsigned int page, unsigned int pc_8k);
 
 void sync_keyboard_leds();
 
+uint16_t X68_TX_PAL_ORG;
+
 void willEnterEmuLoop() {
 	if( hostdebug ) {
 		// デバッグモードの場合は、画面上の色を変更して、どのタイミングで実行されているかを可視化する
+		X68_TX_PAL_ORG = X68_TX_PAL[0];
 		X68_TX_PAL[0] = 0xffff;
 	}
 }
@@ -830,7 +833,7 @@ void willEnterEmuLoop() {
 void didExitEmuLoop() {
 	if( hostdebug ) {
 		// デバッグモードの場合は、画面上の色を変更して、どのタイミングで実行されているかを可視化する
-		X68_TX_PAL[0] = 0x0000;
+		X68_TX_PAL[0] = X68_TX_PAL_ORG;
 	}
 }
 
@@ -847,6 +850,16 @@ int emuLoopImpl(unsigned int pc, unsigned int counter) {
 	static int emuLoopCounter = 0;
 	static uint8_t last_bitsns[16];
 
+	emuLoopCounter++;
+
+	if( vdp != NULL) {
+		//ms_vdp_vsync_draw(vdp);
+	}
+
+	if(emuLoopCounter % host_rate != 0) {
+		return 0;
+	}
+
 	int i,j;
 	uint32_t map;
 	uint8_t S, X, Y;
@@ -862,16 +875,6 @@ int emuLoopImpl(unsigned int pc, unsigned int counter) {
 	int kigo_key_hit = 0;
 	int help_key_hit = 0;
 	int toroku_key_hit = 0;
-
-	emuLoopCounter++;
-
-	if( vdp != NULL) {
-		ms_vdp_vsync_draw(vdp);
-	}
-
-	if(emuLoopCounter % host_rate != 0) {
-		return 0;
-	}
 
 	sync_keyboard_leds();
 

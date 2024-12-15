@@ -209,8 +209,8 @@ uint16_t sprite_cc_flags[32]; // スプライトカラーテーブルのCCビットのフラグ
 
 uint8_t sp_pattern_dirty[64];	// 16x16ドットのパターンは64個ある
 
-
-#define NUM_SP_PAT_BUF 64
+// 16x16,Mode2の時に、X68000のPCG上に最大何枚までのスプライトをキャッシュするか(最大128)
+#define NUM_SP_PAT_BUF 128
 
 uint32_t sp_composition_table[NUM_SP_PAT_BUF];
 
@@ -1026,7 +1026,11 @@ void ms_vdp_sprite_vsync_draw(ms_vdp_t* vdp) {
 		return;
 	}
 
+	uint16_t TXPAL_ORG;
 	int hostdebugmode = vdp->hostdebugmode;
+	if (hostdebugmode) {
+		TXPAL_ORG = X68_TX_PAL[0];
+	}
 
 	uint8_t* vram = vdp->vram;
 
@@ -1077,9 +1081,10 @@ void ms_vdp_sprite_vsync_draw(ms_vdp_t* vdp) {
 			uint8_t* sprcolr = vram + vdp->sprcolrtbl_baddr;
 			for(plNum=0; plNum<32; plNum++) {
 				uint16_t ccflag = 0;
-				for(i=0; i<16; i++) {
+				uint16_t mask = 0x0001;
+				for(; mask != 0; mask <<= 1) {
 					if (*sprcolr++ & 0x40) { // CCビットを検査
-						ccflag |= (1 << i);
+						ccflag |= mask;
 					}
 				}
 				sprite_cc_flags[plNum] = ccflag;
@@ -1115,7 +1120,7 @@ void ms_vdp_sprite_vsync_draw(ms_vdp_t* vdp) {
 	}
 	if (flag & SPRITE_REFRESH_FLAG_COORD) {
 		if(hostdebugmode) {
-			X68_TX_PAL[0] = 0x1f << 11 | 0x1f << 6;	// Yellow
+			X68_TX_PAL[0] = 0x1f << 11 | 0x1f << 1;	// Light Blue
 		}
 		// スプライトアトリビュートテーブルのXY座標のみの更新
 		int HY = (vdp->ms_vdp_current_mode->sprite_mode & 0x3) == 1 ? 208 : 216;
@@ -1126,9 +1131,10 @@ void ms_vdp_sprite_vsync_draw(ms_vdp_t* vdp) {
 		plNum = 0;
 		int x,y,ec = 0;
 		int adjustx = get_sprite_adjustx(vdp) * mag512;
+		uint16_t* SSR = X68_SSR;
 		if ( (vdp->r08 & 0x02) == 0 ) {
 			// スプライト非表示ではない時
-			for(;plNum<32;plNum++) {
+			for(;plNum<32;plNum++,SSR+=SSR_UNIT) {
 				y = sprattr[plNum*SAT_SIZE+0];
 				x = sprattr[plNum*SAT_SIZE+1];
 				if ( y == HY) {
@@ -1147,7 +1153,7 @@ void ms_vdp_sprite_vsync_draw(ms_vdp_t* vdp) {
 				} else {
 					if(vdp->sprite_composition_flag & (1 << plNum)) {
 						// 合成されたスプライトプレーンは手前のプレーンに合成済みなのでスキップ
-						X68_SSR[plNum*SSR_UNIT+3] = 0; // スプライト悲表示
+						SSR[3] = 0; // スプライト非表示
 						continue;
 					}
 					ec = (sprcolr[plNum*COL_SIZE+0] & 0x80) >> 7; // ラインごとのECはサポートしないので1ライン目だけみる
@@ -1157,27 +1163,35 @@ void ms_vdp_sprite_vsync_draw(ms_vdp_t* vdp) {
 				if( mag512 == 2 && spSize == 16) {
 					// 512ドットモード、16x16サイズの時
 					for( i=0; i<4; i++) {
-						X68_SSR[plNum*SSR_UNIT+i*4+0] = x + (i/2)*16;
-						X68_SSR[plNum*SSR_UNIT+i*4+1] = y + (i%2)*16;
-						X68_SSR[plNum*SSR_UNIT+i*4+3] = 3; // スプライト表示
+						SSR[i*4+0] = x + (i/2)*16;
+						SSR[i*4+1] = y + (i%2)*16;
+						SSR[i*4+3] = 3; // スプライト表示
 					}
 				} else {
 					// 256ドットモードの時、512ドットモードで8x8サイズの時
-					X68_SSR[plNum*SSR_UNIT+0] = x;
-					X68_SSR[plNum*SSR_UNIT+1] = y;
-					X68_SSR[plNum*SSR_UNIT+3] = 3; // スプライト表示
+					SSR[0] = x;
+					SSR[1] = y;
+					SSR[3] = 3; // スプライト表示
 				}
 			}
 		}
 		visible_sprite_planes = plNum;
 		// 以下のスプライトプレーンは非表示にする
-		for(;plNum<32;plNum++) {
-			for( i=0; i<4; i++) {
-				X68_SSR[plNum*SSR_UNIT+i*4+3] = 0; // スプライト非表示
+		for(;plNum<32;plNum++,SSR+=SSR_UNIT) {
+			SSR[3] = 0; // スプライト非表示
+			if( mag512 == 2 && spSize == 16) {
+				// 512ドットモード、16x16サイズの時
+				X68_SSR[1*4+3] = 0; // スプライト非表示
+				X68_SSR[2*4+3] = 0; // スプライト非表示
+				X68_SSR[3*4+3] = 0; // スプライト非表示
 			}
 		}
 		vdp->last_visible_sprite_planes = visible_sprite_planes;
 		vdp->last_visible_sprite_size = vdp->sprite_size;
+
+		if (hostdebugmode) {
+			X68_TX_PAL[0] = TXPAL_ORG;
+		}
 	}
 
 	// フラグクリア

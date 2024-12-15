@@ -7,6 +7,8 @@
 #include <stddef.h>
 #include "ms_vdp.h"
 
+void ms_vdp_slice_exec(ms_vdp_t* vdp);
+
 uint16_t get_Y_from_vaddr(ms_vdp_t* vdp, uint32_t vaddr) {
 	switch(vdp->crt_mode) {
 	case CRT_MODE_GRAPHIC4:
@@ -720,6 +722,8 @@ void cmd_YMMM(ms_vdp_t* vdp, uint8_t cmd) {
 	rewrite_sprite_if_needed(vdp);
 }
 
+int cmd_HMMM_exe(ms_vdp_t* vdp);
+
 void cmd_HMMM(ms_vdp_t* vdp, uint8_t cmd) {
 	if(MS_LOG_FINE_ENABLED) {
 		MS_LOG(MS_LOG_FINE,"HMMM START****\n");
@@ -744,20 +748,70 @@ void cmd_HMMM(ms_vdp_t* vdp, uint8_t cmd) {
 	uint32_t src_vram_addr = get_vram_address(vdp, vdp->sx, vdp->sy, NULL);
 	uint32_t dst_vram_addr = get_vram_address(vdp, vdp->dx, vdp->dy, NULL);
 
-	int dotmask = (1<<bits_per_dot)-1;
-	int nxbyte = nx / dots_per_byte;
-	int widthbyte = crt_width / dots_per_byte;
-	int x,y,i;
-	for(y=0; y < ny; y++) {
+	vdp->cmd_context.y = 0;
+	vdp->cmd_context.nx = nx;
+	vdp->cmd_context.ny = ny;
+	vdp->cmd_context.nxbyte = nx / dots_per_byte;
+	vdp->cmd_context.widthbyte = crt_width / dots_per_byte;
+	vdp->cmd_context.src_vram_addr = src_vram_addr;
+	vdp->cmd_context.dst_vram_addr = dst_vram_addr;
+
+	vdp->s02 |= 0x01;						// CEビットをセット
+	vdp->current_command_exec = cmd_HMMM_exe;
+
+	// 1行分だけ実行
+	ms_vdp_slice_exec(vdp);
+}
+
+
+/**
+ * @brief 
+ * 
+ * @param vdp 
+ * 
+ * @return int 0: 転送終了, 1: 転送途中
+ */
+int cmd_HMMM_exe(ms_vdp_t* vdp) {
+	ms_vdp_cmd_ctx_t* context = &vdp->cmd_context;
+	int	crt_width = vdp->ms_vdp_current_mode->crt_width;
+	int dots_per_byte = vdp->ms_vdp_current_mode->dots_per_byte;
+	int bits_per_dot = vdp->ms_vdp_current_mode->bits_per_dot;
+
+	uint8_t* vram = vdp->vram;
+	uint8_t DIX = vdp->cmd_arg & 0x04;
+	uint8_t DIY = vdp->cmd_arg & 0x08;
+
+	int i;
+	int x;
+	int y = context->y;
+	int nx = context->nx;
+	int ny = context->ny;
+	uint32_t src_vram_addr = context->src_vram_addr;
+	uint32_t dst_vram_addr = context->dst_vram_addr;
+	uint16_t dotmask = (1<<bits_per_dot)-1;
+	int nxbyte = context->nxbyte;
+	int widthbyte = context->widthbyte;
+
+	uint32_t byte_count = 0;
+	for(; y < ny; y++) {
+		if (byte_count >= 0x100) {
+			context->y = y;
+			context->src_vram_addr = src_vram_addr;
+			context->dst_vram_addr = dst_vram_addr;
+			return 1;
+		}
 		uint16_t* gram = to_gram(vdp, dst_vram_addr, 0);
 		for(x=0; x < nx; x+=dots_per_byte) {	// dots_per_byte ドット分ずつ(1バイトずつ)処理
+			byte_count++;
 			uint8_t data = vram[src_vram_addr];
 			// VRAMに書き込む
 			if( vram[dst_vram_addr] != data ) {
 				vram[dst_vram_addr] = data;
 				// GRAMに書き込む
-				for(i=0; i < dots_per_byte; i++) {
-					uint16_t dst = (data >> ((dots_per_byte-1-i)*bits_per_dot)) & dotmask;
+				for(i=dots_per_byte-1; i >= 0; i--) {
+					//uint16_t dst = (data >> ((dots_per_byte-1-i)*bits_per_dot)) & dotmask;
+					uint16_t dst = data & dotmask;
+					data >>= bits_per_dot;
 					gram[0+i] = dst;
 					if(crt_width == 256) gram[256*512+i] = dst;
 				}
@@ -794,9 +848,10 @@ void cmd_HMMM(ms_vdp_t* vdp, uint8_t cmd) {
 			vdp->dy -= 1;						// DYは書き換わる
 		}
 	}
-	rewrite_sprite_if_needed(vdp);
-}
 
+	//rewrite_sprite_if_needed(vdp);
+	return 0;
+}
 
 /*
 	HMMC
@@ -830,7 +885,7 @@ void cmd_HMMC_exe(ms_vdp_t* vdp, uint8_t value) {
 	if(vdp->cmd_ny_count == 0 && vdp->cmd_nx_count == 0) {
 		vdp->s02 &= 0xfe;	// CEビットをクリア
 		vdp->cmd_current = 0;
-		rewrite_sprite_if_needed(vdp);
+		//rewrite_sprite_if_needed(vdp);
 		return;
 	}
 	int	crt_width = vdp->ms_vdp_current_mode->crt_width;
@@ -889,9 +944,28 @@ void cmd_HMMC_exe(ms_vdp_t* vdp, uint8_t value) {
 	vdp->cmd_vram_addr = vaddr;		// VRAMアドレスを更新
 }
 
+void ms_vdp_slice_exec(ms_vdp_t* vdp) {
+	uint16_t X68_TX_PAL_ORG = X68_TX_PAL[0];
+	if(vdp->current_command_exec) {
+		if(vdp->hostdebugmode) {
+			X68_TX_PAL[0] = (0x1f << 6) | (0x1f << 1);	// Purple
+		}
+		int ret = vdp->current_command_exec(vdp);
+		if(vdp->hostdebugmode) {
+			X68_TX_PAL[0] = X68_TX_PAL_ORG;	// 戻す
+		}
+		if (ret == 0) {
+			vdp->s02 &= 0xfe;							// CEビットをクリア
+			vdp->current_command_exec = NULL;
+			return;
+		}
+	}
+}
 
 void vdp_command_exec(ms_vdp_t* vdp, uint8_t cmd) {
 	MS_LOG(MS_LOG_FINE,"vdp_command_exec: %02x\n", cmd);
+	vdp->current_command_exec = NULL;
+
 	uint8_t command = (cmd & 0b11110000) >> 4;
 	int logiop = cmd & 0b00001111;
 	switch(command){
