@@ -1,3 +1,6 @@
 [submodule "test/z80test/superzazu-z80"]
 	path = test/z80test/superzazu-z80
 	url = https://github.com/superzazu/z80.git
+[submodule "src/submodules/hthash"]
+	path = src/submodules/hthash
+	url = https://github.com/troydhanson/uthash.git
