@@ -3,6 +3,8 @@
 #include <stdint.h>
 #include <stddef.h>
 
+#include "uthash.h"
+
 #include "ms_vdp.h"
 
 /*
@@ -215,11 +217,21 @@ uint8_t sp_pattern_dirty[64];	// 16x16ドットのパターンは64個ある
 uint32_t sp_composition_table[NUM_SP_PAT_BUF];
 
 int sp_new_pattern_count; 
-struct sp_pat_buf {
-	int32_t plane_num;
+typedef struct sp_pat_buf {
+	// パターンの合成内容を32bitで表現したもの。同一の値のものは1つしか作られない
+	// この値がハッシュテーブルのキーとしても用いられる
 	uint32_t composition_flag;
-	uint32_t pattern[PCG_SIZE];
-} sp_pat_buf[NUM_SP_PAT_BUF];
+
+	// 配列の中のどこにあるか = どのPCGパターン番号として登録されているか
+	int index;
+
+	// uthash ハンドル
+	UT_hash_handle hh;
+} sp_pat_buf_t;
+
+sp_pat_buf_t sp_pat_buf[NUM_SP_PAT_BUF];
+
+sp_pat_buf_t* sp_pat_buf_hash = NULL;
 
 int lastused_sp_pat_buf = 0;
 
@@ -548,6 +560,7 @@ void refresh_sprite_256_mode2(ms_vdp_t* vdp) {
 			if (sp_pattern_dirty[ptNum]) {
 				// パターンが書き換えられたので、合成済みのパターンをクリア
 				sp_composition_table[i] = 0;
+				HASH_DEL(sp_pat_buf_hash, &sp_pat_buf[i]);
 				break;
 			}
 		}
@@ -601,24 +614,18 @@ void refresh_sprite_256_mode2(ms_vdp_t* vdp) {
 		composition_flag |= i << 30;	// 合成枚数をbit31-30に記録
 
 		// この組み合わせがすでにPCG上に存在するかどうかを確認
-		int found = 0;
-		for(i=0;i<NUM_SP_PAT_BUF;i++) {
-			if( sp_composition_table[i] == composition_flag) {
-				// すでに合成済みのパターンが存在するので、それを使う
-				X68_SSR[plNum*SSR_UNIT+2] = 0x100 + i; // パレット0x10-0x1fを使用するので 0x100を足す					
-				X68_SSR[plNum*SSR_UNIT+3] = 3;	// スプライトは表示
-				sp_pattern_used[i] = 1;
-				found = 1;
-				break;
-			}
-		}
+		sp_pat_buf_t* found = NULL;
+		HASH_FIND_INT(sp_pat_buf_hash, &composition_flag, found);
 		if (found) {
+			// すでに合成済みのパターンが存在するので、それを使う
+			X68_SSR[plNum*SSR_UNIT+2] = 0x100 + found->index; // パレット0x10-0x1fを使用するので 0x100を足す					
+			X68_SSR[plNum*SSR_UNIT+3] = 3;	// スプライトは表示
+			sp_pattern_used[found->index] = 1;
 			plNum = m+1;
 			continue;
 		}
 
 		// 合成済みのものが見つからなかった場合は、新たに合成する
-
 		for(i=(lastused_sp_pat_buf+1) % NUM_SP_PAT_BUF ;;i= (i+1) % NUM_SP_PAT_BUF) {
 			if( sp_pattern_used[i] ) {
 				continue;
@@ -631,6 +638,10 @@ void refresh_sprite_256_mode2(ms_vdp_t* vdp) {
 		lastused_sp_pat_buf = i;
 		sp_pattern_used[pat_num] = 1;
 		sp_composition_table[pat_num] = composition_flag;
+		// ハッシュにも追加
+		sp_pat_buf_t* new_pat = &sp_pat_buf[pat_num];
+		new_pat->composition_flag = composition_flag;
+		HASH_ADD_INT(sp_pat_buf_hash, composition_flag, new_pat);
 
 		// sp_pat_buf[sp_new_pattern_count].plane_num = plNum;
 		// sp_pat_buf[sp_new_pattern_count].composition_flag = composition_flag;
@@ -1042,6 +1053,12 @@ void ms_vdp_sprite_vsync_draw(ms_vdp_t* vdp) {
 	int plNum;
 	uint16_t flag = vdp->sprite_refresh_flag;
 	if (flag & SPRITE_REFRESH_FLAG_FULL) {
+		// 全書き換え
+		HASH_CLEAR(hh, sp_pat_buf_hash);
+		for(i=0;i<NUM_SP_PAT_BUF;i++) {
+			sp_composition_table[i] = 0;
+			sp_pat_buf[i].index = i;
+		}
 		vdp->sprite_composition_flag = 1;
 		for(plNum = 0; plNum < 32; plNum++) {
 			if( mag512 == 2 && spSize == 16) {
