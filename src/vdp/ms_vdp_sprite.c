@@ -214,9 +214,6 @@ uint8_t sp_pattern_dirty[64];	// 16x16ドットのパターンは64個ある
 // 16x16,Mode2の時に、X68000のPCG上に最大何枚までのスプライトをキャッシュするか(最大128)
 #define NUM_SP_PAT_BUF 128
 
-uint32_t sp_composition_table[NUM_SP_PAT_BUF];
-
-int sp_new_pattern_count; 
 typedef struct sp_pat_buf {
 	// パターンの合成内容を32bitで表現したもの。同一の値のものは1つしか作られない
 	// この値がハッシュテーブルのキーとしても用いられる
@@ -255,10 +252,7 @@ void init_sprite(ms_vdp_t* vdp) {
 	for (i = 0; i < 64; i++) {
 		sp_pattern_dirty[i] = 0;
 	}
-	for (i = 0; i < 32; i++) {
-		sp_composition_table[i] = 0;
-	}
-	for (i=0; i < 32; i++) {
+	for (i = 0; i < NUM_SP_PAT_BUF; i++) {
 		sp_pat_buf[i].composition_flag = 0;
 	}
 	
@@ -334,41 +328,51 @@ void write_sprite_pattern_512(ms_vdp_t* vdp, int offset, uint32_t pattern) {
 	vdp->x68_pcg_buffer[ptNum * PCG_BUF_UNIT_D2X + pcgLine+1 + 16] = pRight;
 }
 
-void write_sprite_attribute_256(ms_vdp_t* vdp, int offset, uint32_t attribute, int32_t old_attribute);
-void write_sprite_attribute_512(ms_vdp_t* vdp, int offset, uint32_t attribute, int32_t old_attribute);
-void refresh_sprite_512(ms_vdp_t* vdp, int plNum);
-void refresh_sprite_512_mode1(ms_vdp_t* vdp, int plNum);
-void refresh_sprite_512_mode2(ms_vdp_t* vdp);
-void refresh_sprite_256(ms_vdp_t* vdp, int plNum);
+void write_sprite_attribute_256_mode1(ms_vdp_t* vdp, int offset, uint32_t attribute, int32_t old_attribute);
+void write_sprite_attribute_256_mode2(ms_vdp_t* vdp, int offset, uint32_t attribute, int32_t old_attribute);
+void write_sprite_attribute_512_mode2(ms_vdp_t* vdp, int offset, uint32_t attribute, int32_t old_attribute);
+
 void refresh_sprite_256_mode1(ms_vdp_t* vdp, int plNum);
 void refresh_sprite_256_mode2(ms_vdp_t* vdp);
+void refresh_sprite_512_mode2(ms_vdp_t* vdp);
 
 inline int get_sprite_adjustx(ms_vdp_t* vdp) {
 	return (vdp->r18 & 0x8) ? 8-(vdp->r18 & 0x7) : -(vdp->r18 & 0x7);
 }
 
 void write_sprite_attribute(ms_vdp_t* vdp, int offset, uint32_t attribute, int32_t old_attribute) {
-	if(vdp->ms_vdp_current_mode->sprite_mode & 0x80) {
-		write_sprite_attribute_512(vdp, offset, attribute, old_attribute);
-	} else {
-		write_sprite_attribute_256(vdp, offset, attribute, old_attribute);
+	switch(vdp->ms_vdp_current_mode->sprite_mode) {
+		case 0x01:
+			write_sprite_attribute_256_mode1(vdp, offset, attribute, old_attribute);
+			break;
+		case 0x02:
+			write_sprite_attribute_256_mode2(vdp, offset, attribute, old_attribute);
+			break;
+		case 0x81:
+			// ありえない
+			break;
+		case 0x82:
+			write_sprite_attribute_512_mode2(vdp, offset, attribute, old_attribute);
+			break;
 	}
 }
 
-void write_sprite_attribute_256(ms_vdp_t* vdp, int offset, uint32_t attribute, int32_t old_attribute) {
+void write_sprite_attribute_256_mode1(ms_vdp_t* vdp, int offset, uint32_t attribute, int32_t old_attribute) {
 	int i,j;
 	int plNum = (((uint32_t)offset) / SAT_SIZE); // MSXのスプライトプレーン番号
 	int type = offset % SAT_SIZE; // 属性の種類
-	int spMode = vdp->ms_vdp_current_mode->sprite_mode & 0x3;
 
 	if (plNum >= 32) {
 		return;
 	}
 
+	int x;
+	int adjustx;
+	int ec = 0;
+	uint8_t* pattr;
+
 	switch(type) {
 		case 0: // Y座標
-				vdp->sprite_refresh_flag |= SPRITE_REFRESH_FLAG_COORD;
-				return;
 			// Y=208/216の対応のため、Y座標の208/216の値が変化したら、スプライトの再配置を行う
 			int HY = (vdp->ms_vdp_current_mode->sprite_mode & 0x3) == 1 ? 208 : 216;
 			if ( attribute == HY || old_attribute == HY) {
@@ -383,48 +387,72 @@ void write_sprite_attribute_256(ms_vdp_t* vdp, int offset, uint32_t attribute, i
 			X68_SSR[plNum*SSR_UNIT+1] = y;
 			break;
 		case 1: // X座標
-				vdp->sprite_refresh_flag |= SPRITE_REFRESH_FLAG_COORD;
-				return;
 		 	// MSXのX座標の1倍, X68000のスプライトの原点は(16,16)なのでずらす
 			// SET ADJUSTのX方向の補正を行う
-			int ec = 0;
-			switch(spMode) {
-			case 1:
-				uint8_t* pattr = vdp->vram + vdp->sprattrtbl_baddr;
-				ec = (pattr[plNum*SAT_SIZE+3] & 0x80) >> 7;
-				break;
-			case 2:
-				uint8_t* pcolr = vdp->vram + vdp->sprcolrtbl_baddr;
-				ec = (pcolr[plNum*COL_SIZE+0] & 0x80) >> 7; // ラインごとのECはサポートしないので1ライン目だけみる
-				break;
-			}
-			int x = attribute & 0xff;
-			int adjustx = get_sprite_adjustx(vdp);
+			pattr = vdp->vram + vdp->sprattrtbl_baddr;
+			x = attribute & 0xff;
+			ec = (pattr[plNum*SAT_SIZE+3] & 0x80) >> 7;
+			adjustx = get_sprite_adjustx(vdp);
 			x = ((x - ec*32) + 16 + adjustx) & 0x3ff; // MSXのX座標の1倍
 			X68_SSR[plNum*SSR_UNIT+0] = x;
 			break;
 		case 2: // パターン番号
 		case 3: // 属性
 			// パターン番号、カラーが変更されたら、事前にバッファに展開しておいたパターンを転送し、書き換える
-			if(spMode == 1) {
-				refresh_sprite_256_mode1(vdp, plNum);
-				// ECをX座標に反映
-				uint8_t* pattr = vdp->vram + vdp->sprattrtbl_baddr;
-				int x = pattr[plNum*SAT_SIZE+1];
-				int ec = (pattr[plNum*SAT_SIZE+3] & 0x80) >> 7;
-				int adjustx = get_sprite_adjustx(vdp);
-				x = ((x - ec*32) + 16 + adjustx) & 0x3ff; // MSXのX座標の1倍
-				X68_SSR[plNum*SSR_UNIT+0] = x;
-			} else {
-				// モード2は一つ書き換えると全体に影響が出るので、垂直帰線期間にまとめて書き換える
-				// TODO: それなりに重いので、もう少し範囲を限定したい
-				vdp->sprite_refresh_flag |= SPRITE_REFRESH_FLAG_ATTR;
-			}
+			refresh_sprite_256_mode1(vdp, plNum);
+			// ECをX座標に反映
+			pattr = vdp->vram + vdp->sprattrtbl_baddr;
+			x = pattr[plNum*SAT_SIZE+1];
+			ec = (pattr[plNum*SAT_SIZE+3] & 0x80) >> 7;
+			adjustx = get_sprite_adjustx(vdp);
+			x = ((x - ec*32) + 16 + adjustx) & 0x3ff; // MSXのX座標の1倍
+			X68_SSR[plNum*SSR_UNIT+0] = x;
 			break;
 		default:
 			break;
 	}
 }
+
+void write_sprite_attribute_256_mode2(ms_vdp_t* vdp, int offset, uint32_t attribute, int32_t old_attribute) {
+	int type = offset % SAT_SIZE; // 属性の種類
+
+	switch(type) {
+		case 0: // Y座標
+		case 1: // X座標
+			vdp->sprite_refresh_flag |= SPRITE_REFRESH_FLAG_COORD;
+			break;
+		case 2: // パターン番号
+		case 3: // 属性
+			// パターン番号、カラーが変更されたら、事前にバッファに展開しておいたパターンを転送し、書き換える
+			// モード2は一つ書き換えると全体に影響が出るので、垂直帰線期間にまとめて書き換える
+			// TODO: それなりに重いので、もう少し範囲を限定したい
+			vdp->sprite_refresh_flag |= SPRITE_REFRESH_FLAG_ATTR;
+			break;
+		default:
+			break;
+	}
+}
+
+void write_sprite_attribute_512_mode2(ms_vdp_t* vdp, int offset, uint32_t attribute, int32_t old_attribute) {
+	int type = offset % SAT_SIZE; // 属性の種類
+
+	switch(type) {
+		case 0: // Y座標
+		case 1: // X座標
+			vdp->sprite_refresh_flag |= SPRITE_REFRESH_FLAG_COORD;
+			break;
+		case 2: // パターン番号
+		case 3: // 属性
+			// パターン番号、カラーが変更されたら、事前にバッファに展開しておいたパターンを転送
+			// モード2は一つ書き換えると全体に影響が出るので、垂直帰線期間にまとめて書き換える
+			// TODO: それなりに重いので、もう少し範囲を限定したい
+			vdp->sprite_refresh_flag |= SPRITE_REFRESH_FLAG_ATTR;
+			break;
+		default:
+			break;
+	}
+}
+
 
 uint32_t colorex_tbl[16] = {
 	0x00000000, 0x11111111, 0x22222222, 0x33333333,
@@ -505,37 +533,6 @@ void refresh_sprite_256_mode1(ms_vdp_t* vdp, int plNum) {
 　このようにしておくと、あるプレーンのフラグが0でなければ、いずれかのラインでCC=1になっていることがわかる
  */
 
-int find_free_pcg(uint8_t* sp_pattern_used) {
-	// 今回新たに合成したものを、空いているPCGに書き込む
-	int i,j;
-	int new=0;
-/*	for(i=0;i<NUM_SP_PAT_BUF;i++) {
-		if( sp_new_pattern_count <= new) {
-			break;
-		}
-		if( sp_composition_table[i] != 0) {
-			continue;
-		}
-		return i;
-		// 空いているところが見つかったのでパターンを転送する
-		for(j=0;j<32;j++) {
-			X68_PCG[i*PCG_SIZE+j] = sp_pat_buf[new].pattern[j];
-		}
-		// プレーンにパターンを割り当てる
-		X68_SSR[sp_pat_buf[new].plane_num * SSR_UNIT + 2] = 0x100 + i; // パレット0x10-0x1fを使用するので 0x100を足す
-		//
-		sp_composition_table[i] = sp_pat_buf[new].composition_flag;
-		new++;
-	}*/
-	//空いているところがなかったら、今回使わなかったパターンをクリア
-	for(i=(lastused_sp_pat_buf+1) % NUM_SP_PAT_BUF ;;i= (i+1) % NUM_SP_PAT_BUF) {
-		if( sp_pattern_used[i] ) {
-			continue;
-		}
-		return i;
-	}
-}
-
 void refresh_sprite_256_mode2(ms_vdp_t* vdp) {
 	int plNum,n,y,i,j;
 	uint8_t* pcol = vdp->vram + vdp->sprcolrtbl_baddr;
@@ -543,24 +540,26 @@ void refresh_sprite_256_mode2(ms_vdp_t* vdp) {
 
 	// フラグクリア
 	vdp->sprite_composition_flag = 0;
-	sp_new_pattern_count = 0;
 
 	// dirtyフラグの処理
 	for (i=0;i<NUM_SP_PAT_BUF;i++) {
-		uint32_t flag = sp_composition_table[i];
+		uint32_t flag = sp_pat_buf[i].composition_flag;
+		uint32_t f;
 		if (flag == 0) {
 			continue;
 		}
+		int N = flag >> 30;
+		f = flag;
 		for(j=0;j<3;j++) {
-			if ( j == (flag >> 30) ) {
+			if ( j == N ) {
 				break;
 			}
-			int ptNum = flag & 0x3f;
-			flag >>= 10;
+			int ptNum = f & 0x3f;
+			f >>= 10;
 			if (sp_pattern_dirty[ptNum]) {
 				// パターンが書き換えられたので、合成済みのパターンをクリア
-				sp_composition_table[i] = 0;
 				HASH_DEL(sp_pat_buf_hash, &sp_pat_buf[i]);
+				sp_pat_buf[i].composition_flag = 0;
 				break;
 			}
 		}
@@ -626,25 +625,26 @@ void refresh_sprite_256_mode2(ms_vdp_t* vdp) {
 		}
 
 		// 合成済みのものが見つからなかった場合は、新たに合成する
-		for(i=(lastused_sp_pat_buf+1) % NUM_SP_PAT_BUF ;;i= (i+1) % NUM_SP_PAT_BUF) {
-			if( sp_pattern_used[i] ) {
-				continue;
+		i=(lastused_sp_pat_buf+1) % NUM_SP_PAT_BUF;
+		while(1) {
+			if( !sp_pattern_used[i] ) {
+				// 必ず一つは見つかる
+				break;
 			}
-			// 必ず一つは空いているはず
-			break;
+			i = (i+1) % NUM_SP_PAT_BUF;
 		}
 		// このパターン番号に展開する
 		int pat_num = i;
-		lastused_sp_pat_buf = i;
+		lastused_sp_pat_buf = pat_num;
 		sp_pattern_used[pat_num] = 1;
-		sp_composition_table[pat_num] = composition_flag;
 		// ハッシュにも追加
 		sp_pat_buf_t* new_pat = &sp_pat_buf[pat_num];
+		if( new_pat->composition_flag != 0 ) {
+			// ハッシュに元々登録されていたなら削除
+			HASH_DEL(sp_pat_buf_hash, new_pat);
+		}
 		new_pat->composition_flag = composition_flag;
 		HASH_ADD_INT(sp_pat_buf_hash, composition_flag, new_pat);
-
-		// sp_pat_buf[sp_new_pattern_count].plane_num = plNum;
-		// sp_pat_buf[sp_new_pattern_count].composition_flag = composition_flag;
 
 		// ラインごとの合成処理
 		// 256モードの場合、16x16のスプライトがそのまま16x16のスプライトになるので、
@@ -681,8 +681,6 @@ void refresh_sprite_256_mode2(ms_vdp_t* vdp) {
 				while(j<=m) {
 					if( j == m ) {
 						// 1ライン合成終了
-//						sp_pat_buf[sp_new_pattern_count].pattern[yybase+8*0] = pattern0;
-//						sp_pat_buf[sp_new_pattern_count].pattern[yybase+8*2] = (lrmax==2) ? pattern1 : 0;
 						X68_PCG[pat_num*PCG_SIZE+yybase+8*0] = pattern0;
 						X68_PCG[pat_num*PCG_SIZE+yybase+8*2] = (lrmax==2) ? pattern1 : 0;
 						i=j+1;
@@ -706,65 +704,13 @@ void refresh_sprite_256_mode2(ms_vdp_t* vdp) {
 		for	(; y<16; y++) {
 			int yybase = y;
 			i=plNum;
-			//sp_pat_buf[sp_new_pattern_count].pattern[yybase+8*0] = 0;
-			//sp_pat_buf[sp_new_pattern_count].pattern[yybase+8*2] = 0;
 			X68_PCG[pat_num*PCG_SIZE+yybase+8*0] = 0;
 			X68_PCG[pat_num*PCG_SIZE+yybase+8*2] = 0;
 		}
 
-
-		//sp_new_pattern_count++;
-
-/*		// 次のプレーンへ
-		X68_SSR[plNum*SSR_UNIT+3] = 3;	// スプライトは表示
-		vdp->sprite_composition_flag &= ~(1 << plNum);
-		while(plNum < m) {
-			plNum++;
-			X68_SSR[plNum*SSR_UNIT+3] = 0;	// 合成したスプライトは非表示
-			vdp->sprite_composition_flag |= 1 << plNum;
-		}*/
+		// 次のプレーンへ
 		plNum = m+1;
 	}
-	// 今回新たに合成したものを、空いているPCGに書き込む
-/*	int new=0;
-	for(i=0;i<NUM_SP_PAT_BUF;i++) {
-		if( sp_new_pattern_count <= new) {
-			break;
-		}
-		if( sp_composition_table[i] != 0) {
-			continue;
-		}
-		// 空いているところが見つかったのでパターンを転送する
-		for(j=0;j<32;j++) {
-			X68_PCG[i*PCG_SIZE+j] = sp_pat_buf[new].pattern[j];
-		}
-		// プレーンにパターンを割り当てる
-		X68_SSR[sp_pat_buf[new].plane_num * SSR_UNIT + 2] = 0x100 + i; // パレット0x10-0x1fを使用するので 0x100を足す
-		//
-		sp_composition_table[i] = sp_pat_buf[new].composition_flag;
-		new++;
-	}
-	//空いているところがなかったら、今回使わなかったパターンをクリア
-	for(i=(lastused_sp_pat_buf+1) % NUM_SP_PAT_BUF ;;i= (i+1) % NUM_SP_PAT_BUF) {
-		if( sp_new_pattern_count <= new) {
-			break;
-		}
-		if( sp_pattern_used[i] ) {
-			continue;
-		}
-		// 空いているところが見つかったのでパターンを転送する
-		lastused_sp_pat_buf = i;
-		for(j=0;j<32;j++) {
-			X68_PCG[i*PCG_SIZE+j] = sp_pat_buf[new].pattern[j];
-		}
-		// プレーンにパターンを割り当てる
-		X68_SSR[sp_pat_buf[new].plane_num * SSR_UNIT + 2] = 0x100 + i; // パレット0x10-0x1fを使用するので 0x100を足す
-		//
-		sp_composition_table[i] = sp_pat_buf[new].composition_flag;
-		new++;
-	}*/
-
-
 }
 
 void refresh_sprite_512_mode2(ms_vdp_t* vdp) {
@@ -915,89 +861,7 @@ void refresh_sprite_512_mode2(ms_vdp_t* vdp) {
 	}
 }
 
-void write_sprite_attribute_512(ms_vdp_t* vdp, int offset, uint32_t attribute, int32_t old_attribute) {
-	int i,j;
-	int plNum = (offset / SAT_SIZE) % 32; // MSXのスプライトプレーン番号
-	int type = offset % SAT_SIZE; // 属性の種類
 
-	switch(type) {
-		case 0: // Y座標
-			// Y=208/216の対応のため、Y座標の208/216の値が変化したら、スプライトの再配置を行う
-			int HY = (vdp->ms_vdp_current_mode->sprite_mode & 0x3) == 1 ? 208 : 216;
-			if ( attribute == HY || old_attribute == HY) {
-				vdp->sprite_refresh_flag |= SPRITE_REFRESH_FLAG_COORD;
-			}
-			uint8_t scroll_offset = vdp->r23; // 縦スクロール量
-			// MSXは1ライン下に表示されるので+1
-			// MSXはR23の縦スクロールでスプライトも一緒にスクロールするので、その分を引く
-			// 512モードはMSXのY座標の2倍
-			// X68000のスプライトの原点は(16,16)なのでずらす
-			int y = ((attribute + 1 - scroll_offset) & 0xff)*2 + 16;
-			for( i=0; i<4; i++) {
-				X68_SSR[plNum*SSR_UNIT+i*4+1] = y + (i%2)*16;
-			}
-			break;
-		case 1: // X座標
-			int ec = 0;
-			int spMode = vdp->ms_vdp_current_mode->sprite_mode & 0x3;
-			switch(spMode) {
-			case 1:
-				uint8_t* pattr = vdp->vram + vdp->sprattrtbl_baddr;
-				ec = (pattr[plNum*SAT_SIZE+3] & 0x80) >> 7;
-				break;
-			case 2:
-				uint8_t* pcolr = vdp->vram + vdp->sprcolrtbl_baddr;
-				ec = (pcolr[plNum*COL_SIZE+0] & 0x80) >> 7; // ラインごとのECはサポートしないので1ライン目だけみる
-				break;
-			}
-			int x = attribute & 0xff;
-			int adjustx = get_sprite_adjustx(vdp);
-			x = ((x - ec*32)*2 + 16 + adjustx*2) & 0x3ff; // MSXのX座標の2倍
-			for( i=0; i<4; i++) {
-				X68_SSR[plNum*SSR_UNIT+i*4+0] = x + (i/2)*16;
-			}
-			break;
-		case 2: // パターン番号
-		case 3: // 属性
-			// パターン番号、カラーが変更されたら、事前にバッファに展開しておいたパターンを転送
-			refresh_sprite_512(vdp, plNum);
-			break;
-		default:
-			break;
-	}
-}
-
-
-void refresh_sprite_512(ms_vdp_t* vdp, int plNum) {
-	if((vdp->ms_vdp_current_mode->sprite_mode & 0x3) == 1) {
-		refresh_sprite_512_mode1(vdp, plNum);
-	} else {
-		// モード2は一つ書き換えると全体に影響が出るので、垂直帰線期間にまとめて書き換える
-		// TODO: それなりに重いので、もう少し範囲を限定したい
-		vdp->sprite_refresh_flag |= SPRITE_REFRESH_FLAG_ATTR;
-	}
-}
-
-void refresh_sprite_512_mode1(ms_vdp_t* vdp, int plNum) {
-	int i;
-	uint8_t* pattr = vdp->vram + vdp->sprattrtbl_baddr;
-
-	unsigned int ptNum = pattr[plNum*SAT_SIZE+2];
-	uint32_t color = pattr[plNum*SAT_SIZE+3] & 0xf;
-	color = color == 0 ? vdp->alt_color_zero : color; // 「色コード0」のスプライトが消えてしまう問題への暫定対応
-	// MSXの4ドット分(X68000だと2倍の8ドットに拡大)
-	//uint32_t colorex = color << 28 | color << 24 | color << 20 | color << 16 | color << 12 | color << 8 | color << 4 | color;
-	uint32_t colorex = colorex_tbl[color];
-	if (vdp->sprite_size == 0) { // 8x8
-		for( i = 0; i < 32; i++) { 
-			X68_PCG[plNum*PCG_UNIT+i] = vdp->x68_pcg_buffer[(ptNum & 0xff)*PCG_BUF_UNIT_D2X+i] & colorex;
-		}
-	} else { // 16x16
-		for( i = 0; i < 32*4; i++) { 
-			X68_PCG[plNum*PCG_UNIT+i] = vdp->x68_pcg_buffer[(ptNum & 0xfc)*PCG_BUF_UNIT_D2X+i] & colorex;
-		}
-	}
-}
 
 /*
  スプライトカラーテーブルへの書き込み
@@ -1056,21 +920,22 @@ void ms_vdp_sprite_vsync_draw(ms_vdp_t* vdp) {
 		// 全書き換え
 		HASH_CLEAR(hh, sp_pat_buf_hash);
 		for(i=0;i<NUM_SP_PAT_BUF;i++) {
-			sp_composition_table[i] = 0;
 			sp_pat_buf[i].index = i;
+			sp_pat_buf[i].composition_flag = 0;
 		}
 		vdp->sprite_composition_flag = 1;
 		for(plNum = 0; plNum < 32; plNum++) {
 			if( mag512 == 2 && spSize == 16) {
-				// 512ドットモード、16x16サイズの時
+				// 512ドットモードで16x16サイズの時は 4つのスプライトを使う
 				for( i=0; i<4; i++) {
-				X68_SSR[plNum*SSR_UNIT+i*4+2] = 0x100 + plNum*4+i; // パレット0x10-0x1fを使用するので 0x100を足す
+					X68_SSR[plNum*SSR_UNIT+i*4+2] = 0x100 + plNum*4+i; // パレット0x10-0x1fを使用するので 0x100を足す
+					X68_SSR[plNum*SSR_UNIT+i*4+3] = 0;
 				}
 			} else {
 				// 256ドットモードの時、512ドットモードで8x8サイズの時
 				X68_SSR[plNum*SSR_UNIT+2] = 0x100 + plNum*4; // パレット0x10-0x1fを使用するので 0x100を足す					
-				for( i=1; i<4; i++) {
-					X68_SSR[plNum*SSR_UNIT+i*4+3] = 0;	// 8x8の時は後ろ3枚のスプライトは非表示
+				for( i=0; i<4; i++) {
+					X68_SSR[plNum*SSR_UNIT+i*4+3] = 0;
 				}
 			}
 		}
@@ -1116,11 +981,7 @@ void ms_vdp_sprite_vsync_draw(ms_vdp_t* vdp) {
 		// PCG更新処理
 		if (mag512 == 2 ) {
 			// 512ドットモードの時
-			if (spMode == 1) {
-				for(i=0;i<32;i++) {
-					refresh_sprite_512(vdp, i);
-				}
-			} else {
+			if (spMode == 2) {
 				refresh_sprite_512_mode2(vdp);
 			}
 		} else {
@@ -1198,9 +1059,9 @@ void ms_vdp_sprite_vsync_draw(ms_vdp_t* vdp) {
 			SSR[3] = 0; // スプライト非表示
 			if( mag512 == 2 && spSize == 16) {
 				// 512ドットモード、16x16サイズの時
-				X68_SSR[1*4+3] = 0; // スプライト非表示
-				X68_SSR[2*4+3] = 0; // スプライト非表示
-				X68_SSR[3*4+3] = 0; // スプライト非表示
+				SSR[1*4+3] = 0; // スプライト非表示
+				SSR[2*4+3] = 0; // スプライト非表示
+				SSR[3*4+3] = 0; // スプライト非表示
 			}
 		}
 		vdp->last_visible_sprite_planes = visible_sprite_planes;
