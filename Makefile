@@ -3,6 +3,8 @@ VDP_DIR = $(SRC_DIR)/vdp
 MEMMAP_DIR = $(SRC_DIR)/memmap
 DISK_DIR = $(SRC_DIR)/disk
 PERIPHERAL_DIR = $(SRC_DIR)/peripheral
+UTHASH_DIR = $(SRC_DIR)/submodules/uthash/src
+
 ASMINC_DIR = $(SRC_DIR)/include
 BUILD_DIR = build
 EXE_DIR = exe
@@ -13,8 +15,8 @@ CC = $(CROSS)gcc
 AS = run68 /Users/ohnaka/work/XEiJ/HFS/HAS/HAS060.X
 LD = $(CROSS)gcc
 
-CFLAGS = -g -std=gnu90 -c -m68000 -O3 -finput-charset=CP932
-CFLAGS_DEBUG = -g -std=gnu90 -c -m68000 -DDEBUG -finput-charset=CP932
+CFLAGS = -g -std=gnu90 -c -m68000 -O3 -finput-charset=CP932 -I${UTHASH_DIR}
+CFLAGS_DEBUG = -g -std=gnu90 -c -m68000 -DDEBUG -finput-charset=CP932 -I${UTHASH_DIR}
 LDFLAGS = -lm -lbas -liocs -ldos
 
 #GCC_OPTS = -c -O -g -finput-charset=CP932

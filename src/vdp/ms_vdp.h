@@ -57,8 +57,8 @@
 #define SPCON_VSISP	(*(volatile uint16_t *)0xeb080e)	// 垂直解像度設定レジスタ
 #define SPCON_RES	(*(volatile uint16_t *)0xeb0810)	// スプライト解像度設定レジスタ
 
-#define X68_SSR		((volatile uint16_t *)0xeb0000)	// スプライトスクロールレジスタ
-#define X68_PCG		((volatile uint32_t *)0xeb8000)	// スプライトパターン
+#define X68_SSR		((uint16_t *)0xeb0000)	// スプライトスクロールレジスタ
+#define X68_PCG		((uint32_t *)0xeb8000)	// スプライトパターン
 
 #define CRT_MODE_GRAPHIC1	0x00
 #define CRT_MODE_TEXT1		0x01
@@ -76,6 +76,16 @@ extern uint32_t* ms_vdp_rewrite_flag_tbl;
 extern uint32_t framerate_count_his;
 
 typedef struct ms_vdp_mode ms_vdp_mode_t;
+
+typedef struct ms_vdp_cmd_ctx {
+	int y;
+	int nx;
+	int ny;
+	int nxbyte;
+	int widthbyte;
+	uint32_t src_vram_addr;
+	uint32_t dst_vram_addr;
+} ms_vdp_cmd_ctx_t;
 
 /**
  * @brief VDPクラスの定義
@@ -221,7 +231,10 @@ typedef struct ms_vdp {
 
 	// スプライト合成フラグ bit0が Plane #0、bit1が Plane #1、bit2が Plane #2、bit3が Plane #3
 	// 合成されている場合は、そのプレーンは手前のプレーンに含まれているので、非表示にする
-	uint32_t sprite_composition_flag;
+	uint32_t sprite_composition_bits;
+
+	// 現在実行中のコマンド
+	int (*current_command_exec)(struct ms_vdp* vdp);
 
 	// VDPコマンドのワークエリア
 	// VDPを時分割で処理する際に使用するもので、コマンド実行時にセットされる
@@ -236,6 +249,7 @@ typedef struct ms_vdp {
 	uint16_t cmd_ny_sprite_start;	// VDPでスプライト領域を書き換えられたかの検出用
 	uint16_t cmd_ny_sprite_end;		// VDPでスプライト領域を書き換えられたかの検出用
 
+	ms_vdp_cmd_ctx_t cmd_context;
 
 } ms_vdp_t;
 
