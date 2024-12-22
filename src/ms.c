@@ -132,7 +132,7 @@ void printHelpAndExit(char* progname) {
 	fprintf(stderr, "    1: every frame, 2: every 2 frames, ...\n");
 	fprintf(stderr, "    default is 3.\n");
 	fprintf(stderr, " --hostline host interruption line (1-500)\n");
-	fprintf(stderr, "    default is 100th line.\n");
+	fprintf(stderr, "    default is 200th line.\n");
 	fprintf(stderr, " --hostdebug\n");
 	fprintf(stderr, "    enable host process debug mode.\n");
 	fprintf(stderr, " --disablekanji\n");
@@ -851,10 +851,6 @@ int emuLoopImpl(unsigned int pc, unsigned int counter) {
 	static uint8_t last_bitsns[16];
 
 	emuLoopCounter++;
-
-	if( vdp != NULL) {
-		//ms_vdp_vsync_draw(vdp);
-	}
 
 	if(emuLoopCounter % host_rate != 0) {
 		return 0;

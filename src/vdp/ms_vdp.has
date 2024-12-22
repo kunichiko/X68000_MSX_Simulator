@@ -333,7 +333,7 @@ offset_ms_vdp_x68_pcg_buffer	equ	148
 offset_ms_vdp_last_visible_sprite_planes	equ	152
 offset_ms_vdp_last_visible_sprite_size		equ	156
 offset_ms_vdp_sprite_refresh_flag	equ	160
-offset_ms_vdp_sprite_composition_flag	equ	162
+offset_ms_vdp_sprite_composition_bits	equ	162
 
 SPRITE_REFRESH_FLAG_COORD	equ	$01
 SPRITE_REFRESH_FLAG_ATTR	equ	$02
@@ -483,6 +483,9 @@ vsync_interrupt:
 	; HSYNCカウンタを0に戻す
 	move.w	#0,hsync_counter
 
+	; VDP再描画処理実行済みフラグをクリア
+	move.w	#0,vdp_vsync_draw_fired
+
 	; フレームレートの計測 (4秒の移動平均)
 	addq.b	#1,frame_counter
 	cmp.b	#60,frame_counter
@@ -588,7 +591,10 @@ hsync_interrupt:
 	move.w	cpu_in_interrupt,d0
 	bne	@f
 	; cpu_in_interrupt が1から0になった(falling edge)
- 	movem.l	d1-d7/a0-a4,-(sp)
+ 	cmp.w	#0,vdp_vsync_draw_fired
+	bne	@f
+	move.w	#1,vdp_vsync_draw_fired
+	movem.l	d1-d7/a0-a4,-(sp)
  	move.l	ms_vdp_shared,-(sp)	* 構造体のアドレスを引数に
 	jsr	ms_vdp_vsync_draw
  	lea	4(sp),sp
@@ -645,6 +651,9 @@ emu_counter_latch2:
 hsync_vec_original:
 	.dc.l	0
 hsync_counter:
+	.dc.w	0
+
+vdp_vsync_draw_fired:
 	.dc.w	0
 
 frame_counter:
@@ -1152,7 +1161,7 @@ w_R1:	move.b	offset_ms_vdp_r01(a5),d2
 	andi.b	#%00000011,d2
 	beq	@f
 	* スプライトサイズの変更があった場合、スプライトの再描画を行う
-	move.w	#SPRITE_REFRESH_FLAG_PGEN,offset_ms_vdp_sprite_refresh_flag(a5)
+	move.w	#SPRITE_REFRESH_FLAG_FULL,offset_ms_vdp_sprite_refresh_flag(a5)
 	move.b	d1,d0			* スプライトのサイズ, 0の時 8x8, 1の時 16x16
 	andi.b	#%00000010,d0
 	lsr.b	#1,d0

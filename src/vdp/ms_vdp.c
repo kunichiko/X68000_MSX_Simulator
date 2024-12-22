@@ -430,7 +430,7 @@ void ms_vdp_vsync_draw(ms_vdp_t* vdp) {
 	}
 	if ( (vdp->r08 & 0x02) != (last_vdp_R8 & 0x02) ) {
 		// スプライト表示 ON/OFFフラグが変化
-		vdp->sprite_refresh_flag |= SPRITE_REFRESH_FLAG_COORD;
+		vdp->sprite_refresh_flag |= SPRITE_REFRESH_FLAG_ATTR;
 	}
 	if ( vdp->r23 != last_vdp_R23 ) {
 		// スクロール量が変化

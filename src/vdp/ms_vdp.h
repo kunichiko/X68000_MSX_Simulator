@@ -231,7 +231,7 @@ typedef struct ms_vdp {
 
 	// スプライト合成フラグ bit0が Plane #0、bit1が Plane #1、bit2が Plane #2、bit3が Plane #3
 	// 合成されている場合は、そのプレーンは手前のプレーンに含まれているので、非表示にする
-	uint32_t sprite_composition_flag;
+	uint32_t sprite_composition_bits;
 
 	// 現在実行中のコマンド
 	int (*current_command_exec)(struct ms_vdp* vdp);

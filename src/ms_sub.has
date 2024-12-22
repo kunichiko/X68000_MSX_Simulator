@@ -257,7 +257,7 @@ ms_iocs_ledctrl:
 framerate_control:
 	.dc.l	$ffffffff	* $ffffffff: auto, $0: none, other: count
 host_line:
-	.dc.w	100
+	.dc.w	200
 original:
 	.dc.l	0
 

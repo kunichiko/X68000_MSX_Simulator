@@ -1,1 +1,1 @@
-#define APP_VERSION "v0.7.2-sprite_tuning"
+#define APP_VERSION "v0.8.0-sprite_tuning"

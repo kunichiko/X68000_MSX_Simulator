@@ -49,22 +49,30 @@ void ms_vdp_update_sprite_area(ms_vdp_t* vdp) {
 	MS_LOG(MS_LOG_TRACE,"ms_vdp_update_sprite_area: %d - %d\n", Y_start, Y_end);
 }
 
-void rewrite_sprite_if_needed(ms_vdp_t* vdp) {
-	if ( (vdp->cmd_arg & 0x8) == 0 ) {
-		// DIY = 0
-		if( (vdp->cmd_ny_sprite_start < vdp->dy + vdp->ny) && //
-			(vdp->cmd_ny_sprite_end >= vdp->dy)) {
-			// TODO パターンジェネレータテーブル、カラーテーブル、アトリビュートテーブルをそれぞれ別に検査する
-			vdp->sprite_refresh_flag |= SPRITE_REFRESH_FLAG_FULL;
-		}
+/**
+ * @brief 
+ * 
+ * @param vdp 
+ * @param start_y VDPコマンドの影響を受けた最小のY座標
+ * @param num_y VDPコマンドの影響を受けたライン数
+ * @param DIY 転送方向 (0: Y増加, 1: Y減少)
+ */
+void rewrite_sprite_if_needed(ms_vdp_t* vdp, int start_y, int num_y, int DIY) {
+	int end_y;
+	if (DIY == 0) {
+		end_y = start_y + num_y;
 	} else {
-		// DIY = 1
-		if( (vdp->cmd_ny_sprite_start <= vdp->dy) && //
-			(vdp->cmd_ny_sprite_end > vdp->dy - vdp->ny)) {
-			// TODO パターンジェネレータテーブル、カラーテーブル、アトリビュートテーブルをそれぞれ別に検査する
-			vdp->sprite_refresh_flag |= SPRITE_REFRESH_FLAG_FULL;
-		}
+		end_y = start_y - num_y;
 	}
+	if( (vdp->cmd_ny_sprite_start < end_y) && //
+		(vdp->cmd_ny_sprite_end >= start_y)) {
+		// TODO パターンジェネレータテーブル、カラーテーブル、アトリビュートテーブルをそれぞれ別に検査する
+		vdp->sprite_refresh_flag |= SPRITE_REFRESH_FLAG_FULL;
+	}
+}
+
+void rewrite_sprite_if_needed_addr(ms_vdp_t* vdp, int addr) {
+	// TODO パターンジェネレータテーブル、カラーテーブル、アトリビュートテーブルをそれぞれ別に検査する
 }
 
 /*
@@ -516,7 +524,6 @@ void cmd_LMMC_exe(ms_vdp_t* vdp, uint8_t value) {
 	if(vdp->cmd_ny_count == 0 && vdp->cmd_nx_count == 0) {
 		vdp->s02 &= 0xfe;	// CEビットをクリア
 		vdp->cmd_current = 0;
-		rewrite_sprite_if_needed(vdp);
 		return;
 	}
 	int	crt_width = vdp->ms_vdp_current_mode->crt_width;
@@ -577,6 +584,8 @@ void cmd_LMMC_exe(ms_vdp_t* vdp, uint8_t value) {
 	// 後処理
 	vdp->cmd_vram_addr = vaddr_mod / dots_per_byte;		// VRAMアドレスを更新
 	vdp->cmd_vram_addr_mod = vaddr_mod % dots_per_byte;	// VRAMアドレスの1バイト内の位置を更新
+
+	//rewrite_sprite_if_needed_addr(vdp, vdp->sy, vdp->ny, vdp->);
 }
 
 
@@ -607,6 +616,7 @@ void cmd_HMMV(ms_vdp_t* vdp, uint8_t cmd) {
 	vdp->cmd_arg = vdp->arg;
 	uint32_t dst_vram_addr = get_vram_address(vdp, vdp->dx, vdp->dy, NULL);
 
+	uint16_t start_dy = vdp->dy;
 	int x,y,i;
 	for(y=0; y < ny; y++) {
 		uint16_t* gram = to_gram(vdp, dst_vram_addr, 0);
@@ -645,7 +655,7 @@ void cmd_HMMV(ms_vdp_t* vdp, uint8_t cmd) {
 		}
 	}
 
-	rewrite_sprite_if_needed(vdp);
+	rewrite_sprite_if_needed(vdp, start_dy, ny, DIY);
 }
 
 void cmd_YMMM(ms_vdp_t* vdp, uint8_t cmd) {
@@ -670,9 +680,11 @@ void cmd_YMMM(ms_vdp_t* vdp, uint8_t cmd) {
 
 	// DIXによってX方向のどちらの画面端まで転送するかが変わるのでnxが変化する
 	int nx = DIX == 0 ? (crt_width-vdp->dx) : vdp->dx+1;
+	uint16_t ny = vdp->ny;
 
+	uint16_t start_dy = vdp->dy;
 	int x,y,i;
-	for(y=0; y < vdp->ny; y++) {
+	for(y=0; y < ny; y++) {
 		uint16_t* gram = to_gram(vdp, dst_vram_addr, 0);
 		for(x=0; x < nx; x+=dots_per_byte) {	// dots_per_byte ドット分ずつ(1バイトずつ)処理
 			uint8_t data = vram[src_vram_addr];
@@ -719,7 +731,7 @@ void cmd_YMMM(ms_vdp_t* vdp, uint8_t cmd) {
 		}
 	}
 
-	rewrite_sprite_if_needed(vdp);
+	rewrite_sprite_if_needed(vdp, start_dy, ny, DIY);
 }
 
 int cmd_HMMM_exe(ms_vdp_t* vdp);
@@ -792,9 +804,11 @@ int cmd_HMMM_exe(ms_vdp_t* vdp) {
 	int nxbyte = context->nxbyte;
 	int widthbyte = context->widthbyte;
 
+	uint16_t start_dy = vdp->dy;	// dyは毎業更新されているので、この時点では今回のexeによる転送開始行になっている
 	uint32_t byte_count = 0;
 	for(; y < ny; y++) {
 		if (byte_count >= 0x100) {
+			rewrite_sprite_if_needed(vdp, start_dy, y - context->y, DIY);
 			context->y = y;
 			context->src_vram_addr = src_vram_addr;
 			context->dst_vram_addr = dst_vram_addr;
@@ -849,7 +863,8 @@ int cmd_HMMM_exe(ms_vdp_t* vdp) {
 		}
 	}
 
-	//rewrite_sprite_if_needed(vdp);
+	rewrite_sprite_if_needed(vdp, start_dy, y - context->y, DIY);
+
 	return 0;
 }
 
