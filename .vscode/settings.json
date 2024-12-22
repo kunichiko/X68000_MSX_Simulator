@@ -19,7 +19,8 @@
 		"compare": "c",
 		"ms_z80_tests_cmp": "c",
 		"type_traits": "c",
-		"typeinfo": "c"
+		"typeinfo": "c",
+		"__locale": "c"
 	},
     "files.encoding": "shiftjis",
     "editor.detectIndentation": false,

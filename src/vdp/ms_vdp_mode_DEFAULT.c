@@ -124,9 +124,11 @@ void update_palette_DEFAULT(ms_vdp_t* vdp) {
 	}
 	X68_GR_PAL[0] = color;
 
+	// カラーコード0にパレット0の色を当てはめる場合、
+	// X68000のスプライトはカラーコード0を描画できないので実質15色しか扱えない問題がある
+	// その問題に対応するために、背景色との差が最も小さい色を背景色の代替色として選ぶ
 	for(i =1; i < 16; i++) {
 		color = vdp->palette[i];
-		// 背景色との差が最も小さい色を背景色の代替色として選ぶ
 		uint16_t diff = diff_color(back_palette, color);
 		if (diff < alt_color_diff) {
 			alt_color = i;
@@ -186,7 +188,6 @@ void update_sprattrtbl_baddr_MODE2(ms_vdp_t* vdp) {
 		vdp->sprcolrtbl_baddr = addr ^ 0x200;
 		ms_vdp_update_sprite_area(vdp);
 		vdp->sprite_refresh_flag |= SPRITE_REFRESH_FLAG_CC;
-		vdp->sprite_refresh_flag |= SPRITE_REFRESH_FLAG_ATTR;
 	}
 }
 
