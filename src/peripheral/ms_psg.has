@@ -47,9 +47,11 @@ cont_8255	equ	$e9a007
 ***************************************************************
 w_OPM	macro	val,regnum
 
+	tst.b	OPM_regset		* ダミーアクセス
 9:	tst.b	OPM_port		* ウェイト
 	bmi	9b
 	move.b	regnum,OPM_regset
+	tst.b	OPM_regset		* ダミーアクセス
 9:	tst.b	OPM_port		* ウェイト
 	bmi	9b
 	move.b	val,OPM_port
