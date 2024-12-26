@@ -223,6 +223,7 @@ MS.INIファイルの書式は以下のとおりです。最低限、mainromとs
 mainrom=MY_MAINROM.ROM
 subrom=MY_SUBROM.ROM
 diskrom=MY_DISKROM.ROM
+kanjibasic=fs-a1f_kanjibasic.rom
 kanjirom=fs-a1f_kanjifont.rom
 cart1=GAME1.ROM
 cart2=OTHER.ROM

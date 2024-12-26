@@ -39,7 +39,7 @@ volatile uint8_t* BITSNS_WORK = (uint8_t*)0x800;
 // プロトタイプ宣言
 void ms_exit( void);
 uint8_t load_user_param();
-int search_open(const char *filename, int flag);
+int ms_system_file_open(const char *filename, int flag);
 
 // 現在の設定ログレベル
 // デバッグテキスト画面が出ている時だけこのログレベルになる
@@ -120,7 +120,7 @@ volatile extern unsigned short interrupt_history_wr;
 volatile extern unsigned short interrupt_history_rd;
 
 void printHelpAndExit(char* progname) {
-	fprintf(stderr, "Usage: %s  [-w CPU_WAIT] [-rm MAINROM] [-rs SUBROM] [-rd DISKBIOS] [-rk KANJIROM] [-r1 ROM_PATH for slot 1][,KIND] [-r2 ROM_PATH for slot 2][,KIND] [-rNM ROM_PATH for slot N page M] [IMAGE1.DSK] [IMAGE2.DSK]..\n", progname);
+	fprintf(stderr, "Usage: %s  [-w CPU_WAIT] [-rm MAINROM] [-rs SUBROM] [-rd DISKBIOS] [-rkb KANJIBASIC] [-rkr KANJIROM] [-r1 ROM_PATH for slot 1][,KIND] [-r2 ROM_PATH for slot 2][,KIND] [-rNM ROM_PATH for slot N page M] [IMAGE1.DSK] [IMAGE2.DSK]..\n", progname);
 	fprintf(stderr, " KIND is ROM type:\n");
 	fprintf(stderr, "    NOR: Normal ROM, G8K: GENERIC 8K, A8K: ASCII 8K, A16: ASCII 16K, KON: Konami, SCC: Konami SCC\n");
 	fprintf(stderr, " --vsrate vsync rate (1-60)\n");
@@ -246,6 +246,7 @@ int main(int argc, char *argv[]) {
 	// デフォルトの初期化
 	default_param.buf = NULL;
 	default_param.diskrom = NULL;
+	default_param.kanjibasic = NULL;
 	default_param.kanjirom = NULL;
 	for(i=0;i<4;i++) {
 		for(j=0;j<4;j++) {
@@ -359,15 +360,34 @@ int main(int argc, char *argv[]) {
 					}
 					break;
 				case 'k':
-					// 漢字ROMの指定
-					if (argv[optind] != NULL)
+					if (optarg[1] == 'b') 
 					{
-						init_param.kanjirom = argv[optind++];
+						// 漢字BASICの指定
+						if (argv[optind] != NULL)
+						{
+							init_param.kanjibasic = argv[optind++];
+						}
+						else
+						{
+							printf("漢字BASICファイル名が指定されていません\n");
+							ms_exit();
+						}
 					}
-					else
+					else if (optarg[1] == 'f')
 					{
-						printf("ROMファイル名が指定されていません\n");
-						ms_exit();
+						// 漢字フォントROMの指定
+						if (argv[optind] != NULL)
+						{
+							init_param.kanjirom = argv[optind++];
+						}
+						else
+						{
+							printf("ROMファイル名が指定されていません\n");
+							ms_exit();
+						}
+					} else {
+						printf("不明なオプションです\n");
+						printHelpAndExit(argv[0]);
 					}
 				default:
 					printf("不明なオプションです\n");
@@ -674,7 +694,7 @@ int main(int argc, char *argv[]) {
 		for ( j = 0; j < 4; j++) {
 			if ( init_param.slot_path[i][j] != NULL) {
 				printf("スロット%d-ページ%dにROMをセットします: %s\n", i, j, init_param.slot_path[i][j]);
-				int fh = search_open(init_param.slot_path[i][j], O_BINARY | O_RDONLY);
+				int fh = ms_system_file_open(init_param.slot_path[i][j], O_BINARY | O_RDONLY);
 				if ( fh == -1) {
 					printf("ファイルが開けません. %s\n", init_param.slot_path[i][j]);
 				} else {
@@ -734,7 +754,7 @@ int main(int argc, char *argv[]) {
 }
 
 void ms_exit() {
-	_iocs_crtmod(0x10);
+	//_iocs_crtmod(0x10);
 
 	if( disk_container != NULL ) {
 		ms_disk_container_deinit(disk_container);
@@ -1239,7 +1259,7 @@ void _setTextPlane(int textPlaneMode) {
 }
 
 
-int search_open(const char *filename, int flag) {
+int ms_system_file_open(const char *filename, int flag) {
 	if(filename == NULL) {
 		return -1;
 	}
@@ -1254,14 +1274,17 @@ int search_open(const char *filename, int flag) {
 	if (fh != -1) {
 		return fh;
 	}
+	// ベースディレクトリ/msxromsも検索
+	sprintf(base_filename, "%smsxroms/%s", base_dir, filename);
+	fh = open(base_filename, flag);
+	if (fh != -1) {
+		return fh;
+	}
 	return -1;
 }
 
-int file_exists(const char *filename) {
-	if(filename == NULL) {
-		return 0;
-	}
-	int fh = open(filename, O_RDONLY);
+int ms_system_file_exists(const char *filename) {
+	int fh = ms_system_file_open(filename, O_RDONLY);
 	if (fh != -1) {
 		close(fh);
 		return 1;
@@ -1270,31 +1293,14 @@ int file_exists(const char *filename) {
 }
 
 void set_system_roms() {
-	int fh_mainrom = search_open(init_param.mainrom, O_BINARY | O_RDONLY);
-	int fh_subrom = search_open(init_param.subrom, O_BINARY | O_RDONLY);
+	int fh_mainrom = ms_system_file_open(init_param.mainrom, O_BINARY | O_RDONLY);
+	int fh_subrom = ms_system_file_open(init_param.subrom, O_BINARY | O_RDONLY);
 	if (fh_mainrom != -1 && fh_subrom != -1) {
 		// Load user-provided ROMs
-		printf("MAIN ROM: %s\n", init_param.mainrom);
+		printf("   MAIN ROM: %s\n", init_param.mainrom);
 		allocateAndSetNORMALROM(fh_mainrom, ROM_TYPE_NORMAL_ROM, 0x00, -1, 0);
-		printf(" SUB ROM: %s\n", init_param.subrom);
+		printf("    SUB ROM: %s\n", init_param.subrom);
 		allocateAndSetNORMALROM(fh_subrom, ROM_TYPE_NORMAL_ROM, 0x03, 1, 0);
-		if (file_exists(init_param.diskrom)) {
-			printf("DISK ROM: %s\n", init_param.diskrom);
-			int i;
-			for(i=0;i<init_param.diskcount;i++) {
-				printf(" Load disk [%d] : %s\n", i, init_param.diskimages[i]);
-			}
-			// ディスクコンテナの初期化
-			disk_container = ms_disk_container_alloc();
-			if (disk_container == NULL) {
-				printf("メモリが確保できません。\n");
-				ms_exit();
-				return;
-			}
-			ms_disk_container_init(disk_container, init_param.diskcount, init_param.diskimages);
-
-			allocateAndSetDISKBIOSROM(init_param.diskrom, disk_container);
-		}
 	} else {
 		if (fh_mainrom != -1) {
 			close(fh_mainrom);
@@ -1309,6 +1315,31 @@ void set_system_roms() {
 		ms_exit();
 		return;
 	}
+	// DISK ROMの指定があれば読み込む
+	if (ms_system_file_exists(init_param.diskrom)) {
+		printf("   DISK ROM: %s\n", init_param.diskrom);
+		int i;
+		for(i=0;i<init_param.diskcount;i++) {
+			printf(" Load disk [%d] : %s\n", i, init_param.diskimages[i]);
+		}
+		// ディスクコンテナの初期化
+		disk_container = ms_disk_container_alloc();
+		if (disk_container == NULL) {
+			printf("メモリが確保できません。\n");
+			ms_exit();
+			return;
+		}
+		ms_disk_container_init(disk_container, init_param.diskcount, init_param.diskimages);
+
+		allocateAndSetDISKBIOSROM(init_param.diskrom, disk_container);
+	}
+
+	// 漢字BASICの指定があれば読み込む
+	int fh_kanjibasic = ms_system_file_open(init_param.kanjibasic, O_BINARY | O_RDONLY);
+	if (fh_kanjibasic != -1) {
+		printf("KANJI BASIC: %s\n", init_param.kanjibasic);
+		allocateAndSetNORMALROM(fh_kanjibasic, ROM_TYPE_NORMAL_ROM, 0x03, 1, 1);
+	}
 }
 
 /**
@@ -1319,7 +1350,7 @@ void set_system_roms() {
 uint8_t load_user_param() {
 	user_param = default_param;
 
-	int fh = search_open("MS.INI", O_RDONLY); // TEXT MODE で開く
+	int fh = ms_system_file_open("MS.INI", O_RDONLY); // TEXT MODE で開く
 	if(fh == -1) {
 		printf("MS.INI ファイルを開けませんでした。\n");
 		return 0;
@@ -1388,6 +1419,10 @@ uint8_t load_user_param() {
 		// Check if the parameter is "kanjirom"
 		else if (strcmp(param, "kanjirom") == 0) {
 			user_param.kanjirom = value;
+		}
+		// Check if the parameter is "kanjibasic"
+		else if (strcmp(param, "kanjibasic") == 0) {
+			user_param.kanjibasic = value;
 		}
 		// Check if the parameter starts with "slot"
 		else if (strncmp(param, "slot", 4) == 0) {

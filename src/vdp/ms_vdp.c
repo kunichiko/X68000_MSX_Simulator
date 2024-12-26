@@ -348,11 +348,14 @@ void ms_vdp_update_resolution_COMMON(ms_vdp_t* vdp, unsigned int res, unsigned i
  * * ページ切り替え
  * 		* GRAPHIC4-7の pattern name table base address によるページ切り替え
  * * スクロール量
- * 		* VDP R#23の値によるスクロール量の変更
+ * 		* VDP R#23の値による縦スクロール量の変更
+ * 		* VDP R#26, R#27の値による横スクロール量の変更
  * * インターレース
  * 		* VDP R#9の bit2 (交互表示) が1 かつ、bit3 (インターレース)が1
  * 		* さらに現在のページが奇数ページの時、インターレースモードになる
  * 		* 実機では偶数ページと奇数ページを交互に切り替えるが、MS.Xは 512x424 の画面として表示します
+ * * その他
+ * 		* VDP R#26 bit0 (SP2)による、横スクロール2画面モードの切り替え
  * 
  * それぞれの設定が相互に影響し合うため、この関数で一括して設定しています。
  * 
@@ -360,7 +363,8 @@ void ms_vdp_update_resolution_COMMON(ms_vdp_t* vdp, unsigned int res, unsigned i
  */
 void ms_vdp_update_visibility(ms_vdp_t* vdp) {
 	int is_blank = (vdp->r01 & 0x40) ? 0 : 1;
-	int is_interlace = (vdp->r09 & 0x0c) == 0x0c ? 1 : 0; 
+	int is_interlace = (vdp->r09 & 0x0c) == 0x0c ? 1 : 0;
+	int is_scroll_page_2 = (vdp->r25 & 0x01) ? 1 : 0;
 
 	// ビデオコントロールレジスタ(VCR R#02)の設定
 	//  b14 AH グラフィックとテキストパレット#0を半透明合成
@@ -382,19 +386,39 @@ void ms_vdp_update_visibility(ms_vdp_t* vdp) {
 		r02 |= 0b0000000000100000;
 	}
 	if( !is_blank) {
-		r02 |= is_interlace ? vdp->gr_active_interlace : vdp->gr_active;
+		r02 |= (is_interlace | is_scroll_page_2) ? vdp->gr_active_interlace : vdp->gr_active;
 	}
 	VCRR_02 = r02;
 
 	// スクロール量の設定
 	uint16_t r23 = vdp->r23;
+	uint16_t r26 = vdp->r26;
+	uint16_t r27 = vdp->r27;
 	if(vdp->ms_vdp_current_mode->crt_width == 256) {
 		// 256ドットモードの時
+		// 縦スクロール
 		uint16_t scrY = r23;
 		CRTR_SCR_p[0*2+1] = scrY;		// GR0のYスクロール
 		CRTR_SCR_p[1*2+1] = scrY;		// GR1のYスクロール
 		CRTR_SCR_p[2*2+1] = scrY;		// GR2のYスクロール
 		CRTR_SCR_p[3*2+1] = scrY;		// GR3のYスクロール
+		// 横スクロール
+		uint16_t scrX = ((r26<<3) - (r27&0x07)) & 0x1ff;
+		uint16_t scrX2 = is_scroll_page_2 ? (scrX + 256) & 0x1ff : scrX;
+		uint16_t ap = vdp->gr_active;
+		uint16_t api = vdp->gr_active_interlace;
+		int i;
+		for(i=0;i<4;i++) {
+			if (ap & 1<<i)) {
+				CRTR_SCR_p[i*2+0] = scrX;
+			} else if (api & (1<<i)) {
+				if (is_scroll_page_2) {
+					CRTR_SCR_p[i*2+0] = scrX2;
+				} else {
+					CRTR_SCR_p[i*2+0] = scrX;
+				}
+			}
+		}
 	} else {
 		// 512ドットモードの時
 		uint16_t scrYe = (r23 * 2 - 0) & 0x1ff;
@@ -405,6 +429,27 @@ void ms_vdp_update_visibility(ms_vdp_t* vdp) {
 		CRTR_SCR_p[1*2+1] = scrYo;		// GR1のYスクロール
 		//CRTR_SCR_p[2*2+1] = scrYe;		// GR2のYスクロール (3ページ目は存在しないが)
 		//CRTR_SCR_p[3*2+1] = scrYo;		// GR3のYスクロール (4ページ目は存在しないが)
+		// 横スクロール
+		CRTR_SCR_p[0*2+0] = scrX;		// GR0のXスクロール
+		CRTR_SCR_p[1*2+0] = scrX;		// GR1のXスクロール
+		CRTR_SCR_p[2*2+0] = scrX;		// GR2のXスクロール
+		CRTR_SCR_p[3*2+0] = scrX;		// GR3のXスクロール
+		uint16_t scrX = (((r26<<3) - (r27&0x07))*2) & 0x1ff;
+		uint16_t scrX2 = is_scroll_page_2 ? (scrX + 256) & 0x1ff : scrX;
+		uint16_t ap = vdp->gr_active;
+		uint16_t api = vdp->gr_active_interlace;
+		int i;
+		for(i=0;i<4;i++) {
+			if (ap & 1<<i)) {
+				CRTR_SCR_p[i*2+0] = scrX;
+			} else if (api & (1<<i)) {
+				if (is_scroll_page_2) {
+					CRTR_SCR_p[i*2+0] = scrX2;
+				} else {
+					CRTR_SCR_p[i*2+0] = scrX;
+				}
+			}
+		}
 	}
 }
 

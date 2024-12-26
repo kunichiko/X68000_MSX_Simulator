@@ -305,13 +305,13 @@ offset_ms_vdp_s06		equ	54
 offset_ms_vdp_s07		equ	55
 offset_ms_vdp_s08		equ	56
 offset_ms_vdp_s09		equ	57
-offset_ms_vdp_palette		equ	58
-offset_ms_vdp_alt_color_zero	equ	60
-
+offset_ms_vdp_palette		equ	58	; 16 * 2 = 32bytes
+offset_ms_vdp_alt_color_zero	equ	90
+offset_ms_vdp_dummy2		equ	91
 offset_ms_vdp_crt_mode		equ	92
 offset_ms_vdp_sprite_size	equ	93
 offset_ms_vdp_sprite_zoom	equ	94
-offset_ms_vdp_dummy2		equ	95
+offset_ms_vdp_dummy3		equ	95
 offset_ms_vdp_pnametbl_baddr	equ	96
 offset_ms_vdp_colortbl_baddr	equ	100
 offset_ms_vdp_pgentbl_baddr	equ	104
@@ -613,6 +613,22 @@ hsync_interrupt:
 ; 	lea	4(sp),sp
 ; 	movem.l	(sp)+,d1-d7/a0-a4
 	;
+
+@@:	move.w	offset_ms_vdp_dummy3,d0
+	cmp.w	#0,d0
+	beq	@f
+	move.w	hsync_counter,d0
+	btst.l	#0,d0
+	bne	@f		* 奇数ラインはスキップ
+	cmp.w	#HSYNC_BACKLINES+32*2,d0
+	blt	@f
+	cmp.w	#HSYNC_BACKLINES+128*2,d0
+	bge	@f
+	; 36行目から128行目でスプライト衝突（実験）
+	move.b	offset_ms_vdp_s00(a5),d0
+	or.b	#%00100000,d0
+	move.b	d0,offset_ms_vdp_s00(a5)
+
 @@:	movem.l	(sp)+,d0/a5	
 	rte
 
@@ -786,7 +802,12 @@ r_SReg_jpt:
 
 r_SReg_0:
 	move.b	offset_ms_vdp_s00(a5),d0
-	bclr.b	#7,offset_ms_vdp_s00(a5)	* S#0の bit 7(VSYNC割り込み)は読み出すとリセットされる
+	move.b	d0,d1
+	; S#0の以下のビットは読み出すとリセットされる
+	; bit 7(VSYNC割り込み)
+	; bit 5(スプライト衝突)
+	and.b	#%01011111,d1
+	move.b	d1,offset_ms_vdp_s00(a5)
 	bclr.b	#0,ms_vdp_int			* VSYNC割り込み要求クリア
 	rts
 
@@ -1041,9 +1062,9 @@ w_CReg_jpt:
 	.dc.l	normal
 	.dc.l	w_R23
 	.dc.l	normal
-	.dc.l	normal
-	.dc.l	normal
-	.dc.l	normal			* R#27
+	.dc.l	w_R25
+	.dc.l	w_R26
+	.dc.l	w_R27			* R#27
 	.dc.l	noregister
 	.dc.l	noregister
 	.dc.l	noregister		* R$30
@@ -1429,10 +1450,34 @@ update_raster_interrupt_line:
 	rts	
 
 ; R#23 は縦スクロール
-w_R23:					
+w_R23:
 	move.b	d1,offset_ms_vdp_r23(a5)
 	bsr	ms_vdp_update_visibility_mac
 	bsr	update_raster_interrupt_line
+	rts
+
+; R#25 はV9958の追加機能のためのレジスタ
+; 	[ 0 ][CMD][VDS][YAE][YJK][WTE][MSK][SP2]
+;	CMD : 全画面でVDPコマンドを使えるようにする
+;	VDS : ?
+;	YAE : YJK=1の時、アトリビュート付きYJKとみなす
+;	YJK : VRAMのデータをYJKをみなす(自然画モード)
+;	WTE : VDPへの書き込みが間に合わないときに自動でウエイトが入る
+;	MSK : 画面の左端をマスクする
+;	SP2 : 水平スクロールしたときに、偶数ページと奇数ページの2画面を連結して行う
+w_R25:
+	move.b	d1,offset_ms_vdp_r25(a5)
+	bsr	ms_vdp_update_visibility_mac
+	rts
+
+; R#26, 27 は横スクロール
+w_R26:
+	move.b	d1,offset_ms_vdp_r26(a5)
+	bsr	ms_vdp_update_visibility_mac
+	rts
+w_R27:
+	move.b	d1,offset_ms_vdp_r27(a5)
+	bsr	ms_vdp_update_visibility_mac
 	rts
 
 SX_l:	move.b	d1,offset_ms_vdp_sx+1(a5)

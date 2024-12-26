@@ -340,7 +340,7 @@ void allocateAndSetDISKBIOSROM(const char *romFileName, ms_disk_container_t* dis
 	uint8_t *crt_buff;
 	int i;
 
-	crt_fh = open( romFileName, O_RDONLY | O_BINARY);
+	crt_fh = ms_system_file_open( romFileName, O_RDONLY | O_BINARY);
 	if (crt_fh == -1) {
 		printf("ファイルが開けません. %s\n", romFileName);
 		ms_exit();

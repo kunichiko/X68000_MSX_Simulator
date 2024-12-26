@@ -556,6 +556,8 @@ void refresh_sprite_256_mode2(ms_vdp_t* vdp) {
 	int ptNumMask = vdp->sprite_size == 0 ? 0xff : 0xfc;
 	int lr;
 
+	vdp->dummy3 = 0;	// 衝突判定(仮)
+
 	// フラグクリア
 	vdp->sprite_composition_bits = 0;
 
@@ -632,16 +634,21 @@ void refresh_sprite_256_mode2(ms_vdp_t* vdp) {
 		vdp->sprite_composition_bits &= ~(1 << plNum);
 		for(i=1,n=plNum+1; i<3 && n<32; i++,n++) {
 			// XY座標が同一のものかつ、CC=1のラインが一つでもあるものを抽出(連続している物のみ)
-			if((patr[plNum*SAT_SIZE+0] == patr[n*SAT_SIZE+0]) && (patr[plNum*SAT_SIZE+1] == patr[n*SAT_SIZE+1]) && //
-				(sprite_cc_flags[n] != 0)) {
-				// 連続したものが見つかったので、mを更新
-				m = n;
-				vdp->sprite_composition_bits |= 1 << m;
-				color = pcol[m*COL_SIZE+4] & 0xf; // 4ライン目を代表色として使用
-				ptNum4 = patr[m*SAT_SIZE+2] / 4;	// 16x16ドットモードのときは4つで1つのパターン
-				key = ((color << 6) | (ptNum4 & 0x3f)) << (i*10);
-				composition_key |= key;
-				X68_SSR[m*SSR_UNIT+3] = 0;	// CC=1のスプライトは非表示
+			if((patr[plNum*SAT_SIZE+0] == patr[n*SAT_SIZE+0]) && (patr[plNum*SAT_SIZE+1] == patr[n*SAT_SIZE+1])) {
+				if (sprite_cc_flags[n] != 0) {
+					// 連続したものが見つかったので、mを更新
+					m = n;
+					vdp->sprite_composition_bits |= 1 << m;
+					color = pcol[m*COL_SIZE+4] & 0xf; // 4ライン目を代表色として使用
+					ptNum4 = patr[m*SAT_SIZE+2] / 4;	// 16x16ドットモードのときは4つで1つのパターン
+					key = ((color << 6) | (ptNum4 & 0x3f)) << (i*10);
+					composition_key |= key;
+					X68_SSR[m*SSR_UNIT+3] = 0;	// CC=1のスプライトは非表示
+				} else {
+					// 衝突判定(暫定)
+					vdp->dummy3 = 1;
+					break;
+				}
 			} else {
 				break;
 			}
