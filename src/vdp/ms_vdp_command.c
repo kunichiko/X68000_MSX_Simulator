@@ -656,6 +656,7 @@ void cmd_HMMV(ms_vdp_t* vdp, uint8_t cmd) {
 	}
 
 	rewrite_sprite_if_needed(vdp, start_dy, ny, DIY);
+	vdp->s02 &= 0xfe;							// CEビットをクリア
 }
 
 void cmd_YMMM(ms_vdp_t* vdp, uint8_t cmd) {
@@ -732,6 +733,7 @@ void cmd_YMMM(ms_vdp_t* vdp, uint8_t cmd) {
 	}
 
 	rewrite_sprite_if_needed(vdp, start_dy, ny, DIY);
+	vdp->s02 &= 0xfe;							// CEビットをクリア
 }
 
 int cmd_HMMM_exe(ms_vdp_t* vdp);
