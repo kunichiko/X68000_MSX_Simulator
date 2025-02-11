@@ -147,8 +147,11 @@ void ms_psg_shared_deinit(ms_iomap_t* iomap) {
 	_shared = NULL;
 }
 
+static uint8_t regnum;
+
 static void _write_psg_A0(ms_ioport_t* ioport, uint8_t port, uint8_t data) {
 	w_port_A0(data);
+	regnum = data;
 }
 
 static uint8_t _read_psg_A0(ms_ioport_t* ioport, uint8_t port) {
@@ -157,6 +160,10 @@ static uint8_t _read_psg_A0(ms_ioport_t* ioport, uint8_t port) {
 
 static void _write_psg_A1(ms_ioport_t* ioport, uint8_t port, uint8_t data) {
 	w_port_A1(data);
+	//if ( regnum == 0x0f) {
+	//	MS_LOG(MS_LOG_DEBUG, "Wr PSG #%d=%02x\n", regnum, data);
+	//}
+		
 }
 
 static uint8_t _read_psg_A1(ms_ioport_t* ioport, uint8_t port) {
@@ -167,5 +174,9 @@ static void _write_psg_A2(ms_ioport_t* ioport, uint8_t port, uint8_t data) {
 }
 
 static uint8_t _read_psg_A2(ms_ioport_t* ioport, uint8_t port) {
-	return r_port_A2();
+	uint8_t ret = r_port_A2();
+	//if ( a0 == 0x0e) {
+	//	MS_LOG(MS_LOG_DEBUG, "Rd PSG #%d=%02x\n", regnum, ret);
+	//}
+	return ret;
 }
