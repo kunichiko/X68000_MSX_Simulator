@@ -409,7 +409,7 @@ void ms_vdp_update_visibility(ms_vdp_t* vdp) {
 		uint16_t api = vdp->gr_active_interlace;
 		int i;
 		for(i=0;i<4;i++) {
-			if (ap & 1<<i)) {
+			if (ap & 1<<i) {
 				CRTR_SCR_p[i*2+0] = scrX;
 			} else if (api & (1<<i)) {
 				if (is_scroll_page_2) {
@@ -430,17 +430,17 @@ void ms_vdp_update_visibility(ms_vdp_t* vdp) {
 		//CRTR_SCR_p[2*2+1] = scrYe;		// GR2のYスクロール (3ページ目は存在しないが)
 		//CRTR_SCR_p[3*2+1] = scrYo;		// GR3のYスクロール (4ページ目は存在しないが)
 		// 横スクロール
-		CRTR_SCR_p[0*2+0] = scrX;		// GR0のXスクロール
-		CRTR_SCR_p[1*2+0] = scrX;		// GR1のXスクロール
-		CRTR_SCR_p[2*2+0] = scrX;		// GR2のXスクロール
-		CRTR_SCR_p[3*2+0] = scrX;		// GR3のXスクロール
+	//	CRTR_SCR_p[0*2+0] = scrX;		// GR0のXスクロール
+	//	CRTR_SCR_p[1*2+0] = scrX;		// GR1のXスクロール
+	//	CRTR_SCR_p[2*2+0] = scrX;		// GR2のXスクロール
+	//	CRTR_SCR_p[3*2+0] = scrX;		// GR3のXスクロール
 		uint16_t scrX = (((r26<<3) - (r27&0x07))*2) & 0x1ff;
 		uint16_t scrX2 = is_scroll_page_2 ? (scrX + 256) & 0x1ff : scrX;
 		uint16_t ap = vdp->gr_active;
 		uint16_t api = vdp->gr_active_interlace;
 		int i;
 		for(i=0;i<4;i++) {
-			if (ap & 1<<i)) {
+			if (ap & 1<<i) {
 				CRTR_SCR_p[i*2+0] = scrX;
 			} else if (api & (1<<i)) {
 				if (is_scroll_page_2) {

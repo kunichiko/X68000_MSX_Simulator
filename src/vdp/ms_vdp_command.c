@@ -240,7 +240,11 @@ void cmd_PSET_exe(ms_vdp_t* vdp, uint16_t x, uint16_t y, uint8_t color, uint8_t 
 		// GRAMに書き込む
 		uint16_t* gram = to_gram(vdp, vaddr, vamod);
 		gram[0] = dst;
-		if(vdp->ms_vdp_current_mode->crt_width == 256) gram[256*512] = dst;
+		if(vdp->ms_vdp_current_mode->crt_width == 256) {
+			gram[256*512 + 0*256] = dst;
+			gram[  0*512 + 1*256] = dst;
+			gram[256*512 + 1*256] = dst;
+		}
 	}
 }
 
@@ -389,7 +393,11 @@ void cmd_LMMV(ms_vdp_t* vdp, uint8_t cmd, uint8_t logiop) {
 			if( write_vram_logical(vdp, dst_vram_addr, dst_mod, dst) ) {
 				// GRAMに書き込む
 				*gram = dst;
-				if(crt_width == 256) gram[256*512] = dst;
+				if(crt_width == 256) {
+					gram[256*512 + 0*256] = dst;
+					gram[  0*512 + 1*256] = dst;
+					gram[256*512 + 1*256] = dst;
+				}
 			}
 			// DIXに従ってVRAMアドレスを更新
 			if (DIX == 0) {
@@ -461,7 +469,11 @@ void cmd_LMMM(ms_vdp_t* vdp, uint8_t cmd, uint8_t logiop) {
 			if(write_vram_logical(vdp, dst_vram_addr, dst_mod, dst)) {
 				// GRAMに書き込む
 				*gram = dst;
-				if(vdp->ms_vdp_current_mode->crt_width == 256) gram[256*512] = dst;
+				if(vdp->ms_vdp_current_mode->crt_width == 256) {
+					gram[256*512 + 0*256] = dst;
+					gram[  0*512 + 1*256] = dst;
+					gram[256*512 + 1*256] = dst;
+				}
 			}
 			// DIXに従ってVRAMアドレスを更新
 			if ((vdp->cmd_arg & 0x04) == 0) {
@@ -546,7 +558,11 @@ void cmd_LMMC_exe(ms_vdp_t* vdp, uint8_t value) {
 	if(write_vram_logical(vdp, vaddr, vamod, dst)){
 		// GRAMに書き込む
 		*gram = dst;
-		if(vdp->ms_vdp_current_mode->crt_width == 256) gram[256*512] = dst;
+		if(vdp->ms_vdp_current_mode->crt_width == 256) {
+			gram[256*512 + 0*256] = dst;
+			gram[  0*512 + 1*256] = dst;
+			gram[256*512 + 1*256] = dst;
+		}
 	}
 
 	vdp->s02 |= 0x80;				// TRビットをセット
@@ -629,7 +645,11 @@ void cmd_HMMV(ms_vdp_t* vdp, uint8_t cmd) {
 				for(i=0; i < dots_per_byte; i++) {
 					uint16_t dst = (data >> ((dots_per_byte-1-i)*bits_per_dot)) & ((1<<bits_per_dot)-1);
 					gram[0+i] = dst;
-					if(crt_width == 256) gram[256*512+i] = dst;
+					if(crt_width == 256) {
+						gram[256*512 + 0*256 + i] = dst;
+						gram[  0*512 + 1*256 + i] = dst;
+						gram[256*512 + 1*256 + i] = dst;
+					}
 				}
 			}
 			// DIXに従ってVRAMアドレスを更新
@@ -695,7 +715,11 @@ void cmd_YMMM(ms_vdp_t* vdp, uint8_t cmd) {
 				for(i=0; i < dots_per_byte; i++) {
 					uint16_t dst = (data >> ((dots_per_byte-1-i)*bits_per_dot)) & ((1<<bits_per_dot)-1);
 					gram[0+i] = dst;
-					if(crt_width == 256) gram[256*512+i] = dst;
+					if(crt_width == 256) {
+						gram[256*512 + 0*256 + i] = dst;
+						gram[  0*512 + 1*256 + i] = dst;
+						gram[256*512 + 1*256 + i] = dst;
+					}
 				}
 			}
 			// DIXに従ってVRAMアドレスを更新
@@ -827,7 +851,11 @@ int cmd_HMMM_exe(ms_vdp_t* vdp) {
 					uint16_t dst = data & dotmask;
 					data >>= bits_per_dot;
 					gram[0+i] = dst;
-					if(crt_width == 256) gram[256*512+i] = dst;
+					if(crt_width == 256) {
+						gram[256*512 + 0*256 + i] = dst;
+						gram[  0*512 + 1*256 + i] = dst;
+						gram[256*512 + 1*256 + i] = dst;
+					}
 				}
 			}
 			// DIXに従ってVRAMアドレスを更新
@@ -920,7 +948,11 @@ void cmd_HMMC_exe(ms_vdp_t* vdp, uint8_t value) {
 	for(i=0; i < dots_per_byte; i++) {
 		uint16_t dst = (value >> ((dots_per_byte-1-i)*bits_per_dot)) & ((1<<bits_per_dot)-1);
 		gram[0] = dst;
-		if(vdp->ms_vdp_current_mode->crt_width == 256) gram[256*512] = dst;
+		if(vdp->ms_vdp_current_mode->crt_width == 256) {
+			gram[256*512 + 0*256] = dst;
+			gram[  0*512 + 1*256] = dst;
+			gram[256*512 + 1*256] = dst;
+		}
 		gram++;
 	}
 
