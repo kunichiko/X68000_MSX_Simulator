@@ -173,10 +173,21 @@ static uint8_t _read_psg_A1(ms_ioport_t* ioport, uint8_t port) {
 static void _write_psg_A2(ms_ioport_t* ioport, uint8_t port, uint8_t data) {
 }
 
+
+extern uint16_t ms_psg_port_sel;
+
 static uint8_t _read_psg_A2(ms_ioport_t* ioport, uint8_t port) {
 	uint8_t ret = r_port_A2();
-	//if ( a0 == 0x0e) {
-	//	MS_LOG(MS_LOG_DEBUG, "Rd PSG #%d=%02x\n", regnum, ret);
-	//}
+	if ( regnum == 14) {
+		// R#14 でジョイスティックの状態を返す場合
+		if( (ret & 0x03) == 0) {
+			// 上下ボタンが同時押されている場合 = TOWNSPADのSELECT
+			MS_LOG(MS_LOG_DEBUG, "JOY#%d SELECT(0x%02x)\n", ms_psg_port_sel ? 2 : 1, ret);
+		}
+		if( (ret & 0x0c) == 0) {
+			// 左右ボタンが同時押されている場合 = TOWNSPADのSTART
+			MS_LOG(MS_LOG_DEBUG, "JOY#%d START(0x%02x)\n", ms_psg_port_sel ? 2 : 1, ret);
+		}
+	}
 	return ret;
 }
