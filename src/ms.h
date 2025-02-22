@@ -43,6 +43,8 @@ void new_free( void * );
 
 void ms_iocs_ledctrl(uint8_t type, uint8_t onoff);
 
+int ms_system_file_open(const char *filename, int flag);
+
 volatile extern unsigned short debug_log_level;
 
 extern uint8_t ms_peripherals_led_caps;
@@ -56,6 +58,7 @@ typedef struct ms_init_params {
 	uint8_t* mainrom;
 	uint8_t* subrom;
 	uint8_t* diskrom;
+	uint8_t* kanjibasic;
 	uint8_t* kanjirom;
 	uint8_t* cartridge_path_slot1;
 	int cartridge_kind_slot1;
