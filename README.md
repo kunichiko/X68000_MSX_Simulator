@@ -170,9 +170,9 @@ MS.Xでもそのうちなんとかしたいとは思っていますが、まだ�
 
 * [MKROMDSK](https://www.msx.org/news/software/en/mkromdsk)
 	* こちらはどうも実機のDISK BIOSを内蔵しているというような話もあり、ライセンス的にちょっと危ない感じがします(私は試してません)
-* [dsk2rom][https://github.com/joyrex2001/dsk2rom]
+* [dsk2rom](https://github.com/joyrex2001/dsk2rom)
 	* こちらもライセンスの怪しいコードが含まれているという話があります
-* [TablacusDiskRomLite][https://github.com/tablacus/TablacusDiskRomLite]
+* [TablacusDiskRomLite](https://github.com/tablacus/TablacusDiskRomLite)
 	* 大本命です
 	* 2024年現在もかなり精力的に開発がされており、どんどんサポートが増えているようです。
 	* こちらはライセンス的な問題のない互換DISK ROMを使っているので、安心して使えます
