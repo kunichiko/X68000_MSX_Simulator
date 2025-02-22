@@ -37,7 +37,8 @@ ms_init_params_t user_param;
 volatile uint8_t* BITSNS_WORK = (uint8_t*)0x800;
 
 // プロトタイプ宣言
-void ms_exit( void);
+void ms_exit(void);
+void ms_exit_failure(void);
 uint8_t load_user_param();
 int search_open(const char *filename, int flag);
 
@@ -214,6 +215,7 @@ int main(int argc, char *argv[]) {
 		printf("ディレクトリ名の取得に失敗しました\n");
 		return 1;
 	}
+	printf("Base directory: %s\n", base_dir);
 
 	int i, j;
 	int opt;
@@ -240,7 +242,7 @@ int main(int argc, char *argv[]) {
 	unsigned int mpu_type = _iocs_mpu_stat();
 	if( (mpu_type & 0xf) < 3) {
 		printf("MS.X の動作には 68030以上が必要です\n");
-		ms_exit();
+		ms_exit_failure();
 	}
 
 	// デフォルトの初期化
@@ -331,7 +333,7 @@ int main(int argc, char *argv[]) {
 					else
 					{
 						printf("ROMファイル名が指定されていません\n");
-						ms_exit();
+						ms_exit_failure();
 					}
 					break;
 				case 's':
@@ -343,7 +345,7 @@ int main(int argc, char *argv[]) {
 					else
 					{
 						printf("ROMファイル名が指定されていません\n");
-						ms_exit();
+						ms_exit_failure();
 					}
 					break;
 				case 'd':
@@ -355,7 +357,7 @@ int main(int argc, char *argv[]) {
 					else
 					{
 						printf("ROMファイル名が指定されていません\n");
-						ms_exit();
+						ms_exit_failure();
 					}
 					break;
 				case 'k':
@@ -367,7 +369,7 @@ int main(int argc, char *argv[]) {
 					else
 					{
 						printf("ROMファイル名が指定されていません\n");
-						ms_exit();
+						ms_exit_failure();
 					}
 				default:
 					printf("不明なオプションです\n");
@@ -392,7 +394,7 @@ int main(int argc, char *argv[]) {
 					else
 					{
 						printf("ROMファイル名が指定されていません\n");
-						ms_exit();
+						ms_exit_failure();
 					}
 				} else {
 					printf("スロット番号は1か2を指定してください。\n");
@@ -412,7 +414,7 @@ int main(int argc, char *argv[]) {
 					else
 					{
 						printf("ROMファイル名が指定されていません\n");
-						ms_exit();
+						ms_exit_failure();
 					}
 				} else {
 					printf("スロット番号が不正です\n");
@@ -429,7 +431,7 @@ int main(int argc, char *argv[]) {
 				else
 				{
 					printf("ROMファイル名が指定されていません\n");
-					ms_exit();
+					ms_exit_failure();
 				}
 			}
 			break;
@@ -524,7 +526,7 @@ int main(int argc, char *argv[]) {
 			init_param.diskimages[init_param.diskcount++] = argv[i];
 			if(init_param.diskcount >= 16) {
 				printf("ディスクイメージの数が多すぎます\n");
-				ms_exit();
+				ms_exit_failure();
 			}
 		}
 	}
@@ -554,7 +556,7 @@ int main(int argc, char *argv[]) {
 	if (memmap == NULL)
 	{
 		printf("メモリシステムの初期化に失敗しました\n");
-		ms_exit();
+		ms_exit_failure();
 	}
 
 	/*
@@ -564,7 +566,7 @@ int main(int argc, char *argv[]) {
 	if (vdp == NULL)
 	{
 		printf("VDPシステムの初期化に失敗しました\n");
-		ms_exit();
+		ms_exit_failure();
 	}
 	vdp->disablehsyncint = init_param.disablehsyncint;
 	vdp->hostdebugmode = hostdebug;
@@ -576,7 +578,7 @@ int main(int argc, char *argv[]) {
 	if (iomap == NULL)
 	{
 		printf("I/Oシステムの初期化に失敗しました\n");
-		ms_exit();
+		ms_exit_failure();
 	}
 
 	printf("\n\n\n\n\n\n\n\n"); // TEXT画面を上に8ラインくらい上げているので、その分改行を入れる
@@ -608,7 +610,7 @@ int main(int argc, char *argv[]) {
 	if (psg == 0)
 	{
 		printf("ＰＳＧの初期化に失敗しました\n");
-		ms_exit();
+		ms_exit_failure();
 	}
 	ms_psg_shared_init(iomap);
 
@@ -637,7 +639,7 @@ int main(int argc, char *argv[]) {
 	if (rtc == NULL)
 	{
 		printf("RTCの初期化に失敗しました\n");
-		ms_exit();
+		ms_exit_failure();
 	}
 	ms_rtc_init(rtc, iomap);
 
@@ -650,7 +652,7 @@ int main(int argc, char *argv[]) {
 		ms_kanjirom12_t* k12 = ms_kanjirom12_alloc();
 		if (k12 == NULL) {
 			printf("漢字ROMの初期化に失敗しました\n");
-			ms_exit();
+			ms_exit_failure();
 		}
 		ms_kanjirom12_init(k12, iomap, init_param.kanjirom);
 		printf("KANJIROM: %s\n", init_param.kanjirom);
@@ -659,7 +661,7 @@ int main(int argc, char *argv[]) {
 		ms_kanjirom_alt_t* k_alt = ms_kanjirom_alt_alloc();
 		if (k_alt == NULL) {
 			printf("代替漢字ROMの初期化に失敗しました\n");
-			ms_exit();
+			ms_exit_failure();
 		}
 		ms_kanjirom_alt_init(k_alt, iomap);
 	}
@@ -733,7 +735,7 @@ int main(int argc, char *argv[]) {
 	ms_exit();
 }
 
-void ms_exit() {
+void _ms_exit(int status) {
 	_iocs_crtmod(0x10);
 
 	if( disk_container != NULL ) {
@@ -765,7 +767,17 @@ void ms_exit() {
 		new_free(user_param.buf);
 		user_param.buf = NULL;
 	}
-	exit(0);
+	exit(status);
+}
+
+void ms_exit_failure() {
+	printf("Press any key to exit\n");
+	getchar();
+	_exit(EXIT_FAILURE);
+}
+
+void ms_exit() {
+	_ms_exit(EXIT_SUCCESS);
 }
 
 /*
@@ -1288,7 +1300,7 @@ void set_system_roms() {
 			disk_container = ms_disk_container_alloc();
 			if (disk_container == NULL) {
 				printf("メモリが確保できません。\n");
-				ms_exit();
+				ms_exit_failure();
 				return;
 			}
 			ms_disk_container_init(disk_container, init_param.diskcount, init_param.diskimages);
@@ -1306,7 +1318,7 @@ void set_system_roms() {
 		printf("BIOS ROMが見つかりません。ファイルを確認してください。\n");
 		printf(" BIOS ROM: %s\n", init_param.mainrom);
 		printf(" SUB ROM : %s\n", init_param.subrom);
-		ms_exit();
+		ms_exit_failure();
 		return;
 	}
 }

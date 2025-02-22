@@ -190,7 +190,7 @@ void ms_disk_media_sectorbase_write_track(ms_disk_media_t* media, uint32_t track
 		id_addr_mark |= track[offset++];
 		if (id_addr_mark != 0xa1a1a1fe) {
 			printf("ID addr mark is not found\n");
-			ms_exit();
+			ms_exit_failure();
 		}
 		uint8_t C = track[offset++];
 		uint8_t H = track[offset++];
@@ -200,14 +200,14 @@ void ms_disk_media_sectorbase_write_track(ms_disk_media_t* media, uint32_t track
 			printf("C=%d, H=%d, R=%d, N=%d\n", C, H, R, N);
 			printf("track_no=%d, side=%d\n", track_no, side);
 			printf("C, H, R, N is not match\n");
-			ms_exit();
+			ms_exit_failure();
 		}
 		CRC = ms_disk_calc_CRC16(track + offset - 8, 8);
 		uint16_t CRC_in_data = track[offset] << 8 | track[offset+1];
 		offset += 2;
 		if (CRC != CRC_in_data) {
 			printf("CRC error\n");
-			ms_exit();
+			ms_exit_failure();
 		}
 		offset += 22;	// gap2
 		offset += 12;	// sync
@@ -221,7 +221,7 @@ void ms_disk_media_sectorbase_write_track(ms_disk_media_t* media, uint32_t track
 		data_mark |= track[offset++];
 		if (data_mark != 0xa1a1a1fb) {
 			printf("data mark is not found\n");
-			ms_exit();
+			ms_exit_failure();
 		}
 		// セクター番号は1から始まるが、Rが1から始まるので、そのまま使えばOK
 		uint32_t sector_id = (track_no * instance->heads + side) * instance->sectors_per_track + R;
