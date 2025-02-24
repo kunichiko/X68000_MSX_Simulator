@@ -1,6 +1,7 @@
 {
-    "C_Cpp.default.configurationProvider": "elf2x68k",
-    "files.associations": {
+	"C_Cpp.clang_format_style": "{BasedOnStyle: Google, IndentWidth: 4, ColumnLimit: 140, IndentCaseLabels: false, AllowShortFunctionsOnASingleLine: None, AlignAfterOpenBracket: Align, AlignArrayOfStructures: Right}",
+	"C_Cpp.default.configurationProvider": "elf2x68k",
+	"files.associations": {
 		"*.h": "c",
 		"dirent.h": "c",
 		"_types.h": "c",
@@ -22,14 +23,14 @@
 		"typeinfo": "c",
 		"__locale": "c"
 	},
-    "files.encoding": "shiftjis",
-    "editor.detectIndentation": false,
-    "editor.renderWhitespace": "all",
-    "editor.insertSpaces": false,
-    "[platformio-debug.asm]": {
-        "editor.detectIndentation": false,
-        "editor.tabSize": 8
-    },
+	"files.encoding": "shiftjis",
+	"editor.detectIndentation": false,
+	"editor.renderWhitespace": "all",
+	"editor.insertSpaces": false,
+	"[platformio-debug.asm]": {
+		"editor.detectIndentation": false,
+		"editor.tabSize": 8
+	},
 	"[markdown]": {
 		"files.encoding": "utf8"
 	}

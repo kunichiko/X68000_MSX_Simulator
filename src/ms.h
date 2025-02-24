@@ -1,5 +1,5 @@
-#ifndef MS_H
-#define MS_H
+#ifndef __MS_H__
+#define __MS_H__
 
 /*
 
@@ -12,6 +12,8 @@
 */
 
 #include "memmap/ms_memmap.h"
+
+#include <stdbool.h>
 #include "../version.h"
 
 #define MS_dot_X_VERSION	APP_VERSION
@@ -71,6 +73,9 @@ typedef struct ms_init_params {
 	int disablehsyncint;
 	int scc_enable;
 	uint32_t framerate_control;
+	// JOYSTICK
+	bool joystick_use_iocs;
+	bool joystick_swap_AB;
 } ms_init_params_t;
 
 #endif // MS_H

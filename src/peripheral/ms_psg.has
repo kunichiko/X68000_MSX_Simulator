@@ -21,8 +21,8 @@
 	.xdef	w_port_A0
 	.xdef	w_port_A1
 
-	.xdef	w_PSG_ch_enable
-	.xdef	r_PSG_ch_enable
+	.xdef	ms_psg_set_ch_enable
+	.xdef	ms_psg_get_ch_enable
 
 	.xdef	w_SCC_freq
 	.xdef	w_SCC_volume
@@ -33,14 +33,11 @@
 	.xdef	r_SCC_enable
 	.xdef	w_SCC_deformation
 
-	.xdef	ms_psg_port_sel
+	.xref	ms_psg_port_sel
 
 OPM_regset	equ	$e90001		* ＯＰＭアクセスレジスタ設定ポート
 OPM_port	equ	$e90003		* ＯＰＭアクセスポート
 
-portA_8255	equ	$e9a001
-portB_8255	equ	$e9a003
-cont_8255	equ	$e9a007
 
 	.68000
 
@@ -428,8 +425,8 @@ r_psg_reg_jpt:
 	.dc.l	r_PSG_R11
 	.dc.l	r_PSG_R12
 	.dc.l	r_PSG_R13
-	.dc.l	r_PSG_R14
-	.dc.l	r_PSG_R15
+	.dc.l	0			* R#14は ms_psg_joy.* で処理
+	.dc.l	0			* R#15は ms_psg_joy.* で処理
 
 r_PSG_R00:				* CH1音程分周比 下位８ビット
 	move.w	PSG_R00,d0
@@ -525,8 +522,8 @@ w_psg_reg_jpt:
 	.dc.l	w_PSG_R11
 	.dc.l	w_PSG_R12
 	.dc.l	w_PSG_R13
-	.dc.l	w_PSG_R14
-	.dc.l	w_PSG_R15
+	.dc.l	0			* R#14は ms_psg_joy.* で処理
+	.dc.l	0			* R#15は ms_psg_joy.* で処理
 
 	.text
 
@@ -836,129 +833,6 @@ w_PSG_R13:
 	move.b	d1,PSG_R13
 	rts
 
-;*****************************************************************
-;
-;  汎用入出力インターフェース（ジョイスティック端子）
-;
-;  AY-3-8910にはPortAとPortBという2つの8bit GPIOがついていて、
-;   R#14 - PortA
-;   R#15 - PortB
-;  というアサインになっている。
-;  ハードウェア的には読み書きが可能で、R#7のBit6,7によってそれぞれのポートの
-;  入出力方向を決められるようになっている。
-;  しかし、MSXの場合は、PortAとPortBの先の接続が以下のようになっていて、
-;  PortAを入力、PortBを出力に設定して使うことになっている。
-;    https://www.msx.org/wiki/General_Purpose_port
-;
-;  PortA (R#14, 入力)
-;    bit7 - カセット入力
-;    bit6 - キーボードレイアウト(0:五十音, 1:JIS)
-;    bit5 - トリガB (7番ピン)
-;    bit4 - トリガA (6番ピン)
-;    bit3 - 方向キー右 (4番ピン)
-;    bit2 - 方向キー左 (3番ピン)
-;    bit1 - 方向キー下 (2番ピン)
-;    bit0 - 方向キー上 (1番ピン)
-;    ※ bit0-5は74LS157の出力端子が繋がっていて、ジョイスティック端子1もしくは2の
-;      どちらの端子の状態を読むかを切り替えられるようになっている
-;      選択の切り替えはPortBのbit6で行う
-;
-;  PortB (R#15, 出力)
-;    bit7 - かなLED(0:点灯, 1:消灯)
-;    bit6 - ジョイスティックポート選択(0:ジョイスティック1, 1:ジョイスティック2)
-;    bit5 - ジョイスティック端子2の8番ピン
-;    bit4 - ジョイスティック端子1の8番ピン
-;    bit3 - ジョイスティック端子2の7番ピン(トリガB)
-;    bit2 - ジョイスティック端子2の6番ピン(トリガA)
-;    bit1 - ジョイスティック端子1の7番ピン(トリガB)
-;    bit0 - ジョイスティック端子1の6番ピン(トリガA)
-;    ※ bit0-3はバッファICが繋がっているので、PortBを入力モードにして読んでも常に固定値が読める(IC内部でプルアップされているので1のはず)
-;    ※ bit4,5はバッファがないようなので、PortBを入力モードにすれば 8番ピンの読み込みもできるのではないか?(未確認)
-;
-;*****************************************************************
-
-r_PSG_R14:				* ＰＯＲＴ Ａ
-	move.w	port_sel,d0		* R15のbit6に書き込んだ値で、ジョイスティックポート1と2の選択が切り替わる(0:JOY1, 1:JOY2)
-	bne	1f
-	move.b	portA_8255,d0
-	bra	@f
-1:	move.b	portB_8255,d0
-
-@@:	move.b	d0,d1
-	lsr.b	#1,d1
-	andi.b	#%00001111,d0
-	andi.b	#%00110000,d1
-	or.b	d1,d0
-	; bit6のキーボードレイアウトは固定でJIS配列
-	ori.b	#%01000000,d0		* JIS配列キーボード固定
-	; bit7のカセット処理は未実装
-	ori.b	#%10000000,d0		* bit7: カセット入力
-
-	rts
-
-; R15は通常書き込みモードで使用しているので、読み出した場合は
-; 最後に書き込んだ値が読めるようにする
-r_PSG_R15:
-	move.b	PSG_R15,d0
-	rts
-
-
-w_PSG_R14:
-	pea.l	errms_PSG_R14_wr
-	DOS	__PRINT
-	lea.l	4(sp),sp
-	rts
-
-w_PSG_R15:
-	move.b	d1,PSG_R15
-
-	move.b	d1,d0
-	andi.b	#%10000000,d0		* bit7: かなLEDの状態
-	lsr.b	#7,d0			* フラグを保存して、VSYNC期間に反映させる
-	eori.b	#%00000001,d0		* ビット反転
-	move.b	d0,_ms_peripherals_led_kana
-
-	* R15のbit6に書き込んだ値で、ジョイスティックポート1と2の選択が切り替わる(0:JOY1, 1:JOY2)
-	btst.l	#6,d1
-	beq	1f
-	move.w	#1,port_sel
-	bra	@f
-
-1:	clr.w	port_sel
-
-@@:	move.b	d1,d0
-	move.b	#%1_00_10010,cont_8255	* port A,B を入力に
-
-	move.b	d0,d1			*R15のbit0は、ジョイスティックポート1の6番端子の出力(0:L, 1:H)
-	andi.b	#%00000001,d1		*X68000は8255のPC6、つまりPORT Cの6番ピンで制御できるが論理が逆
-	eori.b	#%00000001,d1
-	or.b	#%0000_110_0,d1		* PC6(PORT Cのビット6)から出力
-	move.b	d1,cont_8255
-
-	move.b	d0,d1			*R15のbit1は、ジョイスティックポート1の7番端子の出力(0:L, 1:H)
-	andi.b	#%00000010,d1		*X68000は8255のPC7、つまりPORT Cの7番ピンで制御できるが論理が逆
-	lsr.b	#1,d1
-	eori.b	#%00000001,d1
-	or.b	#%0000_111_0,d1		* PC7(PORT Cのビット7)から出力
-	move.b	d1,cont_8255
-
-	* R15のbit2は、ジョイスティックポート2の6番端子の出力
-	* R15のbit3は、ジョイスティックポート2の7番端子の出力
-	* 上記2つは、X68000ではPORT Bを出力モードにしないと使えないのでサポートしない
-
-	move.b	d0,d1			* R15のbit4は、ジョイスティックポート1の8番端子の出力(0:L, 1:H)
-	andi.b	#%00010000,d1		* X68000は8255のPC4、つまりPORT Cの4番ピンで制御できる
-	lsr.b	#4,d1			* bit0の位置に移動
-	or.b	#%0000_100_0,d1		* PC4(PORT Cのビット4)から出力
-	move.b	d1,cont_8255
-
-					* R15のbit5は、ジョイスティックポート2の8番端子の出力(0:L, 1:H)
-	andi.b	#%00100000,d0		* X68000は8255のPC5、つまりPORT Cの5番ピンで制御できる
-	lsr.b	#5,d0			* bit0の位置に移動
-	or.b	#%0000_101_0,d0		* PC5(PORT Cのビット5)から出力
-	move.b	d0,cont_8255
-
-	rts
 
 
 ;*****************************************************************
@@ -1054,7 +928,7 @@ w_SCC_keyon:
 	rts
 
 
-w_PSG_ch_enable:
+ms_psg_set_ch_enable:
 	link	a6,#0
 	; 引数からチャンネルごとの有効無効(b0-b2で制御)を取得
 	move.l	8(a6),d0
@@ -1088,7 +962,7 @@ w_PSG_ch_enable:
 @@:	unlk	a6
 	rts
 
-r_PSG_ch_enable:
+ms_psg_get_ch_enable:
 	clr.l	d0
 	move.b	psg_ch_enable,d0
 	rts
@@ -1174,13 +1048,7 @@ PSG_R12_R11:
 PSG_R13:
 	.dc.b	0
 
-PSG_R15:
-	.dc.b	0
-
 	.even
-ms_psg_port_sel:
-port_sel:			* R15 のビット６の保存用
-	.dc.w	0
 
 envelope_d1r:
 	.dc.b	0		* エンベロープ周期から計算されたD1Rの値
@@ -1253,10 +1121,6 @@ scc_enable:
 errms_OPM_int:
 	.dc.b	'ＯＰＭのタイマＡを強制使用します。',0x0d,0x0a,0x00,0x00
 
-errms_PSG_R14_wr:
-	.dc.b	'ＰＳＧレジスターＲ１４は読み込み専用です。',0x0d,0x0a,0x00,0x00
-errms_PSG_R15_rd:
-	.dc.b	'ＰＳＧレジスターＲ１5は書き込み専用です。',0x0d,0x0a,0x00,0x00
 
 	.end
 

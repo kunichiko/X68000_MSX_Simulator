@@ -41,6 +41,8 @@ OBJS = $(BUILD_DIR)/ms.o \
 		$(BUILD_DIR)/ms_rtc.o \
 		$(BUILD_DIR)/ms_psg.o \
 		$(BUILD_DIR)/ms_psg_mac.o \
+		$(BUILD_DIR)/ms_psg_joy.o \
+		$(BUILD_DIR)/ms_psg_joy_mac.o \
 		$(BUILD_DIR)/ms_kanjirom12.o \
 		$(BUILD_DIR)/ms_kanjirom_alt.o \
 		$(BUILD_DIR)/ms_memmap.o \
@@ -95,6 +97,8 @@ OBJS_DEBUG = $(BUILD_DIR)/ms_d.o \
 		$(BUILD_DIR)/ms_rtc_d.o \
 		$(BUILD_DIR)/ms_psg_d.o \
 		$(BUILD_DIR)/ms_psg_mac_d.o \
+		$(BUILD_DIR)/ms_psg_joy_d.o \
+		$(BUILD_DIR)/ms_psg_joy_mac_d.o \
 		$(BUILD_DIR)/ms_kanjirom12_d.o \
 		$(BUILD_DIR)/ms_kanjirom_alt_d.o \
 		$(BUILD_DIR)/ms_memmap_d.o \

@@ -152,6 +152,10 @@ void printHelpAndExit(char* progname) {
     fprintf(stderr, "    disable key input for performance test.\n");
     //	fprintf(stderr, " --debuglevel N\n");
     //	fprintf(stderr, "    0: None, 1: Info, 2: Debug, 3: Fine.\n");
+    fprintf(stderr, " --joystick.useiocs\n");
+    fprintf(stderr, "    use IOCS for joystick input.\n");
+    fprintf(stderr, " --joystick.swapAB\n");
+    fprintf(stderr, "    swap joystick A/B button.\n");
     fprintf(stderr, " --safe\n");
     fprintf(stderr, "    safe mode. disable reading MS.INI.\n");
     exit(EXIT_FAILURE);
@@ -162,6 +166,8 @@ int disablehsyncint = 0;
 int disablekey = 0;
 int safemode = 0;
 int hostdebug = 0;
+int joystick_useiocs = 0;
+int joystick_swapAB = 0;
 
 char* separate_rom_kind(char* path, int* kind) {
     char* p = strchr(path, ',');
@@ -226,18 +232,20 @@ int main(int argc, char* argv[]) {
     int opt;
     const char* optstring = "hm:s:w:r:";  // optstringを定義します
     const struct option longopts[] = {
-        //{          *name,           has_arg,       *flag, val },
-        {"vsrate", required_argument, 0, 'A'},
-        {"framecon", required_argument, 0, 'B'},
-        {"hostrate", required_argument, 0, 'C'},
-        {"hostline", required_argument, 0, 'D'},
-        {"hostdebug", no_argument, &hostdebug, 1},
-        {"disablekanji", no_argument, &disablekanji, 1},
-        {"disablehsyncint", no_argument, &disablehsyncint, 1},
-        {"disablescc", optional_argument, 0, 'S'},
-        {"disablekey", no_argument, &disablekey, 1},
-        {"safe", no_argument, &safemode, 1},
-        {0, 0, 0, 0},  // termination
+        //{          *name,           has_arg,            *flag, val },
+        {          "vsrate", required_argument,                 0, 'A'},
+        {        "framecon", required_argument,                 0, 'B'},
+        {        "hostrate", required_argument,                 0, 'C'},
+        {        "hostline", required_argument,                 0, 'D'},
+        {       "hostdebug",       no_argument,        &hostdebug,   1},
+        {    "disablekanji",       no_argument,     &disablekanji,   1},
+        { "disablehsyncint",       no_argument,  &disablehsyncint,   1},
+        {      "disablescc", optional_argument,                 0, 'S'},
+        {      "disablekey",       no_argument,       &disablekey,   1},
+        {            "safe",       no_argument,         &safemode,   1},
+        {"joystick.useiocs",       no_argument, &joystick_useiocs,   1},
+        { "joystick.swapAB",       no_argument,  &joystick_swapAB,   1},
+        {                 0,                 0,                 0,   0}, // termination
     };
     const struct option* longopt;
     int longindex = 0;
@@ -275,6 +283,9 @@ int main(int argc, char* argv[]) {
     default_param.scc_enable = 0x0f;  // CH1-Ch4 enable
     default_param.disablehsyncint = 0;
     default_param.framerate_control = 0xffffffff;  // auto
+    //
+    default_param.joystick_use_iocs = false;
+    default_param.joystick_swap_AB = false;
 
     // ユーザー設定ファイルの読み込み
     if (load_user_param()) {
@@ -295,224 +306,223 @@ int main(int argc, char* argv[]) {
     // コマンドラインオプションの解析
     while ((opt = getopt_long(argc, argv, optstring, longopts, &longindex)) != -1) {
         switch (opt) {
-            case 0:  // フラグがセットされた場合
-                // もしセーフモードだったら、デフォルトのパラメータに戻す
-                if (safemode) {
-                    printf("セーフモードで起動します。続行する場合は何かキーを押してください。\n");
-                    _iocs_b_keyinp();
-                    init_param = default_param;
-                }
-                break;
-            case 'h':  // -h オプション
-                printHelpAndExit(argv[0]);
-                break;
-            case 'm':  // -m オプション
-                if (optarg != NULL) {
-                    init_param.mainrom = optarg;
-                }
-                break;
-            case 'w':  // -w オプション
-                if (optarg != NULL) {
-                    init_param.cpu_wait = atoi(optarg);
-                }
-                break;
-            case 's':  // -s オプション
-                if (optarg != NULL) {
-                    init_param.subrom = optarg;
-                }
-                break;
-            case 'r':  // -rNN オプション
-                if (strlen(optarg) == 1 && !isdigit(optarg[0])) {
-                    // -r に数字以外が続く場合
-                    switch (optarg[0]) {
-                        case 'm':
-                            // メインROMの指定
-                            if (argv[optind] != NULL) {
-                                init_param.mainrom = argv[optind++];
-                            } else {
-                                printf("ROMファイル名が指定されていません\n");
-                                ms_exit_failure();
-                            }
-                            break;
-                        case 's':
-                            // サブROMの指定
-                            if (argv[optind] != NULL) {
-                                init_param.subrom = argv[optind++];
-                            } else {
-                                printf("ROMファイル名が指定されていません\n");
-                                ms_exit_failure();
-                            }
-                            break;
-                        case 'd':
-                            // ディスクBIOSの指定
-                            if (argv[optind] != NULL) {
-                                init_param.diskrom = argv[optind++];
-                            } else {
-                                printf("ROMファイル名が指定されていません\n");
-                                ms_exit_failure();
-                            }
-                            break;
-                        case 'k':
-                            if (optarg[1] == 'b') {
-                                // 漢字BASICの指定
-                                if (argv[optind] != NULL) {
-                                    init_param.kanjibasic = argv[optind++];
-                                } else {
-                                    printf("漢字BASICファイル名が指定されていません\n");
-                                    ms_exit();
-                                }
-
-                            } else if (optarg[1] == 'f') {
-                                // 漢字フォントROMの指定
-                                if (argv[optind] != NULL) {
-                                    init_param.kanjirom = argv[optind++];
-                                } else {
-                                    printf("ROMファイル名が指定されていません\n");
-                                    ms_exit();
-                                }
-                            } else {
-                                printf("不明なオプションです\n");
-                                printHelpAndExit(argv[0]);
-                            }
-                        default:
-                            printf("不明なオプションです\n");
-                            printHelpAndExit(argv[0]);
-                            break;
-                    }
-                } else if (strlen(optarg) == 1 && isdigit(optarg[0])) {
-                    // -r に数字が1桁続く場合
-                    int slot = atoi(optarg);
-                    if (slot >= 1 && slot <= 2) {
-                        // 次の引数（ROMファイル名）を取得
-                        if (argv[optind] != NULL) {
-                            if (slot == 1) {
-                                init_param.cartridge_path_slot1 = argv[optind++];
-                                init_param.cartridge_path_slot1 =
-                                    separate_rom_kind(init_param.cartridge_path_slot1, &init_param.cartridge_kind_slot1);
-                            } else {
-                                init_param.cartridge_path_slot2 = argv[optind++];
-                                init_param.cartridge_path_slot2 =
-                                    separate_rom_kind(init_param.cartridge_path_slot2, &init_param.cartridge_kind_slot2);
-                            }
-                        } else {
-                            printf("ROMファイル名が指定されていません\n");
-                            ms_exit_failure();
-                        }
-                    } else {
-                        printf("スロット番号は1か2を指定してください。\n");
-                        printHelpAndExit(argv[0]);
-                    }
-                } else if (strlen(optarg) == 2 && isdigit(optarg[0]) && isdigit(optarg[1])) {
-                    // -r に数字が2桁続く場合
-                    int num = atoi(optarg);
-                    int slot = (num / 10);
-                    int page = num % 10;  // 1の位がpage
-                    if (slot >= 0 && slot <= 3 && page >= 0 && page <= 3) {
-                        // 次の引数（ROMファイル名）を取得
-                        if (argv[optind] != NULL) {
-                            init_param.slot_path[slot][page] = argv[optind++];
-                        } else {
-                            printf("ROMファイル名が指定されていません\n");
-                            ms_exit_failure();
-                        }
-                    } else {
-                        printf("スロット番号が不正です\n");
-                        printHelpAndExit(argv[0]);
-                    }
-                } else {
-                    // -r 単独は -r1 と同じとみなす
-                    // 次の引数（ROMファイル名）を取得
-                    if (optarg != NULL) {
-                        init_param.cartridge_path_slot1 = optarg;
-                        init_param.cartridge_path_slot1 =
-                            separate_rom_kind(init_param.cartridge_path_slot1, &init_param.cartridge_kind_slot1);
+        case 0:  // フラグがセットされた場合
+            // もしセーフモードだったら、デフォルトのパラメータに戻す
+            if (safemode) {
+                printf("セーフモードで起動します。続行する場合は何かキーを押してください。\n");
+                _iocs_b_keyinp();
+                init_param = default_param;
+            }
+            break;
+        case 'h':  // -h オプション
+            printHelpAndExit(argv[0]);
+            break;
+        case 'm':  // -m オプション
+            if (optarg != NULL) {
+                init_param.mainrom = optarg;
+            }
+            break;
+        case 'w':  // -w オプション
+            if (optarg != NULL) {
+                init_param.cpu_wait = atoi(optarg);
+            }
+            break;
+        case 's':  // -s オプション
+            if (optarg != NULL) {
+                init_param.subrom = optarg;
+            }
+            break;
+        case 'r':  // -rNN オプション
+            if (strlen(optarg) == 1 && !isdigit(optarg[0])) {
+                // -r に数字以外が続く場合
+                switch (optarg[0]) {
+                case 'm':
+                    // メインROMの指定
+                    if (argv[optind] != NULL) {
+                        init_param.mainrom = argv[optind++];
                     } else {
                         printf("ROMファイル名が指定されていません\n");
                         ms_exit_failure();
                     }
-                }
-                break;
-            case 'A':  // --vsrate N オプション
-                // VSYNCレートの設定
-                longopt = &longopts[longindex];
-                if (longopt->has_arg == required_argument && optarg != NULL) {
-                    ms_vdp_vsync_rate = atoi(optarg);
-                    if (ms_vdp_vsync_rate < 1 || ms_vdp_vsync_rate > 61) {
-                        printf("VSYNCレートが不正です\n");
-                        printHelpAndExit(argv[0]);
-                    }
-                } else {
-                    printf("VSYNCレートが指定されていません\n");
-                    printHelpAndExit(argv[0]);
-                }
-                break;
-            case 'B':  // --framecon N オプション
-                // フレームレート制御の設定
-                // "auto" - 自動。割り込み処理が重くなると自動でフレームスキップする
-                // "none" - フレームスキップしない。処理が重くなるとフリーズするリスクあり
-                // 1-99999 - 1フレーム中の最小実行命令数を指定(大きな数を指定するとフレーム落ちしやすくなるが、動くソフトが増える)
-                longopt = &longopts[longindex];
-                if (longopt->has_arg && optarg != NULL) {
-                    if (strcasecmp(optarg, "auto") == 0) {
-                        init_param.framerate_control = 0xffffffff;
-                    } else if (strcasecmp(optarg, "none") == 0) {
-                        init_param.framerate_control = 0;
+                    break;
+                case 's':
+                    // サブROMの指定
+                    if (argv[optind] != NULL) {
+                        init_param.subrom = argv[optind++];
                     } else {
-                        init_param.framerate_control = atoi(optarg);
-                        if (init_param.framerate_control < 1 || init_param.framerate_control > 99999) {
-                            printf("フレームレート制御ルールの指定が不正です\n");
-                            printHelpAndExit(argv[0]);
+                        printf("ROMファイル名が指定されていません\n");
+                        ms_exit_failure();
+                    }
+                    break;
+                case 'd':
+                    // ディスクBIOSの指定
+                    if (argv[optind] != NULL) {
+                        init_param.diskrom = argv[optind++];
+                    } else {
+                        printf("ROMファイル名が指定されていません\n");
+                        ms_exit_failure();
+                    }
+                    break;
+                case 'k':
+                    if (optarg[1] == 'b') {
+                        // 漢字BASICの指定
+                        if (argv[optind] != NULL) {
+                            init_param.kanjibasic = argv[optind++];
+                        } else {
+                            printf("漢字BASICファイル名が指定されていません\n");
+                            ms_exit();
                         }
-                    }
-                } else {
-                    printf("割り込みブロックカウントが指定されていません\n");
-                    printHelpAndExit(argv[0]);
-                }
-                break;
-            case 'C':  // --hostrate N オプション
-                // ホスト処理レートの設定
-                longopt = &longopts[longindex];
-                if (longopt->has_arg && optarg != NULL) {
-                    host_rate = atoi(optarg);
-                    if (host_rate < 1 || host_rate > 61) {
-                        printf("ホスト処理レートが不正です\n");
+
+                    } else if (optarg[1] == 'f') {
+                        // 漢字フォントROMの指定
+                        if (argv[optind] != NULL) {
+                            init_param.kanjirom = argv[optind++];
+                        } else {
+                            printf("ROMファイル名が指定されていません\n");
+                            ms_exit();
+                        }
+                    } else {
+                        printf("不明なオプションです\n");
                         printHelpAndExit(argv[0]);
                     }
-                } else {
-                    printf("ホスト処理レートが指定されていません\n");
+                default:
+                    printf("不明なオプションです\n");
                     printHelpAndExit(argv[0]);
+                    break;
                 }
-                break;
-            case 'D':  // --hostline N オプション
-                // ホスト処理ライン番号の設定
-                longopt = &longopts[longindex];
-                if (longopt->has_arg && optarg != NULL) {
-                    host_line = atoi(optarg);
-                    if (host_line < 1 || host_line > 500) {
-                        printf("ホスト処理ライン番号が不正です\n");
-                        printHelpAndExit(argv[0]);
+            } else if (strlen(optarg) == 1 && isdigit(optarg[0])) {
+                // -r に数字が1桁続く場合
+                int slot = atoi(optarg);
+                if (slot >= 1 && slot <= 2) {
+                    // 次の引数（ROMファイル名）を取得
+                    if (argv[optind] != NULL) {
+                        if (slot == 1) {
+                            init_param.cartridge_path_slot1 = argv[optind++];
+                            init_param.cartridge_path_slot1 =
+                                separate_rom_kind(init_param.cartridge_path_slot1, &init_param.cartridge_kind_slot1);
+                        } else {
+                            init_param.cartridge_path_slot2 = argv[optind++];
+                            init_param.cartridge_path_slot2 =
+                                separate_rom_kind(init_param.cartridge_path_slot2, &init_param.cartridge_kind_slot2);
+                        }
+                    } else {
+                        printf("ROMファイル名が指定されていません\n");
+                        ms_exit_failure();
                     }
                 } else {
-                    printf("ホスト処理遅延カウントが指定されていません\n");
+                    printf("スロット番号は1か2を指定してください。\n");
                     printHelpAndExit(argv[0]);
                 }
-                break;
-            case 'S':  // --disablescc オプション
-                // SCC音源の無効化
-                longopt = &longopts[longindex];
-                if (longopt->has_arg && optarg != NULL) {
-                    init_param.scc_enable = atoi(optarg);
-                    if (init_param.scc_enable < 1 || init_param.scc_enable > 0x10) {
-                        printf("SCC有効チャンネルの指定がおかしいです。\n");
-                        printHelpAndExit(argv[0]);
+            } else if (strlen(optarg) == 2 && isdigit(optarg[0]) && isdigit(optarg[1])) {
+                // -r に数字が2桁続く場合
+                int num = atoi(optarg);
+                int slot = (num / 10);
+                int page = num % 10;  // 1の位がpage
+                if (slot >= 0 && slot <= 3 && page >= 0 && page <= 3) {
+                    // 次の引数（ROMファイル名）を取得
+                    if (argv[optind] != NULL) {
+                        init_param.slot_path[slot][page] = argv[optind++];
+                    } else {
+                        printf("ROMファイル名が指定されていません\n");
+                        ms_exit_failure();
                     }
                 } else {
-                    init_param.scc_enable = 0;
+                    printf("スロット番号が不正です\n");
+                    printHelpAndExit(argv[0]);
                 }
-                break;
-            default: /* '?' */
+            } else {
+                // -r 単独は -r1 と同じとみなす
+                // 次の引数（ROMファイル名）を取得
+                if (optarg != NULL) {
+                    init_param.cartridge_path_slot1 = optarg;
+                    init_param.cartridge_path_slot1 = separate_rom_kind(init_param.cartridge_path_slot1, &init_param.cartridge_kind_slot1);
+                } else {
+                    printf("ROMファイル名が指定されていません\n");
+                    ms_exit_failure();
+                }
+            }
+            break;
+        case 'A':  // --vsrate N オプション
+            // VSYNCレートの設定
+            longopt = &longopts[longindex];
+            if (longopt->has_arg == required_argument && optarg != NULL) {
+                ms_vdp_vsync_rate = atoi(optarg);
+                if (ms_vdp_vsync_rate < 1 || ms_vdp_vsync_rate > 61) {
+                    printf("VSYNCレートが不正です\n");
+                    printHelpAndExit(argv[0]);
+                }
+            } else {
+                printf("VSYNCレートが指定されていません\n");
                 printHelpAndExit(argv[0]);
-                break;
+            }
+            break;
+        case 'B':  // --framecon N オプション
+            // フレームレート制御の設定
+            // "auto" - 自動。割り込み処理が重くなると自動でフレームスキップする
+            // "none" - フレームスキップしない。処理が重くなるとフリーズするリスクあり
+            // 1-99999 - 1フレーム中の最小実行命令数を指定(大きな数を指定するとフレーム落ちしやすくなるが、動くソフトが増える)
+            longopt = &longopts[longindex];
+            if (longopt->has_arg && optarg != NULL) {
+                if (strcasecmp(optarg, "auto") == 0) {
+                    init_param.framerate_control = 0xffffffff;
+                } else if (strcasecmp(optarg, "none") == 0) {
+                    init_param.framerate_control = 0;
+                } else {
+                    init_param.framerate_control = atoi(optarg);
+                    if (init_param.framerate_control < 1 || init_param.framerate_control > 99999) {
+                        printf("フレームレート制御ルールの指定が不正です\n");
+                        printHelpAndExit(argv[0]);
+                    }
+                }
+            } else {
+                printf("割り込みブロックカウントが指定されていません\n");
+                printHelpAndExit(argv[0]);
+            }
+            break;
+        case 'C':  // --hostrate N オプション
+            // ホスト処理レートの設定
+            longopt = &longopts[longindex];
+            if (longopt->has_arg && optarg != NULL) {
+                host_rate = atoi(optarg);
+                if (host_rate < 1 || host_rate > 61) {
+                    printf("ホスト処理レートが不正です\n");
+                    printHelpAndExit(argv[0]);
+                }
+            } else {
+                printf("ホスト処理レートが指定されていません\n");
+                printHelpAndExit(argv[0]);
+            }
+            break;
+        case 'D':  // --hostline N オプション
+            // ホスト処理ライン番号の設定
+            longopt = &longopts[longindex];
+            if (longopt->has_arg && optarg != NULL) {
+                host_line = atoi(optarg);
+                if (host_line < 1 || host_line > 500) {
+                    printf("ホスト処理ライン番号が不正です\n");
+                    printHelpAndExit(argv[0]);
+                }
+            } else {
+                printf("ホスト処理遅延カウントが指定されていません\n");
+                printHelpAndExit(argv[0]);
+            }
+            break;
+        case 'S':  // --disablescc オプション
+            // SCC音源の無効化
+            longopt = &longopts[longindex];
+            if (longopt->has_arg && optarg != NULL) {
+                init_param.scc_enable = atoi(optarg);
+                if (init_param.scc_enable < 1 || init_param.scc_enable > 0x10) {
+                    printf("SCC有効チャンネルの指定がおかしいです。\n");
+                    printHelpAndExit(argv[0]);
+                }
+            } else {
+                init_param.scc_enable = 0;
+            }
+            break;
+        default: /* '?' */
+            printHelpAndExit(argv[0]);
+            break;
         }
     }
 
@@ -528,9 +538,15 @@ int main(int argc, char* argv[]) {
         }
     }
 
-    //
+    // コマンドライン引数で ms.iniファイルの指定を上書き
     if (disablehsyncint) {
         init_param.disablehsyncint = 1;
+    }
+    if (joystick_useiocs) {
+        init_param.joystick_use_iocs = 1;
+    }
+    if (joystick_swapAB) {
+        init_param.joystick_swap_AB = 1;
     }
 
     // フレームレート制御の設定
@@ -581,19 +597,26 @@ int main(int argc, char* argv[]) {
 
     // 設定値の表示
     switch (user_param.framerate_control) {
-        case 0x00000000:
-            printf("framecon=none\n");
-            break;
-        case 0xffffffff:
-            printf("framecon=auto\n");
-            break;
-        default:
-            printf("framecon=%d\n", user_param.framerate_control);
-            break;
+    case 0x00000000:
+        printf("framecon=none\n");
+        break;
+    case 0xffffffff:
+        printf("framecon=auto\n");
+        break;
+    default:
+        printf("framecon=%d\n", user_param.framerate_control);
+        break;
     }
 
     if (init_param.disablehsyncint) {
         printf("HSYNC割り込みを無効化します\n");
+    }
+
+    if (init_param.joystick_use_iocs) {
+        printf("ジョイスティックの制御にIOCSを使用します\n");
+    }
+    if (init_param.joystick_swap_AB) {
+        printf("ジョイスティックのA/Bボタンを入れ替えます\n");
     }
 
     /*
@@ -604,7 +627,7 @@ int main(int argc, char* argv[]) {
         printf("ＰＳＧの初期化に失敗しました\n");
         ms_exit_failure();
     }
-    ms_psg_shared_init(iomap);
+    ms_psg_shared_init(iomap, &init_param);
 
     // SCC
     if (init_param.scc_enable != 0x0f) {
@@ -762,7 +785,7 @@ void _ms_exit(int status) {
 }
 
 void ms_exit_failure() {
-	// エラー終了
+    // エラー終了
     printf("Press any key to exit\n");
     getchar();
     _exit(EXIT_FAILURE);
@@ -814,7 +837,8 @@ uint32_t KEY_MAP[][8] = {
     // e [ SHFT ][ CTRL ][ OPT1 ][ OPT2 ][      ][      ][      ][      ] OPT1=Disk Change
     {0xf0601, 0x00602, 0xf1000, 0xf2000, 0x00000, 0x00000, 0x00000, 0x00000},
     // f [      ][      ][      ][      ][      ][      ][      ][      ]
-    {0x00000, 0x00000, 0x00000, 0x00000, 0x00000, 0x00000, 0x00000, 0x00000}};
+    {0x00000, 0x00000, 0x00000, 0x00000, 0x00000, 0x00000, 0x00000, 0x00000}
+};
 
 extern unsigned char* KEYSNS_tbl_ptr;
 
@@ -906,68 +930,68 @@ int emuLoopImpl(unsigned int pc, unsigned int counter) {
                     // 0xfe: [HELP]
                     // 0xff: [TORK]
                     switch (S) {
-                        case 0x10:
-                            if (edge) {
-                                esc_key_hit = 1;
-                            }
-                            break;
-                        case 0x11:
-                        case 0x12:
-                        case 0x13:
-                        case 0x14:
-                        case 0x15:
-                        case 0x16:
-                        case 0x17:
-                        case 0x18:
-                        case 0x19:
-                        case 0x1a:
-                            if (edge) {
-                                num_key_hit = S - 0x10;
-                            }
-                            break;
-                        case 0x21:
-                        case 0x22:
-                        case 0x23:
-                        case 0x24:
-                            if (edge) {
-                                cursor_key_hit = S - 0x20;
-                            }
-                            break;
-                        case 0xf0:
-                            shift_pressed = 1;
-                            break;
-                        case 0xf1:
-                            opt1_pressed = 1;
-                            break;
-                        case 0xf2:
-                            opt2_pressed = 1;
-                            break;
-                        case 0xf3:
-                            if (edge) {
-                                f6_key_hit = 1;
-                            }
-                            break;
-                        case 0xf4:
-                            f7_pressed = 1;
-                            break;
-                        case 0xfd:
-                            if (edge) {
-                                kigo_key_hit = 1;
-                            }
-                            break;
-                        case 0xfe:
-                            if (edge) {
-                                help_key_hit = 1;
-                            }
-                            break;
-                        case 0xff:
-                            if (edge) {
-                                toroku_key_hit = 1;
-                            }
-                            break;
-                        default:
-                            MS_LOG(MS_LOG_ERROR, "Unknown special key: %d\n", S);
-                            break;
+                    case 0x10:
+                        if (edge) {
+                            esc_key_hit = 1;
+                        }
+                        break;
+                    case 0x11:
+                    case 0x12:
+                    case 0x13:
+                    case 0x14:
+                    case 0x15:
+                    case 0x16:
+                    case 0x17:
+                    case 0x18:
+                    case 0x19:
+                    case 0x1a:
+                        if (edge) {
+                            num_key_hit = S - 0x10;
+                        }
+                        break;
+                    case 0x21:
+                    case 0x22:
+                    case 0x23:
+                    case 0x24:
+                        if (edge) {
+                            cursor_key_hit = S - 0x20;
+                        }
+                        break;
+                    case 0xf0:
+                        shift_pressed = 1;
+                        break;
+                    case 0xf1:
+                        opt1_pressed = 1;
+                        break;
+                    case 0xf2:
+                        opt2_pressed = 1;
+                        break;
+                    case 0xf3:
+                        if (edge) {
+                            f6_key_hit = 1;
+                        }
+                        break;
+                    case 0xf4:
+                        f7_pressed = 1;
+                        break;
+                    case 0xfd:
+                        if (edge) {
+                            kigo_key_hit = 1;
+                        }
+                        break;
+                    case 0xfe:
+                        if (edge) {
+                            help_key_hit = 1;
+                        }
+                        break;
+                    case 0xff:
+                        if (edge) {
+                            toroku_key_hit = 1;
+                        }
+                        break;
+                    default:
+                        MS_LOG(MS_LOG_ERROR, "Unknown special key: %d\n", S);
+                        break;
                     }
                 }
             }
@@ -993,9 +1017,9 @@ int emuLoopImpl(unsigned int pc, unsigned int counter) {
     if (toroku_key_hit) {
         // 登録キーが押されたらポーズ
         _setTextPlane(1);
-        uint32_t psg_ch_enable = r_PSG_ch_enable();
+        uint32_t psg_ch_enable = ms_psg_get_ch_enable();
         uint32_t scc_ch_enable = r_SCC_ch_enable();
-        w_PSG_ch_enable(0);
+        ms_psg_set_ch_enable(0);
         w_SCC_ch_enable(0);
         printf("Paused:\n[TOROKU]: Resume [RET]: Exit\n");
 
@@ -1028,7 +1052,7 @@ int emuLoopImpl(unsigned int pc, unsigned int counter) {
             }
         }
         _setTextPlane(textPlaneMode);
-        w_PSG_ch_enable(psg_ch_enable);
+        ms_psg_set_ch_enable(psg_ch_enable);
         w_SCC_ch_enable(scc_ch_enable);
     }
 
@@ -1065,36 +1089,36 @@ int emuLoopImpl(unsigned int pc, unsigned int counter) {
     if (f7_pressed) {
         if (esc_key_hit) {
             // escが押されたら全チャンネルをトグル
-            uint32_t psg_ch = r_PSG_ch_enable();
+            uint32_t psg_ch = ms_psg_get_ch_enable();
             uint32_t scc_ch = r_SCC_ch_enable();
             if (psg_ch && scc_ch) {
-                w_PSG_ch_enable(0);
+                ms_psg_set_ch_enable(0);
                 w_SCC_ch_enable(0);
             } else {
-                w_PSG_ch_enable(0x07);
+                ms_psg_set_ch_enable(0x07);
                 w_SCC_ch_enable(0x0f);
             }
         }
         switch (num_key_hit) {
-            case 1:
-            case 2:
-            case 3:
-                // PSG チャンネルのトグル
-                uint32_t ch = r_PSG_ch_enable();
-                ch ^= 1 << (num_key_hit - 1);
-                w_PSG_ch_enable(ch);
-                break;
-            case 4:
-            case 5:
-            case 6:
-            case 7:
-                // SCC チャンネルのトグル
-                uint32_t scc_ch = r_SCC_ch_enable();
-                scc_ch ^= 1 << (num_key_hit - 4);
-                w_SCC_ch_enable(scc_ch);
-                break;
-            default:
-                break;
+        case 1:
+        case 2:
+        case 3:
+            // PSG チャンネルのトグル
+            uint32_t ch = ms_psg_get_ch_enable();
+            ch ^= 1 << (num_key_hit - 1);
+            ms_psg_set_ch_enable(ch);
+            break;
+        case 4:
+        case 5:
+        case 6:
+        case 7:
+            // SCC チャンネルのトグル
+            uint32_t scc_ch = r_SCC_ch_enable();
+            scc_ch ^= 1 << (num_key_hit - 4);
+            w_SCC_ch_enable(scc_ch);
+            break;
+        default:
+            break;
         }
     }
 
@@ -1183,38 +1207,38 @@ void _moveTextPlane(int cursorKeyHit) {
     int diff = 64;
 
     switch (cursorKeyHit) {
-        case 1:
-            // 左
-            if (x >= diff) {
-                x -= diff;
-            } else {
-                x = 0;
-            }
-            break;
-        case 2:
-            // 上
-            if (y >= diff) {
-                y -= diff;
-            } else {
-                y = 0;
-            }
-            break;
-        case 3:
-            // 下
-            if (y <= 512 - 192 - diff) {  // 適当
-                y += diff;
-            } else {
-                y = 512 - 192;
-            }
-            break;
-        case 4:
-            // 右
-            if (x <= 512 - 192 - diff) {  // 適当
-                x += diff;
-            } else {
-                x = 512 - 192;
-            }
-            break;
+    case 1:
+        // 左
+        if (x >= diff) {
+            x -= diff;
+        } else {
+            x = 0;
+        }
+        break;
+    case 2:
+        // 上
+        if (y >= diff) {
+            y -= diff;
+        } else {
+            y = 0;
+        }
+        break;
+    case 3:
+        // 下
+        if (y <= 512 - 192 - diff) {  // 適当
+            y += diff;
+        } else {
+            y = 512 - 192;
+        }
+        break;
+    case 4:
+        // 右
+        if (x <= 512 - 192 - diff) {  // 適当
+            x += diff;
+        } else {
+            x = 512 - 192;
+        }
+        break;
     }
     CRTR_10 = x;
     CRTR_11 = y;
@@ -1222,18 +1246,18 @@ void _moveTextPlane(int cursorKeyHit) {
 
 void _setTextPlane(int textPlaneMode) {
     switch (textPlaneMode) {
-        case 0:
-            // テキスト表示OFFにする時に、デバッグログをINFOにする
-            debug_log_level = MS_LOG_INFO;
-            // テキスト表示OFF
-            vdp->tx_active = 0;
-            break;
-        case 1:
-            // テキスト表示ONにする時に、デバッグログを元に戻す
-            debug_log_level = _debug_log_level;
-            // テキスト表示ON
-            vdp->tx_active = 1;
-            break;
+    case 0:
+        // テキスト表示OFFにする時に、デバッグログをINFOにする
+        debug_log_level = MS_LOG_INFO;
+        // テキスト表示OFF
+        vdp->tx_active = 0;
+        break;
+    case 1:
+        // テキスト表示ONにする時に、デバッグログを元に戻す
+        debug_log_level = _debug_log_level;
+        // テキスト表示ON
+        vdp->tx_active = 1;
+        break;
     }
     ms_vdp_update_visibility(vdp);
     vdp->ms_vdp_current_mode->update_palette(vdp);
@@ -1320,6 +1344,16 @@ void set_system_roms() {
         printf("KANJI BASIC: %s\n", init_param.kanjibasic);
         allocateAndSetNORMALROM(fh_kanjibasic, ROM_TYPE_NORMAL_ROM, 0x03, 1, 1);
     }
+}
+
+bool get_bool(char* str) {
+    if (str == NULL) {
+        return false;
+    }
+    if (strcmp(str, "true") == 0) {
+        return true;
+    }
+    return false;
 }
 
 /**
@@ -1468,6 +1502,10 @@ uint8_t load_user_param() {
                     }
                 }
             }
+        } else if (strcmp(param, "joystick.useiocs") == 0) {
+            user_param.joystick_use_iocs = get_bool(value);
+        } else if (strcmp(param, "joystick.swapAB") == 0) {
+            user_param.joystick_swap_AB = get_bool(value);
         }
     }
 
