@@ -186,9 +186,9 @@ MS.Xでは、漢字ROMの指定がない場合でも、自動的にX68000の16x1
 
 ## フロッピーディスクのサポート
 
-C-BIOSはDISK BIOSをサポートしていませんので、フロッピーディスクが必要な場合はPanasonic系の実機のDISK BIOSを抽出し、 `-rd` オプションで指定する必要があります。
+MS.Xは TC8566AF というフロッピーディスクコントローラーIC(FDC)のみエミュレーションが可能です。しかし、MSXでフロッピーディスクを使用するためにはFDCに対応したDISK BIOSが必要です (C-BIOSでは対応できません)。
 
-例えば、FS-A1FのBIOSを使いたい場合は、以下のように指定します。
+このFDCは主に Panasonic系のMSXで使用されていますので、それらの該当実機のDISK BIOSを抽出し、 `-rd` オプションで指定してください。例えば、FS-A1FのBIOSを使いたい場合は、以下のように指定します。
 
 ```
 > ms.x -rm fs-a1f_basic-bios2.rom -rs fs-a1f_msx2sub.rom -rd fs-a1f_disk.rom DISKIMAGE1.DSK DISKIMAGE2.DSK
@@ -226,7 +226,7 @@ A>attrib +r DISKIMAGE1.DSK
 MSXのDISK ROMは色々と権利関係の問題があり、実機から吸い出す以外の方法が無く、各エミュレータ苦労しているようです。
 MS.Xでもそのうちなんとかしたいとは思っていますが、まだ実現はできていません。
 
-回避策としては、 *DISKイメージをROM化するソフトを使う* という方法があります。私が調べた範囲だと以下のようなものがあります。
+回避策としては、 **DISKイメージをROM化するソフトを使う** という方法があります。私が調べた範囲だと以下のようなものがあります。
 
 * [MKROMDSK](https://www.msx.org/news/software/en/mkromdsk)
 	* こちらはどうも実機のDISK BIOSを内蔵しているというような話もあり、ライセンス的にちょっと危ない感じがします(私は試してません)
