@@ -6,22 +6,22 @@
 #include "../ms_iomap.h"
 
 typedef struct ms_psg {
-	// PSGの分周パラメータnからOPMのoct,note,kfに変換するテーブル
-	uint8_t psg2octnote[4096];
-	uint8_t psg2kf[4096];
+    // PSGの分周パラメータnからOPMのoct,note,kfに変換するテーブル
+    uint8_t psg2octnote[4096];
+    uint8_t psg2kf[4096];
 
-	// I/O port アクセスを提供
-	ms_ioport_t io_port_A0;
-	ms_ioport_t io_port_A1;
-	ms_ioport_t io_port_A2;
+    // I/O port アクセスを提供
+    ms_ioport_t io_port_A0;
+    ms_ioport_t io_port_A1;
+    ms_ioport_t io_port_A2;
 
-	// registers
-	// r00-r14は ms_psg.has のアセンブラコード内に定義されている
-	uint8_t r15;
+    // registers
+    // r00-r14は ms_psg.has のアセンブラコード内に定義されている
+    uint8_t r15;
 
-	// オプション
-	bool use_iocs;
-	bool swap_AB;
+    // オプション
+    bool use_iocs;
+    bool swap_AB;
 } ms_psg_t;
 
 // singleton instance

@@ -7,9 +7,9 @@
 typedef struct ms_memmap_driver_NOTHING ms_memmap_driver_NOTHING_t;
 
 /*
-*/
+ */
 typedef struct ms_memmap_driver_NOTHING {
-	ms_memmap_driver_t base;
+    ms_memmap_driver_t base;
 } ms_memmap_driver_NOTHING_t;
 
 ms_memmap_driver_NOTHING_t* ms_memmap_NOTHING_alloc();

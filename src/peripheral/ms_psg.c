@@ -187,7 +187,7 @@ static uint8_t _read_psg_A2(ms_ioport_t* ioport, uint8_t port) {
 
     switch (regnum) {
     case 14:
-		ret = ms_psg_read_R14(_shared);
+        ret = ms_psg_read_R14(_shared);
         // R#14 でジョイスティックの状態を返す場合
         if ((ret & 0x03) == 0) {
             // 上下ボタンが同時押されている場合 = TOWNSPADのSELECT
@@ -199,8 +199,8 @@ static uint8_t _read_psg_A2(ms_ioport_t* ioport, uint8_t port) {
         }
         break;
     case 15:
-		ret = ms_psg_read_R15(_shared);
-		break;
+        ret = ms_psg_read_R15(_shared);
+        break;
     default:
         ret = r_port_A2();
     }

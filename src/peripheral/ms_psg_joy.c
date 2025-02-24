@@ -99,7 +99,7 @@ void ms_psg_write_R15(ms_psg_t* shared, uint8_t data) {
     ms_psg_port_sel = (data & 0x40) ? 1 : 0;
 
     if (shared->use_iocs) {
-		// IOCS使用時はR#15 (PortB) の出力は対応しない
+        // IOCS使用時はR#15 (PortB) の出力は対応しない
     } else {
         ms_psg_write_R15_direct(data);
     }

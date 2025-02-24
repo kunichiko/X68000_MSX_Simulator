@@ -23,23 +23,23 @@
 
 #define TC8566AF_PHASE_IDLE 0
 #define TC8566AF_PHASE_COMMAND 1
-#define TC8566AF_PHASE_DATA_TRANSFER 2		// Execution Phase
+#define TC8566AF_PHASE_DATA_TRANSFER 2  // Execution Phase
 #define TC8566AF_PHASE_RESULT 3
 
 typedef struct ms_disk_controller_TC8566AF ms_disk_controller_TC8566AF_t;
 
 typedef struct TC8566AF_command {
-	uint8_t* name;
-	uint8_t command_byte_count;
-	void (*execution_phase)(ms_disk_controller_TC8566AF_t* d);
-	uint8_t (*trans_read)(ms_disk_controller_TC8566AF_t* d, uint8_t* finished);
-	void (*trans_write)(ms_disk_controller_TC8566AF_t* d, uint8_t data, uint8_t* finished);
-	uint8_t (*result_phase)(ms_disk_controller_TC8566AF_t* d, uint8_t* finished);
+    uint8_t* name;
+    uint8_t command_byte_count;
+    void (*execution_phase)(ms_disk_controller_TC8566AF_t* d);
+    uint8_t (*trans_read)(ms_disk_controller_TC8566AF_t* d, uint8_t* finished);
+    void (*trans_write)(ms_disk_controller_TC8566AF_t* d, uint8_t data, uint8_t* finished);
+    uint8_t (*result_phase)(ms_disk_controller_TC8566AF_t* d, uint8_t* finished);
 
 } TC8566AF_command_t;
 
 /**
- * @brief 
+ * @brief
  * 	Address	R/W	Feature
  *	0x3FF8	W	レジスタ2 を更新 (write only)
  *	0x3FF9	W	レジスタ3 を更新 (write only)
@@ -47,64 +47,64 @@ typedef struct TC8566AF_command {
  *	0x3FFB	R/W	レジスタ5 を参照・更新
  */
 typedef struct ms_disk_controller_TC8566AF {
-	// methods
-	void (*write_reg2)(struct ms_disk_controller_TC8566AF* d, uint8_t data);
-	void (*write_reg3)(struct ms_disk_controller_TC8566AF* d, uint8_t data);
-	uint8_t (*read_reg4)(struct ms_disk_controller_TC8566AF* d);
-	void (*write_reg4)(struct ms_disk_controller_TC8566AF* d, uint8_t data);
-	uint8_t (*read_reg5)(struct ms_disk_controller_TC8566AF* d);
-	void (*write_reg5)(struct ms_disk_controller_TC8566AF* d, uint8_t data);
+    // methods
+    void (*write_reg2)(struct ms_disk_controller_TC8566AF* d, uint8_t data);
+    void (*write_reg3)(struct ms_disk_controller_TC8566AF* d, uint8_t data);
+    uint8_t (*read_reg4)(struct ms_disk_controller_TC8566AF* d);
+    void (*write_reg4)(struct ms_disk_controller_TC8566AF* d, uint8_t data);
+    uint8_t (*read_reg5)(struct ms_disk_controller_TC8566AF* d);
+    void (*write_reg5)(struct ms_disk_controller_TC8566AF* d, uint8_t data);
 
-	// references
-	ms_disk_drive_floppy_t drive[4];
+    // references
+    ms_disk_drive_floppy_t drive[4];
 
-	//
-	TC8566AF_command_t commands[32];
+    //
+    TC8566AF_command_t commands[32];
 
-	// registers
-	uint8_t phase;
-	uint8_t command;
-	uint8_t command_byte_value[9];
-	uint8_t command_byte_index;
-	uint16_t transfer_datas_rest;
-	uint8_t result_byte_value[8];
-	uint8_t result_byte_index;
+    // registers
+    uint8_t phase;
+    uint8_t command;
+    uint8_t command_byte_value[9];
+    uint8_t command_byte_index;
+    uint16_t transfer_datas_rest;
+    uint8_t result_byte_value[8];
+    uint8_t result_byte_index;
 
-	//
-	uint8_t value_HS; 	// physical head select
-	uint8_t value_DS;	// drive select
-	uint8_t value_C;	// cylinder address
-	uint8_t value_H;	// logical head address
-	uint8_t value_R;	// secotor number
-	uint8_t value_N;	// number of bytes per sector
-	uint8_t value_EOT;
-	uint8_t value_GSL_GPL; // Gap Skip Length / Gap Length
-	uint8_t value_DTL_STP;
-	// format(Write ID)で使うレジスタ
-	uint8_t value_SC;	// sectors / cylinder
-	uint8_t value_D;	// filler data
+    //
+    uint8_t value_HS;  // physical head select
+    uint8_t value_DS;  // drive select
+    uint8_t value_C;   // cylinder address
+    uint8_t value_H;   // logical head address
+    uint8_t value_R;   // secotor number
+    uint8_t value_N;   // number of bytes per sector
+    uint8_t value_EOT;
+    uint8_t value_GSL_GPL;  // Gap Skip Length / Gap Length
+    uint8_t value_DTL_STP;
+    // format(Write ID)で使うレジスタ
+    uint8_t value_SC;  // sectors / cylinder
+    uint8_t value_D;   // filler data
 
-	// drive status
-	uint8_t request_for_master;
-	uint8_t data_input_output;
-	uint8_t non_dma_mode;
-	uint8_t fdc_busy;
-	uint8_t fdd_busy;
+    // drive status
+    uint8_t request_for_master;
+    uint8_t data_input_output;
+    uint8_t non_dma_mode;
+    uint8_t fdc_busy;
+    uint8_t fdd_busy;
 
-	uint8_t status0;
-	uint8_t status1;
-	uint8_t status2;
-	uint8_t status3;
-	uint8_t driveId;
+    uint8_t status0;
+    uint8_t status1;
+    uint8_t status2;
+    uint8_t status3;
+    uint8_t driveId;
 
-	//
-	uint16_t _rqm_delay_count;			// RQMが立つまでの遅延カウンタ
+    //
+    uint16_t _rqm_delay_count;  // RQMが立つまでの遅延カウンタ
 
-	// buffer
-	int sector_buffer_ready;
-	ms_disk_sector_t sector_buffer;
-	int sector_buffer_byte_offset;		// 今読み書きしているセクタのバイトオフセット
-	int sector_buffer_serach_count;
+    // buffer
+    int sector_buffer_ready;
+    ms_disk_sector_t sector_buffer;
+    int sector_buffer_byte_offset;  // 今読み書きしているセクタのバイトオフセット
+    int sector_buffer_serach_count;
 } ms_disk_controller_TC8566AF_t;
 
 ms_disk_controller_TC8566AF_t* ms_disk_controller_TC8566AF_alloc();

@@ -2,23 +2,24 @@
 #define MS_KANJIROM12_H
 
 #include <stdint.h>
+
 #include "../ms_iomap.h"
 
 typedef struct ms_kanjirom12 {
-	char* rom_path;
-	uint8_t* rom_data;
-	uint32_t rom_size;
+    char* rom_path;
+    uint8_t* rom_data;
+    uint32_t rom_size;
 
-	// 第一水準アドレス
-	uint32_t addr1;
-	// 第二水準アドレス
-	uint32_t addr2;
+    // 第一水準アドレス
+    uint32_t addr1;
+    // 第二水準アドレス
+    uint32_t addr2;
 
-	// I/O port アクセスを提供
-	ms_ioport_t io_port_D8;
-	ms_ioport_t io_port_D9;
-	ms_ioport_t io_port_DA;
-	ms_ioport_t io_port_DB;
+    // I/O port アクセスを提供
+    ms_ioport_t io_port_D8;
+    ms_ioport_t io_port_D9;
+    ms_ioport_t io_port_DA;
+    ms_ioport_t io_port_DB;
 } ms_kanjirom12_t;
 
 ms_kanjirom12_t* ms_kanjirom12_alloc();

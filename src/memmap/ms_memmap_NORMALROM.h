@@ -5,9 +5,9 @@
 #include "ms_memmap_driver.h"
 
 /*
-*/
+ */
 typedef struct ms_memmap_driver_NORMALROM {
-	ms_memmap_driver_t base;
+    ms_memmap_driver_t base;
 } ms_memmap_driver_NORMALROM_t;
 
 ms_memmap_driver_NORMALROM_t* ms_memmap_NORMALROM_alloc();

@@ -33,5 +33,18 @@
 	},
 	"[markdown]": {
 		"files.encoding": "utf8"
-	}
+	},
+	"formatFiles.excludedFolders": [
+		"node_modules",
+		".vscode",
+		".git",
+		"dist",
+		".chrome",
+		"misc",
+		"contrib",
+		"test",
+		"exe",
+		"src/submodules"
+	],
+	"formatFiles.extensionsToInclude": "c,h"
 }

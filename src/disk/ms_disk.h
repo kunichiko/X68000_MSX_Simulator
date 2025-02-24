@@ -23,27 +23,27 @@
  * * セクタ3-9
  * 		* 同様
  * * ポストアンブル
- * 
+ *
  * メディアクラス(ms_disk_media_t)とは、このraw trackでデータをやり取りします。
  * raw trackをセクター情報に変換してアクセスするのは、コントローラーの責務です。
- * 
+ *
  * なお、メディアクラスの実装には、セクタベースでイメージを扱う ms_disk_media_disk_t型もありますが、
  * その場合でも、一度 raw track の状態にしたものを再度 controllerでセクタに戻すことになります。
  * 処理としては冗長になりますが、将来的にコピープロテクトの再現などで特殊フォーマットを扱えるようにするためには
  * このようなインターフェースが必要です。
  */
 typedef struct ms_disk_raw_track {
-	uint8_t data[6250];
+    uint8_t data[6250];
 } ms_disk_raw_track_t;
 
 typedef struct ms_disk_sector {
-	uint8_t track;
-	uint8_t head;		// FDDの場合は side
-	uint8_t sector;
-	uint8_t deleted;
-	uint8_t data[512];
-	uint16_t crc;
-	uint16_t crc_expected;
+    uint8_t track;
+    uint8_t head;  // FDDの場合は side
+    uint8_t sector;
+    uint8_t deleted;
+    uint8_t data[512];
+    uint16_t crc;
+    uint16_t crc_expected;
 } ms_disk_sector_t;
 
 #endif

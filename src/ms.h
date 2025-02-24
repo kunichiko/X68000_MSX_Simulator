@@ -3,23 +3,26 @@
 
 /*
 
-		‚l‚r‚w.‚r‚‰‚‚•‚Œ‚‚”‚…‚’ [[ MS ]]
-				[[ ƒwƒbƒ_ƒtƒ@ƒCƒ‹ ]]
-								
-				prpgramed by Kuni.
-										1995.12.06
+                ‚l‚r‚w.‚r‚‰‚‚•‚Œ‚‚”‚…‚’ [[ MS ]]
+                                [[ ƒwƒbƒ_ƒtƒ@ƒCƒ‹ ]]
+
+                                prpgramed by Kuni.
+                                                                                1995.12.06
 
 */
 
+#include <stdbool.h>
+
+#include "../version.h"
 #include "memmap/ms_memmap.h"
 
-#include <stdbool.h>
-#include "../version.h"
-
-#define MS_dot_X_VERSION	APP_VERSION
+#define MS_dot_X_VERSION APP_VERSION
 
 #ifdef DEBUG
-#define MS_LOG(level, ...) do { if (debug_log_level >= level) printf(__VA_ARGS__); } while (0)
+#define MS_LOG(level, ...)                                 \
+    do {                                                   \
+        if (debug_log_level >= level) printf(__VA_ARGS__); \
+    } while (0)
 #else
 #define MS_LOG(level, ...)
 #endif
@@ -40,12 +43,12 @@
 #define min(a, b) ((a) < (b) ? (a) : (b))
 #define max(a, b) ((a) > (b) ? (a) : (b))
 
-void* new_malloc( int );
-void new_free( void * );
+void* new_malloc(int);
+void new_free(void*);
 
 void ms_iocs_ledctrl(uint8_t type, uint8_t onoff);
 
-int ms_system_file_open(const char *filename, int flag);
+int ms_system_file_open(const char* filename, int flag);
 
 volatile extern unsigned short debug_log_level;
 
@@ -56,26 +59,26 @@ extern uint8_t ms_fdd_led_1;
 extern uint8_t ms_fdd_led_2;
 
 typedef struct ms_init_params {
-	uint8_t* buf;
-	uint8_t* mainrom;
-	uint8_t* subrom;
-	uint8_t* diskrom;
-	uint8_t* kanjibasic;
-	uint8_t* kanjirom;
-	uint8_t* cartridge_path_slot1;
-	int cartridge_kind_slot1;
-	uint8_t* cartridge_path_slot2;
-	int cartridge_kind_slot2;
-	uint8_t* slot_path[4][4];
-	int diskcount;
-	char* diskimages[16];
-	uint32_t cpu_wait;
-	int disablehsyncint;
-	int scc_enable;
-	uint32_t framerate_control;
-	// JOYSTICK
-	bool joystick_use_iocs;
-	bool joystick_swap_AB;
+    uint8_t* buf;
+    uint8_t* mainrom;
+    uint8_t* subrom;
+    uint8_t* diskrom;
+    uint8_t* kanjibasic;
+    uint8_t* kanjirom;
+    uint8_t* cartridge_path_slot1;
+    int cartridge_kind_slot1;
+    uint8_t* cartridge_path_slot2;
+    int cartridge_kind_slot2;
+    uint8_t* slot_path[4][4];
+    int diskcount;
+    char* diskimages[16];
+    uint32_t cpu_wait;
+    int disablehsyncint;
+    int scc_enable;
+    uint32_t framerate_control;
+    // JOYSTICK
+    bool joystick_use_iocs;
+    bool joystick_swap_AB;
 } ms_init_params_t;
 
-#endif // MS_H
+#endif  // MS_H
