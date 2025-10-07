@@ -21,7 +21,8 @@
 		"ms_z80_tests_cmp": "c",
 		"type_traits": "c",
 		"typeinfo": "c",
-		"__locale": "c"
+		"__locale": "c",
+		"cstring": "c"
 	},
 	"files.encoding": "shiftjis",
 	"editor.detectIndentation": false,

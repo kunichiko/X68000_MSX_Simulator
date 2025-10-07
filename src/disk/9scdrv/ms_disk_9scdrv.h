@@ -32,6 +32,7 @@ void ms_disk_9scdrv_init(xkpchk_result_t* result);
   */
 
 typedef enum {
+    MS_DISK_9SCDRV_NONE = -1,
     MS_DISK_9SCDRV_DRV0 = 0x90,
     MS_DISK_9SCDRV_DRV1 = 0x91,
     MS_DISK_9SCDRV_DRV2 = 0x92,

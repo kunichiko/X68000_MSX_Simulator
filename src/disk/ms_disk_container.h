@@ -28,7 +28,8 @@ typedef struct ms_disk_container {
 } ms_disk_container_t;
 
 ms_disk_container_t* ms_disk_container_alloc();
-void ms_disk_container_init(ms_disk_container_t* instance, int argc, char* argv[]);
+void ms_disk_container_init(ms_disk_container_t* instance, int dskimage_count, char* dskimage_paths[],
+                            ms_disk_9scdrv_drive_t drive_for_9scdrv);
 void ms_disk_container_deinit(ms_disk_container_t* instance);
 
 #endif

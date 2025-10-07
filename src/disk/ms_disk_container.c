@@ -32,7 +32,8 @@ ms_disk_container_t* ms_disk_container_alloc() {
  * @param argc ロードするディスクの数
  * @param argv ロードするディスクのパス (argc個の文字列)
  */
-void ms_disk_container_init(ms_disk_container_t* instance, int argc, char* argv[]) {
+void ms_disk_container_init(ms_disk_container_t* instance, int dskimage_count, char* dskimage_paths[],
+                            ms_disk_9scdrv_drive_t drive_for_9scdrv) {
     if (instance == NULL) {
         return;
     }
@@ -46,23 +47,23 @@ void ms_disk_container_init(ms_disk_container_t* instance, int argc, char* argv[
     instance->is_disk_changed = _is_disk_changed;
 
     // ディスクのロード (最大16枚まで)
-    if (argc > 0) {
+    if (dskimage_count > 0) {
         int i;
-        for (i = 0; i < min(argc, 16); i++) {
+        for (i = 0; i < min(dskimage_count, 16); i++) {
             // ひとまず .DSK フォーマットのみ対応
             ms_disk_media_dskformat_t* disk = ms_disk_media_dskformat_alloc();
-            if (ms_disk_media_dskformat_init(disk, argv[i])) {
+            if (ms_disk_media_dskformat_init(disk, dskimage_paths[i])) {
                 instance->disk_set[i] = (ms_disk_media_t*)disk;
             }
         }
-        instance->disk_count = argc;
+        instance->disk_count = dskimage_count;
         instance->change_disk(instance, 0);  // 1枚目のディスクをセット
     }
 
     // 9scdrvドライブの初期化
     instance->disk_9scdrv = ms_disk_media_9scdrv_alloc();
     if (instance->disk_9scdrv != NULL) {
-        if (ms_disk_media_9scdrv_init(instance->disk_9scdrv, MS_DISK_9SCDRV_DRV0) == 0) {
+        if (ms_disk_media_9scdrv_init(instance->disk_9scdrv, drive_for_9scdrv) == 0) {
             // 初期化失敗
             free(instance->disk_9scdrv);
             instance->disk_9scdrv = NULL;

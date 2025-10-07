@@ -14,6 +14,7 @@
 #include <stdbool.h>
 
 #include "../version.h"
+#include "disk/9scdrv/ms_disk_9scdrv.h"
 #include "memmap/ms_memmap.h"
 
 #define MS_dot_X_VERSION APP_VERSION
@@ -65,16 +66,22 @@ typedef struct ms_init_params {
     uint8_t* diskrom;
     uint8_t* kanjibasic;
     uint8_t* kanjirom;
+    // CARTRIDGE
     uint8_t* cartridge_path_slot1;
     int cartridge_kind_slot1;
     uint8_t* cartridge_path_slot2;
     int cartridge_kind_slot2;
     uint8_t* slot_path[4][4];
+    // DISK
     int diskcount;
     char* diskimages[16];
+    ms_disk_9scdrv_drive_t drive_for_9scdrv;
+    // CPU
     uint32_t cpu_wait;
     int disablehsyncint;
+    // SCC
     int scc_enable;
+    // DISPLAY
     uint32_t framerate_control;
     // JOYSTICK
     bool joystick_use_iocs;

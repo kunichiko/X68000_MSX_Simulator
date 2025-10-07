@@ -5,6 +5,7 @@
 #include <stdint.h>
 #include <stdio.h>
 #include <stdlib.h>
+#include <string.h>
 #include <unistd.h>
 #include <x68k/dos.h>
 
@@ -12,6 +13,9 @@
 #include "ms_disk.h"
 
 #define THIS ms_disk_media_9scdrv_t
+
+const int sectors_per_track = 9;
+const int heads = 2;
 
 static void _read_sector(ms_disk_media_t* instance, uint32_t sector_id, ms_sector_t* sector);
 static void _write_sector(ms_disk_media_t* instance, uint32_t sector_id, ms_sector_t* sector);
@@ -35,16 +39,49 @@ int ms_disk_media_9scdrv_init(THIS* instance, ms_disk_9scdrv_drive_t drive) {
     instance->base.write_sector = _write_sector;                                           // override
 
     // プロパティの初期化
-    instance->base.sectors_per_track = 9;
-    instance->base.heads = 2;
+    instance->base.sectors_per_track = sectors_per_track;
+    instance->base.heads = heads;
     instance->base.tracks = 80;
     instance->base.base.is_write_protected = 1;  // 書き込み禁止
     instance->drive = drive;
+    int i;
+    for (i = 0; i < MS_DISK_9SCDRV_CYLINDER_BUFFER_COUNT; i++) {
+        instance->cylinder_buffer_info[i] = 0xFF;  // 未使用
+    }
     return 1;
 }
 
 void ms_disk_media_9scdrv_deinit(THIS* instance) {
     ms_disk_media_sectorbase_deinit(&instance->base);
+}
+
+uint8_t* get_sector_buffer(THIS* dsk, int track, int side, int secnum) {
+    static int last_cylinder = 0;
+    int i;
+    for (i = 0; i < MS_DISK_9SCDRV_CYLINDER_BUFFER_COUNT; i++) {
+        if (dsk->cylinder_buffer_info[i] == track) {
+            return dsk->cylinder_buffer[i][side * sectors_per_track + secnum - 1];
+        }
+    }
+    // バッファにない場合、トラック単位 (9セクタ単位) で読み込む
+    int buffer_index = -1;
+    for (i = 0; i < MS_DISK_9SCDRV_CYLINDER_BUFFER_COUNT; i++) {
+        if (dsk->cylinder_buffer_info[i] == 0xFF) {
+            buffer_index = i;
+            break;
+        }
+    }
+    if (buffer_index == -1) {
+        buffer_index = (last_cylinder + 1) % MS_DISK_9SCDRV_CYLINDER_BUFFER_COUNT;
+    }
+    uint32_t position = convert_to_position(MS_DISK_9SCDRV_SECTOR_SIZE_512, track, 0, 1);
+    ms_disk_9scdrv_read_result_t* result =
+        ms_disk_9scdrv_read(dsk->drive, 0x70, position, 2 * sectors_per_track * 512, MS_DSK_9SCDRV_MEDIABYTE_2DD,
+                            (uint8_t*)dsk->cylinder_buffer[buffer_index][0]);
+
+    last_cylinder = buffer_index;
+    dsk->cylinder_buffer_info[buffer_index] = track;
+    return dsk->cylinder_buffer[buffer_index][side * sectors_per_track + secnum - 1];
 }
 
 /**
@@ -56,29 +93,18 @@ void ms_disk_media_9scdrv_deinit(THIS* instance) {
  */
 static void _read_sector(ms_disk_media_t* instance, uint32_t sector_id, ms_sector_t* sector) {
     THIS* dsk = (THIS*)instance;
-    const int sectors_per_track = 9;
-    const int heads = 2;
     int track = ((sector_id - 1) / (sectors_per_track * heads));
     int side = ((sector_id - 1) / (sectors_per_track)) % heads;
     int secnum = ((sector_id - 1) % sectors_per_track) + 1;
-    uint32_t position = convert_to_position(MS_DISK_9SCDRV_SECTOR_SIZE_512, track, side, secnum);
 
-    // ms_disk_9scdrv_read_result_t ms_disk_9scdrv_read(ms_disk_9scdrv_drive_t pda, uint8_t mode, uint32_t position, uint32_t size,
-    //                                                  ms_disk_9scdrv_media_byte_t media_byte, uint8_t* buffer);
-    // printf("Reading sector_id=%d (track=%d side=%d secnum=%d) position=0x%08X\n", sector_id, track, side, secnum, position);
-    ms_disk_9scdrv_read_result_t* result =
-        ms_disk_9scdrv_read(dsk->drive, 0x70, position, 512, MS_DSK_9SCDRV_MEDIABYTE_2DD, (uint8_t*)sector);
-
-    // printf("Read result: status=%08x, last_sector=%08x\n", result->status, result->last_sector);
-#if 0
-    int i;
-    for (i = 0; i < 16; i++) {
-        printf("%02X ", (*sector)[i]);
-        if ((i & 0x0F) == 0x0F) {
-            printf("\n");
-        }
+    printf("Reading sector_id=%d (track=%d side=%d secnum=%d) sector_id=%d\n", sector_id, track, side, secnum, sector_id);
+    uint8_t* buf = get_sector_buffer(dsk, track, side, secnum);
+    if (buf == NULL) {
+        // 読み込み失敗
+        memset(sector, 0xE5, 512);  // 0xE5で埋める
+        return;
     }
-#endif
+    memcpy(sector, buf, 512);
 }
 
 static void _write_sector(ms_disk_media_t* instance, uint32_t sector_id, ms_sector_t* sector) {

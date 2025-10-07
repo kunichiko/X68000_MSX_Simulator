@@ -10,6 +10,8 @@
 
 typedef struct ms_disk_media_9scdrv ms_disk_media_9scdrv_t;
 
+#define MS_DISK_9SCDRV_CYLINDER_BUFFER_COUNT 4  // 2シリンダ分
+
 /**
  * @brief 9scdrv経由で実2DDメディアをms_disk_media_t で扱うための構造体です。
  *
@@ -20,6 +22,10 @@ typedef struct ms_disk_media_9scdrv {
 
     // properties
     ms_disk_9scdrv_drive_t drive;
+
+    // track buffers
+    uint8_t cylinder_buffer_info[MS_DISK_9SCDRV_CYLINDER_BUFFER_COUNT];         // cylinder_bufferがどのトラックを指しているか
+    uint8_t cylinder_buffer[MS_DISK_9SCDRV_CYLINDER_BUFFER_COUNT][9 * 2][512];  // 9セクタ、512バイト、2ヘッド分
 } ms_disk_media_9scdrv_t;
 
 ms_disk_media_9scdrv_t* ms_disk_media_9scdrv_alloc();

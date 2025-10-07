@@ -157,6 +157,8 @@ void printHelpAndExit(char* progname) {
     fprintf(stderr, "    use IOCS for joystick input.\n");
     fprintf(stderr, " --joystick.swapAB\n");
     fprintf(stderr, "    swap joystick A/B button.\n");
+    fprintf(stderr, " --9scdrv\n");
+    fprintf(stderr, "    use 9scdrv for disk access. 0-3: drive number, -1: disable\n");
     fprintf(stderr, " --safe\n");
     fprintf(stderr, "    safe mode. disable reading MS.INI.\n");
     exit(EXIT_FAILURE);
@@ -169,6 +171,7 @@ int safemode = 0;
 int hostdebug = 0;
 int joystick_useiocs = 0;
 int joystick_swapAB = 0;
+int drive_for_9scdrv = 2;  // default is drive 2
 
 char* separate_rom_kind(char* path, int* kind) {
     char* p = strchr(path, ',');
@@ -246,6 +249,7 @@ int main(int argc, char* argv[]) {
         {            "safe",       no_argument,         &safemode,   1},
         {"joystick.useiocs",       no_argument, &joystick_useiocs,   1},
         { "joystick.swapAB",       no_argument,  &joystick_swapAB,   1},
+        {          "9scdrv", required_argument, &drive_for_9scdrv,   2},
         {                 0,                 0,                 0,   0}, // termination
     };
     const struct option* longopt;
@@ -279,6 +283,7 @@ int main(int argc, char* argv[]) {
     for (i = 0; i < 16; i++) {
         default_param.diskimages[i] = NULL;
     }
+    default_param.drive_for_9scdrv = MS_DISK_9SCDRV_DRV2;
     default_param.mainrom = "cbios_main_msx2_jp.rom";
     default_param.subrom = "cbios_sub.rom";
     default_param.slot_path[0][2] = "cbios_logo_msx2.rom";
@@ -561,21 +566,43 @@ int main(int argc, char* argv[]) {
     }
 
     // 9scdrvの初期化
-    xkpchk_result_t result;
-    result.table = NULL;
-    ms_disk_9scdrv_init(&result);
-    uint32_t minver = ('v' << 24) | ('3' << 16) | ('0' << 8) | ('0');
-    printf("9SCDRV Version: %s, Revision: %s\n", (result.version != 0xffffffff) ? (char*)&result.version : "Not found",
-           (result.revision != 0xffffffff) ? (char*)&result.revision : "N/A");
-    if (result.version == 0xffffffff) {
-        printf("9SCDRV V3 is not resident.\n");
+    switch (drive_for_9scdrv) {
+    case 0:
+        init_param.drive_for_9scdrv = MS_DISK_9SCDRV_DRV0;
+        break;
+    case 1:
+        init_param.drive_for_9scdrv = MS_DISK_9SCDRV_DRV1;
+        break;
+    case 2:
+        init_param.drive_for_9scdrv = MS_DISK_9SCDRV_DRV2;
+        break;
+    case 3:
+        init_param.drive_for_9scdrv = MS_DISK_9SCDRV_DRV3;
+        break;
+    default:
+        init_param.drive_for_9scdrv = MS_DISK_9SCDRV_NONE;
+        break;
+    }
+    if (init_param.drive_for_9scdrv >= MS_DISK_9SCDRV_DRV0 && init_param.drive_for_9scdrv <= MS_DISK_9SCDRV_DRV3) {
+        printf("9SCDRVを使用します (ドライブ %d)\n", init_param.drive_for_9scdrv - MS_DISK_9SCDRV_DRV0);
+        xkpchk_result_t result;
+        result.table = NULL;
+        ms_disk_9scdrv_init(&result);
+        uint32_t minver = ('v' << 24) | ('3' << 16) | ('0' << 8) | ('0');
+        printf("9SCDRV Version: %s, Revision: %s\n", (result.version != 0xffffffff) ? (char*)&result.version : "Not found",
+               (result.revision != 0xffffffff) ? (char*)&result.revision : "N/A");
+        if (result.version == 0xffffffff) {
+            printf("9SCDRV V3 is not resident.\n");
+        } else {
+            printf("9SCDRV call table at %p\n", result.table);
+            uint32_t ret = ms_disk_9scdrv_media(init_param.drive_for_9scdrv, 0x70);  // test call
+            uint8_t track = (ret >> 16) & 0xFF;
+            uint8_t status = (ret >> 8) & 0xFF;
+            uint8_t media_code = ret & 0xFF;
+            printf("Test call _X_MEDIA: Track=%u, Status=%u, Media code=%d\n", track, status, (int8_t)media_code);
+        }
     } else {
-        printf("9SCDRV call table at %p\n", result.table);
-        uint32_t ret = ms_disk_9scdrv_media(MS_DISK_9SCDRV_DRV0, 0x70);  // test call
-        uint8_t track = (ret >> 16) & 0xFF;
-        uint8_t status = (ret >> 8) & 0xFF;
-        uint8_t media_code = ret & 0xFF;
-        printf("Test call _X_MEDIA: Track=%u, Status=%u, Media code=%d\n", track, status, (int8_t)media_code);
+        printf("9SCDRVを使用しません\n");
     }
 
     // CTRL+Cで中断されたときに、ms_exitを呼び出すようにする
@@ -1357,7 +1384,7 @@ void set_system_roms() {
             ms_exit();
             return;
         }
-        ms_disk_container_init(disk_container, init_param.diskcount, init_param.diskimages);
+        ms_disk_container_init(disk_container, init_param.diskcount, init_param.diskimages, init_param.drive_for_9scdrv);
 
         allocateAndSetDISKBIOSROM(init_param.diskrom, disk_container);
     }
