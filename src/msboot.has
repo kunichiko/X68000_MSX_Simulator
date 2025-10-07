@@ -1,0 +1,17 @@
+	.include	doscall.mac
+	
+	.xref	__start
+	.xdef	_A0_BUFF
+	.xdef   _msboot_start
+
+	.text
+
+_msboot_start:
+	move.l	a0, _A0_BUFF
+	bra	__start
+
+	.data
+_A0_BUFF:
+	.DC.L		0
+
+	.text

@@ -21,6 +21,7 @@
 #include <x68k/dos.h>
 #include <x68k/iocs.h>
 
+#include "disk/9scdrv/ms_disk_9scdrv.h"
 #include "disk/ms_disk_container.h"
 #include "memmap/ms_memmap.h"
 #include "ms_R800.h"
@@ -257,6 +258,7 @@ int main(int argc, char* argv[]) {
         printf("MS.X の動作には 68030以上が必要です\n");
         ms_exit_failure();
     }
+    printf("MPU type: %04X\n", mpu_type);
 
     // デフォルトの初期化
     default_param.buf = NULL;
@@ -556,6 +558,24 @@ int main(int argc, char* argv[]) {
     if (_iocs_b_super(0) < 0) {
         printf("スーパーバイザーモードに移行できませんでした\n");
         return -1;
+    }
+
+    // 9scdrvの初期化
+    xkpchk_result_t result;
+    result.table = NULL;
+    ms_disk_9scdrv_init(&result);
+    uint32_t minver = ('v' << 24) | ('3' << 16) | ('0' << 8) | ('0');
+    printf("9SCDRV Version: %s, Revision: %s\n", (result.version != 0xffffffff) ? (char*)&result.version : "Not found",
+           (result.revision != 0xffffffff) ? (char*)&result.revision : "N/A");
+    if (result.version == 0xffffffff) {
+        printf("9SCDRV V3 is not resident.\n");
+    } else {
+        printf("9SCDRV call table at %p\n", result.table);
+        uint32_t ret = ms_disk_9scdrv_media(MS_DISK_9SCDRV_DRV0, 0x70);  // test call
+        uint8_t track = (ret >> 16) & 0xFF;
+        uint8_t status = (ret >> 8) & 0xFF;
+        uint8_t media_code = ret & 0xFF;
+        printf("Test call _X_MEDIA: Track=%u, Status=%u, Media code=%d\n", track, status, (int8_t)media_code);
     }
 
     // CTRL+Cで中断されたときに、ms_exitを呼び出すようにする
@@ -1083,6 +1103,10 @@ int emuLoopImpl(unsigned int pc, unsigned int counter) {
         if (num_key_hit) {
             disk_container->change_disk(disk_container, num_key_hit - 1);
             printf("Disk changed: %s\n", disk_container->current_disk->name);
+        }
+        if (esc_key_hit) {
+            // ESC + OPT1 で 9scdrvに切り替え
+            disk_container->change_disk(disk_container, -1);
         }
     }
 

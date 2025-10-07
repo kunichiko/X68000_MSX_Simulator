@@ -8,6 +8,7 @@
 
 #include "../ms.h"
 #include "ms_disk.h"
+#include "ms_disk_media_9scdrv.h"
 #include "ms_disk_media_dskformat.h"
 
 static uint8_t _read_track(ms_disk_container_t* d, uint32_t track_no, uint8_t side, ms_disk_raw_track_t* raw_track);
@@ -58,6 +59,20 @@ void ms_disk_container_init(ms_disk_container_t* instance, int argc, char* argv[
         instance->change_disk(instance, 0);  // 1枚目のディスクをセット
     }
 
+    // 9scdrvドライブの初期化
+    instance->disk_9scdrv = ms_disk_media_9scdrv_alloc();
+    if (instance->disk_9scdrv != NULL) {
+        if (ms_disk_media_9scdrv_init(instance->disk_9scdrv, MS_DISK_9SCDRV_DRV0) == 0) {
+            // 初期化失敗
+            free(instance->disk_9scdrv);
+            instance->disk_9scdrv = NULL;
+            printf("9scdrv drive initialization failed.\n");
+        } else {
+            printf("9scdrv drive initialized.\n");
+            instance->change_disk(instance, -1);  // 9scdrvに切り替え
+        }
+    }
+
     return;
 }
 
@@ -105,17 +120,29 @@ static void _eject_disk(ms_disk_container_t* d) {
 }
 
 static void _change_disk(ms_disk_container_t* d, int disk_no) {
-    if (disk_no < 0 || disk_no >= d->disk_count) {
+    if (disk_no < -1 || disk_no >= d->disk_count) {
         MS_LOG(MS_LOG_INFO, "Unknown disk number: %d\n", disk_no);
         return;
     }
-    ms_disk_media_t* disk = d->disk_set[disk_no];
-    if (disk == NULL) {
-        _eject_disk(d);
+    if (disk_no == -1) {
+        // 9scdrvに切り替え
+        if (d->disk_9scdrv == NULL) {
+            MS_LOG(MS_LOG_INFO, "9scdrv drive is not available.\n");
+            _eject_disk(d);
+        } else {
+            d->current_disk = &d->disk_9scdrv->base.base;
+            d->disk_changed = 1;
+            MS_LOG(MS_LOG_INFO, "Disk changed to 9scdrv drive.\n");
+        }
     } else {
-        d->current_disk = disk;
-        d->disk_changed = 1;
-        MS_LOG(MS_LOG_INFO, "Disk changed to %d : \"%s\"\n", disk_no, disk->name);
+        ms_disk_media_t* disk = d->disk_set[disk_no];
+        if (disk == NULL) {
+            _eject_disk(d);
+        } else {
+            d->current_disk = disk;
+            d->disk_changed = 1;
+            MS_LOG(MS_LOG_INFO, "Disk changed to %d : \"%s\"\n", disk_no, disk->name);
+        }
     }
 }
 

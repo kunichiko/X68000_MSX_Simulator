@@ -5,6 +5,7 @@
 
 #include "ms_disk.h"
 #include "ms_disk_media.h"
+#include "ms_disk_media_9scdrv.h"
 
 typedef struct ms_disk_container ms_disk_container_t;
 
@@ -20,7 +21,8 @@ typedef struct ms_disk_container {
     // properties
     ms_disk_media_t* current_disk;
     int disk_count;
-    ms_disk_media_t* disk_set[16];  // 最大16枚まで
+    ms_disk_media_t* disk_set[16];        // 最大16枚までのイメージ
+    ms_disk_media_9scdrv_t* disk_9scdrv;  // 9scdrvドライブ (NULLなら未使用)
     // private prroperties
     uint8_t disk_changed;
 } ms_disk_container_t;

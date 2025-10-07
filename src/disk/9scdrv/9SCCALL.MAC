@@ -1,0 +1,33 @@
+		.NLIST
+*-----------------------------------------*
+*9SCCALL       Å@Ver1.00 1992-6 By 6no8rou
+
+*-----------------------------------------*
+_X_VECTOR	EQU		$2000
+_X_WRITE	EQU		$2004
+_X_READ		EQU		$2008
+_X_VERIFY	EQU		$200C
+_X_FORMAT	EQU		$2010
+_X_CWBACK	EQU		$2014
+_X_READID	EQU		$2018
+_X_MEDIA	EQU		$201C
+_X_EJECT	EQU		$2020
+_X_DRVNAM	EQU		$2024
+_X_FDCEXC	EQU		$2028
+_X_DRVPMT	EQU		$202C
+_X_USRMED	EQU		$2030
+_X_OPTCHG	EQU		$2034
+_X_DRVLCK	EQU		$2038
+_X_PRAMDW	EQU		$203C
+_X_PRAMDR	EQU		$2040
+_X_IMGLCK	EQU		$2044
+
+*-----------------------------------------*
+IOCS9SC		.MACRO		CALLNAME
+		MOVE.W		#CALLNAME,D0
+		.DC.W		$4848
+		.ENDM
+		.LIST
+
+*-----------------------------------------*
+
