@@ -330,6 +330,46 @@ void ms_vdp_update_resolution_COMMON(ms_vdp_t* vdp, unsigned int res, unsigned i
     ms_vdp_update_visibility(vdp);
 }
 
+void ms_vdp_force_512dot_mode() {
+    ms_vdp_t* vdp = ms_vdp_shared_instance();
+    int res = 1;                         // 0=256ドット, 1=512ドット
+    int lines = (vdp->r09 & 0x80) >> 7;  // 0=192ライン, 1=212ライン (MSX換算)
+    // sprite 0=非表示, 1=表示
+    int sprite = (vdp->ms_vdp_current_mode->sprite_mode > 0) ? 1 : 0;
+    int m = res * 2 + lines;
+    int bg = 0;  // BGは非表示にする
+
+    CRTR_00 = crtc_values[m][0];
+    CRTR_01 = crtc_values[m][1];
+    CRTR_02 = crtc_values[m][2];
+    CRTR_03 = crtc_values[m][3];
+    CRTR_04 = crtc_values[m][4];
+    CRTR_05 = crtc_values[m][5];
+    CRTR_06 = crtc_values[m][6];
+    CRTR_07 = crtc_values[m][7];
+    CRTR_08 = crtc_values[m][8];
+    uint16_t* crtr_20_current = (uint16_t*)&CRTR_20;
+    int color = (*crtr_20_current >> 8) & 0x3;
+    CRTR_20 = ((color & 0x3) << 8) | 0x10 | ((res & 0x1) << 2) | (res & 0x1);
+    SPCON_HTOTAL = crtc_values[m][9];
+    SPCON_HDISP = crtc_values[m][10];
+    SPCON_VSISP = crtc_values[m][11];
+    SPCON_RES = 0x10 | ((res & 0x1) << 2) | (res & 0x1);
+
+    // ビデオコントロールレジスタの色設定
+    VCRR_00 = (color & 0x3);
+
+    // テキスト画面のスクロール位置補正
+    CRTR_11 = crtc_values[m][12];
+
+    // スプライトとBGの設定
+    SPCON_BGCON = (((sprite | bg) & 0x1) << 9) |  // SP/BG = ON
+                  (0x0 << 4) |                    // BG1 TXSEL
+                  (0x0 << 3) |                    // BG1 ON
+                  (0x1 << 2) |                    // BG0 TXSEL
+                  ((bg & 0x1) << 0);              // BG0 ON
+}
+
 /**
  * @brief 画面の表示/非表示、ページ切り替え、スクロール量、インターレースなどの表示に関わる設定を更新します
  *
