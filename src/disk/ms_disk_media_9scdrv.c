@@ -1,6 +1,7 @@
 #include "ms_disk_media_9scdrv.h"
 
 #include <fcntl.h>
+#include <stdbool.h>
 #include <stddef.h>
 #include <stdint.h>
 #include <stdio.h>
@@ -10,6 +11,7 @@
 #include <x68k/dos.h>
 
 #include "../ms.h"
+#include "9scdrv/ms_disk_9scdrv.h"
 #include "ms_disk.h"
 
 #define THIS ms_disk_media_9scdrv_t
@@ -17,6 +19,7 @@
 const int sectors_per_track = 9;
 const int heads = 2;
 
+static bool _setup_9scdrv(ms_disk_container_t* instance);
 static void _read_sector(ms_disk_media_t* instance, uint32_t sector_id, ms_sector_t* sector);
 static void _write_sector(ms_disk_media_t* instance, uint32_t sector_id, ms_sector_t* sector);
 
@@ -29,6 +32,9 @@ THIS* ms_disk_media_9scdrv_alloc() {
 
 int ms_disk_media_9scdrv_init(THIS* instance, ms_disk_9scdrv_drive_t drive) {
     if (instance == NULL) {
+        return 0;
+    }
+    if (!_setup_9scdrv(NULL)) {
         return 0;
     }
     // baseクラスの初期化
@@ -51,16 +57,30 @@ int ms_disk_media_9scdrv_init(THIS* instance, ms_disk_9scdrv_drive_t drive) {
     return 1;
 }
 
+static bool _setup_9scdrv() {
+    xkpchk_result_t result;
+    result.table = NULL;
+    ms_disk_9scdrv_init(&result);
+    uint32_t minver = ('v' << 24) | ('3' << 16) | ('0' << 8) | ('0');
+    printf("9SCDRV Version: %s, Revision: %s\n", (result.version != 0xffffffff) ? (char*)&result.version : "Not found",
+           (result.revision != 0xffffffff) ? (char*)&result.revision : "N/A");
+    if (result.version == 0xffffffff) {
+        printf("9SCDRV V3 が常駐していません。\n");
+        return false;
+    }
+    return true;
+}
+
 void ms_disk_media_9scdrv_deinit(THIS* instance) {
     ms_disk_media_sectorbase_deinit(&instance->base);
 }
 
-uint8_t* get_sector_buffer(THIS* dsk, int track, int side, int secnum) {
+static uint8_t* _get_sector_buffer(THIS* dsk, int cylinder, int head, int record) {
     static int last_cylinder = 0;
     int i;
     for (i = 0; i < MS_DISK_9SCDRV_CYLINDER_BUFFER_COUNT; i++) {
-        if (dsk->cylinder_buffer_info[i] == track) {
-            return dsk->cylinder_buffer[i][side * sectors_per_track + secnum - 1];
+        if (dsk->cylinder_buffer_info[i] == cylinder) {
+            return dsk->cylinder_buffer[i][head * sectors_per_track + record - 1];
         }
     }
     // バッファにない場合、トラック単位 (9セクタ単位) で読み込む
@@ -74,14 +94,14 @@ uint8_t* get_sector_buffer(THIS* dsk, int track, int side, int secnum) {
     if (buffer_index == -1) {
         buffer_index = (last_cylinder + 1) % MS_DISK_9SCDRV_CYLINDER_BUFFER_COUNT;
     }
-    uint32_t position = convert_to_position(MS_DISK_9SCDRV_SECTOR_SIZE_512, track, 0, 1);
+    uint32_t position = convert_to_position(MS_DISK_9SCDRV_SECTOR_SIZE_512, cylinder, 0, 1);
     ms_disk_9scdrv_read_result_t* result =
-        ms_disk_9scdrv_read(dsk->drive, 0x70, position, 2 * sectors_per_track * 512, MS_DSK_9SCDRV_MEDIABYTE_2DD,
+        ms_disk_9scdrv_read(dsk->drive, 0x70, position, heads * sectors_per_track * 512, MS_DSK_9SCDRV_MEDIABYTE_2DD,
                             (uint8_t*)dsk->cylinder_buffer[buffer_index][0]);
 
     last_cylinder = buffer_index;
-    dsk->cylinder_buffer_info[buffer_index] = track;
-    return dsk->cylinder_buffer[buffer_index][side * sectors_per_track + secnum - 1];
+    dsk->cylinder_buffer_info[buffer_index] = cylinder;
+    return dsk->cylinder_buffer[buffer_index][head * sectors_per_track + record - 1];
 }
 
 /**
@@ -93,12 +113,12 @@ uint8_t* get_sector_buffer(THIS* dsk, int track, int side, int secnum) {
  */
 static void _read_sector(ms_disk_media_t* instance, uint32_t sector_id, ms_sector_t* sector) {
     THIS* dsk = (THIS*)instance;
-    int track = ((sector_id - 1) / (sectors_per_track * heads));
-    int side = ((sector_id - 1) / (sectors_per_track)) % heads;
-    int secnum = ((sector_id - 1) % sectors_per_track) + 1;
+    int cylinder = ((sector_id - 1) / (sectors_per_track * heads));
+    int head = ((sector_id - 1) / (sectors_per_track)) % heads;
+    int record = ((sector_id - 1) % sectors_per_track) + 1;
 
-    printf("Reading sector_id=%d (track=%d side=%d secnum=%d) sector_id=%d\n", sector_id, track, side, secnum, sector_id);
-    uint8_t* buf = get_sector_buffer(dsk, track, side, secnum);
+    printf("Read sector=%d (C=%d H=%d R=%d)\n", sector_id, cylinder, head, record);
+    uint8_t* buf = _get_sector_buffer(dsk, cylinder, head, record);
     if (buf == NULL) {
         // 読み込み失敗
         memset(sector, 0xE5, 512);  // 0xE5で埋める

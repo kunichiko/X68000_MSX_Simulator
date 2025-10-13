@@ -116,7 +116,7 @@ ms_disk_9scdrv_media:
 ;
 ;
 ; 9SCドライバのセクタ読み込み
-; ms_disk_9scdrv_read_result_t ms_disk_9scdrv_read(ms_disk_9scdrv_drive_t pda, uint8_t mode, uint32_t position, uint32_t size,
+; ms_disk_9scdrv_read_result_t ms_disk_9scdrv_read(ms_disk_9scdrv_drive_t drivenum, uint8_t mode, uint32_t position, uint32_t size,
 ;                                                 ms_disk_9scdrv_media_byte_t media_byte, uint8_t* buffer);
 ms_disk_9scdrv_read:
 	link	a6,#0
@@ -131,7 +131,8 @@ ms_disk_9scdrv_read:
 	BSR	_print_hex_long
 	ADD.L	#12,SP
 
-	move.l  8(a6), d0	; pda
+	move.l  8(a6), d0	; drive number. PDAに変換するためには 0x90 を加える
+	add.l	#0x90,d0
 	move.l  12(a6), d1	; mode
 	move.l  16(a6), d2	; position
 	move.l  20(a6), d3	; size

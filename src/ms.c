@@ -21,7 +21,6 @@
 #include <x68k/dos.h>
 #include <x68k/iocs.h>
 
-#include "disk/9scdrv/ms_disk_9scdrv.h"
 #include "disk/ms_disk_container.h"
 #include "memmap/ms_memmap.h"
 #include "ms_R800.h"
@@ -171,7 +170,7 @@ int safemode = 0;
 int hostdebug = 0;
 int joystick_useiocs = 0;
 int joystick_swapAB = 0;
-int drive_for_9scdrv = 2;  // default is drive 2
+int drive_for_9scdrv = -1;  // default is drive -1 (disable 9scdrv)
 
 char* separate_rom_kind(char* path, int* kind) {
     char* p = strchr(path, ',');
@@ -283,7 +282,7 @@ int main(int argc, char* argv[]) {
     for (i = 0; i < 16; i++) {
         default_param.diskimages[i] = NULL;
     }
-    default_param.drive_for_9scdrv = MS_DISK_9SCDRV_DRV2;
+    default_param.drive_for_9scdrv = MS_DISK_9SCDRV_NONE;
     default_param.mainrom = "cbios_main_msx2_jp.rom";
     default_param.subrom = "cbios_sub.rom";
     default_param.slot_path[0][2] = "cbios_logo_msx2.rom";
@@ -565,44 +564,9 @@ int main(int argc, char* argv[]) {
         return -1;
     }
 
-    // 9scdrvの初期化
-    switch (drive_for_9scdrv) {
-    case 0:
-        init_param.drive_for_9scdrv = MS_DISK_9SCDRV_DRV0;
-        break;
-    case 1:
-        init_param.drive_for_9scdrv = MS_DISK_9SCDRV_DRV1;
-        break;
-    case 2:
-        init_param.drive_for_9scdrv = MS_DISK_9SCDRV_DRV2;
-        break;
-    case 3:
-        init_param.drive_for_9scdrv = MS_DISK_9SCDRV_DRV3;
-        break;
-    default:
-        init_param.drive_for_9scdrv = MS_DISK_9SCDRV_NONE;
-        break;
-    }
-    if (init_param.drive_for_9scdrv >= MS_DISK_9SCDRV_DRV0 && init_param.drive_for_9scdrv <= MS_DISK_9SCDRV_DRV3) {
-        printf("9SCDRVを使用します (ドライブ %d)\n", init_param.drive_for_9scdrv - MS_DISK_9SCDRV_DRV0);
-        xkpchk_result_t result;
-        result.table = NULL;
-        ms_disk_9scdrv_init(&result);
-        uint32_t minver = ('v' << 24) | ('3' << 16) | ('0' << 8) | ('0');
-        printf("9SCDRV Version: %s, Revision: %s\n", (result.version != 0xffffffff) ? (char*)&result.version : "Not found",
-               (result.revision != 0xffffffff) ? (char*)&result.revision : "N/A");
-        if (result.version == 0xffffffff) {
-            printf("9SCDRV V3 is not resident.\n");
-        } else {
-            printf("9SCDRV call table at %p\n", result.table);
-            uint32_t ret = ms_disk_9scdrv_media(init_param.drive_for_9scdrv, 0x70);  // test call
-            uint8_t track = (ret >> 16) & 0xFF;
-            uint8_t status = (ret >> 8) & 0xFF;
-            uint8_t media_code = ret & 0xFF;
-            printf("Test call _X_MEDIA: Track=%u, Status=%u, Media code=%d\n", track, status, (int8_t)media_code);
-        }
-    } else {
-        printf("9SCDRVを使用しません\n");
+    // 9scdrvのドライブ番号の設定
+    if (0 <= drive_for_9scdrv && drive_for_9scdrv <= 3) {
+        init_param.drive_for_9scdrv = drive_for_9scdrv;
     }
 
     // CTRL+Cで中断されたときに、ms_exitを呼び出すようにする
@@ -854,17 +818,17 @@ void ms_exit() {
 uint32_t KEY_MAP[][8] = {
     //    BIT0    BIT1    BIT2    BIT3    BIT4    BIT5    BIT6    BIT7
     // 0 [      ][ ESC  ][ 1    ][ 2    ][ 3    ][ 4    ][ 5    ][ 6    ]
-    {0x00000, 0x10704, 0x11002, 0x12004, 0x13008, 0x14010, 0x15020, 0x16040},
+    {0x00000, 0xfb704, 0x11002, 0x12004, 0x13008, 0x14010, 0x15020, 0x16040},
     // 1 [ 7    ][ 8    ][ 9    ][ 0    ][ -    ][ ^    ][ \    ][ BS   ]
-    {0x17080, 0x18101, 0x19102, 0x1a001, 0x00104, 0x00108, 0x00110, 0x00720},
+    {0x17080, 0x18101, 0x19102, 0x10001, 0x00104, 0x00108, 0x00110, 0x00720},
     // 2 [ TAB  ][ Q    ][ W    ][ E    ][ R    ][ T    ][ Y    ][ U    ]
-    {0x00708, 0x00440, 0x00510, 0x00304, 0x00480, 0x00502, 0x00540, 0x00504},
+    {0x00708, 0x00440, 0x00510, 0x1e304, 0x00480, 0x00502, 0x00540, 0x00504},
     // 3 [ I    ][ O    ][ P    ][ @    ][  [   ][ RET  ][  A   ][  S   ]
-    {0x00340, 0x00410, 0x00420, 0x00120, 0x00140, 0x00780, 0x00240, 0x00501},
+    {0x00340, 0x00410, 0x00420, 0x00120, 0x00140, 0x00780, 0x1a240, 0x00501},
     // 4 [  D   ][  F   ][  G   ][  H   ][  J   ][  K   ][  L   ][  ;+  ]
-    {0x00302, 0x00308, 0x00310, 0x00320, 0x00380, 0x00401, 0x00402, 0x00180},
+    {0x1d302, 0x1f308, 0x00310, 0x00320, 0x00380, 0x00401, 0x00402, 0x00180},
     // 5 [  :*  ][   ]  ][  Z   ][  X   ][  C   ][  V   ][  B   ][  N   ]
-    {0x00201, 0x00203, 0x00580, 0x00520, 0x00301, 0x00508, 0x00280, 0x00408},
+    {0x00201, 0x00203, 0x00580, 0x00520, 0x1c301, 0x00508, 0x1b280, 0x00408},
     // 6 [  M   ][  ,<  ][  .>  ][  /   ][  _   ][  SP  ][ HOME ][ DEL  ] HOME=CLS
     {0x00404, 0x00204, 0x00208, 0x00210, 0x00220, 0x00801, 0x00802, 0x00808},
     // 7 [ RUP  ][ RDWN ][ UNDO ][ LEFT ][ UP   ][ RIGT ][ DOWN ][ CLR  ] UNDO=画面を強制的に511ドットモードにする
@@ -941,7 +905,7 @@ int emuLoopImpl(unsigned int pc, unsigned int counter) {
     int f6_key_hit = 0;
     int f7_pressed = 0;
     int esc_key_hit = 0;
-    int num_key_hit = 0;
+    int num_key_hit = -1;
     int cursor_key_hit = 0;  // 1=LEFT, 2=UP, 3=DOWN, 4=RIGHT
     int kigo_key_hit = 0;
     int help_key_hit = 0;
@@ -971,19 +935,16 @@ int emuLoopImpl(unsigned int pc, unsigned int counter) {
                 int edge = !(last_bitsns[i] & mask);
                 if (S != 0) {
                     // Sが0以外の場合は、特殊キーで、ホスト側の操作を行う
-                    // 0x10-0x1a: [ESC] [1] [2] [3] [4] [5] [6] [7] [8] [9] [0]
+                    // 0x10-0x1f: [0] [1] [2] [3] [4] [5] [6] [7] [8] [9] [A] [B] [C] [D] [E] [F]
                     // 0x21-0x24: [LEFT] [UP] [DOWN] [RIGHT]
                     // 0xf0-0xf7: [SHIFT] [OPT1] [OPT2] [F6] [F7] [F8] [F9] [F10]
+                    // 0xfb: [ESC]
                     // 0xfc: [UNDO]
                     // 0xfd: [KIGO]
                     // 0xfe: [HELP]
                     // 0xff: [TORK]
                     switch (S) {
                     case 0x10:
-                        if (edge) {
-                            esc_key_hit = 1;
-                        }
-                        break;
                     case 0x11:
                     case 0x12:
                     case 0x13:
@@ -994,6 +955,11 @@ int emuLoopImpl(unsigned int pc, unsigned int counter) {
                     case 0x18:
                     case 0x19:
                     case 0x1a:
+                    case 0x1b:
+                    case 0x1c:
+                    case 0x1d:
+                    case 0x1e:
+                    case 0x1f:
                         if (edge) {
                             num_key_hit = S - 0x10;
                         }
@@ -1022,6 +988,11 @@ int emuLoopImpl(unsigned int pc, unsigned int counter) {
                         break;
                     case 0xf4:
                         f7_pressed = 1;
+                        break;
+                    case 0xfb:
+                        if (edge) {
+                            esc_key_hit = 1;
+                        }
                         break;
                     case 0xfc:
                         if (edge) {
@@ -1140,13 +1111,12 @@ int emuLoopImpl(unsigned int pc, unsigned int counter) {
             disk_container->eject_disk(disk_container);
             printf("Disk ejected\n");
         }
-        if (num_key_hit) {
+        if (num_key_hit >= 0) {
+            // numは0-fまでの16通り
+            // 0は 9scdrvに切り替え
+            // 1-15は登録されているディスクイメージに切り替え
             disk_container->change_disk(disk_container, num_key_hit - 1);
             printf("Disk changed: %s\n", disk_container->current_disk->name);
-        }
-        if (esc_key_hit) {
-            // ESC + OPT1 で 9scdrvに切り替え
-            disk_container->change_disk(disk_container, -1);
         }
     }
 
@@ -1470,6 +1440,7 @@ uint8_t load_user_param() {
         if (line[0] == ';' || line[0] == '#') {
             continue;
         }
+        printf("MS.INI: %s\n", line);
 
         // Parse the line to extract the parameter and value
         char* param = strtok(line, "=");
@@ -1535,35 +1506,28 @@ uint8_t load_user_param() {
             } else {
                 user_param.diskimages[user_param.diskcount++] = value;
             }
-        } else if (strcmp(param, "cpu_wait") == 0) {
-            if (value == NULL) {
-                printf("cpu_waitの値が不正です\n");
-            } else {
-                user_param.cpu_wait = atoi(value);
+        } else if (strcmp(param, "9scdrv") == 0) {
+            user_param.drive_for_9scdrv = atoi(value);
+            if (user_param.drive_for_9scdrv < 0 || user_param.drive_for_9scdrv > 3) {
+                user_param.drive_for_9scdrv = MS_DISK_9SCDRV_NONE;  // default
             }
+        } else if (strcmp(param, "cpu_wait") == 0) {
+            user_param.cpu_wait = atoi(value);
         } else if (strcmp(param, "disablehsyncint") == 0) {
             user_param.disablehsyncint = 1;
         } else if (strcmp(param, "disablescc") == 0) {
-            if (value == NULL) {
-                user_param.scc_enable = 0;
-            } else {
-                user_param.scc_enable = atoi(value);
-            }
+            user_param.scc_enable = atoi(value);
         } else if (strcmp(param, "framecon") == 0) {
-            if (value == NULL) {
-                printf("frameconの値が不正です\n");
+            if (strcmp(value, "auto") == 0) {
+                user_param.framerate_control = 0xffffffff;
+            } else if (strcmp(value, "none") == 0) {
+                user_param.framerate_control = 0;
             } else {
-                if (strcmp(value, "auto") == 0) {
-                    user_param.framerate_control = 0xffffffff;
-                } else if (strcmp(value, "none") == 0) {
+                user_param.framerate_control = atoi(value);
+                if (user_param.framerate_control < 1 || user_param.framerate_control > 99999) {
+                    printf("frameconの値が不正です\n");
                     user_param.framerate_control = 0;
                 } else {
-                    user_param.framerate_control = atoi(value);
-                    if (user_param.framerate_control < 1 || user_param.framerate_control > 99999) {
-                        printf("frameconの値が不正です\n");
-                        user_param.framerate_control = 0;
-                    } else {
-                    }
                 }
             }
         } else if (strcmp(param, "joystick.useiocs") == 0) {

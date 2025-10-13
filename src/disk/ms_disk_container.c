@@ -61,16 +61,19 @@ void ms_disk_container_init(ms_disk_container_t* instance, int dskimage_count, c
     }
 
     // 9scdrvƒhƒ‰ƒCƒu‚Ì‰Šú‰»
-    instance->disk_9scdrv = ms_disk_media_9scdrv_alloc();
-    if (instance->disk_9scdrv != NULL) {
-        if (ms_disk_media_9scdrv_init(instance->disk_9scdrv, drive_for_9scdrv) == 0) {
-            // ‰Šú‰»¸”s
-            free(instance->disk_9scdrv);
-            instance->disk_9scdrv = NULL;
-            printf("9scdrv drive initialization failed.\n");
-        } else {
-            printf("9scdrv drive initialized.\n");
-            instance->change_disk(instance, -1);  // 9scdrv‚ÉØ‚è‘Ö‚¦
+    instance->disk_9scdrv = NULL;
+    if (drive_for_9scdrv != MS_DISK_9SCDRV_NONE) {
+        instance->disk_9scdrv = ms_disk_media_9scdrv_alloc();
+        if (instance->disk_9scdrv != NULL) {
+            if (ms_disk_media_9scdrv_init(instance->disk_9scdrv, drive_for_9scdrv) == 0) {
+                // ‰Šú‰»¸”s
+                free(instance->disk_9scdrv);
+                instance->disk_9scdrv = NULL;
+                printf("9scdrv drive initialization failed.\n");
+            } else {
+                printf("9scdrv drive initialized.\n");
+                instance->change_disk(instance, -1);  // 9scdrv‚ÉØ‚è‘Ö‚¦
+            }
         }
     }
 
@@ -117,7 +120,7 @@ static void _flush_track(ms_disk_container_t* d) {
 static void _eject_disk(ms_disk_container_t* d) {
     d->current_disk = NULL;
     d->disk_changed = 1;
-    MS_LOG(MS_LOG_INFO, "Disk ejected.\n");
+    MS_LOG(MS_LOG_INFO, "Disk ejected2.\n");
 }
 
 static void _change_disk(ms_disk_container_t* d, int disk_no) {
@@ -125,11 +128,11 @@ static void _change_disk(ms_disk_container_t* d, int disk_no) {
         MS_LOG(MS_LOG_INFO, "Unknown disk number: %d\n", disk_no);
         return;
     }
+    MS_LOG(MS_LOG_INFO, "Changing disk to: %d\n", disk_no);
     if (disk_no == -1) {
         // 9scdrv‚ÉØ‚è‘Ö‚¦
         if (d->disk_9scdrv == NULL) {
-            MS_LOG(MS_LOG_INFO, "9scdrv drive is not available.\n");
-            _eject_disk(d);
+            printf("9scdrv drive is not available.\n");
         } else {
             d->current_disk = &d->disk_9scdrv->base.base;
             d->disk_changed = 1;
