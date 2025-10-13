@@ -820,8 +820,8 @@ uint32_t KEY_MAP[][8] = {
     {0x00201, 0x00203, 0x00580, 0x00520, 0x00301, 0x00508, 0x00280, 0x00408},
     // 6 [  M   ][  ,<  ][  .>  ][  /   ][  _   ][  SP  ][ HOME ][ DEL  ] HOME=CLS
     {0x00404, 0x00204, 0x00208, 0x00210, 0x00220, 0x00801, 0x00802, 0x00808},
-    // 7 [ RUP  ][ RDWN ][ UNDO ][ LEFT ][ UP   ][ RIGT ][ DOWN ][ CLR  ]
-    {0x00000, 0x00000, 0x00000, 0x21810, 0x22820, 0x24880, 0x23840, 0x00000},
+    // 7 [ RUP  ][ RDWN ][ UNDO ][ LEFT ][ UP   ][ RIGT ][ DOWN ][ CLR  ] UNDO=画面を強制的に511ドットモードにする
+    {0x00000, 0x00000, 0xfc000, 0x21810, 0x22820, 0x24880, 0x23840, 0x00000},
     // 8 [ (/)  ][ (*)  ][ (-)  ][ (7)  ][ (8)  ][ (9)  ][ (+)  ][ (4)  ] TEN KEYs
     {0x00902, 0x00904, 0x00a20, 0x00a04, 0x00a08, 0x00a10, 0x00901, 0x00980},
     // 9 [ (5)  ][ (6)  ][ (=)  ][ (1)  ][ (2)  ][ (3)  ][ ENTR ][ (0)  ] TEN KEYs
@@ -899,6 +899,7 @@ int emuLoopImpl(unsigned int pc, unsigned int counter) {
     int kigo_key_hit = 0;
     int help_key_hit = 0;
     int toroku_key_hit = 0;
+    int undo_key_hit = 0;
 
     sync_keyboard_leds();
 
@@ -926,6 +927,7 @@ int emuLoopImpl(unsigned int pc, unsigned int counter) {
                     // 0x10-0x1a: [ESC] [1] [2] [3] [4] [5] [6] [7] [8] [9] [0]
                     // 0x21-0x24: [LEFT] [UP] [DOWN] [RIGHT]
                     // 0xf0-0xf7: [SHIFT] [OPT1] [OPT2] [F6] [F7] [F8] [F9] [F10]
+                    // 0xfc: [UNDO]
                     // 0xfd: [KIGO]
                     // 0xfe: [HELP]
                     // 0xff: [TORK]
@@ -973,6 +975,11 @@ int emuLoopImpl(unsigned int pc, unsigned int counter) {
                         break;
                     case 0xf4:
                         f7_pressed = 1;
+                        break;
+                    case 0xfc:
+                        if (edge) {
+                            undo_key_hit = 1;
+                        }
                         break;
                     case 0xfd:
                         if (edge) {
@@ -1054,6 +1061,12 @@ int emuLoopImpl(unsigned int pc, unsigned int counter) {
         _setTextPlane(textPlaneMode);
         ms_psg_set_ch_enable(psg_ch_enable);
         w_SCC_ch_enable(scc_ch_enable);
+    }
+
+    if (undo_key_hit) {
+        // UNDOキーが押されたら、強制的に511ドットモードにする
+        printf("\n512ドットモードにしました\n");
+        ms_vdp_force_512dot_mode();
     }
 
     if (kigo_key_hit) {

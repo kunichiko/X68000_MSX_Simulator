@@ -336,4 +336,5 @@ void ms_vdp_update_visibility(ms_vdp_t* vdp);
 void ms_vdp_update_sprite_area(ms_vdp_t* vdp);
 void ms_vdp_sprite_vsync_draw(ms_vdp_t* vdp);
 
+void ms_vdp_force_512dot_mode();
 #endif
