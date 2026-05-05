@@ -166,17 +166,17 @@ A>attrib +r DISKIMAGE1.DSK
 MSXのDISK ROMは色々と権利関係の問題があり、実機から吸い出す以外の方法が無く、各エミュレータ苦労しているようです。
 MS.Xでもそのうちなんとかしたいとは思っていますが、まだ実現はできていません。
 
-回避策としては、 *DISKイメージをROM化するソフトを使う* という方法があります。私が調べた範囲だと以下のようなものがあります。
+回避策としては、 **DISKイメージをROM化するソフトを使う** という方法があります。私が調べた範囲だと以下のようなものがあります。
 
 * [MKROMDSK](https://www.msx.org/news/software/en/mkromdsk)
 	* こちらはどうも実機のDISK BIOSを内蔵しているというような話もあり、ライセンス的にちょっと危ない感じがします(私は試してません)
-* [dsk2rom][https://github.com/joyrex2001/dsk2rom]
+* [dsk2rom](https://github.com/joyrex2001/dsk2rom)
 	* こちらもライセンスの怪しいコードが含まれているという話があります
-* [TablacusDiskRomLite][https://github.com/tablacus/TablacusDiskRomLite]
+* [TablacusDiskRomLite](https://github.com/tablacus/TablacusDiskRomLite)
 	* 大本命です
 	* 2024年現在もかなり精力的に開発がされており、どんどんサポートが増えているようです。
 	* こちらはライセンス的な問題のない互換DISK ROMを使っているので、安心して使えます
-	* ただ、ディスクは2枚までセットできるものの、AドライブとBドライブに破り当たってしまうため、Aドライブのファイルを入れ替えるタイプのゲームには対応できません
+	* ただ、ディスクは2枚までセットできるものの、AドライブとBドライブに割り当たってしまうため、Aドライブのファイルを入れ替えるタイプのゲームには対応できません
 
 ### TablacusDiskRomLiteの使い方
 
