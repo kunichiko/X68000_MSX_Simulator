@@ -91,7 +91,7 @@ void update_pnametbl_baddr_GRAPHIC4(ms_vdp_t* vdp) {
         break;
     case 1:
         vdp->gr_active = 0b0010;
-        vdp->gr_active_interlace = 0b0010;  // GRAPHIC4‚ÌƒCƒ“ƒ^[ƒŒ[ƒXƒ‚[ƒh‚Í‚Ü‚¾–¢‘Î‰
+        vdp->gr_active_interlace = 0b0010;  // GRAPHIC4ã®ã‚¤ãƒ³ã‚¿ãƒ¼ãƒ¬ãƒ¼ã‚¹ãƒ¢ãƒ¼ãƒ‰ã¯ã¾ã æœªå¯¾å¿œ
         break;
     case 2:
         vdp->gr_active = 0b0100;
@@ -99,11 +99,11 @@ void update_pnametbl_baddr_GRAPHIC4(ms_vdp_t* vdp) {
         break;
     case 3:
         vdp->gr_active = 0b1000;
-        vdp->gr_active_interlace = 0b1000;  // GRAPHIC4‚ÌƒCƒ“ƒ^[ƒŒ[ƒXƒ‚[ƒh‚Í‚Ü‚¾–¢‘Î‰
+        vdp->gr_active_interlace = 0b1000;  // GRAPHIC4ã®ã‚¤ãƒ³ã‚¿ãƒ¼ãƒ¬ãƒ¼ã‚¹ãƒ¢ãƒ¼ãƒ‰ã¯ã¾ã æœªå¯¾å¿œ
         break;
     default:
         vdp->gr_active = 0b0001;
-        vdp->gr_active_interlace = 0b0001;  // GRAPHIC4‚ÌƒCƒ“ƒ^[ƒŒ[ƒXƒ‚[ƒh‚Í‚Ü‚¾–¢‘Î‰
+        vdp->gr_active_interlace = 0b0001;  // GRAPHIC4ã®ã‚¤ãƒ³ã‚¿ãƒ¼ãƒ¬ãƒ¼ã‚¹ãƒ¢ãƒ¼ãƒ‰ã¯ã¾ã æœªå¯¾å¿œ
         break;
     }
     ms_vdp_update_visibility(vdp);
@@ -147,5 +147,5 @@ void vdp_command_write_GRAPHIC4(ms_vdp_t* vdp, uint8_t value) {
 }
 
 void update_resolution_GRAPHIC4(ms_vdp_t* vdp) {
-    ms_vdp_update_resolution_COMMON(vdp, 0, 0, 0);  // 256, 16F, BG•sg—p
+    ms_vdp_update_resolution_COMMON(vdp, 0, 0, 0);  // 256, 16è‰², BGä¸ä½¿ç”¨
 }

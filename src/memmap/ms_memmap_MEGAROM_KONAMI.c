@@ -26,14 +26,14 @@ static uint16_t _read16(ms_memmap_driver_t* driver, uint16_t addr);
 static void _write16(ms_memmap_driver_t* driver, uint16_t addr, uint16_t data);
 
 /*
-        Šm•Ûƒ‹[ƒ`ƒ“
+        ç¢ºä¿ãƒ«ãƒ¼ãƒãƒ³
  */
 THIS* ms_memmap_MEGAROM_KONAMI_alloc() {
     return (THIS*)new_malloc(sizeof(THIS));
 }
 
 /*
-        ‰Šú‰»ƒ‹[ƒ`ƒ“
+        åˆæœŸåŒ–ãƒ«ãƒ¼ãƒãƒ³
  */
 void ms_memmap_MEGAROM_KONAMI_init(THIS* instance, ms_memmap_t* memmap, uint8_t* buffer, uint32_t length) {
     if (instance == NULL) {
@@ -42,11 +42,11 @@ void ms_memmap_MEGAROM_KONAMI_init(THIS* instance, ms_memmap_t* memmap, uint8_t*
 
     ms_memmap_driver_init(&instance->base, memmap, buffer);
 
-    // ƒvƒƒpƒeƒB‚âƒƒ\ƒbƒh‚Ì“o˜^
+    // ãƒ—ãƒ­ãƒ‘ãƒ†ã‚£ã‚„ãƒ¡ã‚½ãƒƒãƒ‰ã®ç™»éŒ²
     instance->base.memmap = memmap;
     instance->base.type = ROM_TYPE_MEGAROM_KONAMI;
     instance->base.name = driver_name;
-    // instance->base.deinit = ms_memmap_MEGAROM_KONAMI_deinit; ƒI[ƒo[ƒ‰ƒCƒh•s—v
+    // instance->base.deinit = ms_memmap_MEGAROM_KONAMI_deinit; ã‚ªãƒ¼ãƒãƒ¼ãƒ©ã‚¤ãƒ‰ä¸è¦
     instance->base.did_attach = _did_attach;
     instance->base.will_detach = _will_detach;
     instance->base.did_update_memory_mapper = _did_update_memory_mapper;
@@ -66,7 +66,7 @@ void ms_memmap_MEGAROM_KONAMI_init(THIS* instance, ms_memmap_t* memmap, uint8_t*
     }
 
     for (page8k = 2; page8k < 6; page8k++) {
-        _select_bank(instance, page8k, page8k - 2);  // KONAMIƒƒKƒƒ€‚Ìê‡A‰Šú’l‚Í0,1,2,3
+        _select_bank(instance, page8k, page8k - 2);  // KONAMIãƒ¡ã‚¬ãƒ­ãƒ ã®å ´åˆã€åˆæœŸå€¤ã¯0,1,2,3
     }
     return;
 }
@@ -89,7 +89,7 @@ static void _select_bank(THIS* d, int page8k, int segment) {
     d->base.page8k_pointers[page8k] = d->base.buffer + (segment * 0x2000);
     d->selected_segment[page8k] = segment;
 
-    // Ø‚è‘Ö‚¦‚ª‹N‚±‚Á‚½‚±‚Æ‚ð memmap ‚É’Ê’m
+    // åˆ‡ã‚Šæ›¿ãˆãŒèµ·ã“ã£ãŸã“ã¨ã‚’ memmap ã«é€šçŸ¥
     d->base.memmap->update_page_pointer(d->base.memmap, (ms_memmap_driver_t*)d, page8k);
     return;
 }
@@ -115,25 +115,25 @@ static uint16_t _read16(ms_memmap_driver_t* driver, uint16_t addr) {
 }
 
 /*
-        SCC–³‚µ‚ÌKONAMIƒƒKƒƒ€‚ÌØ‚è‘Ö‚¦ˆ—
+        SCCç„¡ã—ã®KONAMIãƒ¡ã‚¬ãƒ­ãƒ ã®åˆ‡ã‚Šæ›¿ãˆå‡¦ç†
         https://www.msx.org/wiki/MegaROM_Mappers#Konami_MegaROMs_without_SCC
 
         * 4000h~5FFFh (mirror: C000h~DFFFh)
-                * Ø‚è‘Ö‚¦ƒAƒhƒŒƒX:	None
-                * ‰ŠúƒZƒOƒƒ“ƒg	Always 0
+                * åˆ‡ã‚Šæ›¿ãˆã‚¢ãƒ‰ãƒ¬ã‚¹:	None
+                * åˆæœŸã‚»ã‚°ãƒ¡ãƒ³ãƒˆ	Always 0
         * 6000h~7FFFh (mirror: E000h~FFFFh)
-                * Ø‚è‘Ö‚¦ƒAƒhƒŒƒX	6000h (mirrors: 6001h~7FFFh)
-                * ‰ŠúƒZƒOƒƒ“ƒg	1
+                * åˆ‡ã‚Šæ›¿ãˆã‚¢ãƒ‰ãƒ¬ã‚¹	6000h (mirrors: 6001h~7FFFh)
+                * åˆæœŸã‚»ã‚°ãƒ¡ãƒ³ãƒˆ	1
         * 8000h~9FFFh (mirror: 0000h~1FFFh)
-                * Ø‚è‘Ö‚¦ƒAƒhƒŒƒX	8000h (mirrors: 8001h~9FFFh)
-                * ‰ŠúƒZƒOƒƒ“ƒg	Random
+                * åˆ‡ã‚Šæ›¿ãˆã‚¢ãƒ‰ãƒ¬ã‚¹	8000h (mirrors: 8001h~9FFFh)
+                * åˆæœŸã‚»ã‚°ãƒ¡ãƒ³ãƒˆ	Random
         * A000h~BFFFh (mirror: 2000h~3FFFh)
-                * Ø‚è‘Ö‚¦ƒAƒhƒŒƒX	A000h (mirrors: A001h~BFFFh)
-                * ‰ŠúƒZƒOƒƒ“ƒg	Random
+                * åˆ‡ã‚Šæ›¿ãˆã‚¢ãƒ‰ãƒ¬ã‚¹	A000h (mirrors: A001h~BFFFh)
+                * åˆæœŸã‚»ã‚°ãƒ¡ãƒ³ãƒˆ	Random
  */
 static void _write8(ms_memmap_driver_t* driver, uint16_t addr, uint8_t data) {
     THIS* d = (THIS*)driver;
-    // ƒoƒ“ƒNØ‚è‘Ö‚¦ˆ—
+    // ãƒãƒ³ã‚¯åˆ‡ã‚Šæ›¿ãˆå‡¦ç†
     int page8k = -1;
     int area = addr >> 12;
     switch (area) {

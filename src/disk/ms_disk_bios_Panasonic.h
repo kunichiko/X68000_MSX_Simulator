@@ -10,9 +10,9 @@
 #define DISKBIOS_PANASONIC_SIZE (16 * 1024)
 
 /**
- * @brief TC8566AF‚ðŽg—p‚·‚é Panasonic‚Ì DISK BIOS ROM‚Ìƒhƒ‰ƒCƒo
+ * @brief TC8566AFã‚’ä½¿ç”¨ã™ã‚‹ Panasonicã® DISK BIOS ROMã®ãƒ‰ãƒ©ã‚¤ãƒ
  *
- * ƒƒ‚ƒŠƒ}ƒbƒvƒhI/O‚ðŽ‚¿A‚»‚ÌI^O‚ð’Ê‚¶‚Ä TC8566AFƒRƒ“ƒgƒ[ƒ‰[‚ð‘€ì‚µ‚Ü‚·
+ * ãƒ¡ãƒ¢ãƒªãƒžãƒƒãƒ—ãƒ‰I/Oã‚’æŒã¡ã€ãã®Iï¼Oã‚’é€šã˜ã¦ TC8566AFã‚³ãƒ³ãƒˆãƒ­ãƒ¼ãƒ©ãƒ¼ã‚’æ“ä½œã—ã¾ã™
  */
 typedef struct ms_memmap_driver_DISKBIOS_PANASONIC {
     ms_memmap_driver_t base;

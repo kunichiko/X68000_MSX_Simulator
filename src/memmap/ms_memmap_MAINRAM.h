@@ -11,7 +11,7 @@ typedef struct ms_memmap_driver_MAINRAM {
     ms_memmap_driver_t base;
     // extended properties
     int num_segments;
-    int selected_segment[4];  // Page0-3‚Ì‚»‚ê‚¼‚ê‚ÌƒZƒOƒƒ“ƒg‘I‘ğó‘Ô
+    int selected_segment[4];  // Page0-3ã®ãã‚Œãã‚Œã®ã‚»ã‚°ãƒ¡ãƒ³ãƒˆé¸æŠçŠ¶æ…‹
 } ms_memmap_driver_MAINRAM_t;
 
 ms_memmap_driver_MAINRAM_t* ms_memmap_MAINRAM_alloc();

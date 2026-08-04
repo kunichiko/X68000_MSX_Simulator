@@ -13,53 +13,53 @@
 
 // uint16_t * const X68_GR_PAL = (uint16_t *)0xE82000;
 // uint16_t * const X68_TX_PAL = (uint16_t *)0xE82200;
-// uint16_t * const X68_SP_PAL_B0 = (uint16_t *)0xE82200;	// ƒuƒƒbƒN0‚ÍƒeƒLƒXƒg‚Æ‹¤—p
-// uint16_t * const X68_SP_PAL_B1 = (uint16_t *)0xE82220;	// ƒuƒƒbƒN1‚ÍƒXƒvƒ‰ƒCƒgƒpƒŒƒbƒg‚Ég—p
-// uint16_t * const X68_SP_PAL_B2 = (uint16_t *)0xE82240;	// ƒuƒƒbƒN2ˆÈ~‚Íg—p‚µ‚Ä‚¢‚È‚¢
+// uint16_t * const X68_SP_PAL_B0 = (uint16_t *)0xE82200;	// ãƒ–ãƒ­ãƒƒã‚¯0ã¯ãƒ†ã‚­ã‚¹ãƒˆã¨å…±ç”¨
+// uint16_t * const X68_SP_PAL_B1 = (uint16_t *)0xE82220;	// ãƒ–ãƒ­ãƒƒã‚¯1ã¯ã‚¹ãƒ—ãƒ©ã‚¤ãƒˆãƒ‘ãƒ¬ãƒƒãƒˆã«ä½¿ç”¨
+// uint16_t * const X68_SP_PAL_B2 = (uint16_t *)0xE82240;	// ãƒ–ãƒ­ãƒƒã‚¯2ä»¥é™ã¯ä½¿ç”¨ã—ã¦ã„ãªã„
 
 #define X68_GRAM ((uint16_t*)0xc00000)
-#define X68_GRAM_LEN 0x100000  // ƒ[ƒh”
+#define X68_GRAM_LEN 0x100000  // ãƒ¯ãƒ¼ãƒ‰æ•°
 #define X68_GR_PAL ((uint16_t*)0xE82000)
 #define X68_TX_PAL ((uint16_t*)0xE82200)
-#define X68_SP_PAL_B0 ((uint16_t*)0xE82200)  // ƒuƒƒbƒN0‚ÍƒeƒLƒXƒg‚Æ‹¤—p
-#define X68_SP_PAL_B1 ((uint16_t*)0xE82220)  // ƒuƒƒbƒN1‚ÍƒXƒvƒ‰ƒCƒgƒpƒŒƒbƒg‚Ég—p
-#define X68_SP_PAL_B2 ((uint16_t*)0xE82240)  // ƒuƒƒbƒN2ˆÈ~‚Íg—p‚µ‚Ä‚¢‚È‚¢
+#define X68_SP_PAL_B0 ((uint16_t*)0xE82200)  // ãƒ–ãƒ­ãƒƒã‚¯0ã¯ãƒ†ã‚­ã‚¹ãƒˆã¨å…±ç”¨
+#define X68_SP_PAL_B1 ((uint16_t*)0xE82220)  // ãƒ–ãƒ­ãƒƒã‚¯1ã¯ã‚¹ãƒ—ãƒ©ã‚¤ãƒˆãƒ‘ãƒ¬ãƒƒãƒˆã«ä½¿ç”¨
+#define X68_SP_PAL_B2 ((uint16_t*)0xE82240)  // ãƒ–ãƒ­ãƒƒã‚¯2ä»¥é™ã¯ä½¿ç”¨ã—ã¦ã„ãªã„
 
-#define CRTR ((volatile uint16_t*)0xe80000)        // CRTCƒŒƒWƒXƒ^
-#define CRTR_00 (*(volatile uint16_t*)0xe80000)    // CRTCƒŒƒWƒXƒ^0
-#define CRTR_01 (*(volatile uint16_t*)0xe80002)    // CRTCƒŒƒWƒXƒ^1
-#define CRTR_02 (*(volatile uint16_t*)0xe80004)    // CRTCƒŒƒWƒXƒ^2
-#define CRTR_03 (*(volatile uint16_t*)0xe80006)    // CRTCƒŒƒWƒXƒ^3
-#define CRTR_04 (*(volatile uint16_t*)0xe80008)    // CRTCƒŒƒWƒXƒ^4
-#define CRTR_05 (*(volatile uint16_t*)0xe8000a)    // CRTCƒŒƒWƒXƒ^5
-#define CRTR_06 (*(volatile uint16_t*)0xe8000c)    // CRTCƒŒƒWƒXƒ^6
-#define CRTR_07 (*(volatile uint16_t*)0xe8000e)    // CRTCƒŒƒWƒXƒ^7
-#define CRTR_08 (*(volatile uint16_t*)0xe80010)    // CRTCƒŒƒWƒXƒ^8
-#define CRTR_09 (*(volatile uint16_t*)0xe80012)    // CRTCƒŒƒWƒXƒ^9
-#define CRTR_10 (*(volatile uint16_t*)0xe80014)    // CRTCƒŒƒWƒXƒ^10 (ƒeƒLƒXƒgƒXƒNƒ[ƒ‹X)
-#define CRTR_11 (*(volatile uint16_t*)0xe80016)    // CRTCƒŒƒWƒXƒ^11 (ƒeƒLƒXƒgƒXƒNƒ[ƒ‹Y)
-#define CRTR_SCR_p ((volatile uint16_t*)0xe80018)  // CRTCƒXƒNƒ[ƒ‹ƒŒƒWƒXƒ^‚Ö‚Ìƒ|ƒCƒ“ƒ^
-#define CRTR_12 (*(volatile uint16_t*)0xe80018)    // CRTCƒŒƒWƒXƒ^12 (GR0‚ÌƒXƒNƒ[ƒ‹Xj
-#define CRTR_13 (*(volatile uint16_t*)0xe8001a)    // CRTCƒŒƒWƒXƒ^13 (GR0‚ÌƒXƒNƒ[ƒ‹Y)
-#define CRTR_14 (*(volatile uint16_t*)0xe8001c)    // CRTCƒŒƒWƒXƒ^14 (GR1‚ÌƒXƒNƒ[ƒ‹Xj
-#define CRTR_15 (*(volatile uint16_t*)0xe8001e)    // CRTCƒŒƒWƒXƒ^15 (GR1‚ÌƒXƒNƒ[ƒ‹Y)
+#define CRTR ((volatile uint16_t*)0xe80000)        // CRTCãƒ¬ã‚¸ã‚¹ã‚¿
+#define CRTR_00 (*(volatile uint16_t*)0xe80000)    // CRTCãƒ¬ã‚¸ã‚¹ã‚¿0
+#define CRTR_01 (*(volatile uint16_t*)0xe80002)    // CRTCãƒ¬ã‚¸ã‚¹ã‚¿1
+#define CRTR_02 (*(volatile uint16_t*)0xe80004)    // CRTCãƒ¬ã‚¸ã‚¹ã‚¿2
+#define CRTR_03 (*(volatile uint16_t*)0xe80006)    // CRTCãƒ¬ã‚¸ã‚¹ã‚¿3
+#define CRTR_04 (*(volatile uint16_t*)0xe80008)    // CRTCãƒ¬ã‚¸ã‚¹ã‚¿4
+#define CRTR_05 (*(volatile uint16_t*)0xe8000a)    // CRTCãƒ¬ã‚¸ã‚¹ã‚¿5
+#define CRTR_06 (*(volatile uint16_t*)0xe8000c)    // CRTCãƒ¬ã‚¸ã‚¹ã‚¿6
+#define CRTR_07 (*(volatile uint16_t*)0xe8000e)    // CRTCãƒ¬ã‚¸ã‚¹ã‚¿7
+#define CRTR_08 (*(volatile uint16_t*)0xe80010)    // CRTCãƒ¬ã‚¸ã‚¹ã‚¿8
+#define CRTR_09 (*(volatile uint16_t*)0xe80012)    // CRTCãƒ¬ã‚¸ã‚¹ã‚¿9
+#define CRTR_10 (*(volatile uint16_t*)0xe80014)    // CRTCãƒ¬ã‚¸ã‚¹ã‚¿10 (ãƒ†ã‚­ã‚¹ãƒˆã‚¹ã‚¯ãƒ­ãƒ¼ãƒ«X)
+#define CRTR_11 (*(volatile uint16_t*)0xe80016)    // CRTCãƒ¬ã‚¸ã‚¹ã‚¿11 (ãƒ†ã‚­ã‚¹ãƒˆã‚¹ã‚¯ãƒ­ãƒ¼ãƒ«Y)
+#define CRTR_SCR_p ((volatile uint16_t*)0xe80018)  // CRTCã‚¹ã‚¯ãƒ­ãƒ¼ãƒ«ãƒ¬ã‚¸ã‚¹ã‚¿ã¸ã®ãƒã‚¤ãƒ³ã‚¿
+#define CRTR_12 (*(volatile uint16_t*)0xe80018)    // CRTCãƒ¬ã‚¸ã‚¹ã‚¿12 (GR0ã®ã‚¹ã‚¯ãƒ­ãƒ¼ãƒ«Xï¼‰
+#define CRTR_13 (*(volatile uint16_t*)0xe8001a)    // CRTCãƒ¬ã‚¸ã‚¹ã‚¿13 (GR0ã®ã‚¹ã‚¯ãƒ­ãƒ¼ãƒ«Y)
+#define CRTR_14 (*(volatile uint16_t*)0xe8001c)    // CRTCãƒ¬ã‚¸ã‚¹ã‚¿14 (GR1ã®ã‚¹ã‚¯ãƒ­ãƒ¼ãƒ«Xï¼‰
+#define CRTR_15 (*(volatile uint16_t*)0xe8001e)    // CRTCãƒ¬ã‚¸ã‚¹ã‚¿15 (GR1ã®ã‚¹ã‚¯ãƒ­ãƒ¼ãƒ«Y)
 
-#define CRTR_20 (*(volatile uint16_t*)0xe80028)  // CRTCƒŒƒWƒXƒ^20
-#define CRTR_21 (*(volatile uint16_t*)0xe8002a)  // CRTCƒŒƒWƒXƒ^21
-#define CRTR_23 (*(volatile uint16_t*)0xe8002e)  // CRTCƒŒƒWƒXƒ^23
+#define CRTR_20 (*(volatile uint16_t*)0xe80028)  // CRTCãƒ¬ã‚¸ã‚¹ã‚¿20
+#define CRTR_21 (*(volatile uint16_t*)0xe8002a)  // CRTCãƒ¬ã‚¸ã‚¹ã‚¿21
+#define CRTR_23 (*(volatile uint16_t*)0xe8002e)  // CRTCãƒ¬ã‚¸ã‚¹ã‚¿23
 
-#define VCRR_00 (*(volatile uint16_t*)0xe82400)  // ƒrƒfƒIƒRƒ“ƒgƒ[ƒ‹ƒŒƒWƒXƒ^0
-#define VCRR_01 (*(volatile uint16_t*)0xe82500)  // ƒrƒfƒIƒRƒ“ƒgƒ[ƒ‹ƒŒƒWƒXƒ^1
-#define VCRR_02 (*(volatile uint16_t*)0xe82600)  // ƒrƒfƒIƒRƒ“ƒgƒ[ƒ‹ƒŒƒWƒXƒ^2
+#define VCRR_00 (*(volatile uint16_t*)0xe82400)  // ãƒ“ãƒ‡ã‚ªã‚³ãƒ³ãƒˆãƒ­ãƒ¼ãƒ«ãƒ¬ã‚¸ã‚¹ã‚¿0
+#define VCRR_01 (*(volatile uint16_t*)0xe82500)  // ãƒ“ãƒ‡ã‚ªã‚³ãƒ³ãƒˆãƒ­ãƒ¼ãƒ«ãƒ¬ã‚¸ã‚¹ã‚¿1
+#define VCRR_02 (*(volatile uint16_t*)0xe82600)  // ãƒ“ãƒ‡ã‚ªã‚³ãƒ³ãƒˆãƒ­ãƒ¼ãƒ«ãƒ¬ã‚¸ã‚¹ã‚¿2
 
-#define SPCON_BGCON (*(volatile uint16_t*)0xeb0808)   // BGƒRƒ“ƒgƒ[ƒ‹ƒŒƒWƒXƒ^
-#define SPCON_HTOTAL (*(volatile uint16_t*)0xeb080a)  // …•½ƒg[ƒ^ƒ‹ƒŒƒWƒXƒ^
-#define SPCON_HDISP (*(volatile uint16_t*)0xeb080c)   // …•½‰ğ‘œ“xİ’èƒŒƒWƒXƒ^
-#define SPCON_VSISP (*(volatile uint16_t*)0xeb080e)   // ‚’¼‰ğ‘œ“xİ’èƒŒƒWƒXƒ^
-#define SPCON_RES (*(volatile uint16_t*)0xeb0810)     // ƒXƒvƒ‰ƒCƒg‰ğ‘œ“xİ’èƒŒƒWƒXƒ^
+#define SPCON_BGCON (*(volatile uint16_t*)0xeb0808)   // BGã‚³ãƒ³ãƒˆãƒ­ãƒ¼ãƒ«ãƒ¬ã‚¸ã‚¹ã‚¿
+#define SPCON_HTOTAL (*(volatile uint16_t*)0xeb080a)  // æ°´å¹³ãƒˆãƒ¼ã‚¿ãƒ«ãƒ¬ã‚¸ã‚¹ã‚¿
+#define SPCON_HDISP (*(volatile uint16_t*)0xeb080c)   // æ°´å¹³è§£åƒåº¦è¨­å®šãƒ¬ã‚¸ã‚¹ã‚¿
+#define SPCON_VSISP (*(volatile uint16_t*)0xeb080e)   // å‚ç›´è§£åƒåº¦è¨­å®šãƒ¬ã‚¸ã‚¹ã‚¿
+#define SPCON_RES (*(volatile uint16_t*)0xeb0810)     // ã‚¹ãƒ—ãƒ©ã‚¤ãƒˆè§£åƒåº¦è¨­å®šãƒ¬ã‚¸ã‚¹ã‚¿
 
-#define X68_SSR ((uint16_t*)0xeb0000)  // ƒXƒvƒ‰ƒCƒgƒXƒNƒ[ƒ‹ƒŒƒWƒXƒ^
-#define X68_PCG ((uint32_t*)0xeb8000)  // ƒXƒvƒ‰ƒCƒgƒpƒ^[ƒ“
+#define X68_SSR ((uint16_t*)0xeb0000)  // ã‚¹ãƒ—ãƒ©ã‚¤ãƒˆã‚¹ã‚¯ãƒ­ãƒ¼ãƒ«ãƒ¬ã‚¸ã‚¹ã‚¿
+#define X68_PCG ((uint32_t*)0xeb8000)  // ã‚¹ãƒ—ãƒ©ã‚¤ãƒˆãƒ‘ã‚¿ãƒ¼ãƒ³
 
 #define CRT_MODE_GRAPHIC1 0x00
 #define CRT_MODE_TEXT1 0x01
@@ -89,22 +89,22 @@ typedef struct ms_vdp_cmd_ctx {
 } ms_vdp_cmd_ctx_t;
 
 /**
- * @brief VDPƒNƒ‰ƒX‚Ì’è‹`
+ * @brief VDPã‚¯ãƒ©ã‚¹ã®å®šç¾©
  *
  */
 typedef struct ms_vdp {
     uint8_t r00;   // Mode register 0
     uint8_t r01;   // Mode register 1
-    uint8_t _r02;  // R02‚Ì¶‚Ì’lBÀÛ‚ÌƒAƒNƒZƒX‚Å‚Í pnametbl_baddr ‚ğg‚¤
-    uint8_t _r03;  // R03‚Ì¶‚Ì’lBÀÛ‚ÌƒAƒNƒZƒX‚Å‚Í R10 ‚ÆŒ‹‡‚µ‚½ colortbl_baddr ‚ğg‚¤
-    uint8_t _r04;  // R04‚Ì¶‚Ì’lBÀÛ‚ÌƒAƒNƒZƒX‚Å‚Í pgentbl_baddr ‚ğg‚¤
-    uint8_t _r05;  // R05‚Ì¶‚Ì’lBÀÛ‚ÌƒAƒNƒZƒX‚Å‚Í R11 ‚ÆŒ‹‡‚µ‚½ sprattrtbl_baddr ‚ğg‚¤
-    uint8_t _r06;  // R06‚Ì¶‚Ì’lBÀÛ‚ÌƒAƒNƒZƒX‚Å‚Í sprpgentbl_baddr ‚ğg‚¤
-    uint8_t _r07;  // R07‚Ì¶‚Ì’lBÀÛ‚ÌƒAƒNƒZƒX‚Å‚Í text_color / back_color ‚ğg‚¤
+    uint8_t _r02;  // R02ã®ç”Ÿã®å€¤ã€‚å®Ÿéš›ã®ã‚¢ã‚¯ã‚»ã‚¹ã§ã¯ pnametbl_baddr ã‚’ä½¿ã†
+    uint8_t _r03;  // R03ã®ç”Ÿã®å€¤ã€‚å®Ÿéš›ã®ã‚¢ã‚¯ã‚»ã‚¹ã§ã¯ R10 ã¨çµåˆã—ãŸ colortbl_baddr ã‚’ä½¿ã†
+    uint8_t _r04;  // R04ã®ç”Ÿã®å€¤ã€‚å®Ÿéš›ã®ã‚¢ã‚¯ã‚»ã‚¹ã§ã¯ pgentbl_baddr ã‚’ä½¿ã†
+    uint8_t _r05;  // R05ã®ç”Ÿã®å€¤ã€‚å®Ÿéš›ã®ã‚¢ã‚¯ã‚»ã‚¹ã§ã¯ R11 ã¨çµåˆã—ãŸ sprattrtbl_baddr ã‚’ä½¿ã†
+    uint8_t _r06;  // R06ã®ç”Ÿã®å€¤ã€‚å®Ÿéš›ã®ã‚¢ã‚¯ã‚»ã‚¹ã§ã¯ sprpgentbl_baddr ã‚’ä½¿ã†
+    uint8_t _r07;  // R07ã®ç”Ÿã®å€¤ã€‚å®Ÿéš›ã®ã‚¢ã‚¯ã‚»ã‚¹ã§ã¯ text_color / back_color ã‚’ä½¿ã†
     uint8_t r08;   // Mode register 2
     uint8_t r09;   // Mode register 3
-    uint8_t _r10;  // R10‚Ì¶‚Ì’lBÀÛ‚ÌƒAƒNƒZƒX‚Å‚Í R03 ‚ÆŒ‹‡‚µ‚½ colortbl_baddr ‚ğg‚¤
-    uint8_t _r11;  // R11‚Ì¶‚Ì’lBÀÛ‚ÌƒAƒNƒZƒX‚Å‚Í R05 ‚ÆŒ‹‡‚µ‚½ sprattrtbl_baddr ‚ğg‚¤
+    uint8_t _r10;  // R10ã®ç”Ÿã®å€¤ã€‚å®Ÿéš›ã®ã‚¢ã‚¯ã‚»ã‚¹ã§ã¯ R03 ã¨çµåˆã—ãŸ colortbl_baddr ã‚’ä½¿ã†
+    uint8_t _r11;  // R11ã®ç”Ÿã®å€¤ã€‚å®Ÿéš›ã®ã‚¢ã‚¯ã‚»ã‚¹ã§ã¯ R05 ã¨çµåˆã—ãŸ sprattrtbl_baddr ã‚’ä½¿ã†
     uint8_t r12;
     uint8_t r13;
     uint8_t r14;
@@ -125,7 +125,7 @@ typedef struct ms_vdp {
     uint8_t r29;
     uint8_t r30;
     uint8_t r31;
-    uint16_t sx;  // 32,33 (•À‚Ñ‚ª‹t‚É‚È‚é‚Ì‚Å’ˆÓ)
+    uint16_t sx;  // 32,33 (ä¸¦ã³ãŒé€†ã«ãªã‚‹ã®ã§æ³¨æ„)
     uint16_t sy;  // 34,35
     uint16_t dx;  // 36,37
     uint16_t dy;  // 38,39
@@ -151,16 +151,16 @@ typedef struct ms_vdp {
 
     // Palette Registers
     uint16_t palette[16];    // offset = +58
-    uint8_t alt_color_zero;  // ƒJƒ‰[ƒR[ƒh0‚ÌF‚ÉÅ‚à‹ß‚¢F‚ğ‚ÂƒpƒŒƒbƒg”Ô†BƒXƒvƒ‰ƒCƒg‚ªƒJƒ‰[ƒR[ƒh0‚Å•`‰æ‚Å‚«‚é–â‘è‚Ö‚Ì‘Îˆ
+    uint8_t alt_color_zero;  // ã‚«ãƒ©ãƒ¼ã‚³ãƒ¼ãƒ‰0ã®è‰²ã«æœ€ã‚‚è¿‘ã„è‰²ã‚’æŒã¤ãƒ‘ãƒ¬ãƒƒãƒˆç•ªå·ã€‚ã‚¹ãƒ—ãƒ©ã‚¤ãƒˆãŒã‚«ãƒ©ãƒ¼ã‚³ãƒ¼ãƒ‰0ã§æç”»ã§ãã‚‹å•é¡Œã¸ã®å¯¾å‡¦
     uint8_t dummy2;
 
     // Special Control Registers
-    // 	“ÁêƒRƒ“ƒgƒ[ƒ‹ƒŒƒWƒXƒ^
+    // 	ç‰¹æ®Šã‚³ãƒ³ãƒˆãƒ­ãƒ¼ãƒ«ãƒ¬ã‚¸ã‚¹ã‚¿
     //  R_00:	.dc.b	0		* [ 0 ][ DG][IE2][IE1][ M5][ M4][ M3][ 0 ]
     //	R_01:	.dc.b	0		* [ 0 ][ BL][IE0][ M1][ M2][ 0 ][ SI][MAG]
-    uint8_t crt_mode;     // R_0,R_1‚Ì[ M5]`[ M0]
-    uint8_t sprite_size;  // R_1‚Ì[ SI]
-    uint8_t sprite_zoom;  // R_1‚Ì[MAG]
+    uint8_t crt_mode;     // R_0,R_1ã®[ M5]ï½[ M0]
+    uint8_t sprite_size;  // R_1ã®[ SI]
+    uint8_t sprite_zoom;  // R_1ã®[MAG]
     uint8_t dummy3;
 
     // base address registers
@@ -189,66 +189,66 @@ typedef struct ms_vdp {
     uint16_t gr_active;
     uint16_t gr_active_interlace;
 
-    // X68000‘¤‚ÉŠm•Û‚µ‚½VRAM‚Ìæ“ªƒAƒhƒŒƒX
+    // X68000å´ã«ç¢ºä¿ã—ãŸVRAMã®å…ˆé ­ã‚¢ãƒ‰ãƒ¬ã‚¹
     uint8_t* vram;
 
-    // X68000‚ÌPCG‚É“]‘—‚·‚é‚½‚ß‚Ìƒoƒbƒtƒ@—Ìˆæ
+    // X68000ã®PCGã«è»¢é€ã™ã‚‹ãŸã‚ã®ãƒãƒƒãƒ•ã‚¡é ˜åŸŸ
     uint32_t* x68_pcg_buffer;
     int last_visible_sprite_planes;
     int last_visible_sprite_size;
 
-    // ƒXƒvƒ‰ƒCƒgƒŠƒtƒŒƒbƒVƒ…—v‹ƒtƒ‰ƒO
-    // ‚Ç‚Ìƒrƒbƒg‚ª1‚É‚È‚Á‚Ä‚¢‚é‚©‚ÅAÄ•`‰æ‚·‚é”ÍˆÍ‚ğŒˆ’è‚µ‚Ü‚·B
-    // ƒrƒbƒg”Ô†‚ª‰º‚Ì‚à‚Ì‚Ù‚ÇŒy‚¢ˆ—‚ÅAã‚É‚È‚é’öv‚¢ˆ—‚Æ‚µ‚Ä‚¢‚Ü‚·B
-    // Œ»ó‚Å’è‹`‚µ‚Ä‚¢‚é‚Ì‚ÍˆÈ‰º‚Ì’Ê‚è‚Å‚·B
-    // bit 0: ƒXƒvƒ‰ƒCƒg‚ÌÀ•W‚âA•\¦”ñ•\¦‚Ì‚İ‚Ì•ÏX
-    // bit 1: ƒXƒvƒ‰ƒCƒgƒAƒgƒŠƒrƒ…[ƒgƒe[ƒuƒ‹/ƒJƒ‰[ƒe[ƒuƒ‹‚Ì•ÏX (ƒpƒ^[ƒ“”Ô†‚âF‚Ì•ÏX‚Ì‚İ‚ÅAƒpƒ^[ƒ“©‘Ì‚É•ÏX‚Í‚È‚¢)
-    // bit 2: CCƒrƒbƒgƒrƒbƒgƒ}ƒbƒvƒtƒ‰ƒO‚Ì•ÏX
-    // bit 3: ƒpƒ^[ƒ“ƒWƒFƒlƒŒ[ƒ^ƒe[ƒuƒ‹‚Ì•ÏX
+    // ã‚¹ãƒ—ãƒ©ã‚¤ãƒˆãƒªãƒ•ãƒ¬ãƒƒã‚·ãƒ¥è¦æ±‚ãƒ•ãƒ©ã‚°
+    // ã©ã®ãƒ“ãƒƒãƒˆãŒ1ã«ãªã£ã¦ã„ã‚‹ã‹ã§ã€å†æç”»ã™ã‚‹ç¯„å›²ã‚’æ±ºå®šã—ã¾ã™ã€‚
+    // ãƒ“ãƒƒãƒˆç•ªå·ãŒä¸‹ã®ã‚‚ã®ã»ã©è»½ã„å‡¦ç†ã§ã€ä¸Šã«ãªã‚‹ç¨‹æ€ã„å‡¦ç†ã¨ã—ã¦ã„ã¾ã™ã€‚
+    // ç¾çŠ¶ã§å®šç¾©ã—ã¦ã„ã‚‹ã®ã¯ä»¥ä¸‹ã®é€šã‚Šã§ã™ã€‚
+    // bit 0: ã‚¹ãƒ—ãƒ©ã‚¤ãƒˆã®åº§æ¨™ã‚„ã€è¡¨ç¤ºéè¡¨ç¤ºã®ã¿ã®å¤‰æ›´
+    // bit 1: ã‚¹ãƒ—ãƒ©ã‚¤ãƒˆã‚¢ãƒˆãƒªãƒ“ãƒ¥ãƒ¼ãƒˆãƒ†ãƒ¼ãƒ–ãƒ«/ã‚«ãƒ©ãƒ¼ãƒ†ãƒ¼ãƒ–ãƒ«ã®å¤‰æ›´ (ãƒ‘ã‚¿ãƒ¼ãƒ³ç•ªå·ã‚„è‰²ã®å¤‰æ›´ã®ã¿ã§ã€ãƒ‘ã‚¿ãƒ¼ãƒ³è‡ªä½“ã«å¤‰æ›´ã¯ãªã„)
+    // bit 2: CCãƒ“ãƒƒãƒˆãƒ“ãƒƒãƒˆãƒãƒƒãƒ—ãƒ•ãƒ©ã‚°ã®å¤‰æ›´
+    // bit 3: ãƒ‘ã‚¿ãƒ¼ãƒ³ã‚¸ã‚§ãƒãƒ¬ãƒ¼ã‚¿ãƒ†ãƒ¼ãƒ–ãƒ«ã®å¤‰æ›´
     //
-    // bit0‚ğƒZƒbƒg‚·‚é‚ÆAƒXƒvƒ‰ƒCƒg”ñ•\¦ƒrƒbƒg‚Ì•ÏX‚âAƒXƒvƒ‰ƒCƒg‚ÌY=208‚É‚æ‚é”ñ•\¦AR#23‚ÌcƒXƒNƒ[ƒ‹‚É‚æ‚é
-    // ˆÊ’u•Ï‰»‚È‚Ç‚ğXV‚µ‚Ü‚·B
-    // ŒÂ•ÊƒXƒvƒ‰ƒCƒg‚Ì XÀ•WAYÀ•W‚Ì•ÏX‚Í‘¦À‚É”½‰f‚³‚¹‚Ä‚¢‚é‚Ì‚ÅA‚±‚ê‚ğƒZƒbƒg‚µ‚È‚­‚Ä‚àA
-    // ƒXƒvƒ‰ƒCƒg‚ÌÀ•W‚Í•Ï‰»‚µ‚Ü‚·B
-    // i‚à‚µ‚©‚µ‚½‚çA«—ˆAXYÀ•W‚à’x‰„ƒŠƒtƒŒƒbƒVƒ…‚³‚¹‚é‚æ‚¤‚É‚·‚é‚©‚àHj
+    // bit0ã‚’ã‚»ãƒƒãƒˆã™ã‚‹ã¨ã€ã‚¹ãƒ—ãƒ©ã‚¤ãƒˆéè¡¨ç¤ºãƒ“ãƒƒãƒˆã®å¤‰æ›´ã‚„ã€ã‚¹ãƒ—ãƒ©ã‚¤ãƒˆã®Y=208ã«ã‚ˆã‚‹éè¡¨ç¤ºã€R#23ã®ç¸¦ã‚¹ã‚¯ãƒ­ãƒ¼ãƒ«ã«ã‚ˆã‚‹
+    // ä½ç½®å¤‰åŒ–ãªã©ã‚’æ›´æ–°ã—ã¾ã™ã€‚
+    // å€‹åˆ¥ã‚¹ãƒ—ãƒ©ã‚¤ãƒˆã® Xåº§æ¨™ã€Yåº§æ¨™ã®å¤‰æ›´ã¯å³åº§ã«åæ˜ ã•ã›ã¦ã„ã‚‹ã®ã§ã€ã“ã‚Œã‚’ã‚»ãƒƒãƒˆã—ãªãã¦ã‚‚ã€
+    // ã‚¹ãƒ—ãƒ©ã‚¤ãƒˆã®åº§æ¨™ã¯å¤‰åŒ–ã—ã¾ã™ã€‚
+    // ï¼ˆã‚‚ã—ã‹ã—ãŸã‚‰ã€å°†æ¥ã€XYåº§æ¨™ã‚‚é…å»¶ãƒªãƒ•ãƒ¬ãƒƒã‚·ãƒ¥ã•ã›ã‚‹ã‚ˆã†ã«ã™ã‚‹ã‹ã‚‚ï¼Ÿï¼‰
     //
-    // bit1‚ğƒZƒbƒg‚·‚é‚ÆA‘SƒXƒvƒ‰ƒCƒgƒvƒŒ[ƒ“‚É‘Î‰‚·‚éPCG‚ğXV‚µ‚Ü‚·B
-    // ÀPCG‚Í–‘O‚ÉŒvZ‚µ‚½PCGƒoƒbƒtƒ@‚ğg‚Á‚Ä‚¢‚é‚½‚ßAVRAMã‚Ìƒpƒ^[ƒ“‚ª•ÏX‚³‚ê‚Ä‚¢‚éê‡‚ÍA
-    // bit3‚Ì•û‚àƒZƒbƒg‚µ‚È‚¢‚Æ’Ç]‚µ‚Ü‚¹‚ñB
-    // bit1‚Í‚½‚Æ‚¦‚ÎAVDP‚Å’¼ÚƒXƒvƒ‰ƒCƒgƒAƒgƒŠƒrƒ…[ƒgƒe[ƒuƒ‹‚ğ‘‚«’×‚³‚ê‚½ê‡‚âAƒXƒvƒ‰ƒCƒgƒAƒgƒŠƒrƒ…[ƒg
-    // ƒe[ƒuƒ‹ƒx[ƒXƒAƒhƒŒƒXƒŒƒWƒXƒ^‚É•ÏX‚ª“ü‚Á‚½ê‡‚Ég—p‚µ‚Ü‚·B‚±‚Ìƒrƒbƒg‚ª—§‚Á‚Ä‚¢‚½ê‡‚ÍA
-    // ƒLƒƒƒbƒVƒ…‚³‚ê‚Ä‚¢‚éPCGƒoƒbƒtƒ@‚ğŒ³‚É X68000‘¤‚ÌƒXƒvƒ‰ƒCƒgƒpƒ^[ƒ“‚ğ‘S‚ÄÄ•`‰æ‚µ‚Ü‚·‚ªA
-    // MSX‘¤‚ÅF‚ª•ÏX‚³‚ê‚½‚¾‚¯‚Å‚àAX68000‘¤‚ÍƒJƒ‰[ƒR[ƒh‚ğ‘‚«’¼‚³‚È‚¢‚Æ‚¢‚¯‚È‚¢‚½‚ßA
-    // ‚±‚Ìˆ—‚ª•K—v‚Å‚·
+    // bit1ã‚’ã‚»ãƒƒãƒˆã™ã‚‹ã¨ã€å…¨ã‚¹ãƒ—ãƒ©ã‚¤ãƒˆãƒ—ãƒ¬ãƒ¼ãƒ³ã«å¯¾å¿œã™ã‚‹PCGã‚’æ›´æ–°ã—ã¾ã™ã€‚
+    // å®ŸPCGã¯äº‹å‰ã«è¨ˆç®—ã—ãŸPCGãƒãƒƒãƒ•ã‚¡ã‚’ä½¿ã£ã¦ã„ã‚‹ãŸã‚ã€VRAMä¸Šã®ãƒ‘ã‚¿ãƒ¼ãƒ³ãŒå¤‰æ›´ã•ã‚Œã¦ã„ã‚‹å ´åˆã¯ã€
+    // bit3ã®æ–¹ã‚‚ã‚»ãƒƒãƒˆã—ãªã„ã¨è¿½å¾“ã—ã¾ã›ã‚“ã€‚
+    // bit1ã¯ãŸã¨ãˆã°ã€VDPã§ç›´æ¥ã‚¹ãƒ—ãƒ©ã‚¤ãƒˆã‚¢ãƒˆãƒªãƒ“ãƒ¥ãƒ¼ãƒˆãƒ†ãƒ¼ãƒ–ãƒ«ã‚’æ›¸ãæ½°ã•ã‚ŒãŸå ´åˆã‚„ã€ã‚¹ãƒ—ãƒ©ã‚¤ãƒˆã‚¢ãƒˆãƒªãƒ“ãƒ¥ãƒ¼ãƒˆ
+    // ãƒ†ãƒ¼ãƒ–ãƒ«ãƒ™ãƒ¼ã‚¹ã‚¢ãƒ‰ãƒ¬ã‚¹ãƒ¬ã‚¸ã‚¹ã‚¿ã«å¤‰æ›´ãŒå…¥ã£ãŸå ´åˆã«ä½¿ç”¨ã—ã¾ã™ã€‚ã“ã®ãƒ“ãƒƒãƒˆãŒç«‹ã£ã¦ã„ãŸå ´åˆã¯ã€
+    // ã‚­ãƒ£ãƒƒã‚·ãƒ¥ã•ã‚Œã¦ã„ã‚‹PCGãƒãƒƒãƒ•ã‚¡ã‚’å…ƒã« X68000å´ã®ã‚¹ãƒ—ãƒ©ã‚¤ãƒˆãƒ‘ã‚¿ãƒ¼ãƒ³ã‚’å…¨ã¦å†æç”»ã—ã¾ã™ãŒã€
+    // MSXå´ã§è‰²ãŒå¤‰æ›´ã•ã‚ŒãŸã ã‘ã§ã‚‚ã€X68000å´ã¯ã‚«ãƒ©ãƒ¼ã‚³ãƒ¼ãƒ‰ã‚’æ›¸ãç›´ã•ãªã„ã¨ã„ã‘ãªã„ãŸã‚ã€
+    // ã“ã®å‡¦ç†ãŒå¿…è¦ã§ã™
     //
-    // bit2‚ğƒZƒbƒg‚·‚é‚ÆAƒXƒvƒ‰ƒCƒgƒ‚[ƒh2‚ÌCCƒrƒbƒg‚ğ‘SŒŸ¸‚µ‚ÄAƒrƒbƒgƒ}ƒbƒvƒtƒ‰ƒOÄì¬‚µ‚Ü‚·B
-    // ƒXƒvƒ‰ƒCƒgƒJƒ‰[ƒe[ƒuƒ‹ƒx[ƒXƒAƒhƒŒƒX‚ª•ÏX‚³‚ê‚½‚ÉƒZƒbƒg‚·‚é•K—v‚ª‚ ‚è‚Ü‚·B
+    // bit2ã‚’ã‚»ãƒƒãƒˆã™ã‚‹ã¨ã€ã‚¹ãƒ—ãƒ©ã‚¤ãƒˆãƒ¢ãƒ¼ãƒ‰2ã®CCãƒ“ãƒƒãƒˆã‚’å…¨æ¤œæŸ»ã—ã¦ã€ãƒ“ãƒƒãƒˆãƒãƒƒãƒ—ãƒ•ãƒ©ã‚°å†ä½œæˆã—ã¾ã™ã€‚
+    // ã‚¹ãƒ—ãƒ©ã‚¤ãƒˆã‚«ãƒ©ãƒ¼ãƒ†ãƒ¼ãƒ–ãƒ«ãƒ™ãƒ¼ã‚¹ã‚¢ãƒ‰ãƒ¬ã‚¹ãŒå¤‰æ›´ã•ã‚ŒãŸæ™‚ã«ã‚»ãƒƒãƒˆã™ã‚‹å¿…è¦ãŒã‚ã‚Šã¾ã™ã€‚
     //
-    // bit3‚ÍAVDP‚Å’¼ÚƒXƒvƒ‰ƒCƒgƒpƒ^[ƒ“ƒWƒFƒlƒŒ[ƒ^ƒe[ƒuƒ‹‚ğ‘‚«’×‚³‚ê‚½ê‡‚âAƒXƒvƒ‰ƒCƒgƒpƒ^[ƒ“
-    // ƒWƒFƒlƒŒ[ƒ^ƒe[ƒuƒ‹ƒx[ƒXƒAƒhƒŒƒXƒŒƒWƒXƒ^‚É•ÏX‚ª“ü‚Á‚½ê‡‚Ég—p‚µ‚Ü‚·B
-    // ‚±‚Ìƒrƒbƒg‚ª—§‚Á‚Ä‚¢‚½ê‡‚ÍAMSX‚Ìƒpƒ^[ƒ“ƒWƒFƒlƒŒ[ƒ^ƒe[ƒuƒ‹‚Ì’l‚ğŒ³‚ÉPCGƒoƒbƒtƒ@‚ğÄ\’z‚µ‚½ã‚ÅA
-    // X68000‘¤‚ÌƒXƒvƒ‰ƒCƒgƒpƒ^[ƒ“‚ğ‘S‚ÄÄ•`‰æ‚µ‚È‚¨‚µ‚Ü‚·B
+    // bit3ã¯ã€VDPã§ç›´æ¥ã‚¹ãƒ—ãƒ©ã‚¤ãƒˆãƒ‘ã‚¿ãƒ¼ãƒ³ã‚¸ã‚§ãƒãƒ¬ãƒ¼ã‚¿ãƒ†ãƒ¼ãƒ–ãƒ«ã‚’æ›¸ãæ½°ã•ã‚ŒãŸå ´åˆã‚„ã€ã‚¹ãƒ—ãƒ©ã‚¤ãƒˆãƒ‘ã‚¿ãƒ¼ãƒ³
+    // ã‚¸ã‚§ãƒãƒ¬ãƒ¼ã‚¿ãƒ†ãƒ¼ãƒ–ãƒ«ãƒ™ãƒ¼ã‚¹ã‚¢ãƒ‰ãƒ¬ã‚¹ãƒ¬ã‚¸ã‚¹ã‚¿ã«å¤‰æ›´ãŒå…¥ã£ãŸå ´åˆã«ä½¿ç”¨ã—ã¾ã™ã€‚
+    // ã“ã®ãƒ“ãƒƒãƒˆãŒç«‹ã£ã¦ã„ãŸå ´åˆã¯ã€MSXã®ãƒ‘ã‚¿ãƒ¼ãƒ³ã‚¸ã‚§ãƒãƒ¬ãƒ¼ã‚¿ãƒ†ãƒ¼ãƒ–ãƒ«ã®å€¤ã‚’å…ƒã«PCGãƒãƒƒãƒ•ã‚¡ã‚’å†æ§‹ç¯‰ã—ãŸä¸Šã§ã€
+    // X68000å´ã®ã‚¹ãƒ—ãƒ©ã‚¤ãƒˆãƒ‘ã‚¿ãƒ¼ãƒ³ã‚’å…¨ã¦å†æç”»ã—ãªãŠã—ã¾ã™ã€‚
     uint16_t sprite_refresh_flag;
 
-    // ƒXƒvƒ‰ƒCƒg‡¬ƒtƒ‰ƒO bit0‚ª Plane #0Abit1‚ª Plane #1Abit2‚ª Plane #2Abit3‚ª Plane #3
-    // ‡¬‚³‚ê‚Ä‚¢‚éê‡‚ÍA‚»‚ÌƒvƒŒ[ƒ“‚Íè‘O‚ÌƒvƒŒ[ƒ“‚ÉŠÜ‚Ü‚ê‚Ä‚¢‚é‚Ì‚ÅA”ñ•\¦‚É‚·‚é
+    // ã‚¹ãƒ—ãƒ©ã‚¤ãƒˆåˆæˆãƒ•ãƒ©ã‚° bit0ãŒ Plane #0ã€bit1ãŒ Plane #1ã€bit2ãŒ Plane #2ã€bit3ãŒ Plane #3
+    // åˆæˆã•ã‚Œã¦ã„ã‚‹å ´åˆã¯ã€ãã®ãƒ—ãƒ¬ãƒ¼ãƒ³ã¯æ‰‹å‰ã®ãƒ—ãƒ¬ãƒ¼ãƒ³ã«å«ã¾ã‚Œã¦ã„ã‚‹ã®ã§ã€éè¡¨ç¤ºã«ã™ã‚‹
     uint32_t sprite_composition_bits;
 
-    // Œ»İÀs’†‚ÌƒRƒ}ƒ“ƒh
+    // ç¾åœ¨å®Ÿè¡Œä¸­ã®ã‚³ãƒãƒ³ãƒ‰
     int (*current_command_exec)(struct ms_vdp* vdp);
 
-    // VDPƒRƒ}ƒ“ƒh‚Ìƒ[ƒNƒGƒŠƒA
-    // VDP‚ğ•ªŠ„‚Åˆ—‚·‚éÛ‚Ég—p‚·‚é‚à‚Ì‚ÅAƒRƒ}ƒ“ƒhÀs‚ÉƒZƒbƒg‚³‚ê‚é
-    // ‚±‚êˆÈ~‚Í ms_vdp_mac.has ‚É’è‹`‚³‚ê‚Ä‚¢‚éƒIƒtƒZƒbƒg‚É‰e‹¿‚µ‚È‚¢‚Ì‚Å‘Œ¸‚µ‚Ä‚àOK
+    // VDPã‚³ãƒãƒ³ãƒ‰ã®ãƒ¯ãƒ¼ã‚¯ã‚¨ãƒªã‚¢
+    // VDPã‚’æ™‚åˆ†å‰²ã§å‡¦ç†ã™ã‚‹éš›ã«ä½¿ç”¨ã™ã‚‹ã‚‚ã®ã§ã€ã‚³ãƒãƒ³ãƒ‰å®Ÿè¡Œæ™‚ã«ã‚»ãƒƒãƒˆã•ã‚Œã‚‹
+    // ã“ã‚Œä»¥é™ã¯ ms_vdp_mac.has ã«å®šç¾©ã•ã‚Œã¦ã„ã‚‹ã‚ªãƒ•ã‚»ãƒƒãƒˆã«å½±éŸ¿ã—ãªã„ã®ã§å¢—æ¸›ã—ã¦ã‚‚OK
     uint8_t cmd_current;
     uint8_t cmd_logiop;
     uint8_t cmd_arg;
     uint32_t cmd_vram_addr;
-    uint16_t cmd_vram_addr_mod;  // ˜_—“]‘—Avram_addr‚Ì1ƒoƒCƒg“à‚ÌˆÊ’u GRAPHIC4,6‚Ìê‡‚Í 0,1AGRAPHIC5‚Ìê‡‚Í 0,1,2,3
+    uint16_t cmd_vram_addr_mod;  // è«–ç†è»¢é€æ™‚ã€vram_addrã®1ãƒã‚¤ãƒˆå†…ã®ä½ç½® GRAPHIC4,6ã®å ´åˆã¯ 0,1ã€GRAPHIC5ã®å ´åˆã¯ 0,1,2,3
     uint16_t cmd_nx_count;
     uint16_t cmd_ny_count;
-    uint16_t cmd_ny_sprite_start;  // VDP‚ÅƒXƒvƒ‰ƒCƒg—Ìˆæ‚ğ‘‚«Š·‚¦‚ç‚ê‚½‚©‚ÌŒŸo—p
-    uint16_t cmd_ny_sprite_end;    // VDP‚ÅƒXƒvƒ‰ƒCƒg—Ìˆæ‚ğ‘‚«Š·‚¦‚ç‚ê‚½‚©‚ÌŒŸo—p
+    uint16_t cmd_ny_sprite_start;  // VDPã§ã‚¹ãƒ—ãƒ©ã‚¤ãƒˆé ˜åŸŸã‚’æ›¸ãæ›ãˆã‚‰ã‚ŒãŸã‹ã®æ¤œå‡ºç”¨
+    uint16_t cmd_ny_sprite_end;    // VDPã§ã‚¹ãƒ—ãƒ©ã‚¤ãƒˆé ˜åŸŸã‚’æ›¸ãæ›ãˆã‚‰ã‚ŒãŸã‹ã®æ¤œå‡ºç”¨
 
     ms_vdp_cmd_ctx_t cmd_context;
 
@@ -261,17 +261,17 @@ typedef struct ms_vdp {
 #define SPRITE_REFRESH_FLAG_FULL 0x10
 
 /*
- MSX‚Ì‰æ–Êƒ‚[ƒh‚²‚Æ‚ÉØ‚è‘Ö‚¦‚éˆ—ŒQ
+ MSXã®ç”»é¢ãƒ¢ãƒ¼ãƒ‰ã”ã¨ã«åˆ‡ã‚Šæ›¿ãˆã‚‹å‡¦ç†ç¾¤
 
  * init
-        * X68000‘¤‚ÌCRTCƒpƒ‰ƒ[ƒ^İ’è‚È‚Ç‚ğs‚¤
- * VDPƒŒƒWƒXƒ^‚Ì‘‚«Š·‚¦‚É‘Î‚·‚éˆ—
- * VRAM“Ç‚İ‚İ
- * VRAM‘‚«‚İ
-        * VDPƒŒƒWƒXƒ^‚Ì’l‚ÆƒAƒhƒŒƒX‚ğ”äŠr‚µAˆÈ‰º‚ğ•ªŠò
-                * ‰æ–Ê‘‚«Š·‚¦Œn
-                * ƒXƒvƒ‰ƒCƒg‚Ì‘‚«Š·‚¦
- * VDPƒRƒ}ƒ“ƒh‚ÌÀs
+        * X68000å´ã®CRTCãƒ‘ãƒ©ãƒ¡ãƒ¼ã‚¿è¨­å®šãªã©ã‚’è¡Œã†
+ * VDPãƒ¬ã‚¸ã‚¹ã‚¿ã®æ›¸ãæ›ãˆã«å¯¾ã™ã‚‹å‡¦ç†
+ * VRAMèª­ã¿è¾¼ã¿
+ * VRAMæ›¸ãè¾¼ã¿
+        * VDPãƒ¬ã‚¸ã‚¹ã‚¿ã®å€¤ã¨ã‚¢ãƒ‰ãƒ¬ã‚¹ã‚’æ¯”è¼ƒã—ã€ä»¥ä¸‹ã‚’åˆ†å²
+                * ç”»é¢æ›¸ãæ›ãˆç³»
+                * ã‚¹ãƒ—ãƒ©ã‚¤ãƒˆã®æ›¸ãæ›ãˆ
+ * VDPã‚³ãƒãƒ³ãƒ‰ã®å®Ÿè¡Œ
 
  */
 typedef struct ms_vdp_mode {
@@ -291,10 +291,10 @@ typedef struct ms_vdp_mode {
     void (*vdp_command_write)(ms_vdp_t* vdp, uint8_t data);
     void (*update_resolution)(ms_vdp_t* vdp);
     void (*vsync_draw)(ms_vdp_t* vdp);
-    int sprite_mode;    // 0x00: –¢g—p, 0x01: MODE1, 0x02: MODE2, bit7: 0=256ƒhƒbƒg, 1=512ƒhƒbƒg
-    int crt_width;      // MSX‚Ì‰æ–Ê•
-    int dots_per_byte;  // 1ƒoƒCƒg‚ ‚½‚è‚Ìƒhƒbƒg” (VDPƒRƒ}ƒ“ƒh—p)
-    int bits_per_dot;   // 1ƒhƒbƒg‚ ‚½‚è‚Ìƒrƒbƒg” (VDPƒRƒ}ƒ“ƒh—p)
+    int sprite_mode;    // 0x00: æœªä½¿ç”¨, 0x01: MODE1, 0x02: MODE2, bit7: 0=256ãƒ‰ãƒƒãƒˆ, 1=512ãƒ‰ãƒƒãƒˆ
+    int crt_width;      // MSXã®ç”»é¢å¹…
+    int dots_per_byte;  // 1ãƒã‚¤ãƒˆã‚ãŸã‚Šã®ãƒ‰ãƒƒãƒˆæ•° (VDPã‚³ãƒãƒ³ãƒ‰ç”¨)
+    int bits_per_dot;   // 1ãƒ‰ãƒƒãƒˆã‚ãŸã‚Šã®ãƒ“ãƒƒãƒˆæ•° (VDPã‚³ãƒãƒ³ãƒ‰ç”¨)
 } ms_vdp_mode_t;
 
 // singleton instance
@@ -327,9 +327,9 @@ void vdp_command_write(ms_vdp_t* vdp, uint8_t data);
 /**
  *
  * @param vdp
- * @param res 0=256ƒhƒbƒg, 1=512ƒhƒbƒg
- * @param color 0=16F, 1=256F, 3=65536F
- * @param bg 0=”ñ•\¦, 1=•\¦
+ * @param res 0=256ãƒ‰ãƒƒãƒˆ, 1=512ãƒ‰ãƒƒãƒˆ
+ * @param color 0=16è‰², 1=256è‰², 3=65536è‰²
+ * @param bg 0=éè¡¨ç¤º, 1=è¡¨ç¤º
  */
 void ms_vdp_update_resolution_COMMON(ms_vdp_t* vdp, unsigned int res, unsigned int color, unsigned int bg);
 void ms_vdp_update_visibility(ms_vdp_t* vdp);

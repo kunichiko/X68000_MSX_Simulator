@@ -1,24 +1,24 @@
 /*
-        PAC (Pana Amusement Pack�APanasoft SW-M001) �̃h���C�o
+        PAC (Pana Amusement Pack、Panasoft SW-M001) のドライバ
 
-        PAC�� SRAM�A�N�Z�X���@ (�\�t�g�����猩������)
+        PACの SRAMアクセス方法 (ソフト側から見た挙動)
 
-        * 1: 5FFEh�A5FFFh�� FFh �ł��邱�Ƃ��m�F����
-        * 2: 5FFEh�� 4Dh ����������ŁA�ǂݏo���āA4Dh �ł��邱�Ƃ��m�F����
-                * �� �قȂ�l���ǂ߂���A1�œǂݍ��� 5FFEh�̒l�������߂��ďI��
-        * 3: 5FFFh�� 69h ����������ŁA�ǂݏo���āA69h �ł��邱�Ƃ��m�F����
-                * �� �قȂ�l���ǂ߂���A1�œǂݍ��� 5FFEh�̒l�������߂��ďI��
-        * 4: 4000h-5FFDh �͈̔͂�SRAM�̈�Ƃ��ė��p�\�ɂȂ�
-        * 5: 5FFEh, 5FFFh �� 00h ����������ŏI�� (4Dh, 69h �ȊO���������܂���OK)
-        * 6: �I������ƁA5FFEh, 5FFFh ���� FFh ���ǂ߂�悤�ɂȂ�
+        * 1: 5FFEh、5FFFhが FFh であることを確認する
+        * 2: 5FFEhに 4Dh を書き込んで、読み出して、4Dh であることを確認する
+                * → 異なる値が読めたら、1で読み込んだ 5FFEhの値を書き戻して終了
+        * 3: 5FFFhに 69h を書き込んで、読み出して、69h であることを確認する
+                * → 異なる値が読めたら、1で読み込んだ 5FFEhの値を書き戻して終了
+        * 4: 4000h-5FFDh の範囲がSRAM領域として利用可能になる
+        * 5: 5FFEh, 5FFFh に 00h を書き込んで終了 (4Dh, 69h 以外が書き込まれればOK)
+        * 6: 終了すると、5FFEh, 5FFFh から FFh が読めるようになる
 
-        �� FM-PAC��SRAM�o�b�N�A�b�v�t�@�C���̎d�l
-        FM-PAC�ɂ̓����e�i���X�c�[����ROM�ɓ�������Ă���ASRAM�f�[�^���t�@�C���Ƀo�b�N�A�b�v���邱�Ƃ��ł���B
-        * �g���q�� .PAC
-        * �t�@�C���T�C�Y�� 8206 �o�C�g
-                * 16�o�C�g�w�b�_: "PAC2 BACKUP DATA"
-                * 1024�o�C�g��SRAM�f�[�^ x 7
-                * 1022�o�C�g��SRAM�f�[�^ x 1
+        ● FM-PACのSRAMバックアップファイルの仕様
+        FM-PACにはメンテナンスツールがROMに内蔵されており、SRAMデータをファイルにバックアップすることができる。
+        * 拡張子は .PAC
+        * ファイルサイズは 8206 バイト
+                * 16バイトヘッダ: "PAC2 BACKUP DATA"
+                * 1024バイトのSRAMデータ x 7
+                * 1022バイトのSRAMデータ x 1
 
 
  */
@@ -53,14 +53,14 @@ static void _write16(ms_memmap_driver_t* driver, uint16_t addr, uint16_t data);
 static void _fflush(ms_memmap_driver_t* driver);
 
 /*
-        �m�ۃ��[�`��
+        確保ルーチン
  */
 THIS* ms_memmap_PAC_alloc() {
     return (THIS*)new_malloc(sizeof(THIS));
 }
 
 /*
-        ���������[�`��
+        初期化ルーチン
  */
 void ms_memmap_PAC_init(ms_memmap_driver_PAC_t* instance, ms_memmap_t* memmap, uint8_t* buffer, uint32_t buf_length, uint32_t file_length,
                         uint8_t* file_path) {
@@ -69,27 +69,27 @@ void ms_memmap_PAC_init(ms_memmap_driver_PAC_t* instance, ms_memmap_t* memmap, u
     }
 
     if (file_length != 8206) {
-        MS_LOG(MS_LOG_ERROR, "PAC�̃t�@�C���T�C�Y�� 8206�o�C�g�ł���K�v������܂�\n");
+        MS_LOG(MS_LOG_ERROR, "PACのファイルサイズは 8206バイトである必要があります\n");
         return;
     }
-    // buffer�̐擪16�o�C�g�� "PAC2 BACKUP DATA" �ł��邱�Ƃ��m�F
+    // bufferの先頭16バイトが "PAC2 BACKUP DATA" であることを確認
     if (memcmp(buffer, "PAC2 BACKUP DATA", 16UL) != 0) {
-        MS_LOG(MS_LOG_ERROR, "PAC�̃t�@�C���w�b�_���s���ł�\n");
+        MS_LOG(MS_LOG_ERROR, "PACのファイルヘッダが不正です\n");
         return;
     }
 
-    // �f�[�^����16�o�C�g�̃w�b�_+8192-2�o�C�g=8206�o�C�g�����A�������m�ۂ�8K�P�ʂōs���Ă���̂�
-    // buffer��16�o�C�g+8192�o�C�g�ł���Ƃ��Ĉ����Ă����Ȃ��͂�
+    // データ長は16バイトのヘッダ+8192-2バイト=8206バイトだが、メモリ確保は8K単位で行われているので
+    // bufferは16バイト+8192バイトであるとして扱っても問題ないはず
     if (buf_length < 16 + 8192) {
-        MS_LOG(MS_LOG_ERROR, "PAC�̃o�b�t�@�T�C�Y���s���ł�\n");
+        MS_LOG(MS_LOG_ERROR, "PACのバッファサイズが不正です\n");
         return;
     }
     ms_memmap_driver_init(&instance->base, memmap, buffer);
 
-    // �v���p�e�B�⃁�\�b�h�̓o�^
+    // プロパティやメソッドの登録
     instance->base.type = ROM_TYPE_MIRRORED_ROM;
     instance->base.name = driver_name;
-    // instance->base.deinit = ms_memmap_PAC_deinit; �I�[�o�[���C�h�s�v
+    // instance->base.deinit = ms_memmap_PAC_deinit; オーバーライド不要
     instance->base.did_attach = _did_attach;
     instance->base.will_detach = _will_detach;
     instance->base.did_pause = _did_pause;
@@ -99,7 +99,7 @@ void ms_memmap_PAC_init(ms_memmap_driver_PAC_t* instance, ms_memmap_t* memmap, u
     instance->base.write8 = _write8;
     instance->base.write16 = _write16;
 
-    // �v���C�x�[�g�v���p�e�B
+    // プライベートプロパティ
     memcpy(instance->file_path, file_path, 256);
     instance->sram_enabled = 0;
     instance->_5ffe = 0xff;
@@ -121,28 +121,28 @@ static void _did_attach(ms_memmap_driver_t* driver) {
 }
 
 /**
- * @brief �h���C�o�̃f�^�b�`���ɌĂяo�����R�[���o�b�N�ŁAPAC��SRAM���t�@�C���ɏ����o���܂�
+ * @brief ドライバのデタッチ時に呼び出されるコールバックで、PACのSRAMをファイルに書き出します
  *
  * @param driver
  * @return int
  */
 static int _will_detach(ms_memmap_driver_t* driver) {
-    MS_LOG(MS_LOG_INFO, "PAC��SRAM���t�@�C���ɏ����o���܂�\n");
+    MS_LOG(MS_LOG_INFO, "PACのSRAMをファイルに書き出します\n");
     _fflush(driver);
     return 0;
 }
 
 /**
- * @brief �|�[�Y���ɌĂяo�����R�[���o�b�N
+ * @brief ポーズ時に呼び出されるコールバック
  *
  * @param driver
  */
 static void _did_pause(ms_memmap_driver_t* driver) {
     volatile uint8_t* BITSNS_WORK = (uint8_t*)0x800;
     if (BITSNS_WORK[0xe] & 1) {
-        // �|�[�Y���� SHIFT�L�[��������Ă�����ASRAM���t�@�C���ɏ����o��
+        // ポーズ時に SHIFTキーが押されていたら、SRAMをファイルに書き出す
         _fflush(driver);
-        printf("PAC��SRAM���t�@�C���ɏ����o���܂���\n");
+        printf("PACのSRAMをファイルに書き出しました\n");
     }
 }
 
@@ -173,24 +173,24 @@ static void _write8(ms_memmap_driver_t* driver, uint16_t addr, uint8_t data) {
     } else if (addr == 0x5fff) {
         d->_5fff = data;
     } else if (page8k == 2 && d->sram_enabled) {
-        // SRAM���L���Ȏ��� page8k == 2 �ɂ� SRAM���}�b�s���O����Ă���
+        // SRAMが有効な時は page8k == 2 には SRAMがマッピングされている
         driver->page8k_pointers[2][local_addr] = data;
     }
     if (d->_5ffe == 0x4d && d->_5fff == 0x69) {
         if (d->sram_enabled == 0) {
-            MS_LOG(MS_LOG_INFO, "PAC��SRAM���J����܂���\n");
+            MS_LOG(MS_LOG_INFO, "PACのSRAMが開かれました\n");
             d->sram_enabled = 1;
             driver->page8k_pointers[2] = driver->buffer + 16;
-            // �؂�ւ����N���������Ƃ� memmap �ɒʒm
+            // 切り替えが起こったことを memmap に通知
             d->base.memmap->update_page_pointer(d->base.memmap, (ms_memmap_driver_t*)d, 2);
         }
     } else {
         if (d->sram_enabled != 0) {
-            MS_LOG(MS_LOG_INFO, "PAC��SRAM������ꂽ�̂ŁA�t�@�C���ɏ����o���܂�\n");
+            MS_LOG(MS_LOG_INFO, "PACのSRAMが閉じられたので、ファイルに書き出します\n");
             d->sram_enabled = 0;
             driver->page8k_pointers[2] = d->disabled_buffer;
             _fflush(driver);
-            // �؂�ւ����N���������Ƃ� memmap �ɒʒm
+            // 切り替えが起こったことを memmap に通知
             d->base.memmap->update_page_pointer(d->base.memmap, (ms_memmap_driver_t*)d, 2);
         }
     }
@@ -208,7 +208,7 @@ static void _write16(ms_memmap_driver_t* driver, uint16_t addr, uint16_t data) {
 }
 
 /**
- * @brief PAC��SRAM���t�@�C���ɏ����o���܂�
+ * @brief PACのSRAMをファイルに書き出します
  *
  * @param instance
  */
@@ -221,7 +221,7 @@ void _fflush(ms_memmap_driver_t* driver) {
 
     crt_fh = open(instance->file_path, O_RDWR | O_BINARY);
     if (crt_fh == -1) {
-        MS_LOG(MS_LOG_ERROR, "PAC�t�@�C�����J���܂���. %s\n", instance->file_path);
+        MS_LOG(MS_LOG_ERROR, "PACファイルが開けません. %s\n", instance->file_path);
         return;
     }
 

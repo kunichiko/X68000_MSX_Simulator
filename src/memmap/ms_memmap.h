@@ -31,56 +31,56 @@ typedef struct ms_memmap ms_memmap_t;
 typedef struct ms_memmap_driver_MAINRAM ms_memmap_driver_MAINRAM_t;
 typedef struct ms_memmap_driver_NOTHING ms_memmap_driver_NOTHING_t;
 
-/*	ƒXƒƒbƒg‚ªŠg’£‚³‚ê‚Ä‚¢‚é‚©‚Ç‚¤‚©	*/
+/*	ã‚¹ãƒ­ãƒƒãƒˆãŒæ‹¡å¼µã•ã‚Œã¦ã„ã‚‹ã‹ã©ã†ã‹	*/
 typedef struct slot_ex_info {
     char flag[4];
 } slot_ex_info_t;
 
 typedef struct ms_memmap {
-    // ƒy[ƒW‚ªØ‚è‘Ö‚í‚Á‚½Û‚ÉŠeƒhƒ‰ƒCƒo‚©‚çŒÄ‚Ño‚³‚ê‚éƒR[ƒ‹ƒoƒbƒN
+    // ãƒšãƒ¼ã‚¸ãŒåˆ‡ã‚Šæ›¿ã‚ã£ãŸéš›ã«å„ãƒ‰ãƒ©ã‚¤ãƒã‹ã‚‰å‘¼ã³å‡ºã•ã‚Œã‚‹ã‚³ãƒ¼ãƒ«ãƒãƒƒã‚¯
     void (*update_page_pointer)(ms_memmap_t* memmap, ms_memmap_driver_t* driver, int page8k);
 
-    // ƒƒCƒ“ƒƒ‚ƒŠ‚ÌƒCƒ“ƒXƒ^ƒ“ƒX‚Í“Á•Ê‚ÉQÆ‚ğ‚Â
-    // (attached_driver‚Ì’†‚É‚àŠÜ‚Ü‚ê‚é)
+    // ãƒ¡ã‚¤ãƒ³ãƒ¡ãƒ¢ãƒªã®ã‚¤ãƒ³ã‚¹ã‚¿ãƒ³ã‚¹ã¯ç‰¹åˆ¥ã«å‚ç…§ã‚’æŒã¤
+    // (attached_driverã®ä¸­ã«ã‚‚å«ã¾ã‚Œã‚‹)
     ms_memmap_driver_MAINRAM_t* mainram_driver;
 
-    // ‰½‚à‘¶İ‚µ‚È‚¢ƒy[ƒW—p‚Ìƒhƒ‰ƒCƒoƒCƒ“ƒXƒ^ƒ“ƒX‚à“Á•Ê‚ÉQÆ‚ğ‚Â
+    // ä½•ã‚‚å­˜åœ¨ã—ãªã„ãƒšãƒ¼ã‚¸ç”¨ã®ãƒ‰ãƒ©ã‚¤ãƒã‚¤ãƒ³ã‚¹ã‚¿ãƒ³ã‚¹ã‚‚ç‰¹åˆ¥ã«å‚ç…§ã‚’æŒã¤
     ms_memmap_driver_NOTHING_t* nothing_driver;
 
-    // Œ»İ‚ÌŠî–{ƒXƒƒbƒg‘I‘ğó‘Ô (= 0xa8ƒŒƒWƒXƒ^‚Ì’l)
+    // ç¾åœ¨ã®åŸºæœ¬ã‚¹ãƒ­ãƒƒãƒˆé¸æŠçŠ¶æ…‹ (= 0xa8ãƒ¬ã‚¸ã‚¹ã‚¿ã®å€¤)
     uint8_t slot_sel[4];
 
-    // Œ»İ‚ÌŠg’£ƒXƒƒbƒg‘I‘ğó‘Ô (= 0xffffƒŒƒWƒXƒ^‚Ì’l x 4ƒZƒbƒg)
+    // ç¾åœ¨ã®æ‹¡å¼µã‚¹ãƒ­ãƒƒãƒˆé¸æŠçŠ¶æ…‹ (= 0xffffãƒ¬ã‚¸ã‚¹ã‚¿ã®å€¤ x 4ã‚»ãƒƒãƒˆ)
     uint8_t slot_sel_ex[4][4];
 
-    // ƒXƒƒbƒg‚ªŠg’£‚³‚ê‚Ä‚¢‚é‚©‚Ç‚¤‚©
+    // ã‚¹ãƒ­ãƒƒãƒˆãŒæ‹¡å¼µã•ã‚Œã¦ã„ã‚‹ã‹ã©ã†ã‹
     slot_ex_info_t slot_expanded;
 
-    // Œ»İCPU‚©‚çŒ©‚¦‚Ä‚¢‚éƒXƒƒbƒg”z’u
-    // ‚±‚Ì’l‚ÍAã‹L slot_sel, slot_sel_expanded, slot_sel_ex ‚©‚ç“±o‚³‚ê‚Ü‚·‚ªA
-    // –ˆ‰ñŒvZ‚·‚é‚Æ’x‚¢‚½‚ßA‚±‚Ì’l‚ğƒLƒƒƒbƒVƒ…‚µ‚Ä‚¢‚Ü‚·
-    // ‚Ü‚½A‚±‚Ì’l‚ªXV‚³‚ê‚éÛ‚ÍACPU‘¤‚É‚»‚Ì•ÏX‚ğ’Ê’m‚·‚é‚æ‚¤‚É‚È‚Á‚Ä‚¢‚Ü‚·‚Ì‚ÅA
-    // ŠO•”‚Å‘‚«Š·‚¦‚È‚¢‚Å‚­‚¾‚³‚¢B
+    // ç¾åœ¨CPUã‹ã‚‰è¦‹ãˆã¦ã„ã‚‹ã‚¹ãƒ­ãƒƒãƒˆé…ç½®
+    // ã“ã®å€¤ã¯ã€ä¸Šè¨˜ slot_sel, slot_sel_expanded, slot_sel_ex ã‹ã‚‰å°å‡ºã•ã‚Œã¾ã™ãŒã€
+    // æ¯å›è¨ˆç®—ã™ã‚‹ã¨é…ã„ãŸã‚ã€ã“ã®å€¤ã‚’ã‚­ãƒ£ãƒƒã‚·ãƒ¥ã—ã¦ã„ã¾ã™
+    // ã¾ãŸã€ã“ã®å€¤ãŒæ›´æ–°ã•ã‚Œã‚‹éš›ã¯ã€CPUå´ã«ãã®å¤‰æ›´ã‚’é€šçŸ¥ã™ã‚‹ã‚ˆã†ã«ãªã£ã¦ã„ã¾ã™ã®ã§ã€
+    // å¤–éƒ¨ã§æ›¸ãæ›ãˆãªã„ã§ãã ã•ã„ã€‚
     ms_memmap_driver_t* current_driver[4];
 
-    // ‘S‚Ä‚ÌƒXƒƒbƒg”z’u
-    // Šî–{ƒXƒƒbƒg4 x Šg’£ƒXƒƒbƒg4 x ƒy[ƒW4
+    // å…¨ã¦ã®ã‚¹ãƒ­ãƒƒãƒˆé…ç½®
+    // åŸºæœ¬ã‚¹ãƒ­ãƒƒãƒˆ4 x æ‹¡å¼µã‚¹ãƒ­ãƒƒãƒˆ4 x ãƒšãƒ¼ã‚¸4
     ms_memmap_driver_t* driver_page_map[4][4][4];
 
-    // ƒAƒ^ƒbƒ`‚³‚ê‚Ä‚¢‚é‚·‚×‚Ä‚Ìƒhƒ‰ƒCƒo‚ÌƒŠƒXƒg
+    // ã‚¢ã‚¿ãƒƒãƒã•ã‚Œã¦ã„ã‚‹ã™ã¹ã¦ã®ãƒ‰ãƒ©ã‚¤ãƒã®ãƒªã‚¹ãƒˆ
     ms_memmap_driver_t* attached_drivers[64];
 
-    // CPU‘¤‚Æ‹¤—L‚µ‚Ä‚¢‚éƒ|ƒCƒ“ƒ^‚Ì”z—ñ‚Ö‚Ìƒ|ƒCƒ“ƒ^
+    // CPUå´ã¨å…±æœ‰ã—ã¦ã„ã‚‹ãƒã‚¤ãƒ³ã‚¿ã®é…åˆ—ã¸ã®ãƒã‚¤ãƒ³ã‚¿
     uint8_t** current_ptr;
 } ms_memmap_t;
 
 /*
-        ‚±‚ÌƒAƒhƒŒƒX‚Íƒwƒbƒ_“™‚ğŠÜ‚Ü‚È‚¢•”•ª‚ğw‚·B‚æ‚Á‚ÄAƒwƒbƒ_‚Í
-        (ƒAƒhƒŒƒX) - 8 ‚ÌƒAƒhƒŒƒX‚©‚ç‘¶İ‚·‚éB
+        ã“ã®ã‚¢ãƒ‰ãƒ¬ã‚¹ã¯ãƒ˜ãƒƒãƒ€ç­‰ã‚’å«ã¾ãªã„éƒ¨åˆ†ã‚’æŒ‡ã™ã€‚ã‚ˆã£ã¦ã€ãƒ˜ãƒƒãƒ€ã¯
+        (ã‚¢ãƒ‰ãƒ¬ã‚¹) - 8 ã®ã‚¢ãƒ‰ãƒ¬ã‚¹ã‹ã‚‰å­˜åœ¨ã™ã‚‹ã€‚
 */
 typedef struct ms_memmap_page {
-    uint8_t* first_half;   // ‘O”¼8KƒoƒCƒg
-    uint8_t* second_half;  // Œã”¼8KƒoƒCƒg
+    uint8_t* first_half;   // å‰åŠ8Kãƒã‚¤ãƒˆ
+    uint8_t* second_half;  // å¾ŒåŠ8Kãƒã‚¤ãƒˆ
 } ms_memmap_page_t;
 
 typedef struct ms_memmap_slot {
@@ -112,7 +112,7 @@ void ms_memmap_write16(uint16_t addr, uint16_t data);
 
 int filelength(int fh);
 
-// ÅŒã‚É’u‚­
+// æœ€å¾Œã«ç½®ã
 // #include "ms_memmap_driver.h"
 // #include "ms_memmap_NOTHING.h"
 // #include "ms_memmap_NORMALROM.h"

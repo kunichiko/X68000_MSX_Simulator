@@ -1,7 +1,7 @@
 /*
 
-                ‚l‚r‚w.‚r‚‰‚‚•‚Œ‚‚”‚…‚’ [[ MS ]]
-                                [[ƒXƒ^[ƒgƒAƒbƒvƒvƒƒOƒ‰ƒ€ ]]
+                ï¼­ï¼³ï¼¸.ï¼³ï½‰ï½ï½•ï½Œï½ï½”ï½…ï½’ [[ MS ]]
+                                [[ã‚¹ã‚¿ãƒ¼ãƒˆã‚¢ãƒƒãƒ—ãƒ—ãƒ­ã‚°ãƒ©ãƒ  ]]
 
         ver. 0.01	prpgramed by Kuni.
                                                                                 1995.9.15
@@ -26,52 +26,52 @@ void main() {
     if (_iocs_b_super(0) < 0)
         ;
 
-    initialize(); /* ƒVƒXƒeƒ€‚Ì‰Šú‰»				*/
+    initialize(); /* ã‚·ã‚¹ãƒ†ãƒ ã®åˆæœŸåŒ–				*/
 
-    MMem = new_malloc(64 * 1024 + 8 * segments); /* ‚U‚S‚j + ‚WƒoƒCƒg–‘ƒZƒOƒƒ“ƒg”	*/
+    MMem = new_malloc(64 * 1024 + 8 * segments); /* ï¼–ï¼”ï¼« + ï¼˜ãƒã‚¤ãƒˆï¼Šç·ã‚»ã‚°ãƒ¡ãƒ³ãƒˆæ•°	*/
     if (MMem == NULL) {
-        printf("ƒƒ‚ƒŠ‚ªŠm•Û‚Å‚«‚Ü‚¹‚ñ\n");
+        printf("ãƒ¡ãƒ¢ãƒªãŒç¢ºä¿ã§ãã¾ã›ã‚“\n");
         ms_exit();
     }
-    MMemSet(MMem, (int)segments); /* ƒAƒZƒ“ƒuƒ‰‚Ìƒ‹[ƒ`ƒ“‚Öˆø‚«“n‚µ		*/
+    MMemSet(MMem, (int)segments); /* ã‚¢ã‚»ãƒ³ãƒ–ãƒ©ã®ãƒ«ãƒ¼ãƒãƒ³ã¸å¼•ãæ¸¡ã—		*/
 
-    VideoRAM = new_malloc(128 * 1024); /* ‚u‚q‚`‚l ‚P‚Q‚W‚j 					*/
+    VideoRAM = new_malloc(128 * 1024); /* ï¼¶ï¼²ï¼¡ï¼­ ï¼‘ï¼’ï¼˜ï¼« 					*/
     if (VideoRAM == NULL) {
-        printf("ƒƒ‚ƒŠ‚ªŠm•Û‚Å‚«‚Ü‚¹‚ñ\n");
+        printf("ãƒ¡ãƒ¢ãƒªãŒç¢ºä¿ã§ãã¾ã›ã‚“\n");
         ms_exit();
     }
-    ms_vdp_init(VideoRAM); /* ƒAƒZƒ“ƒuƒ‰‚Ìƒ‹[ƒ`ƒ“‚Öˆø‚«“n‚µ		*/
-                           /* ‰æ–Ê‚Ì‰Šú‰»“™						*/
+    ms_vdp_init(VideoRAM); /* ã‚¢ã‚»ãƒ³ãƒ–ãƒ©ã®ãƒ«ãƒ¼ãƒãƒ³ã¸å¼•ãæ¸¡ã—		*/
+                           /* ç”»é¢ã®åˆæœŸåŒ–ç­‰						*/
 
-    MainROM1 = new_malloc(16 * 1024 + 8); /* ‚l‚`‚h‚m‚q‚n‚li‘O”¼j ‚P‚U‚j 		*/
+    MainROM1 = new_malloc(16 * 1024 + 8); /* ï¼­ï¼¡ï¼©ï¼®ï¼²ï¼¯ï¼­ï¼ˆå‰åŠï¼‰ ï¼‘ï¼–ï¼« 		*/
     if (MainROM1 == NULL) {
-        printf("ƒƒ‚ƒŠ‚ªŠm•Û‚Å‚«‚Ü‚¹‚ñ\n");
+        printf("ãƒ¡ãƒ¢ãƒªãŒç¢ºä¿ã§ãã¾ã›ã‚“\n");
         ms_exit();
     }
     SetROM(MainROM1, "MAINROM1.ROM", (int)2, (int)0x00, (int)0);
 
-    MainROM2 = new_malloc(16 * 1024 + 8); /* ‚l‚`‚h‚m‚q‚n‚li‘O”¼j ‚P‚U‚j 		*/
+    MainROM2 = new_malloc(16 * 1024 + 8); /* ï¼­ï¼¡ï¼©ï¼®ï¼²ï¼¯ï¼­ï¼ˆå‰åŠï¼‰ ï¼‘ï¼–ï¼« 		*/
     if (MainROM2 == NULL) {
-        printf("ƒƒ‚ƒŠ‚ªŠm•Û‚Å‚«‚Ü‚¹‚ñ\n");
+        printf("ãƒ¡ãƒ¢ãƒªãŒç¢ºä¿ã§ãã¾ã›ã‚“\n");
         ms_exit();
     }
     SetROM(MainROM2, "MAINROM2.ROM", (int)2, (int)0x00, (int)1);
 
-    SUBROM = new_malloc(16 * 1024 + 8); /* ‚r‚t‚a‚q‚n‚l ‚P‚U‚j 					*/
+    SUBROM = new_malloc(16 * 1024 + 8); /* ï¼³ï¼µï¼¢ï¼²ï¼¯ï¼­ ï¼‘ï¼–ï¼« 					*/
     if (SUBROM == NULL) {
-        printf("ƒƒ‚ƒŠ‚ªŠm•Û‚Å‚«‚Ü‚¹‚ñ\n");
+        printf("ãƒ¡ãƒ¢ãƒªãŒç¢ºä¿ã§ãã¾ã›ã‚“\n");
         ms_exit();
     }
     SetROM(SUBROM, "SUBROM.ROM", (int)2, (int)0x0d, (int)0);
 
-    FDCROM = new_malloc(16 * 1024 + 8); /* ‚e‚c‚b‚q‚n‚l ‚P‚U‚j 					*/
+    FDCROM = new_malloc(16 * 1024 + 8); /* ï¼¦ï¼¤ï¼£ï¼²ï¼¯ï¼­ ï¼‘ï¼–ï¼« 					*/
     if (FDCROM == NULL) {
-        printf("ƒƒ‚ƒŠ‚ªŠm•Û‚Å‚«‚Ü‚¹‚ñ\n");
+        printf("ãƒ¡ãƒ¢ãƒªãŒç¢ºä¿ã§ãã¾ã›ã‚“\n");
         ms_exit();
     }
     SetROM(FDCROM, "FDC.ROM", (int)2, (int)0x0e, (int)1);
 
-    if (PSG_INIT() != 0) printf("‚o‚r‚f‚Ì‰Šú‰»‚ÉŽ¸”s‚µ‚Ü‚µ‚½\n");
+    if (PSG_INIT() != 0) printf("ï¼°ï¼³ï¼§ã®åˆæœŸåŒ–ã«å¤±æ•—ã—ã¾ã—ãŸ\n");
 
     debugger();
 }

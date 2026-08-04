@@ -1,5 +1,5 @@
 /*
-        VDP ƒRƒ}ƒ“ƒhÀ‘•
+        VDP ã‚³ãƒãƒ³ãƒ‰å®Ÿè£…
 */
 #include <stddef.h>
 #include <stdint.h>
@@ -54,9 +54,9 @@ void ms_vdp_update_sprite_area(ms_vdp_t* vdp) {
  * @brief
  *
  * @param vdp
- * @param start_y VDPƒRƒ}ƒ“ƒh‚Ì‰e‹¿‚ğó‚¯‚½Å¬‚ÌYÀ•W
- * @param num_y VDPƒRƒ}ƒ“ƒh‚Ì‰e‹¿‚ğó‚¯‚½ƒ‰ƒCƒ“”
- * @param DIY “]‘—•ûŒü (0: Y‘‰Á, 1: YŒ¸­)
+ * @param start_y VDPã‚³ãƒãƒ³ãƒ‰ã®å½±éŸ¿ã‚’å—ã‘ãŸæœ€å°ã®Yåº§æ¨™
+ * @param num_y VDPã‚³ãƒãƒ³ãƒ‰ã®å½±éŸ¿ã‚’å—ã‘ãŸãƒ©ã‚¤ãƒ³æ•°
+ * @param DIY è»¢é€æ–¹å‘ (0: Yå¢—åŠ , 1: Yæ¸›å°‘)
  */
 void rewrite_sprite_if_needed(ms_vdp_t* vdp, int start_y, int num_y, int DIY) {
     int end_y;
@@ -67,22 +67,22 @@ void rewrite_sprite_if_needed(ms_vdp_t* vdp, int start_y, int num_y, int DIY) {
     }
     if ((vdp->cmd_ny_sprite_start < end_y) &&  //
         (vdp->cmd_ny_sprite_end >= start_y)) {
-        // TODO ƒpƒ^[ƒ“ƒWƒFƒlƒŒ[ƒ^ƒe[ƒuƒ‹AƒJƒ‰[ƒe[ƒuƒ‹AƒAƒgƒŠƒrƒ…[ƒgƒe[ƒuƒ‹‚ğ‚»‚ê‚¼‚ê•Ê‚ÉŒŸ¸‚·‚é
+        // TODO ãƒ‘ã‚¿ãƒ¼ãƒ³ã‚¸ã‚§ãƒãƒ¬ãƒ¼ã‚¿ãƒ†ãƒ¼ãƒ–ãƒ«ã€ã‚«ãƒ©ãƒ¼ãƒ†ãƒ¼ãƒ–ãƒ«ã€ã‚¢ãƒˆãƒªãƒ“ãƒ¥ãƒ¼ãƒˆãƒ†ãƒ¼ãƒ–ãƒ«ã‚’ãã‚Œãã‚Œåˆ¥ã«æ¤œæŸ»ã™ã‚‹
         vdp->sprite_refresh_flag |= SPRITE_REFRESH_FLAG_FULL;
     }
 }
 
 void rewrite_sprite_if_needed_addr(ms_vdp_t* vdp, int addr) {
-    // TODO ƒpƒ^[ƒ“ƒWƒFƒlƒŒ[ƒ^ƒe[ƒuƒ‹AƒJƒ‰[ƒe[ƒuƒ‹AƒAƒgƒŠƒrƒ…[ƒgƒe[ƒuƒ‹‚ğ‚»‚ê‚¼‚ê•Ê‚ÉŒŸ¸‚·‚é
+    // TODO ãƒ‘ã‚¿ãƒ¼ãƒ³ã‚¸ã‚§ãƒãƒ¬ãƒ¼ã‚¿ãƒ†ãƒ¼ãƒ–ãƒ«ã€ã‚«ãƒ©ãƒ¼ãƒ†ãƒ¼ãƒ–ãƒ«ã€ã‚¢ãƒˆãƒªãƒ“ãƒ¥ãƒ¼ãƒˆãƒ†ãƒ¼ãƒ–ãƒ«ã‚’ãã‚Œãã‚Œåˆ¥ã«æ¤œæŸ»ã™ã‚‹
 }
 
 /*
-        DX, DY‚©‚ç VRAMƒAƒhƒŒƒX‚ğ‹‚ß‚é
+        DX, DYã‹ã‚‰ VRAMã‚¢ãƒ‰ãƒ¬ã‚¹ã‚’æ±‚ã‚ã‚‹
 
-        GRAPHIC4	: addr = DY~128 + dx/2
-        GRAPHIC5	: addr = DY~128 + dx/4
-        GRAPHIC6	: addr = DY~256 + dx/2
-        GRAPHIC7	: addr = DY~256 + dx
+        GRAPHIC4	: addr = DYÃ—128 + dx/2
+        GRAPHIC5	: addr = DYÃ—128 + dx/4
+        GRAPHIC6	: addr = DYÃ—256 + dx/2
+        GRAPHIC7	: addr = DYÃ—256 + dx
 */
 inline uint32_t get_vram_address(ms_vdp_t* vdp, uint32_t x, uint32_t y, int* mod) {
     switch (vdp->crt_mode) {
@@ -112,7 +112,7 @@ inline uint32_t get_vram_address(ms_vdp_t* vdp, uint32_t x, uint32_t y, int* mod
 }
 
 /*
-        VRAMƒAƒhƒŒƒX‚©‚çX68000‘¤‚ÌGRAMƒAƒhƒŒƒX‚ğ‹‚ß‚é
+        VRAMã‚¢ãƒ‰ãƒ¬ã‚¹ã‹ã‚‰X68000å´ã®GRAMã‚¢ãƒ‰ãƒ¬ã‚¹ã‚’æ±‚ã‚ã‚‹
 */
 inline uint16_t* to_gram(ms_vdp_t* vdp, uint32_t vaddr, int mod) {
     uint16_t p;
@@ -122,22 +122,22 @@ inline uint16_t* to_gram(ms_vdp_t* vdp, uint32_t vaddr, int mod) {
     case CRT_MODE_GRAPHIC4:
         p = (vaddr & 0x18000) >> 15;
         y = (vaddr & 0x07f80) >> 7;
-        x = (vaddr & 0x0007f);  // XÀ•W‚Ì1/2‚È‚Ì‚Å’ˆÓ
+        x = (vaddr & 0x0007f);  // Xåº§æ¨™ã®1/2ãªã®ã§æ³¨æ„
         return X68_GRAM + (p * 512 * 512) + (y * 512) + (x * 2) + mod;
     case CRT_MODE_GRAPHIC5:
         p = (vaddr & 0x18000) >> 15;
         y = (vaddr & 0x07f80) >> 7;
-        x = (vaddr & 0x0007f);  // XÀ•W‚Ì1/4‚È‚Ì‚Å’ˆÓ
+        x = (vaddr & 0x0007f);  // Xåº§æ¨™ã®1/4ãªã®ã§æ³¨æ„
         return X68_GRAM + (p * 512 * 512) + (y * 512) * 2 + (x * 4) + mod;
     case CRT_MODE_GRAPHIC6:
         p = (vaddr & 0x10000) >> 16;
         y = (vaddr & 0x0ff00) >> 8;
-        x = (vaddr & 0x000ff);  // XÀ•W‚Ì1/2‚È‚Ì‚Å’ˆÓ
+        x = (vaddr & 0x000ff);  // Xåº§æ¨™ã®1/2ãªã®ã§æ³¨æ„
         return X68_GRAM + (p * 512 * 512) + (y * 512) * 2 + (x * 2) + mod;
     case CRT_MODE_GRAPHIC7:
         p = (vaddr & 0x10000) >> 16;
         y = (vaddr & 0x0ff00) >> 8;
-        x = (vaddr & 0x000ff);  // XÀ•W‚Æˆê’v
+        x = (vaddr & 0x000ff);  // Xåº§æ¨™ã¨ä¸€è‡´
         return X68_GRAM + (p * 512 * 512) + (y * 512) + x;
     }
 }
@@ -186,27 +186,27 @@ inline uint8_t read_vram_logical(ms_vdp_t* vdp, uint32_t vaddr, uint16_t vamod) 
     return value;
 }
 /**
- * @brief VRAM‚É˜_—“]‘—‚µ‚Ü‚·
+ * @brief VRAMã«è«–ç†è»¢é€ã—ã¾ã™
  *
  * @param vdp
  * @param vaddr
  * @param vamod
  * @param value
- * @return uint8_t ˜_—ƒsƒNƒZƒ‹‚Ì‘‚«Š·‚¦‚ª‹N‚±‚Á‚½ê‡1A‹N‚ç‚È‚©‚Á‚½ê‡0
+ * @return uint8_t è«–ç†ãƒ”ã‚¯ã‚»ãƒ«ã®æ›¸ãæ›ãˆãŒèµ·ã“ã£ãŸå ´åˆ1ã€èµ·ã‚‰ãªã‹ã£ãŸå ´åˆ0
  */
 inline uint8_t write_vram_logical(ms_vdp_t* vdp, uint32_t vaddr, uint16_t vamod, uint8_t value) {
     int bits_per_dot = vdp->ms_vdp_current_mode->bits_per_dot;
-    // VRAMƒ}ƒXƒNƒpƒ^[ƒ“
+    // VRAMãƒã‚¹ã‚¯ãƒ‘ã‚¿ãƒ¼ãƒ³
     // GRAPHIC4: 0b11111111_00001111
     // GRAPHIC5: 0b11111111_00111111
     // GRAPHIC6: 0b11111111_00001111
     // GRAPHIC7: 0b11111111_00000000
-    uint16_t mask = ~(((1 << bits_per_dot) - 1) << (8 - (bits_per_dot)));  // ‰ŠúˆÊ’u‚Íˆê”Ô¶‚ÌƒsƒNƒZƒ‹
-    mask >>= vamod * bits_per_dot;                                         // ‘‚«Š·‚¦‚éêŠ‚É000‚ª—ˆ‚é‚æ‚¤‚ÉƒVƒtƒg
+    uint16_t mask = ~(((1 << bits_per_dot) - 1) << (8 - (bits_per_dot)));  // åˆæœŸä½ç½®ã¯ä¸€ç•ªå·¦ã®ãƒ”ã‚¯ã‚»ãƒ«
+    mask >>= vamod * bits_per_dot;                                         // æ›¸ãæ›ãˆã‚‹å ´æ‰€ã«000ãŒæ¥ã‚‹ã‚ˆã†ã«ã‚·ãƒ•ãƒˆ
     uint8_t src = vdp->vram[vaddr];
-    uint8_t val = value << ((8 - (vamod + 1) * bits_per_dot));  // ‘‚«‚Ş’l‚ğƒrƒbƒgˆÊ’u‚É‡‚í‚¹‚é
+    uint8_t val = value << ((8 - (vamod + 1) * bits_per_dot));  // æ›¸ãè¾¼ã‚€å€¤ã‚’ãƒ“ãƒƒãƒˆä½ç½®ã«åˆã‚ã›ã‚‹
     if ((src & ~mask) == val) {
-        // •ÏX‚ª‚È‚¢‚È‚ç‘‚«Š·‚¦‚È‚¢
+        // å¤‰æ›´ãŒãªã„ãªã‚‰æ›¸ãæ›ãˆãªã„
         return 0;
     }
     uint8_t dst = src & mask;
@@ -229,15 +229,15 @@ void cmd_PSET_exe(ms_vdp_t* vdp, uint16_t x, uint16_t y, uint8_t color, uint8_t 
     int vamod;
     uint32_t vaddr = get_vram_address(vdp, x, y, &vamod);
 
-    // VRAM‚©‚çƒf[ƒ^‚ğ“Ç‚İo‚·
+    // VRAMã‹ã‚‰ãƒ‡ãƒ¼ã‚¿ã‚’èª­ã¿å‡ºã™
     uint8_t dst = read_vram_logical(vdp, vaddr, vamod);
 
-    // ˜_—‰‰ZÀs
+    // è«–ç†æ¼”ç®—å®Ÿè¡Œ
     dst = logical_operation(dst, color, logiop);
 
-    // VRAM‚É‘‚«‚Ş
+    // VRAMã«æ›¸ãè¾¼ã‚€
     if (write_vram_logical(vdp, vaddr, vamod, dst)) {
-        // GRAM‚É‘‚«‚Ş
+        // GRAMã«æ›¸ãè¾¼ã‚€
         uint16_t* gram = to_gram(vdp, vaddr, vamod);
         gram[0] = dst;
         if (vdp->ms_vdp_current_mode->crt_width == 256) gram[256 * 512] = dst;
@@ -267,14 +267,14 @@ void cmd_SRCH(ms_vdp_t* vdp, uint8_t cmd) {
     while (1) {
         vram_addr = get_vram_address(vdp, sx, vdp->sy, &mod);
         uint8_t src = read_vram_logical(vdp, vram_addr, mod);
-        if (EQ == 0) {  // 0 = ‹«ŠEF‚ğ”­Œ©‚µ‚½‚Æ‚«‚ÉÀs‚ğI—¹‚·‚éB
+        if (EQ == 0) {  // 0 = å¢ƒç•Œè‰²ã‚’ç™ºè¦‹ã—ãŸã¨ãã«å®Ÿè¡Œã‚’çµ‚äº†ã™ã‚‹ã€‚
             if (src == color) {
                 vdp->s02 = 0x10;
                 vdp->s08 = (sx & 0xff);
                 vdp->s09 = (sx & 0xff00) >> 8;
                 break;
             }
-        } else {  // 1 = ‹«ŠEFˆÈŠO‚ğ”­Œ©‚µ‚½‚Æ‚«‚ÉÀs‚ğI—¹‚·‚éB
+        } else {  // 1 = å¢ƒç•Œè‰²ä»¥å¤–ã‚’ç™ºè¦‹ã—ãŸã¨ãã«å®Ÿè¡Œã‚’çµ‚äº†ã™ã‚‹ã€‚
             if (src != color) {
                 vdp->s02 = 0x10;
                 vdp->s08 = (sx & 0xff);
@@ -282,15 +282,15 @@ void cmd_SRCH(ms_vdp_t* vdp, uint8_t cmd) {
                 break;
             }
         }
-        // DIX‚É]‚Á‚ÄVRAMƒAƒhƒŒƒX‚ğXV
+        // DIXã«å¾“ã£ã¦VRAMã‚¢ãƒ‰ãƒ¬ã‚¹ã‚’æ›´æ–°
         if (DIX == 0) {
-            // DIX=0‚Ì
+            // DIX=0ã®æ™‚
             if (sx == crt_width - 1) {
                 break;
             }
             sx++;
         } else {
-            // DIX=1‚Ì
+            // DIX=1ã®æ™‚
             if (sx == 0) {
                 break;
             }
@@ -315,14 +315,14 @@ void cmd_LINE(ms_vdp_t* vdp, uint8_t cmd, uint8_t logiop) {
 
     uint8_t color = vdp->clr & ((1 << vdp->ms_vdp_current_mode->bits_per_dot) - 1);
 
-    int x = vdp->dx;  // ŠJn“_
+    int x = vdp->dx;  // é–‹å§‹ç‚¹
     int y = vdp->dy;
-    int maj = vdp->nx;  // ’·•Ó‚Ì’·‚³
-    int min = vdp->ny;  // ’Z•Ó‚Ì’·‚³
+    int maj = vdp->nx;  // é•·è¾ºã®é•·ã•
+    int min = vdp->ny;  // çŸ­è¾ºã®é•·ã•
     uint32_t acc = 0;
     int i;
     if ((vdp->arg & 0x1) == 0) {  // MAJ
-        // ’·•Ó‚ªX²‚Æ•Às‚Èê‡
+        // é•·è¾ºãŒXè»¸ã¨ä¸¦è¡Œãªå ´åˆ
         for (i = 0; i <= maj; i++) {
             cmd_PSET_exe(vdp, x, y, color, logiop);
             acc += min;
@@ -333,7 +333,7 @@ void cmd_LINE(ms_vdp_t* vdp, uint8_t cmd, uint8_t logiop) {
             x++;
         }
     } else {
-        // ’·•Ó‚ªY²‚Æ•Às‚Èê‡
+        // é•·è¾ºãŒYè»¸ã¨ä¸¦è¡Œãªå ´åˆ
         for (i = 0; i <= maj; i++) {
             cmd_PSET_exe(vdp, x, y, color, logiop);
             acc += min;
@@ -376,26 +376,26 @@ void cmd_LMMV(ms_vdp_t* vdp, uint8_t cmd, uint8_t logiop) {
         dst_vram_addr = dst_vram_addr_mod / dots_per_byte;
         dst_mod = dst_vram_addr_mod % dots_per_byte;
         uint16_t* gram = to_gram(vdp, dst_vram_addr, dst_mod);
-        for (x = 0; x < nx; x += 1) {  // 1ƒhƒbƒg‚¸‚Âˆ—
+        for (x = 0; x < nx; x += 1) {  // 1ãƒ‰ãƒƒãƒˆãšã¤å‡¦ç†
             dst_vram_addr = dst_vram_addr_mod / dots_per_byte;
             dst_mod = dst_vram_addr_mod % dots_per_byte;
-            // VRAM‚©‚çƒf[ƒ^‚ğ“Ç‚İo‚·
+            // VRAMã‹ã‚‰ãƒ‡ãƒ¼ã‚¿ã‚’èª­ã¿å‡ºã™
             uint8_t dst = read_vram_logical(vdp, dst_vram_addr, dst_mod);
-            // ˜_—‰‰ZÀs
+            // è«–ç†æ¼”ç®—å®Ÿè¡Œ
             dst = logical_operation(dst, clr, logiop);
-            // VRAM‚É‘‚«‚Ş
+            // VRAMã«æ›¸ãè¾¼ã‚€
             if (write_vram_logical(vdp, dst_vram_addr, dst_mod, dst)) {
-                // GRAM‚É‘‚«‚Ş
+                // GRAMã«æ›¸ãè¾¼ã‚€
                 *gram = dst;
                 if (crt_width == 256) gram[256 * 512] = dst;
             }
-            // DIX‚É]‚Á‚ÄVRAMƒAƒhƒŒƒX‚ğXV
+            // DIXã«å¾“ã£ã¦VRAMã‚¢ãƒ‰ãƒ¬ã‚¹ã‚’æ›´æ–°
             if (DIX == 0) {
-                // DIX=0‚Ì
+                // DIX=0ã®æ™‚
                 dst_vram_addr_mod += 1;
                 gram++;
             } else {
-                // DIX=1‚Ì
+                // DIX=1ã®æ™‚
                 dst_vram_addr_mod -= 1;
                 gram--;
             }
@@ -407,10 +407,10 @@ void cmd_LMMV(ms_vdp_t* vdp, uint8_t cmd, uint8_t logiop) {
         }
         if (DIY == 0) {  // DIY
             dst_vram_addr_mod += crt_width;
-            vdp->dy += 1;  // DY‚Í‘‚«Š·‚í‚é
+            vdp->dy += 1;  // DYã¯æ›¸ãæ›ã‚ã‚‹
         } else {
             dst_vram_addr_mod -= crt_width;
-            vdp->dy -= 1;  // DY‚Í‘‚«Š·‚í‚é
+            vdp->dy -= 1;  // DYã¯æ›¸ãæ›ã‚ã‚‹
         }
     }
 }
@@ -444,30 +444,30 @@ void cmd_LMMM(ms_vdp_t* vdp, uint8_t cmd, uint8_t logiop) {
         dst_vram_addr = dst_vram_addr_mod / dots_per_byte;
         dst_mod = dst_vram_addr_mod % dots_per_byte;
         uint16_t* gram = to_gram(vdp, dst_vram_addr, dst_mod);
-        for (x = 0; x < vdp->nx; x += 1) {  // 1ƒhƒbƒg‚¸‚Âˆ—
+        for (x = 0; x < vdp->nx; x += 1) {  // 1ãƒ‰ãƒƒãƒˆãšã¤å‡¦ç†
             src_vram_addr = src_vram_addr_mod / dots_per_byte;
             dst_vram_addr = dst_vram_addr_mod / dots_per_byte;
             src_mod = src_vram_addr_mod % dots_per_byte;
             dst_mod = dst_vram_addr_mod % dots_per_byte;
-            // VRAM‚©‚çƒf[ƒ^‚ğ“Ç‚İo‚·
+            // VRAMã‹ã‚‰ãƒ‡ãƒ¼ã‚¿ã‚’èª­ã¿å‡ºã™
             uint8_t src = read_vram_logical(vdp, src_vram_addr, src_mod);
             uint8_t dst = read_vram_logical(vdp, dst_vram_addr, dst_mod);
-            // ˜_—‰‰ZÀs
+            // è«–ç†æ¼”ç®—å®Ÿè¡Œ
             dst = logical_operation(dst, src, logiop);
-            // VRAM‚É‘‚«‚Ş
+            // VRAMã«æ›¸ãè¾¼ã‚€
             if (write_vram_logical(vdp, dst_vram_addr, dst_mod, dst)) {
-                // GRAM‚É‘‚«‚Ş
+                // GRAMã«æ›¸ãè¾¼ã‚€
                 *gram = dst;
                 if (vdp->ms_vdp_current_mode->crt_width == 256) gram[256 * 512] = dst;
             }
-            // DIX‚É]‚Á‚ÄVRAMƒAƒhƒŒƒX‚ğXV
+            // DIXã«å¾“ã£ã¦VRAMã‚¢ãƒ‰ãƒ¬ã‚¹ã‚’æ›´æ–°
             if ((vdp->cmd_arg & 0x04) == 0) {
-                // DIX=0‚Ì
+                // DIX=0ã®æ™‚
                 src_vram_addr_mod += 1;
                 dst_vram_addr_mod += 1;
                 gram++;
             } else {
-                // DIX=1‚Ì
+                // DIX=1ã®æ™‚
                 src_vram_addr_mod -= 1;
                 dst_vram_addr_mod -= 1;
                 gram--;
@@ -483,13 +483,13 @@ void cmd_LMMM(ms_vdp_t* vdp, uint8_t cmd, uint8_t logiop) {
         if ((vdp->cmd_arg & 0x8) == 0) {  // DIY
             src_vram_addr_mod += crt_width;
             dst_vram_addr_mod += crt_width;
-            vdp->sy += 1;  // DY‚Í‘‚«Š·‚í‚é
-            vdp->dy += 1;  // DY‚Í‘‚«Š·‚í‚é
+            vdp->sy += 1;  // DYã¯æ›¸ãæ›ã‚ã‚‹
+            vdp->dy += 1;  // DYã¯æ›¸ãæ›ã‚ã‚‹
         } else {
             src_vram_addr_mod -= crt_width;
             dst_vram_addr_mod -= crt_width;
-            vdp->sy -= 1;  // DY‚Í‘‚«Š·‚í‚é
-            vdp->dy -= 1;  // DY‚Í‘‚«Š·‚í‚é
+            vdp->sy -= 1;  // DYã¯æ›¸ãæ›ã‚ã‚‹
+            vdp->dy -= 1;  // DYã¯æ›¸ãæ›ã‚ã‚‹
         }
     }
 }
@@ -511,14 +511,14 @@ void cmd_LMMC(ms_vdp_t* vdp, uint8_t cmd, uint8_t logiop) {
 
     vdp->cmd_nx_count = vdp->nx;
     vdp->cmd_ny_count = vdp->ny;
-    vdp->s02 |= 0x01;             // CEƒrƒbƒg‚ğƒZƒbƒg
-    cmd_LMMC_exe(vdp, vdp->clr);  // Å‰‚Ì1ƒhƒbƒg‚ğ‘‚«‚Ş
+    vdp->s02 |= 0x01;             // CEãƒ“ãƒƒãƒˆã‚’ã‚»ãƒƒãƒˆ
+    cmd_LMMC_exe(vdp, vdp->clr);  // æœ€åˆã®1ãƒ‰ãƒƒãƒˆã‚’æ›¸ãè¾¼ã‚€
 }
 
 void cmd_LMMC_exe(ms_vdp_t* vdp, uint8_t value) {
     MS_LOG(MS_LOG_FINE, "LMMC exe: %02x, nx count=%03x, ny count=%03x\n", value, vdp->cmd_nx_count, vdp->cmd_ny_count);
     if (vdp->cmd_ny_count == 0 && vdp->cmd_nx_count == 0) {
-        vdp->s02 &= 0xfe;  // CEƒrƒbƒg‚ğƒNƒŠƒA
+        vdp->s02 &= 0xfe;  // CEãƒ“ãƒƒãƒˆã‚’ã‚¯ãƒªã‚¢
         vdp->cmd_current = 0;
         return;
     }
@@ -532,31 +532,31 @@ void cmd_LMMC_exe(ms_vdp_t* vdp, uint8_t value) {
     uint32_t vaddr_mod = vaddr * dots_per_byte + vamod;
     uint16_t* gram = to_gram(vdp, vaddr, vamod);
 
-    // VRAM‚©‚çƒf[ƒ^‚ğ“Ç‚İo‚·
+    // VRAMã‹ã‚‰ãƒ‡ãƒ¼ã‚¿ã‚’èª­ã¿å‡ºã™
     uint8_t dst = read_vram_logical(vdp, vaddr, vamod);
 
-    // ˜_—‰‰ZÀs
+    // è«–ç†æ¼”ç®—å®Ÿè¡Œ
     dst = logical_operation(dst, value, logiop);
 
-    // VRAM‚É‘‚«‚Ş
+    // VRAMã«æ›¸ãè¾¼ã‚€
     if (write_vram_logical(vdp, vaddr, vamod, dst)) {
-        // GRAM‚É‘‚«‚Ş
+        // GRAMã«æ›¸ãè¾¼ã‚€
         *gram = dst;
         if (vdp->ms_vdp_current_mode->crt_width == 256) gram[256 * 512] = dst;
     }
 
-    vdp->s02 |= 0x80;  // TRƒrƒbƒg‚ğƒZƒbƒg
+    vdp->s02 |= 0x80;  // TRãƒ“ãƒƒãƒˆã‚’ã‚»ãƒƒãƒˆ
     vdp->cmd_nx_count -= 1;
-    // DIX‚É]‚Á‚ÄVRAMƒAƒhƒŒƒX‚ğXV
+    // DIXã«å¾“ã£ã¦VRAMã‚¢ãƒ‰ãƒ¬ã‚¹ã‚’æ›´æ–°
     if ((vdp->cmd_arg & 0x4) == 0) {
         vaddr_mod += 1;
     } else {
         vaddr_mod -= 1;
     }
     if (vdp->cmd_nx_count == 0) {
-        // 1sI‚í‚Á‚½‚çŸ‚Ìs‚Ö
+        // 1è¡Œçµ‚ã‚ã£ãŸã‚‰æ¬¡ã®è¡Œã¸
         vdp->cmd_ny_count--;
-        vdp->ny--;  // NY‚ÍXV‚³‚ê‚éH
+        vdp->ny--;  // NYã¯æ›´æ–°ã•ã‚Œã‚‹ï¼Ÿ
         if (vdp->cmd_ny_count > 0) {
             vdp->cmd_nx_count = vdp->nx;
             if ((vdp->cmd_arg & 0x4) == 0) {  // DIX
@@ -566,20 +566,20 @@ void cmd_LMMC_exe(ms_vdp_t* vdp, uint8_t value) {
             }
             if ((vdp->cmd_arg & 0x8) == 0) {  // DIY
                 vaddr_mod += crt_width;
-                vdp->dy += 1;  // DY‚Í‘‚«Š·‚í‚é
+                vdp->dy += 1;  // DYã¯æ›¸ãæ›ã‚ã‚‹
             } else {
                 vaddr_mod -= crt_width;
-                vdp->dy -= 1;  // DY‚Í‘‚«Š·‚í‚é
+                vdp->dy -= 1;  // DYã¯æ›¸ãæ›ã‚ã‚‹
             }
         } else {
-            // ‘S•”I‚í‚Á‚½‚çCEƒrƒbƒg‚ğƒNƒŠƒA
+            // å…¨éƒ¨çµ‚ã‚ã£ãŸã‚‰CEãƒ“ãƒƒãƒˆã‚’ã‚¯ãƒªã‚¢
             vdp->s02 &= 0xfe;
             vdp->cmd_current = 0;
         }
     }
-    // Œãˆ—
-    vdp->cmd_vram_addr = vaddr_mod / dots_per_byte;      // VRAMƒAƒhƒŒƒX‚ğXV
-    vdp->cmd_vram_addr_mod = vaddr_mod % dots_per_byte;  // VRAMƒAƒhƒŒƒX‚Ì1ƒoƒCƒg“à‚ÌˆÊ’u‚ğXV
+    // å¾Œå‡¦ç†
+    vdp->cmd_vram_addr = vaddr_mod / dots_per_byte;      // VRAMã‚¢ãƒ‰ãƒ¬ã‚¹ã‚’æ›´æ–°
+    vdp->cmd_vram_addr_mod = vaddr_mod % dots_per_byte;  // VRAMã‚¢ãƒ‰ãƒ¬ã‚¹ã®1ãƒã‚¤ãƒˆå†…ã®ä½ç½®ã‚’æ›´æ–°
 
     // rewrite_sprite_if_needed_addr(vdp, vdp->sy, vdp->ny, vdp->);
 }
@@ -595,15 +595,15 @@ void cmd_HMMV(ms_vdp_t* vdp, uint8_t cmd) {
         MS_LOG(MS_LOG_FINE, "  arg=%02x\n", vdp->arg);
     }
 
-    // ‚‘¬‰»‚Ì‚½‚ß‚ÌƒLƒƒƒbƒVƒ…
+    // é«˜é€ŸåŒ–ã®ãŸã‚ã®ã‚­ãƒ£ãƒƒã‚·ãƒ¥
     int crt_width = vdp->ms_vdp_current_mode->crt_width;
     int dots_per_byte = vdp->ms_vdp_current_mode->dots_per_byte;
     int bits_per_dot = vdp->ms_vdp_current_mode->bits_per_dot;
     uint8_t* vram = vdp->vram;
     uint8_t DIX = vdp->arg & 0x04;
     uint8_t DIY = vdp->arg & 0x08;
-    uint16_t nx = vdp->nx == 0 ? crt_width : vdp->nx;  // TODO ƒhƒ‰ƒNƒG2‚ÅNX=0‚ªg‚í‚ê‚Ä‚¢‚é
-    nx &= ~(dots_per_byte - 1);                        // 1s‚Ìƒhƒbƒg”‚ğdots_per_byte‚Ì”{”‚É‚·‚é
+    uint16_t nx = vdp->nx == 0 ? crt_width : vdp->nx;  // TODO ãƒ‰ãƒ©ã‚¯ã‚¨2ã§NX=0ãŒä½¿ã‚ã‚Œã¦ã„ã‚‹
+    nx &= ~(dots_per_byte - 1);                        // 1è¡Œã®ãƒ‰ãƒƒãƒˆæ•°ã‚’dots_per_byteã®å€æ•°ã«ã™ã‚‹
     uint16_t ny = vdp->ny;
     uint8_t clr = vdp->clr;
 
@@ -617,17 +617,17 @@ void cmd_HMMV(ms_vdp_t* vdp, uint8_t cmd) {
         uint16_t* gram = to_gram(vdp, dst_vram_addr, 0);
         for (x = 0; x < nx; x += dots_per_byte) {
             uint8_t data = clr;
-            // VRAM‚É‘‚«‚Ş
+            // VRAMã«æ›¸ãè¾¼ã‚€
             if (vram[dst_vram_addr] != data) {
                 vram[dst_vram_addr] = data;
-                // GRAM‚É‘‚«‚Ş
+                // GRAMã«æ›¸ãè¾¼ã‚€
                 for (i = 0; i < dots_per_byte; i++) {
                     uint16_t dst = (data >> ((dots_per_byte - 1 - i) * bits_per_dot)) & ((1 << bits_per_dot) - 1);
                     gram[0 + i] = dst;
                     if (crt_width == 256) gram[256 * 512 + i] = dst;
                 }
             }
-            // DIX‚É]‚Á‚ÄVRAMƒAƒhƒŒƒX‚ğXV
+            // DIXã«å¾“ã£ã¦VRAMã‚¢ãƒ‰ãƒ¬ã‚¹ã‚’æ›´æ–°
             if (DIX == 0) {
                 dst_vram_addr += 1;
                 gram += dots_per_byte;
@@ -643,15 +643,15 @@ void cmd_HMMV(ms_vdp_t* vdp, uint8_t cmd) {
         }
         if (DIY == 0) {
             dst_vram_addr += crt_width / dots_per_byte;
-            vdp->dy += 1;  // DY‚Í‘‚«Š·‚í‚é
+            vdp->dy += 1;  // DYã¯æ›¸ãæ›ã‚ã‚‹
         } else {
             dst_vram_addr -= crt_width / dots_per_byte;
-            vdp->dy -= 1;  // DY‚Í‘‚«Š·‚í‚é
+            vdp->dy -= 1;  // DYã¯æ›¸ãæ›ã‚ã‚‹
         }
     }
 
     rewrite_sprite_if_needed(vdp, start_dy, ny, DIY);
-    vdp->s02 &= 0xfe;  // CEƒrƒbƒg‚ğƒNƒŠƒA
+    vdp->s02 &= 0xfe;  // CEãƒ“ãƒƒãƒˆã‚’ã‚¯ãƒªã‚¢
 }
 
 void cmd_YMMM(ms_vdp_t* vdp, uint8_t cmd) {
@@ -661,7 +661,7 @@ void cmd_YMMM(ms_vdp_t* vdp, uint8_t cmd) {
         MS_LOG(MS_LOG_FINE, "  dx=0x%03x, dy=0x%03x\n", vdp->dx, vdp->dy);
         MS_LOG(MS_LOG_FINE, "             ny=0x%03x\n", vdp->ny);
     }
-    // ‚‘¬‰»‚Ì‚½‚ß‚ÌƒLƒƒƒbƒVƒ…
+    // é«˜é€ŸåŒ–ã®ãŸã‚ã®ã‚­ãƒ£ãƒƒã‚·ãƒ¥
     int crt_width = vdp->ms_vdp_current_mode->crt_width;
     int dots_per_byte = vdp->ms_vdp_current_mode->dots_per_byte;
     int bits_per_dot = vdp->ms_vdp_current_mode->bits_per_dot;
@@ -674,7 +674,7 @@ void cmd_YMMM(ms_vdp_t* vdp, uint8_t cmd) {
     uint32_t src_vram_addr = get_vram_address(vdp, vdp->dx, vdp->sy, NULL);
     uint32_t dst_vram_addr = get_vram_address(vdp, vdp->dx, vdp->dy, NULL);
 
-    // DIX‚É‚æ‚Á‚ÄX•ûŒü‚Ì‚Ç‚¿‚ç‚Ì‰æ–Ê’[‚Ü‚Å“]‘—‚·‚é‚©‚ª•Ï‚í‚é‚Ì‚Ånx‚ª•Ï‰»‚·‚é
+    // DIXã«ã‚ˆã£ã¦Xæ–¹å‘ã®ã©ã¡ã‚‰ã®ç”»é¢ç«¯ã¾ã§è»¢é€ã™ã‚‹ã‹ãŒå¤‰ã‚ã‚‹ã®ã§nxãŒå¤‰åŒ–ã™ã‚‹
     int nx = DIX == 0 ? (crt_width - vdp->dx) : vdp->dx + 1;
     uint16_t ny = vdp->ny;
 
@@ -682,26 +682,26 @@ void cmd_YMMM(ms_vdp_t* vdp, uint8_t cmd) {
     int x, y, i;
     for (y = 0; y < ny; y++) {
         uint16_t* gram = to_gram(vdp, dst_vram_addr, 0);
-        for (x = 0; x < nx; x += dots_per_byte) {  // dots_per_byte ƒhƒbƒg•ª‚¸‚Â(1ƒoƒCƒg‚¸‚Â)ˆ—
+        for (x = 0; x < nx; x += dots_per_byte) {  // dots_per_byte ãƒ‰ãƒƒãƒˆåˆ†ãšã¤(1ãƒã‚¤ãƒˆãšã¤)å‡¦ç†
             uint8_t data = vram[src_vram_addr];
-            // VRAM‚É‘‚«‚Ş
+            // VRAMã«æ›¸ãè¾¼ã‚€
             if (vram[dst_vram_addr] != data) {
                 vram[dst_vram_addr] = data;
-                // GRAM‚É‘‚«‚Ş
+                // GRAMã«æ›¸ãè¾¼ã‚€
                 for (i = 0; i < dots_per_byte; i++) {
                     uint16_t dst = (data >> ((dots_per_byte - 1 - i) * bits_per_dot)) & ((1 << bits_per_dot) - 1);
                     gram[0 + i] = dst;
                     if (crt_width == 256) gram[256 * 512 + i] = dst;
                 }
             }
-            // DIX‚É]‚Á‚ÄVRAMƒAƒhƒŒƒX‚ğXV
+            // DIXã«å¾“ã£ã¦VRAMã‚¢ãƒ‰ãƒ¬ã‚¹ã‚’æ›´æ–°
             if ((vdp->cmd_arg & 0x04) == 0) {
-                // DIX=0‚Ì
+                // DIX=0ã®æ™‚
                 src_vram_addr += 1;
                 dst_vram_addr += 1;
                 gram += dots_per_byte;
             } else {
-                // DIX=1‚Ì
+                // DIX=1ã®æ™‚
                 src_vram_addr -= 1;
                 dst_vram_addr -= 1;
                 gram -= dots_per_byte;
@@ -717,18 +717,18 @@ void cmd_YMMM(ms_vdp_t* vdp, uint8_t cmd) {
         if (DIY == 0) {
             src_vram_addr += crt_width / dots_per_byte;
             dst_vram_addr += crt_width / dots_per_byte;
-            vdp->sy += 1;  // DY‚Í‘‚«Š·‚í‚é
-            vdp->dy += 1;  // DY‚Í‘‚«Š·‚í‚é
+            vdp->sy += 1;  // DYã¯æ›¸ãæ›ã‚ã‚‹
+            vdp->dy += 1;  // DYã¯æ›¸ãæ›ã‚ã‚‹
         } else {
             src_vram_addr -= crt_width / dots_per_byte;
             dst_vram_addr -= crt_width / dots_per_byte;
-            vdp->sy -= 1;  // DY‚Í‘‚«Š·‚í‚é
-            vdp->dy -= 1;  // DY‚Í‘‚«Š·‚í‚é
+            vdp->sy -= 1;  // DYã¯æ›¸ãæ›ã‚ã‚‹
+            vdp->dy -= 1;  // DYã¯æ›¸ãæ›ã‚ã‚‹
         }
     }
 
     rewrite_sprite_if_needed(vdp, start_dy, ny, DIY);
-    vdp->s02 &= 0xfe;  // CEƒrƒbƒg‚ğƒNƒŠƒA
+    vdp->s02 &= 0xfe;  // CEãƒ“ãƒƒãƒˆã‚’ã‚¯ãƒªã‚¢
 }
 
 int cmd_HMMM_exe(ms_vdp_t* vdp);
@@ -741,15 +741,15 @@ void cmd_HMMM(ms_vdp_t* vdp, uint8_t cmd) {
         MS_LOG(MS_LOG_FINE, "  nx=0x%03x, ny=0x%03x\n", vdp->nx, vdp->ny);
     }
 
-    // ‚‘¬‰»‚Ì‚½‚ß‚ÌƒLƒƒƒbƒVƒ…
+    // é«˜é€ŸåŒ–ã®ãŸã‚ã®ã‚­ãƒ£ãƒƒã‚·ãƒ¥
     int crt_width = vdp->ms_vdp_current_mode->crt_width;
     int dots_per_byte = vdp->ms_vdp_current_mode->dots_per_byte;
     int bits_per_dot = vdp->ms_vdp_current_mode->bits_per_dot;
     uint8_t* vram = vdp->vram;
     uint8_t DIX = vdp->arg & 0x04;
     uint8_t DIY = vdp->arg & 0x08;
-    uint16_t nx = vdp->nx == 0 ? crt_width : vdp->nx;  // TODO ƒhƒ‰ƒNƒG2‚ÅNX=0‚ªg‚í‚ê‚Ä‚¢‚é
-    nx &= ~(dots_per_byte - 1);                        // 1s‚Ìƒhƒbƒg”‚ğdots_per_byte‚Ì”{”‚É‚·‚é
+    uint16_t nx = vdp->nx == 0 ? crt_width : vdp->nx;  // TODO ãƒ‰ãƒ©ã‚¯ã‚¨2ã§NX=0ãŒä½¿ã‚ã‚Œã¦ã„ã‚‹
+    nx &= ~(dots_per_byte - 1);                        // 1è¡Œã®ãƒ‰ãƒƒãƒˆæ•°ã‚’dots_per_byteã®å€æ•°ã«ã™ã‚‹
     uint16_t ny = vdp->ny;
 
     vdp->cmd_current = cmd;
@@ -765,10 +765,10 @@ void cmd_HMMM(ms_vdp_t* vdp, uint8_t cmd) {
     vdp->cmd_context.src_vram_addr = src_vram_addr;
     vdp->cmd_context.dst_vram_addr = dst_vram_addr;
 
-    vdp->s02 |= 0x01;  // CEƒrƒbƒg‚ğƒZƒbƒg
+    vdp->s02 |= 0x01;  // CEãƒ“ãƒƒãƒˆã‚’ã‚»ãƒƒãƒˆ
     vdp->current_command_exec = cmd_HMMM_exe;
 
-    // 1s•ª‚¾‚¯Às
+    // 1è¡Œåˆ†ã ã‘å®Ÿè¡Œ
     ms_vdp_slice_exec(vdp);
 }
 
@@ -777,7 +777,7 @@ void cmd_HMMM(ms_vdp_t* vdp, uint8_t cmd) {
  *
  * @param vdp
  *
- * @return int 0: “]‘—I—¹, 1: “]‘—“r’†
+ * @return int 0: è»¢é€çµ‚äº†, 1: è»¢é€é€”ä¸­
  */
 int cmd_HMMM_exe(ms_vdp_t* vdp) {
     ms_vdp_cmd_ctx_t* context = &vdp->cmd_context;
@@ -800,7 +800,7 @@ int cmd_HMMM_exe(ms_vdp_t* vdp) {
     int nxbyte = context->nxbyte;
     int widthbyte = context->widthbyte;
 
-    uint16_t start_dy = vdp->dy;  // dy‚Í–ˆ‹ÆXV‚³‚ê‚Ä‚¢‚é‚Ì‚ÅA‚±‚Ì“_‚Å‚Í¡‰ñ‚Ìexe‚É‚æ‚é“]‘—ŠJns‚É‚È‚Á‚Ä‚¢‚é
+    uint16_t start_dy = vdp->dy;  // dyã¯æ¯æ¥­æ›´æ–°ã•ã‚Œã¦ã„ã‚‹ã®ã§ã€ã“ã®æ™‚ç‚¹ã§ã¯ä»Šå›ã®exeã«ã‚ˆã‚‹è»¢é€é–‹å§‹è¡Œã«ãªã£ã¦ã„ã‚‹
     uint32_t byte_count = 0;
     for (; y < ny; y++) {
         if (byte_count >= 0x100) {
@@ -811,13 +811,13 @@ int cmd_HMMM_exe(ms_vdp_t* vdp) {
             return 1;
         }
         uint16_t* gram = to_gram(vdp, dst_vram_addr, 0);
-        for (x = 0; x < nx; x += dots_per_byte) {  // dots_per_byte ƒhƒbƒg•ª‚¸‚Â(1ƒoƒCƒg‚¸‚Â)ˆ—
+        for (x = 0; x < nx; x += dots_per_byte) {  // dots_per_byte ãƒ‰ãƒƒãƒˆåˆ†ãšã¤(1ãƒã‚¤ãƒˆãšã¤)å‡¦ç†
             byte_count++;
             uint8_t data = vram[src_vram_addr];
-            // VRAM‚É‘‚«‚Ş
+            // VRAMã«æ›¸ãè¾¼ã‚€
             if (vram[dst_vram_addr] != data) {
                 vram[dst_vram_addr] = data;
-                // GRAM‚É‘‚«‚Ş
+                // GRAMã«æ›¸ãè¾¼ã‚€
                 for (i = dots_per_byte - 1; i >= 0; i--) {
                     // uint16_t dst = (data >> ((dots_per_byte-1-i)*bits_per_dot)) & dotmask;
                     uint16_t dst = data & dotmask;
@@ -826,14 +826,14 @@ int cmd_HMMM_exe(ms_vdp_t* vdp) {
                     if (crt_width == 256) gram[256 * 512 + i] = dst;
                 }
             }
-            // DIX‚É]‚Á‚ÄVRAMƒAƒhƒŒƒX‚ğXV
+            // DIXã«å¾“ã£ã¦VRAMã‚¢ãƒ‰ãƒ¬ã‚¹ã‚’æ›´æ–°
             if (DIX == 0) {
-                // DIX=0‚Ì
+                // DIX=0ã®æ™‚
                 src_vram_addr += 1;
                 dst_vram_addr += 1;
                 gram += dots_per_byte;
             } else {
-                // DIX=1‚Ì
+                // DIX=1ã®æ™‚
                 src_vram_addr -= 1;
                 dst_vram_addr -= 1;
                 gram -= dots_per_byte;
@@ -849,13 +849,13 @@ int cmd_HMMM_exe(ms_vdp_t* vdp) {
         if (DIY == 0) {
             src_vram_addr += widthbyte;
             dst_vram_addr += widthbyte;
-            vdp->sy += 1;  // DY‚Í‘‚«Š·‚í‚é
-            vdp->dy += 1;  // DY‚Í‘‚«Š·‚í‚é
+            vdp->sy += 1;  // DYã¯æ›¸ãæ›ã‚ã‚‹
+            vdp->dy += 1;  // DYã¯æ›¸ãæ›ã‚ã‚‹
         } else {
             src_vram_addr -= widthbyte;
             dst_vram_addr -= widthbyte;
-            vdp->sy -= 1;  // DY‚Í‘‚«Š·‚í‚é
-            vdp->dy -= 1;  // DY‚Í‘‚«Š·‚í‚é
+            vdp->sy -= 1;  // DYã¯æ›¸ãæ›ã‚ã‚‹
+            vdp->dy -= 1;  // DYã¯æ›¸ãæ›ã‚ã‚‹
         }
     }
 
@@ -887,14 +887,14 @@ void cmd_HMMC(ms_vdp_t* vdp, uint8_t cmd) {
 
     vdp->cmd_nx_count = vdp->nx / dots_per_byte;
     vdp->cmd_ny_count = vdp->ny;
-    vdp->s02 |= 0x01;             // CEƒrƒbƒg‚ğƒZƒbƒg
-    cmd_HMMC_exe(vdp, vdp->clr);  // Å‰‚Ì1ƒoƒCƒg‚ğ‘‚«‚Ş
+    vdp->s02 |= 0x01;             // CEãƒ“ãƒƒãƒˆã‚’ã‚»ãƒƒãƒˆ
+    cmd_HMMC_exe(vdp, vdp->clr);  // æœ€åˆã®1ãƒã‚¤ãƒˆã‚’æ›¸ãè¾¼ã‚€
 }
 
 void cmd_HMMC_exe(ms_vdp_t* vdp, uint8_t value) {
     // MS_LOG(MS_LOG_FINE,"HMMC exe G4: %02x, nx count=%03x, ny count=%03x\n", value, vdp->cmd_nx_count, vdp->cmd_ny_count);
     if (vdp->cmd_ny_count == 0 && vdp->cmd_nx_count == 0) {
-        vdp->s02 &= 0xfe;  // CEƒrƒbƒg‚ğƒNƒŠƒA
+        vdp->s02 &= 0xfe;  // CEãƒ“ãƒƒãƒˆã‚’ã‚¯ãƒªã‚¢
         vdp->cmd_current = 0;
         // rewrite_sprite_if_needed(vdp);
         return;
@@ -909,9 +909,9 @@ void cmd_HMMC_exe(ms_vdp_t* vdp, uint8_t value) {
     // value = debug_count;
     // debug_count = (debug_count + 1) % 16;
 
-    // VRAM‚É‘‚«‚Ş
-    vdp->vram[vaddr] = value;  // vdp->clr ‚Æ“¯‚¶’l‚Ì‚Í‚¸
-    // GRAM‚É‘‚«‚Ş
+    // VRAMã«æ›¸ãè¾¼ã‚€
+    vdp->vram[vaddr] = value;  // vdp->clr ã¨åŒã˜å€¤ã®ã¯ãš
+    // GRAMã«æ›¸ãè¾¼ã‚€
     int i;
     for (i = 0; i < dots_per_byte; i++) {
         uint16_t dst = (value >> ((dots_per_byte - 1 - i) * bits_per_dot)) & ((1 << bits_per_dot) - 1);
@@ -920,16 +920,16 @@ void cmd_HMMC_exe(ms_vdp_t* vdp, uint8_t value) {
         gram++;
     }
 
-    vdp->s02 |= 0x80;  // TRƒrƒbƒg‚ğƒZƒbƒg
+    vdp->s02 |= 0x80;  // TRãƒ“ãƒƒãƒˆã‚’ã‚»ãƒƒãƒˆ
     vdp->cmd_nx_count -= 1;
-    // DIX‚É]‚Á‚ÄVRAMƒAƒhƒŒƒX‚ğXV
+    // DIXã«å¾“ã£ã¦VRAMã‚¢ãƒ‰ãƒ¬ã‚¹ã‚’æ›´æ–°
     if ((vdp->cmd_arg & 0x4) == 0) {
         vaddr += 1;
     } else {
         vaddr -= 1;
     }
     if (vdp->cmd_nx_count == 0) {
-        // 1sI‚í‚Á‚½‚çŸ‚Ìs‚Ö
+        // 1è¡Œçµ‚ã‚ã£ãŸã‚‰æ¬¡ã®è¡Œã¸
         vdp->cmd_ny_count--;
         if (vdp->cmd_ny_count > 0) {
             vdp->cmd_nx_count = vdp->nx / dots_per_byte;
@@ -940,19 +940,19 @@ void cmd_HMMC_exe(ms_vdp_t* vdp, uint8_t value) {
             }
             if ((vdp->cmd_arg & 0x8) == 0) {  // DIY
                 vaddr += crt_width / dots_per_byte;
-                vdp->dy += 1;  // DY‚Í‘‚«Š·‚í‚é
+                vdp->dy += 1;  // DYã¯æ›¸ãæ›ã‚ã‚‹
             } else {
                 vaddr -= crt_width / dots_per_byte;
-                vdp->dy -= 1;  // DY‚Í‘‚«Š·‚í‚é
+                vdp->dy -= 1;  // DYã¯æ›¸ãæ›ã‚ã‚‹
             }
         } else {
-            // ‘S•”I‚í‚Á‚½‚çCEƒrƒbƒg‚ğƒNƒŠƒA
+            // å…¨éƒ¨çµ‚ã‚ã£ãŸã‚‰CEãƒ“ãƒƒãƒˆã‚’ã‚¯ãƒªã‚¢
             vdp->s02 &= 0xfe;
             vdp->cmd_current = 0;
         }
     }
-    // Œãˆ—
-    vdp->cmd_vram_addr = vaddr;  // VRAMƒAƒhƒŒƒX‚ğXV
+    // å¾Œå‡¦ç†
+    vdp->cmd_vram_addr = vaddr;  // VRAMã‚¢ãƒ‰ãƒ¬ã‚¹ã‚’æ›´æ–°
 }
 
 void ms_vdp_slice_exec(ms_vdp_t* vdp) {
@@ -963,10 +963,10 @@ void ms_vdp_slice_exec(ms_vdp_t* vdp) {
         }
         int ret = vdp->current_command_exec(vdp);
         if (vdp->hostdebugmode) {
-            X68_TX_PAL[0] = X68_TX_PAL_ORG;  // –ß‚·
+            X68_TX_PAL[0] = X68_TX_PAL_ORG;  // æˆ»ã™
         }
         if (ret == 0) {
-            vdp->s02 &= 0xfe;  // CEƒrƒbƒg‚ğƒNƒŠƒA
+            vdp->s02 &= 0xfe;  // CEãƒ“ãƒƒãƒˆã‚’ã‚¯ãƒªã‚¢
             vdp->current_command_exec = NULL;
             return;
         }

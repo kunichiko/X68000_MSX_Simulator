@@ -24,7 +24,7 @@ static void _read_sector(ms_disk_media_t* instance, uint32_t sector_id, ms_secto
 static void _write_sector(ms_disk_media_t* instance, uint32_t sector_id, ms_sector_t* sector);
 
 /*
-        Šm•Ûƒ‹[ƒ`ƒ“
+        ç¢ºä¿ãƒ«ãƒ¼ãƒãƒ³
  */
 THIS* ms_disk_media_9scdrv_alloc() {
     return (THIS*)new_malloc(sizeof(THIS));
@@ -37,22 +37,22 @@ int ms_disk_media_9scdrv_init(THIS* instance, ms_disk_9scdrv_drive_t drive) {
     if (!_setup_9scdrv(NULL)) {
         return 0;
     }
-    // baseƒNƒ‰ƒX‚Ì‰Šú‰»
+    // baseã‚¯ãƒ©ã‚¹ã®åˆæœŸåŒ–
     ms_disk_media_sectorbase_init(&instance->base, "9scdrv");
-    // ƒƒ\ƒbƒh‚Ì“o˜^
+    // ãƒ¡ã‚½ãƒƒãƒ‰ã®ç™»éŒ²
     instance->base.base.deinit = (void (*)(ms_disk_media_t*))ms_disk_media_9scdrv_deinit;  // override
     instance->base.read_sector = _read_sector;                                             // override
     instance->base.write_sector = _write_sector;                                           // override
 
-    // ƒvƒƒpƒeƒB‚Ì‰Šú‰»
+    // ãƒ—ãƒ­ãƒ‘ãƒ†ã‚£ã®åˆæœŸåŒ–
     instance->base.sectors_per_track = sectors_per_track;
     instance->base.heads = heads;
     instance->base.tracks = 80;
-    instance->base.base.is_write_protected = 1;  // ‘‚«‚İ‹Ö~
+    instance->base.base.is_write_protected = 1;  // æ›¸ãè¾¼ã¿ç¦æ­¢
     instance->drive = drive;
     int i;
     for (i = 0; i < MS_DISK_9SCDRV_CYLINDER_BUFFER_COUNT; i++) {
-        instance->cylinder_buffer_info[i] = 0xFF;  // –¢g—p
+        instance->cylinder_buffer_info[i] = 0xFF;  // æœªä½¿ç”¨
     }
     return 1;
 }
@@ -65,7 +65,7 @@ static bool _setup_9scdrv() {
     printf("9SCDRV Version: %s, Revision: %s\n", (result.version != 0xffffffff) ? (char*)&result.version : "Not found",
            (result.revision != 0xffffffff) ? (char*)&result.revision : "N/A");
     if (result.version == 0xffffffff) {
-        printf("9SCDRV V3 ‚ªí’“‚µ‚Ä‚¢‚Ü‚¹‚ñB\n");
+        printf("9SCDRV V3 ãŒå¸¸é§ã—ã¦ã„ã¾ã›ã‚“ã€‚\n");
         return false;
     }
     return true;
@@ -83,7 +83,7 @@ static uint8_t* _get_sector_buffer(THIS* dsk, int cylinder, int head, int record
             return dsk->cylinder_buffer[i][head * sectors_per_track + record - 1];
         }
     }
-    // ƒoƒbƒtƒ@‚É‚È‚¢ê‡Aƒgƒ‰ƒbƒN’PˆÊ (9ƒZƒNƒ^’PˆÊ) ‚Å“Ç‚İ‚Ş
+    // ãƒãƒƒãƒ•ã‚¡ã«ãªã„å ´åˆã€ãƒˆãƒ©ãƒƒã‚¯å˜ä½ (9ã‚»ã‚¯ã‚¿å˜ä½) ã§èª­ã¿è¾¼ã‚€
     int buffer_index = -1;
     for (i = 0; i < MS_DISK_9SCDRV_CYLINDER_BUFFER_COUNT; i++) {
         if (dsk->cylinder_buffer_info[i] == 0xFF) {
@@ -105,10 +105,10 @@ static uint8_t* _get_sector_buffer(THIS* dsk, int cylinder, int head, int record
 }
 
 /**
- * @brief ƒZƒNƒ^[‚ğ“Ç‚İ‚İ‚Ü‚·B
+ * @brief ã‚»ã‚¯ã‚¿ãƒ¼ã‚’èª­ã¿è¾¼ã¿ã¾ã™ã€‚
  *
  * @param instance
- * @param sector_id 1‚©‚çn‚Ü‚é‚±‚Æ‚É’ˆÓ
+ * @param sector_id 1ã‹ã‚‰å§‹ã¾ã‚‹ã“ã¨ã«æ³¨æ„
  * @param sector
  */
 static void _read_sector(ms_disk_media_t* instance, uint32_t sector_id, ms_sector_t* sector) {
@@ -120,13 +120,13 @@ static void _read_sector(ms_disk_media_t* instance, uint32_t sector_id, ms_secto
     printf("Read sector=%d (C=%d H=%d R=%d)\n", sector_id, cylinder, head, record);
     uint8_t* buf = _get_sector_buffer(dsk, cylinder, head, record);
     if (buf == NULL) {
-        // “Ç‚İ‚İ¸”s
-        memset(sector, 0xE5, 512);  // 0xE5‚Å–„‚ß‚é
+        // èª­ã¿è¾¼ã¿å¤±æ•—
+        memset(sector, 0xE5, 512);  // 0xE5ã§åŸ‹ã‚ã‚‹
         return;
     }
     memcpy(sector, buf, 512);
 }
 
 static void _write_sector(ms_disk_media_t* instance, uint32_t sector_id, ms_sector_t* sector) {
-    return;  // ‘‚«‚İ‹Ö~‚É‚·‚é
+    return;  // æ›¸ãè¾¼ã¿ç¦æ­¢ã«ã™ã‚‹
 }

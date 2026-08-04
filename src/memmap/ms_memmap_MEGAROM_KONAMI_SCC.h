@@ -12,14 +12,14 @@ typedef struct ms_memmap_driver_MEGAROM_KONAMI_SCC {
     ms_memmap_driver_t base;
     // extended properties
 
-    // SCCƒ‚[ƒh
+    // SCCãƒ¢ãƒ¼ãƒ‰
     uint8_t scc_mode;  // 0: SCC, 1: SCC+
 
-    // SCCƒŒƒWƒXƒ^ƒZƒOƒƒ“ƒg(ƒZƒOƒƒ“ƒg”Ô†0x3f‚ğƒZƒbƒg‚·‚é‚ÆƒAƒNƒZƒX‰Â”\‚É‚È‚é)
+    // SCCãƒ¬ã‚¸ã‚¹ã‚¿ã‚»ã‚°ãƒ¡ãƒ³ãƒˆ(ã‚»ã‚°ãƒ¡ãƒ³ãƒˆç•ªå·0x3fã‚’ã‚»ãƒƒãƒˆã™ã‚‹ã¨ã‚¢ã‚¯ã‚»ã‚¹å¯èƒ½ã«ãªã‚‹)
     uint8_t* scc_segment;
 
     int num_segments;
-    int selected_segment[4];  // region 0-3‚Ì‚»‚ê‚¼‚ê‚ÌƒZƒOƒƒ“ƒg‘I‘ğó‘Ô
+    int selected_segment[4];  // region 0-3ã®ãã‚Œãã‚Œã®ã‚»ã‚°ãƒ¡ãƒ³ãƒˆé¸æŠçŠ¶æ…‹
 } ms_memmap_driver_MEGAROM_KONAMI_SCC_t;
 
 ms_memmap_driver_MEGAROM_KONAMI_SCC_t* ms_memmap_MEGAROM_KONAMI_SCC_alloc();

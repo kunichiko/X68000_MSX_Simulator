@@ -8,14 +8,14 @@
 
 typedef struct ms_disk_media_sectorbase ms_disk_media_sectorbase_t;
 
-// 512�o�C�g�̔z��� ms_sector_t �Ƃ��Ē�` (C�̒�`�̏�����������Ȃ̂Œ���)
+// 512バイトの配列を ms_sector_t として定義 (Cの定義の書き方が特殊なので注意)
 typedef uint8_t ms_sector_t[512];
 
 /**
- * @brief �~�Տ�̃��f�B�A(Disk Media)���Z�N�^�[�x�[�X�Ŏ�������\���̂ł��B
+ * @brief 円盤上のメディア(Disk Media)をセクターベースで実現する構造体です。
  *
- * �g���b�N�̃M���b�v����CRC�G���[�Ȃǂ̐��̏������킸�ɁA�Z�N�^�[�f�[�^�݂̂Ń��f�B�A�������ꍇ�Ɏg�p���܂��B
- * .DSK�t�H�[�}�b�g�̃C���[�W���������߂̃T�u�\����(ms_disk_media_dskformat_t) �Ȃǂ����̑�\��ł��B
+ * トラックのギャップ情報やCRCエラーなどの生の情報を扱わずに、セクターデータのみでメディアを扱う場合に使用します。
+ * .DSKフォーマットのイメージを扱うためのサブ構造体(ms_disk_media_dskformat_t) などがその代表例です。
  *
  */
 typedef struct ms_disk_media_sectorbase {

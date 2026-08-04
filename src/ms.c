@@ -1,7 +1,7 @@
 /*
 
-                ‚l‚r‚w.‚r‚‰‚‚•‚Œ‚‚”‚…‚’ [[ MS ]]
-                                [[ƒXƒ^[ƒgƒAƒbƒvƒvƒƒOƒ‰ƒ€ ]]
+                ï¼­ï¼³ï¼¸.ï¼³ï½‰ï½ï½•ï½Œï½ï½”ï½…ï½’ [[ MS ]]
+                                [[ã‚¹ã‚¿ãƒ¼ãƒˆã‚¢ãƒƒãƒ—ãƒ—ãƒ­ã‚°ãƒ©ãƒ  ]]
 
         ver. 0.01	programmed by Kuni.
                                                                                 1995.9.15
@@ -38,14 +38,14 @@ ms_init_params_t user_param;
 //
 volatile uint8_t* BITSNS_WORK = (uint8_t*)0x800;
 
-// ƒvƒƒgƒ^ƒCƒvéŒ¾
+// ãƒ—ãƒ­ãƒˆã‚¿ã‚¤ãƒ—å®£è¨€
 void ms_exit(void);
 void ms_exit_failure(void);
 uint8_t load_user_param();
 int ms_system_file_open(const char* filename, int flag);
 
-// Œ»İ‚Ìİ’èƒƒOƒŒƒxƒ‹
-// ƒfƒoƒbƒOƒeƒLƒXƒg‰æ–Ê‚ªo‚Ä‚¢‚é‚¾‚¯‚±‚ÌƒƒOƒŒƒxƒ‹‚É‚È‚é
+// ç¾åœ¨ã®è¨­å®šãƒ­ã‚°ãƒ¬ãƒ™ãƒ«
+// ãƒ‡ãƒãƒƒã‚°ãƒ†ã‚­ã‚¹ãƒˆç”»é¢ãŒå‡ºã¦ã„ã‚‹æ™‚ã ã‘ã“ã®ãƒ­ã‚°ãƒ¬ãƒ™ãƒ«ã«ãªã‚‹
 static int _debug_log_level = MS_LOG_INFO;
 
 #ifdef DEBUG
@@ -54,43 +54,43 @@ static int textPlaneMode = 1;
 static int textPlaneMode = 0;
 #endif
 
-// ƒƒ‚ƒŠŠÖ˜A
+// ãƒ¡ãƒ¢ãƒªé–¢é€£
 ms_memmap_t* memmap = NULL;
 
-// I/OŠÖ˜A
+// I/Oé–¢é€£
 ms_iomap_t* iomap = NULL;
 
-// RTCŠÖ˜A
+// RTCé–¢é€£
 ms_rtc_t* rtc = NULL;
 
-// VDPŠÖ˜A
-ms_vdp_t* vdp = NULL;  // ms_vdp_shared ‚Æ“¯‚¶‚É‚È‚é‚Í‚¸
+// VDPé–¢é€£
+ms_vdp_t* vdp = NULL;  // ms_vdp_shared ã¨åŒã˜ã«ãªã‚‹ã¯ãš
 
-// PSGŠÖ˜A
-ms_psg_t* psg = NULL;  // ms_psg_shared ‚Æ“¯‚¶‚É‚È‚é‚Í‚¸
+// PSGé–¢é€£
+ms_psg_t* psg = NULL;  // ms_psg_shared ã¨åŒã˜ã«ãªã‚‹ã¯ãš
 
-// DiskŠÖ˜A
+// Diské–¢é€£
 ms_disk_container_t* disk_container = NULL;
 
 /*
-  Slot‚ÉROM‚ğƒZƒbƒg‚µ‚Ü‚·B
+  Slotã«ROMã‚’ã‚»ãƒƒãƒˆã—ã¾ã™ã€‚
         int ms_memmap_set_rom( (void *)address, (char *)filename, (int)kind, (int)slot, (int)page);
 
-  ˆø”F
-        void *ROM		: ROM‚ÌƒAƒhƒŒƒX
-        char *ROMName	: ROMƒtƒ@ƒCƒ‹–¼
-        int size		: ROM‚ÌƒTƒCƒY
-        int slot		: ƒXƒƒbƒg”Ô†
-        int page		: ƒy[ƒW”Ô†
+  å¼•æ•°ï¼š
+        void *ROM		: ROMã®ã‚¢ãƒ‰ãƒ¬ã‚¹
+        char *ROMName	: ROMãƒ•ã‚¡ã‚¤ãƒ«å
+        int size		: ROMã®ã‚µã‚¤ã‚º
+        int slot		: ã‚¹ãƒ­ãƒƒãƒˆç•ªå·
+        int page		: ãƒšãƒ¼ã‚¸ç•ªå·
 
-  ƒXƒƒbƒg”Ô†‚ÌÚ×F
+  ã‚¹ãƒ­ãƒƒãƒˆç•ªå·ã®è©³ç´°ï¼š
         slot %0000ssxx
-                ss: Šî–{ƒXƒƒbƒg”Ô†
-                xx: Šg’£ƒXƒƒbƒg”Ô†
+                ss: åŸºæœ¬ã‚¹ãƒ­ãƒƒãƒˆç•ªå·
+                xx: æ‹¡å¼µã‚¹ãƒ­ãƒƒãƒˆç•ªå·
 
-        –ß‚è’lF(‚¿‚á‚ñ‚ÆÀ‘•‚³‚ê‚Ä‚¢‚È‚¢‚©‚à‚µ‚ê‚Ü‚¹‚ñ)
-                0	: ³íI—¹
-                -1	: ƒGƒ‰[
+        æˆ»ã‚Šå€¤ï¼š(ã¡ã‚ƒã‚“ã¨å®Ÿè£…ã•ã‚Œã¦ã„ãªã„ã‹ã‚‚ã—ã‚Œã¾ã›ã‚“)
+                0	: æ­£å¸¸çµ‚äº†
+                -1	: ã‚¨ãƒ©ãƒ¼
 */
 void ms_memmap_set_rom(void* address, const char* filename, int kind, int slot, int page);
 void ms_memmap_register_rom(void* address, int kind, int slot, int page);
@@ -205,13 +205,13 @@ char* separate_rom_kind(char* path, int* kind) {
 }
 
 /*
-        DISK ROM ‚ÌƒpƒX‚©‚ç ",í—Ş" ‚ÌƒTƒtƒBƒbƒNƒX‚ğæ‚èo‚µAFDC‚Ìí—Ş‚ğ”»’è‚µ‚Ü‚·B
-        (ƒƒKƒƒ€‚Ìí—Şw’è separate_rom_kind() ‚Æ“¯‚¶•û®)
+        DISK ROM ã®ãƒ‘ã‚¹ã‹ã‚‰ ",ç¨®é¡" ã®ã‚µãƒ•ã‚£ãƒƒã‚¯ã‚¹ã‚’å–ã‚Šå‡ºã—ã€FDCã®ç¨®é¡ã‚’åˆ¤å®šã—ã¾ã™ã€‚
+        (ãƒ¡ã‚¬ãƒ­ãƒ ã®ç¨®é¡æŒ‡å®š separate_rom_kind() ã¨åŒã˜æ–¹å¼)
 
-        —á: "sony_disk.rom,sony"  -> ƒpƒX‚Í "sony_disk.rom"Adiskif ‚Í MS_DISKIF_SONY
+        ä¾‹: "sony_disk.rom,sony"  -> ãƒ‘ã‚¹ã¯ "sony_disk.rom"ã€diskif ã¯ MS_DISKIF_SONY
 
-        í—Ş‚ğÈ—ª‚µ‚½ê‡‚Í Panasonic(TC8566AF) ‚Æ‚µ‚Äˆµ‚¢‚Ü‚·B
-        Šù’m‚Ìí—ŞˆÈŠO‚ªw’è‚³‚ê‚½ê‡‚ÍƒGƒ‰[I—¹‚µ‚Ü‚·B
+        ç¨®é¡ã‚’çœç•¥ã—ãŸå ´åˆã¯ Panasonic(TC8566AF) ã¨ã—ã¦æ‰±ã„ã¾ã™ã€‚
+        æ—¢çŸ¥ã®ç¨®é¡ä»¥å¤–ãŒæŒ‡å®šã•ã‚ŒãŸå ´åˆã¯ã‚¨ãƒ©ãƒ¼çµ‚äº†ã—ã¾ã™ã€‚
 */
 char* separate_diskif(char* path, int* diskif) {
     char* p = strchr(path, ',');
@@ -223,24 +223,24 @@ char* separate_diskif(char* path, int* diskif) {
         } else if (strcasecmp(p, "panasonic") == 0 || strcasecmp(p, "tc8566af") == 0) {
             *diskif = MS_DISKIF_TC8566AF;
         } else {
-            printf("•s–¾‚ÈFDC‚Ìí—Ş‚Å‚·: %s\n", p);
-            printf("  w’è‚Å‚«‚éí—Ş: panasonic / tc8566af / sony / philips / wd2793\n");
+            printf("ä¸æ˜ãªFDCã®ç¨®é¡ã§ã™: %s\n", p);
+            printf("  æŒ‡å®šã§ãã‚‹ç¨®é¡: panasonic / tc8566af / sony / philips / wd2793\n");
             ms_exit_failure();
         }
     } else {
-        *diskif = MS_DISKIF_TC8566AF;  // È—ª‚Í Panasonic(TC8566AF)
+        *diskif = MS_DISKIF_TC8566AF;  // çœç•¥æ™‚ã¯ Panasonic(TC8566AF)
     }
     return path;
 }
 
 /*
-        ƒƒCƒ“ŠÖ”
+        ãƒ¡ã‚¤ãƒ³é–¢æ•°
 
-        ‹N“®ƒIƒvƒVƒ‡ƒ“F
-                -m filename		: MAIN ROM‚ğw’è‚µ‚½‚à‚Ì‚É•ÏX‚µ‚Ü‚·(32KƒoƒCƒg)
-                -rxx filename	: ƒXƒƒbƒg‚Éfilename‚ğƒZƒbƒg‚µ‚Ü‚·
-                        xx: 10‚ÌˆÊ = ƒXƒƒbƒg”Ô†, 1‚ÌˆÊ = ƒy[ƒW”Ô†
-                        —áF-r11 GAME1.ROM	: ƒXƒƒbƒg1-ƒy[ƒW1‚ÉGAME1.ROM‚ğƒZƒbƒg
+        èµ·å‹•ã‚ªãƒ—ã‚·ãƒ§ãƒ³ï¼š
+                -m filename		: MAIN ROMã‚’æŒ‡å®šã—ãŸã‚‚ã®ã«å¤‰æ›´ã—ã¾ã™(32Kãƒã‚¤ãƒˆ)
+                -rxx filename	: ã‚¹ãƒ­ãƒƒãƒˆã«filenameã‚’ã‚»ãƒƒãƒˆã—ã¾ã™
+                        xx: 10ã®ä½ = ã‚¹ãƒ­ãƒƒãƒˆç•ªå·, 1ã®ä½ = ãƒšãƒ¼ã‚¸ç•ªå·
+                        ä¾‹ï¼š-r11 GAME1.ROM	: ã‚¹ãƒ­ãƒƒãƒˆ1-ãƒšãƒ¼ã‚¸1ã«GAME1.ROMã‚’ã‚»ãƒƒãƒˆ
 */
 int main(int argc, char* argv[]) {
 #ifdef DEBUG
@@ -248,23 +248,23 @@ int main(int argc, char* argv[]) {
 #else
     debug_log_level = MS_LOG_INFO;
 #endif
-    // argv[0]‚©‚çAÀsƒtƒ@ƒCƒ‹–¼‚ğæ‚èœ‚«AƒfƒBƒŒƒNƒgƒŠ–¼‚ğæ“¾
-    // ‚»‚ÌƒfƒBƒŒƒNƒgƒŠ‚ğƒx[ƒXƒfƒBƒŒƒNƒgƒŠ‚Æ‚µ‚Äİ’è
+    // argv[0]ã‹ã‚‰ã€å®Ÿè¡Œãƒ•ã‚¡ã‚¤ãƒ«åã‚’å–ã‚Šé™¤ãã€ãƒ‡ã‚£ãƒ¬ã‚¯ãƒˆãƒªåã‚’å–å¾—
+    // ãã®ãƒ‡ã‚£ãƒ¬ã‚¯ãƒˆãƒªã‚’ãƒ™ãƒ¼ã‚¹ãƒ‡ã‚£ãƒ¬ã‚¯ãƒˆãƒªã¨ã—ã¦è¨­å®š
     strncpy(base_dir, argv[0], sizeof(base_dir) - 1);
-    base_dir[sizeof(base_dir) - 1] = '\0';  // •¶š—ñ‚ÌI’[‚ğ•ÛØ
+    base_dir[sizeof(base_dir) - 1] = '\0';  // æ–‡å­—åˆ—ã®çµ‚ç«¯ã‚’ä¿è¨¼
     char* last_separator = strrchr(base_dir, '\\');
     if (last_separator != NULL) {
-        // ÅŒã‚Ì \ ‚Íc‚·
+        // æœ€å¾Œã® \ ã¯æ®‹ã™
         *(last_separator + 1) = '\0';
     } else {
-        printf("ƒfƒBƒŒƒNƒgƒŠ–¼‚Ìæ“¾‚É¸”s‚µ‚Ü‚µ‚½\n");
+        printf("ãƒ‡ã‚£ãƒ¬ã‚¯ãƒˆãƒªåã®å–å¾—ã«å¤±æ•—ã—ã¾ã—ãŸ\n");
         return 1;
     }
     printf("Base directory: %s\n", base_dir);
 
     int i, j;
     int opt;
-    const char* optstring = "hm:s:w:r:";  // optstring‚ğ’è‹`‚µ‚Ü‚·
+    const char* optstring = "hm:s:w:r:";  // optstringã‚’å®šç¾©ã—ã¾ã™
     const struct option longopts[] = {
         //{          *name,           has_arg,            *flag, val },
         {          "vsrate", required_argument,                 0, 'A'},
@@ -289,12 +289,12 @@ int main(int argc, char* argv[]) {
 
     unsigned int mpu_type = _iocs_mpu_stat();
     if ((mpu_type & 0xf) < 3) {
-        printf("MS.X ‚Ì“®ì‚É‚Í 68030ˆÈã‚ª•K—v‚Å‚·\n");
+        printf("MS.X ã®å‹•ä½œã«ã¯ 68030ä»¥ä¸ŠãŒå¿…è¦ã§ã™\n");
         ms_exit_failure();
     }
     printf("MPU type: %04X\n", mpu_type);
 
-    // ƒfƒtƒHƒ‹ƒg‚Ì‰Šú‰»
+    // ãƒ‡ãƒ•ã‚©ãƒ«ãƒˆã®åˆæœŸåŒ–
     default_param.buf = NULL;
     default_param.diskrom = NULL;
     default_param.diskif = MS_DISKIF_TC8566AF;
@@ -325,114 +325,114 @@ int main(int argc, char* argv[]) {
     default_param.joystick_use_iocs = false;
     default_param.joystick_swap_AB = false;
 
-    // ƒ†[ƒU[İ’èƒtƒ@ƒCƒ‹‚Ì“Ç‚İ‚İ
+    // ãƒ¦ãƒ¼ã‚¶ãƒ¼è¨­å®šãƒ•ã‚¡ã‚¤ãƒ«ã®èª­ã¿è¾¼ã¿
     if (load_user_param()) {
-        // “Ç‚İ‚İ‚É¬Œ÷‚µ‚½ê‡‚ÍAƒfƒtƒHƒ‹ƒg‚Ìİ’è‚ğƒ†[ƒU[İ’è‚Åã‘‚«
+        // èª­ã¿è¾¼ã¿ã«æˆåŠŸã—ãŸå ´åˆã¯ã€ãƒ‡ãƒ•ã‚©ãƒ«ãƒˆã®è¨­å®šã‚’ãƒ¦ãƒ¼ã‚¶ãƒ¼è¨­å®šã§ä¸Šæ›¸ã
         init_param = user_param;
     } else {
-        // “Ç‚İ‚İ‚É¸”s‚µ‚½ê‡‚ÍAƒfƒtƒHƒ‹ƒg‚Ìİ’è‚ğg—p
+        // èª­ã¿è¾¼ã¿ã«å¤±æ•—ã—ãŸå ´åˆã¯ã€ãƒ‡ãƒ•ã‚©ãƒ«ãƒˆã®è¨­å®šã‚’ä½¿ç”¨
         init_param = default_param;
     }
 
-    // ‚»‚Ì‘¼ƒ[ƒNƒGƒŠƒA‚Ì‰Šú‰»
+    // ãã®ä»–ãƒ¯ãƒ¼ã‚¯ã‚¨ãƒªã‚¢ã®åˆæœŸåŒ–
     for (i = 0; i < 32; i++) {
         interrupt_history_ptr[i].int_tick = 0;
         interrupt_history_ptr[i].process_type = 0;
         interrupt_history_ptr[i].emu_counter = 0;
     }
 
-    // ƒRƒ}ƒ“ƒhƒ‰ƒCƒ“ƒIƒvƒVƒ‡ƒ“‚Ì‰ğÍ
+    // ã‚³ãƒãƒ³ãƒ‰ãƒ©ã‚¤ãƒ³ã‚ªãƒ—ã‚·ãƒ§ãƒ³ã®è§£æ
     while ((opt = getopt_long(argc, argv, optstring, longopts, &longindex)) != -1) {
         switch (opt) {
-        case 0:  // ƒtƒ‰ƒO‚ªƒZƒbƒg‚³‚ê‚½ê‡
-            // ‚à‚µƒZ[ƒtƒ‚[ƒh‚¾‚Á‚½‚çAƒfƒtƒHƒ‹ƒg‚Ìƒpƒ‰ƒ[ƒ^‚É–ß‚·
+        case 0:  // ãƒ•ãƒ©ã‚°ãŒã‚»ãƒƒãƒˆã•ã‚ŒãŸå ´åˆ
+            // ã‚‚ã—ã‚»ãƒ¼ãƒ•ãƒ¢ãƒ¼ãƒ‰ã ã£ãŸã‚‰ã€ãƒ‡ãƒ•ã‚©ãƒ«ãƒˆã®ãƒ‘ãƒ©ãƒ¡ãƒ¼ã‚¿ã«æˆ»ã™
             if (safemode) {
-                printf("ƒZ[ƒtƒ‚[ƒh‚Å‹N“®‚µ‚Ü‚·B‘±s‚·‚éê‡‚Í‰½‚©ƒL[‚ğ‰Ÿ‚µ‚Ä‚­‚¾‚³‚¢B\n");
+                printf("ã‚»ãƒ¼ãƒ•ãƒ¢ãƒ¼ãƒ‰ã§èµ·å‹•ã—ã¾ã™ã€‚ç¶šè¡Œã™ã‚‹å ´åˆã¯ä½•ã‹ã‚­ãƒ¼ã‚’æŠ¼ã—ã¦ãã ã•ã„ã€‚\n");
                 _iocs_b_keyinp();
                 init_param = default_param;
             }
             break;
-        case 'h':  // -h ƒIƒvƒVƒ‡ƒ“
+        case 'h':  // -h ã‚ªãƒ—ã‚·ãƒ§ãƒ³
             printHelpAndExit(argv[0]);
             break;
-        case 'm':  // -m ƒIƒvƒVƒ‡ƒ“
+        case 'm':  // -m ã‚ªãƒ—ã‚·ãƒ§ãƒ³
             if (optarg != NULL) {
                 init_param.mainrom = optarg;
             }
             break;
-        case 'w':  // -w ƒIƒvƒVƒ‡ƒ“
+        case 'w':  // -w ã‚ªãƒ—ã‚·ãƒ§ãƒ³
             if (optarg != NULL) {
                 init_param.cpu_wait = atoi(optarg);
             }
             break;
-        case 's':  // -s ƒIƒvƒVƒ‡ƒ“
+        case 's':  // -s ã‚ªãƒ—ã‚·ãƒ§ãƒ³
             if (optarg != NULL) {
                 init_param.subrom = optarg;
             }
             break;
-        case 'r':  // -rNN ƒIƒvƒVƒ‡ƒ“
+        case 'r':  // -rNN ã‚ªãƒ—ã‚·ãƒ§ãƒ³
             if (strlen(optarg) == 1 && !isdigit(optarg[0])) {
-                // -r ‚É”šˆÈŠO‚ª‘±‚­ê‡
+                // -r ã«æ•°å­—ä»¥å¤–ãŒç¶šãå ´åˆ
                 switch (optarg[0]) {
                 case 'm':
-                    // ƒƒCƒ“ROM‚Ìw’è
+                    // ãƒ¡ã‚¤ãƒ³ROMã®æŒ‡å®š
                     if (argv[optind] != NULL) {
                         init_param.mainrom = argv[optind++];
                     } else {
-                        printf("ROMƒtƒ@ƒCƒ‹–¼‚ªw’è‚³‚ê‚Ä‚¢‚Ü‚¹‚ñ\n");
+                        printf("ROMãƒ•ã‚¡ã‚¤ãƒ«åãŒæŒ‡å®šã•ã‚Œã¦ã„ã¾ã›ã‚“\n");
                         ms_exit_failure();
                     }
                     break;
                 case 's':
-                    // ƒTƒuROM‚Ìw’è
+                    // ã‚µãƒ–ROMã®æŒ‡å®š
                     if (argv[optind] != NULL) {
                         init_param.subrom = argv[optind++];
                     } else {
-                        printf("ROMƒtƒ@ƒCƒ‹–¼‚ªw’è‚³‚ê‚Ä‚¢‚Ü‚¹‚ñ\n");
+                        printf("ROMãƒ•ã‚¡ã‚¤ãƒ«åãŒæŒ‡å®šã•ã‚Œã¦ã„ã¾ã›ã‚“\n");
                         ms_exit_failure();
                     }
                     break;
                 case 'd':
-                    // ƒfƒBƒXƒNBIOS‚Ìw’è (",í—Ş" ‚ÅFDC‚Ìí—Ş‚ğw’è‰Â”\)
+                    // ãƒ‡ã‚£ã‚¹ã‚¯BIOSã®æŒ‡å®š (",ç¨®é¡" ã§FDCã®ç¨®é¡ã‚’æŒ‡å®šå¯èƒ½)
                     if (argv[optind] != NULL) {
                         init_param.diskrom = separate_diskif(argv[optind++], &init_param.diskif);
                     } else {
-                        printf("ROMƒtƒ@ƒCƒ‹–¼‚ªw’è‚³‚ê‚Ä‚¢‚Ü‚¹‚ñ\n");
+                        printf("ROMãƒ•ã‚¡ã‚¤ãƒ«åãŒæŒ‡å®šã•ã‚Œã¦ã„ã¾ã›ã‚“\n");
                         ms_exit_failure();
                     }
                     break;
                 case 'k':
                     if (optarg[1] == 'b') {
-                        // Š¿šBASIC‚Ìw’è
+                        // æ¼¢å­—BASICã®æŒ‡å®š
                         if (argv[optind] != NULL) {
                             init_param.kanjibasic = argv[optind++];
                         } else {
-                            printf("Š¿šBASICƒtƒ@ƒCƒ‹–¼‚ªw’è‚³‚ê‚Ä‚¢‚Ü‚¹‚ñ\n");
+                            printf("æ¼¢å­—BASICãƒ•ã‚¡ã‚¤ãƒ«åãŒæŒ‡å®šã•ã‚Œã¦ã„ã¾ã›ã‚“\n");
                             ms_exit();
                         }
 
                     } else if (optarg[1] == 'f') {
-                        // Š¿šƒtƒHƒ“ƒgROM‚Ìw’è
+                        // æ¼¢å­—ãƒ•ã‚©ãƒ³ãƒˆROMã®æŒ‡å®š
                         if (argv[optind] != NULL) {
                             init_param.kanjirom = argv[optind++];
                         } else {
-                            printf("ROMƒtƒ@ƒCƒ‹–¼‚ªw’è‚³‚ê‚Ä‚¢‚Ü‚¹‚ñ\n");
+                            printf("ROMãƒ•ã‚¡ã‚¤ãƒ«åãŒæŒ‡å®šã•ã‚Œã¦ã„ã¾ã›ã‚“\n");
                             ms_exit();
                         }
                     } else {
-                        printf("•s–¾‚ÈƒIƒvƒVƒ‡ƒ“‚Å‚·\n");
+                        printf("ä¸æ˜ãªã‚ªãƒ—ã‚·ãƒ§ãƒ³ã§ã™\n");
                         printHelpAndExit(argv[0]);
                     }
                 default:
-                    printf("•s–¾‚ÈƒIƒvƒVƒ‡ƒ“‚Å‚·\n");
+                    printf("ä¸æ˜ãªã‚ªãƒ—ã‚·ãƒ§ãƒ³ã§ã™\n");
                     printHelpAndExit(argv[0]);
                     break;
                 }
             } else if (strlen(optarg) == 1 && isdigit(optarg[0])) {
-                // -r ‚É”š‚ª1Œ…‘±‚­ê‡
+                // -r ã«æ•°å­—ãŒ1æ¡ç¶šãå ´åˆ
                 int slot = atoi(optarg);
                 if (slot >= 1 && slot <= 2) {
-                    // Ÿ‚Ìˆø”iROMƒtƒ@ƒCƒ‹–¼j‚ğæ“¾
+                    // æ¬¡ã®å¼•æ•°ï¼ˆROMãƒ•ã‚¡ã‚¤ãƒ«åï¼‰ã‚’å–å¾—
                     if (argv[optind] != NULL) {
                         if (slot == 1) {
                             init_param.cartridge_path_slot1 = argv[optind++];
@@ -444,61 +444,61 @@ int main(int argc, char* argv[]) {
                                 separate_rom_kind(init_param.cartridge_path_slot2, &init_param.cartridge_kind_slot2);
                         }
                     } else {
-                        printf("ROMƒtƒ@ƒCƒ‹–¼‚ªw’è‚³‚ê‚Ä‚¢‚Ü‚¹‚ñ\n");
+                        printf("ROMãƒ•ã‚¡ã‚¤ãƒ«åãŒæŒ‡å®šã•ã‚Œã¦ã„ã¾ã›ã‚“\n");
                         ms_exit_failure();
                     }
                 } else {
-                    printf("ƒXƒƒbƒg”Ô†‚Í1‚©2‚ğw’è‚µ‚Ä‚­‚¾‚³‚¢B\n");
+                    printf("ã‚¹ãƒ­ãƒƒãƒˆç•ªå·ã¯1ã‹2ã‚’æŒ‡å®šã—ã¦ãã ã•ã„ã€‚\n");
                     printHelpAndExit(argv[0]);
                 }
             } else if (strlen(optarg) == 2 && isdigit(optarg[0]) && isdigit(optarg[1])) {
-                // -r ‚É”š‚ª2Œ…‘±‚­ê‡
+                // -r ã«æ•°å­—ãŒ2æ¡ç¶šãå ´åˆ
                 int num = atoi(optarg);
                 int slot = (num / 10);
-                int page = num % 10;  // 1‚ÌˆÊ‚ªpage
+                int page = num % 10;  // 1ã®ä½ãŒpage
                 if (slot >= 0 && slot <= 3 && page >= 0 && page <= 3) {
-                    // Ÿ‚Ìˆø”iROMƒtƒ@ƒCƒ‹–¼j‚ğæ“¾
+                    // æ¬¡ã®å¼•æ•°ï¼ˆROMãƒ•ã‚¡ã‚¤ãƒ«åï¼‰ã‚’å–å¾—
                     if (argv[optind] != NULL) {
                         init_param.slot_path[slot][page] = argv[optind++];
                     } else {
-                        printf("ROMƒtƒ@ƒCƒ‹–¼‚ªw’è‚³‚ê‚Ä‚¢‚Ü‚¹‚ñ\n");
+                        printf("ROMãƒ•ã‚¡ã‚¤ãƒ«åãŒæŒ‡å®šã•ã‚Œã¦ã„ã¾ã›ã‚“\n");
                         ms_exit_failure();
                     }
                 } else {
-                    printf("ƒXƒƒbƒg”Ô†‚ª•s³‚Å‚·\n");
+                    printf("ã‚¹ãƒ­ãƒƒãƒˆç•ªå·ãŒä¸æ­£ã§ã™\n");
                     printHelpAndExit(argv[0]);
                 }
             } else {
-                // -r ’P“Æ‚Í -r1 ‚Æ“¯‚¶‚Æ‚İ‚È‚·
-                // Ÿ‚Ìˆø”iROMƒtƒ@ƒCƒ‹–¼j‚ğæ“¾
+                // -r å˜ç‹¬ã¯ -r1 ã¨åŒã˜ã¨ã¿ãªã™
+                // æ¬¡ã®å¼•æ•°ï¼ˆROMãƒ•ã‚¡ã‚¤ãƒ«åï¼‰ã‚’å–å¾—
                 if (optarg != NULL) {
                     init_param.cartridge_path_slot1 = optarg;
                     init_param.cartridge_path_slot1 = separate_rom_kind(init_param.cartridge_path_slot1, &init_param.cartridge_kind_slot1);
                 } else {
-                    printf("ROMƒtƒ@ƒCƒ‹–¼‚ªw’è‚³‚ê‚Ä‚¢‚Ü‚¹‚ñ\n");
+                    printf("ROMãƒ•ã‚¡ã‚¤ãƒ«åãŒæŒ‡å®šã•ã‚Œã¦ã„ã¾ã›ã‚“\n");
                     ms_exit_failure();
                 }
             }
             break;
-        case 'A':  // --vsrate N ƒIƒvƒVƒ‡ƒ“
-            // VSYNCƒŒ[ƒg‚Ìİ’è
+        case 'A':  // --vsrate N ã‚ªãƒ—ã‚·ãƒ§ãƒ³
+            // VSYNCãƒ¬ãƒ¼ãƒˆã®è¨­å®š
             longopt = &longopts[longindex];
             if (longopt->has_arg == required_argument && optarg != NULL) {
                 ms_vdp_vsync_rate = atoi(optarg);
                 if (ms_vdp_vsync_rate < 1 || ms_vdp_vsync_rate > 61) {
-                    printf("VSYNCƒŒ[ƒg‚ª•s³‚Å‚·\n");
+                    printf("VSYNCãƒ¬ãƒ¼ãƒˆãŒä¸æ­£ã§ã™\n");
                     printHelpAndExit(argv[0]);
                 }
             } else {
-                printf("VSYNCƒŒ[ƒg‚ªw’è‚³‚ê‚Ä‚¢‚Ü‚¹‚ñ\n");
+                printf("VSYNCãƒ¬ãƒ¼ãƒˆãŒæŒ‡å®šã•ã‚Œã¦ã„ã¾ã›ã‚“\n");
                 printHelpAndExit(argv[0]);
             }
             break;
-        case 'B':  // --framecon N ƒIƒvƒVƒ‡ƒ“
-            // ƒtƒŒ[ƒ€ƒŒ[ƒg§Œä‚Ìİ’è
-            // "auto" - ©“®BŠ„‚è‚İˆ—‚ªd‚­‚È‚é‚Æ©“®‚ÅƒtƒŒ[ƒ€ƒXƒLƒbƒv‚·‚é
-            // "none" - ƒtƒŒ[ƒ€ƒXƒLƒbƒv‚µ‚È‚¢Bˆ—‚ªd‚­‚È‚é‚ÆƒtƒŠ[ƒY‚·‚éƒŠƒXƒN‚ ‚è
-            // 1-99999 - 1ƒtƒŒ[ƒ€’†‚ÌÅ¬Às–½—ß”‚ğw’è(‘å‚«‚È”‚ğw’è‚·‚é‚ÆƒtƒŒ[ƒ€—‚¿‚µ‚â‚·‚­‚È‚é‚ªA“®‚­ƒ\ƒtƒg‚ª‘‚¦‚é)
+        case 'B':  // --framecon N ã‚ªãƒ—ã‚·ãƒ§ãƒ³
+            // ãƒ•ãƒ¬ãƒ¼ãƒ ãƒ¬ãƒ¼ãƒˆåˆ¶å¾¡ã®è¨­å®š
+            // "auto" - è‡ªå‹•ã€‚å‰²ã‚Šè¾¼ã¿å‡¦ç†ãŒé‡ããªã‚‹ã¨è‡ªå‹•ã§ãƒ•ãƒ¬ãƒ¼ãƒ ã‚¹ã‚­ãƒƒãƒ—ã™ã‚‹
+            // "none" - ãƒ•ãƒ¬ãƒ¼ãƒ ã‚¹ã‚­ãƒƒãƒ—ã—ãªã„ã€‚å‡¦ç†ãŒé‡ããªã‚‹ã¨ãƒ•ãƒªãƒ¼ã‚ºã™ã‚‹ãƒªã‚¹ã‚¯ã‚ã‚Š
+            // 1-99999 - 1ãƒ•ãƒ¬ãƒ¼ãƒ ä¸­ã®æœ€å°å®Ÿè¡Œå‘½ä»¤æ•°ã‚’æŒ‡å®š(å¤§ããªæ•°ã‚’æŒ‡å®šã™ã‚‹ã¨ãƒ•ãƒ¬ãƒ¼ãƒ è½ã¡ã—ã‚„ã™ããªã‚‹ãŒã€å‹•ãã‚½ãƒ•ãƒˆãŒå¢—ãˆã‚‹)
             longopt = &longopts[longindex];
             if (longopt->has_arg && optarg != NULL) {
                 if (strcasecmp(optarg, "auto") == 0) {
@@ -508,50 +508,50 @@ int main(int argc, char* argv[]) {
                 } else {
                     init_param.framerate_control = atoi(optarg);
                     if (init_param.framerate_control < 1 || init_param.framerate_control > 99999) {
-                        printf("ƒtƒŒ[ƒ€ƒŒ[ƒg§Œäƒ‹[ƒ‹‚Ìw’è‚ª•s³‚Å‚·\n");
+                        printf("ãƒ•ãƒ¬ãƒ¼ãƒ ãƒ¬ãƒ¼ãƒˆåˆ¶å¾¡ãƒ«ãƒ¼ãƒ«ã®æŒ‡å®šãŒä¸æ­£ã§ã™\n");
                         printHelpAndExit(argv[0]);
                     }
                 }
             } else {
-                printf("Š„‚è‚İƒuƒƒbƒNƒJƒEƒ“ƒg‚ªw’è‚³‚ê‚Ä‚¢‚Ü‚¹‚ñ\n");
+                printf("å‰²ã‚Šè¾¼ã¿ãƒ–ãƒ­ãƒƒã‚¯ã‚«ã‚¦ãƒ³ãƒˆãŒæŒ‡å®šã•ã‚Œã¦ã„ã¾ã›ã‚“\n");
                 printHelpAndExit(argv[0]);
             }
             break;
-        case 'C':  // --hostrate N ƒIƒvƒVƒ‡ƒ“
-            // ƒzƒXƒgˆ—ƒŒ[ƒg‚Ìİ’è
+        case 'C':  // --hostrate N ã‚ªãƒ—ã‚·ãƒ§ãƒ³
+            // ãƒ›ã‚¹ãƒˆå‡¦ç†ãƒ¬ãƒ¼ãƒˆã®è¨­å®š
             longopt = &longopts[longindex];
             if (longopt->has_arg && optarg != NULL) {
                 host_rate = atoi(optarg);
                 if (host_rate < 1 || host_rate > 61) {
-                    printf("ƒzƒXƒgˆ—ƒŒ[ƒg‚ª•s³‚Å‚·\n");
+                    printf("ãƒ›ã‚¹ãƒˆå‡¦ç†ãƒ¬ãƒ¼ãƒˆãŒä¸æ­£ã§ã™\n");
                     printHelpAndExit(argv[0]);
                 }
             } else {
-                printf("ƒzƒXƒgˆ—ƒŒ[ƒg‚ªw’è‚³‚ê‚Ä‚¢‚Ü‚¹‚ñ\n");
+                printf("ãƒ›ã‚¹ãƒˆå‡¦ç†ãƒ¬ãƒ¼ãƒˆãŒæŒ‡å®šã•ã‚Œã¦ã„ã¾ã›ã‚“\n");
                 printHelpAndExit(argv[0]);
             }
             break;
-        case 'D':  // --hostline N ƒIƒvƒVƒ‡ƒ“
-            // ƒzƒXƒgˆ—ƒ‰ƒCƒ“”Ô†‚Ìİ’è
+        case 'D':  // --hostline N ã‚ªãƒ—ã‚·ãƒ§ãƒ³
+            // ãƒ›ã‚¹ãƒˆå‡¦ç†ãƒ©ã‚¤ãƒ³ç•ªå·ã®è¨­å®š
             longopt = &longopts[longindex];
             if (longopt->has_arg && optarg != NULL) {
                 host_line = atoi(optarg);
                 if (host_line < 1 || host_line > 500) {
-                    printf("ƒzƒXƒgˆ—ƒ‰ƒCƒ“”Ô†‚ª•s³‚Å‚·\n");
+                    printf("ãƒ›ã‚¹ãƒˆå‡¦ç†ãƒ©ã‚¤ãƒ³ç•ªå·ãŒä¸æ­£ã§ã™\n");
                     printHelpAndExit(argv[0]);
                 }
             } else {
-                printf("ƒzƒXƒgˆ—’x‰„ƒJƒEƒ“ƒg‚ªw’è‚³‚ê‚Ä‚¢‚Ü‚¹‚ñ\n");
+                printf("ãƒ›ã‚¹ãƒˆå‡¦ç†é…å»¶ã‚«ã‚¦ãƒ³ãƒˆãŒæŒ‡å®šã•ã‚Œã¦ã„ã¾ã›ã‚“\n");
                 printHelpAndExit(argv[0]);
             }
             break;
-        case 'S':  // --disablescc ƒIƒvƒVƒ‡ƒ“
-            // SCC‰¹Œ¹‚Ì–³Œø‰»
+        case 'S':  // --disablescc ã‚ªãƒ—ã‚·ãƒ§ãƒ³
+            // SCCéŸ³æºã®ç„¡åŠ¹åŒ–
             longopt = &longopts[longindex];
             if (longopt->has_arg && optarg != NULL) {
                 init_param.scc_enable = atoi(optarg);
                 if (init_param.scc_enable < 1 || init_param.scc_enable > 0x10) {
-                    printf("SCC—LŒøƒ`ƒƒƒ“ƒlƒ‹‚Ìw’è‚ª‚¨‚©‚µ‚¢‚Å‚·B\n");
+                    printf("SCCæœ‰åŠ¹ãƒãƒ£ãƒ³ãƒãƒ«ã®æŒ‡å®šãŒãŠã‹ã—ã„ã§ã™ã€‚\n");
                     printHelpAndExit(argv[0]);
                 }
             } else {
@@ -564,19 +564,19 @@ int main(int argc, char* argv[]) {
         }
     }
 
-    // getopt‚Ìƒ‹[ƒv‚ªI—¹‚µ‚½ŒãA’Êí‚Ìˆø”‚ğˆ—‚·‚é
-    // init_param.diskcount‚Í‚±‚Ì“_‚Å 1ˆÈã‚É‚È‚Á‚Ä‚¢‚é‚±‚Æ‚à‚ ‚é‚Ì‚Å’ˆÓ
+    // getoptã®ãƒ«ãƒ¼ãƒ—ãŒçµ‚äº†ã—ãŸå¾Œã€é€šå¸¸ã®å¼•æ•°ã‚’å‡¦ç†ã™ã‚‹
+    // init_param.diskcountã¯ã“ã®æ™‚ç‚¹ã§ 1ä»¥ä¸Šã«ãªã£ã¦ã„ã‚‹ã“ã¨ã‚‚ã‚ã‚‹ã®ã§æ³¨æ„
     for (i = optind; i < argc; i++) {
         if (strcasestr(argv[i], ".dsk") != 0) {
             init_param.diskimages[init_param.diskcount++] = argv[i];
             if (init_param.diskcount >= 16) {
-                printf("ƒfƒBƒXƒNƒCƒ[ƒW‚Ì”‚ª‘½‚·‚¬‚Ü‚·\n");
+                printf("ãƒ‡ã‚£ã‚¹ã‚¯ã‚¤ãƒ¡ãƒ¼ã‚¸ã®æ•°ãŒå¤šã™ãã¾ã™\n");
                 ms_exit_failure();
             }
         }
     }
 
-    // ƒRƒ}ƒ“ƒhƒ‰ƒCƒ“ˆø”‚Å ms.iniƒtƒ@ƒCƒ‹‚Ìw’è‚ğã‘‚«
+    // ã‚³ãƒãƒ³ãƒ‰ãƒ©ã‚¤ãƒ³å¼•æ•°ã§ ms.iniãƒ•ã‚¡ã‚¤ãƒ«ã®æŒ‡å®šã‚’ä¸Šæ›¸ã
     if (disablehsyncint) {
         init_param.disablehsyncint = 1;
     }
@@ -587,58 +587,58 @@ int main(int argc, char* argv[]) {
         init_param.joystick_swap_AB = 1;
     }
 
-    // ƒtƒŒ[ƒ€ƒŒ[ƒg§Œä‚Ìİ’è
+    // ãƒ•ãƒ¬ãƒ¼ãƒ ãƒ¬ãƒ¼ãƒˆåˆ¶å¾¡ã®è¨­å®š
     framerate_control = init_param.framerate_control;
 
     //
     if (_iocs_b_super(0) < 0) {
-        printf("ƒX[ƒp[ƒoƒCƒU[ƒ‚[ƒh‚ÉˆÚs‚Å‚«‚Ü‚¹‚ñ‚Å‚µ‚½\n");
+        printf("ã‚¹ãƒ¼ãƒ‘ãƒ¼ãƒã‚¤ã‚¶ãƒ¼ãƒ¢ãƒ¼ãƒ‰ã«ç§»è¡Œã§ãã¾ã›ã‚“ã§ã—ãŸ\n");
         return -1;
     }
 
-    // 9scdrv‚Ìƒhƒ‰ƒCƒu”Ô†‚Ìİ’è
+    // 9scdrvã®ãƒ‰ãƒ©ã‚¤ãƒ–ç•ªå·ã®è¨­å®š
     if (0 <= drive_for_9scdrv && drive_for_9scdrv <= 3) {
         init_param.drive_for_9scdrv = drive_for_9scdrv;
     }
 
-    // CTRL+C‚Å’†’f‚³‚ê‚½‚Æ‚«‚ÉAms_exit‚ğŒÄ‚Ño‚·‚æ‚¤‚É‚·‚é
+    // CTRL+Cã§ä¸­æ–­ã•ã‚ŒãŸã¨ãã«ã€ms_exitã‚’å‘¼ã³å‡ºã™ã‚ˆã†ã«ã™ã‚‹
     _dos_intvcs(0xfff1, ms_exit);
 
     /*
-     ƒƒ‚ƒŠƒVƒXƒeƒ€‚Ì‰Šú‰»
+     ãƒ¡ãƒ¢ãƒªã‚·ã‚¹ãƒ†ãƒ ã®åˆæœŸåŒ–
      */
     memmap = ms_memmap_shared_instance();
     if (memmap == NULL) {
-        printf("ƒƒ‚ƒŠƒVƒXƒeƒ€‚Ì‰Šú‰»‚É¸”s‚µ‚Ü‚µ‚½\n");
+        printf("ãƒ¡ãƒ¢ãƒªã‚·ã‚¹ãƒ†ãƒ ã®åˆæœŸåŒ–ã«å¤±æ•—ã—ã¾ã—ãŸ\n");
         ms_exit_failure();
     }
 
     /*
-     VDPƒVƒXƒeƒ€‚Ì‰Šú‰»
+     VDPã‚·ã‚¹ãƒ†ãƒ ã®åˆæœŸåŒ–
     */
     vdp = ms_vdp_shared_instance();
     if (vdp == NULL) {
-        printf("VDPƒVƒXƒeƒ€‚Ì‰Šú‰»‚É¸”s‚µ‚Ü‚µ‚½\n");
+        printf("VDPã‚·ã‚¹ãƒ†ãƒ ã®åˆæœŸåŒ–ã«å¤±æ•—ã—ã¾ã—ãŸ\n");
         ms_exit_failure();
     }
     vdp->disablehsyncint = init_param.disablehsyncint;
     vdp->hostdebugmode = hostdebug;
 
     /*
-     I/OƒVƒXƒeƒ€‚Ì‰Šú‰»
+     I/Oã‚·ã‚¹ãƒ†ãƒ ã®åˆæœŸåŒ–
      */
     iomap = ms_iomap_shared_instance();
     if (iomap == NULL) {
-        printf("I/OƒVƒXƒeƒ€‚Ì‰Šú‰»‚É¸”s‚µ‚Ü‚µ‚½\n");
+        printf("I/Oã‚·ã‚¹ãƒ†ãƒ ã®åˆæœŸåŒ–ã«å¤±æ•—ã—ã¾ã—ãŸ\n");
         ms_exit_failure();
     }
 
-    printf("\n\n\n\n\n\n\n\n");  // TEXT‰æ–Ê‚ğã‚É8ƒ‰ƒCƒ“‚­‚ç‚¢ã‚°‚Ä‚¢‚é‚Ì‚ÅA‚»‚Ì•ª‰üs‚ğ“ü‚ê‚é
-    printf("\n\n\n\n\n\n\n\n");  // 256ƒhƒbƒgƒ‚[ƒh‚¾‚Æ‚³‚ç‚ÉŒ©‚¦‚È‚­‚È‚é‚Ì‚ÅA‚à‚¤­‚µ‰º‚°‚é
+    printf("\n\n\n\n\n\n\n\n");  // TEXTç”»é¢ã‚’ä¸Šã«8ãƒ©ã‚¤ãƒ³ãã‚‰ã„ä¸Šã’ã¦ã„ã‚‹ã®ã§ã€ãã®åˆ†æ”¹è¡Œã‚’å…¥ã‚Œã‚‹
+    printf("\n\n\n\n\n\n\n\n");  // 256ãƒ‰ãƒƒãƒˆãƒ¢ãƒ¼ãƒ‰ã ã¨ã•ã‚‰ã«è¦‹ãˆãªããªã‚‹ã®ã§ã€ã‚‚ã†å°‘ã—ä¸‹ã’ã‚‹
     printf("[[ MSX Simulator MS.X %s]]\n", MS_dot_X_VERSION);
-    printf(" ‚±‚Ì‰æ–Ê‚Í HELP ƒL[‚ÅÁ‚¹‚Ü‚·\n");
+    printf(" ã“ã®ç”»é¢ã¯ HELP ã‚­ãƒ¼ã§æ¶ˆã›ã¾ã™\n");
 
-    // İ’è’l‚Ì•\¦
+    // è¨­å®šå€¤ã®è¡¨ç¤º
     switch (user_param.framerate_control) {
     case 0x00000000:
         printf("framecon=none\n");
@@ -652,22 +652,22 @@ int main(int argc, char* argv[]) {
     }
 
     if (init_param.disablehsyncint) {
-        printf("HSYNCŠ„‚è‚İ‚ğ–³Œø‰»‚µ‚Ü‚·\n");
+        printf("HSYNCå‰²ã‚Šè¾¼ã¿ã‚’ç„¡åŠ¹åŒ–ã—ã¾ã™\n");
     }
 
     if (init_param.joystick_use_iocs) {
-        printf("ƒWƒ‡ƒCƒXƒeƒBƒbƒN‚Ì§Œä‚ÉIOCS‚ğg—p‚µ‚Ü‚·\n");
+        printf("ã‚¸ãƒ§ã‚¤ã‚¹ãƒ†ã‚£ãƒƒã‚¯ã®åˆ¶å¾¡ã«IOCSã‚’ä½¿ç”¨ã—ã¾ã™\n");
     }
     if (init_param.joystick_swap_AB) {
-        printf("ƒWƒ‡ƒCƒXƒeƒBƒbƒN‚ÌA/Bƒ{ƒ^ƒ“‚ğ“ü‚ê‘Ö‚¦‚Ü‚·\n");
+        printf("ã‚¸ãƒ§ã‚¤ã‚¹ãƒ†ã‚£ãƒƒã‚¯ã®A/Bãƒœã‚¿ãƒ³ã‚’å…¥ã‚Œæ›¿ãˆã¾ã™\n");
     }
 
     /*
-     PSGƒVƒXƒeƒ€‚Ì‰Šú‰»
+     PSGã‚·ã‚¹ãƒ†ãƒ ã®åˆæœŸåŒ–
      */
     psg = ms_psg_shared_instance();
     if (psg == 0) {
-        printf("‚o‚r‚f‚Ì‰Šú‰»‚É¸”s‚µ‚Ü‚µ‚½\n");
+        printf("ï¼°ï¼³ï¼§ã®åˆæœŸåŒ–ã«å¤±æ•—ã—ã¾ã—ãŸ\n");
         ms_exit_failure();
     }
     ms_psg_shared_init(iomap, &init_param);
@@ -675,67 +675,67 @@ int main(int argc, char* argv[]) {
     // SCC
     if (init_param.scc_enable != 0x0f) {
         if (init_param.scc_enable == 0) {
-            printf("‹[—SCC‰¹Œ¹‚ğ–³Œø‰»‚µ‚Ü‚·\n");
+            printf("æ“¬ä¼¼SCCéŸ³æºã‚’ç„¡åŠ¹åŒ–ã—ã¾ã™\n");
             w_SCC_enable(0);
         } else {
-            printf("‹[—SCC‰¹Œ¹‚Ì");
+            printf("æ“¬ä¼¼SCCéŸ³æºã®");
             for (i = 0; i < 4; i++) {
                 if (init_param.scc_enable & (1 << i)) {
                     printf(" CH%d", i + 1);
                 }
             }
-            printf("‚Ì‚İ—LŒø‚É‚µ‚Ü‚·\n");
+            printf("ã®ã¿æœ‰åŠ¹ã«ã—ã¾ã™\n");
             w_SCC_enable(1);
             w_SCC_ch_enable(init_param.scc_enable);
         }
     }
 
     /*
-     RTC‚Ì‰Šú‰»
+     RTCã®åˆæœŸåŒ–
      */
     rtc = ms_rtc_alloc();
     if (rtc == NULL) {
-        printf("RTC‚Ì‰Šú‰»‚É¸”s‚µ‚Ü‚µ‚½\n");
+        printf("RTCã®åˆæœŸåŒ–ã«å¤±æ•—ã—ã¾ã—ãŸ\n");
         ms_exit_failure();
     }
     ms_rtc_init(rtc, iomap);
 
     /*
-     Š¿šROM‚ÌƒZƒbƒg
+     æ¼¢å­—ROMã®ã‚»ãƒƒãƒˆ
      */
     if (disablekanji) {
-        printf("Š¿šROM‚ğ–³Œø‰»‚µ‚Ü‚·\n");
+        printf("æ¼¢å­—ROMã‚’ç„¡åŠ¹åŒ–ã—ã¾ã™\n");
     } else if (init_param.kanjirom != NULL) {
         ms_kanjirom12_t* k12 = ms_kanjirom12_alloc();
         if (k12 == NULL) {
-            printf("Š¿šROM‚Ì‰Šú‰»‚É¸”s‚µ‚Ü‚µ‚½\n");
+            printf("æ¼¢å­—ROMã®åˆæœŸåŒ–ã«å¤±æ•—ã—ã¾ã—ãŸ\n");
             ms_exit_failure();
         }
         ms_kanjirom12_init(k12, iomap, init_param.kanjirom);
         printf("KANJIROM: %s\n", init_param.kanjirom);
     } else {
-        printf("‘ã‘ÖŠ¿šROM‚ğg—p‚µ‚Ü‚·\n");
+        printf("ä»£æ›¿æ¼¢å­—ROMã‚’ä½¿ç”¨ã—ã¾ã™\n");
         ms_kanjirom_alt_t* k_alt = ms_kanjirom_alt_alloc();
         if (k_alt == NULL) {
-            printf("‘ã‘ÖŠ¿šROM‚Ì‰Šú‰»‚É¸”s‚µ‚Ü‚µ‚½\n");
+            printf("ä»£æ›¿æ¼¢å­—ROMã®åˆæœŸåŒ–ã«å¤±æ•—ã—ã¾ã—ãŸ\n");
             ms_exit_failure();
         }
         ms_kanjirom_alt_init(k_alt, iomap);
     }
 
     /*
-     SYSTEM ROM‚ÌƒZƒbƒg
+     SYSTEM ROMã®ã‚»ãƒƒãƒˆ
      */
     set_system_roms();
 
-    // ‚»‚Ì‘¼‚ÌŒÂ•Êw’èROM‚ğƒZƒbƒg
+    // ãã®ä»–ã®å€‹åˆ¥æŒ‡å®šROMã‚’ã‚»ãƒƒãƒˆ
     for (i = 0; i < 4; i++) {
         for (j = 0; j < 4; j++) {
             if (init_param.slot_path[i][j] != NULL) {
-                printf("ƒXƒƒbƒg%d-ƒy[ƒW%d‚ÉROM‚ğƒZƒbƒg‚µ‚Ü‚·: %s\n", i, j, init_param.slot_path[i][j]);
+                printf("ã‚¹ãƒ­ãƒƒãƒˆ%d-ãƒšãƒ¼ã‚¸%dã«ROMã‚’ã‚»ãƒƒãƒˆã—ã¾ã™: %s\n", i, j, init_param.slot_path[i][j]);
                 int fh = ms_system_file_open(init_param.slot_path[i][j], O_BINARY | O_RDONLY);
                 if (fh == -1) {
-                    printf("ƒtƒ@ƒCƒ‹‚ªŠJ‚¯‚Ü‚¹‚ñ. %s\n", init_param.slot_path[i][j]);
+                    printf("ãƒ•ã‚¡ã‚¤ãƒ«ãŒé–‹ã‘ã¾ã›ã‚“. %s\n", init_param.slot_path[i][j]);
                 } else {
                     allocateAndSetNORMALROM(fh, ROM_TYPE_NORMAL_ROM, i, -1, j);
                 }
@@ -743,7 +743,7 @@ int main(int argc, char* argv[]) {
         }
     }
 
-    // ƒTƒCƒY‚ğ©“®”»•Ê‚µ‚ÄROM‚ğƒZƒbƒg
+    // ã‚µã‚¤ã‚ºã‚’è‡ªå‹•åˆ¤åˆ¥ã—ã¦ROMã‚’ã‚»ãƒƒãƒˆ
     if (init_param.cartridge_path_slot1 != NULL) {
         printf("Cartridge slot 1: %s\n", init_param.cartridge_path_slot1);
         allocateAndSetCartridge(init_param.cartridge_path_slot1, 1, init_param.cartridge_kind_slot1);
@@ -753,34 +753,34 @@ int main(int argc, char* argv[]) {
         allocateAndSetCartridge(init_param.cartridge_path_slot2, 2, init_param.cartridge_kind_slot2);
     }
 
-    MS_LOG(MS_LOG_DEBUG, "VSYNCƒŒ[ƒg=%d, ƒzƒXƒgˆ—ƒŒ[ƒg=%d\n", ms_vdp_vsync_rate, host_rate);
-    MS_LOG(MS_LOG_DEBUG, "VSYNCŒv‘ª’†...\n");
+    MS_LOG(MS_LOG_DEBUG, "VSYNCãƒ¬ãƒ¼ãƒˆ=%d, ãƒ›ã‚¹ãƒˆå‡¦ç†ãƒ¬ãƒ¼ãƒˆ=%d\n", ms_vdp_vsync_rate, host_rate);
+    MS_LOG(MS_LOG_DEBUG, "VSYNCè¨ˆæ¸¬ä¸­...\n");
     {
         volatile int date, lastdate;
         volatile int start, end;
 
         date = _iocs_timeget();
         lastdate = date;
-        while (date == lastdate) {  // •b‚ª•Ï‚í‚éuŠÔ‚ğ‘Ò‚Â
+        while (date == lastdate) {  // ç§’ãŒå¤‰ã‚ã‚‹ç¬é–“ã‚’å¾…ã¤
             lastdate = date;
             date = _iocs_timeget();
         }
-        start = ms_vsync_interrupt_tick;  // ‚»‚Ì‚Æ‚«‚Ìtick‚ğæ“¾
+        start = ms_vsync_interrupt_tick;  // ãã®ã¨ãã®tickã‚’å–å¾—
         date = _iocs_timeget();
         lastdate = date;
-        while (date == lastdate) {  // •b‚ª•Ï‚í‚éuŠÔ‚ğ‘Ò‚Â
+        while (date == lastdate) {  // ç§’ãŒå¤‰ã‚ã‚‹ç¬é–“ã‚’å¾…ã¤
             lastdate = date;
             date = _iocs_timeget();
         }
-        end = ms_vsync_interrupt_tick;  // ‚»‚Ì‚Æ‚«‚Ìtick‚ğæ“¾
+        end = ms_vsync_interrupt_tick;  // ãã®ã¨ãã®tickã‚’å–å¾—
 
-        MS_LOG(MS_LOG_DEBUG, "VSYNC‰ñ”‚Í %d ‚Å‚·\n", end - start);
+        MS_LOG(MS_LOG_DEBUG, "VSYNCå›æ•°ã¯ %d ã§ã™\n", end - start);
     }
 
-    // 	‘Sƒy[ƒW‚Ì ƒXƒƒbƒg‚ğ‚O‚Å‰Šú‰»
+    // 	å…¨ãƒšãƒ¼ã‚¸ã® ã‚¹ãƒ­ãƒƒãƒˆã‚’ï¼ã§åˆæœŸåŒ–
     write_port_A8(0);
 
-    // ƒeƒLƒXƒg‰æ–Ê‚Ì•\¦/”ñ•\¦‚ğİ’è
+    // ãƒ†ã‚­ã‚¹ãƒˆç”»é¢ã®è¡¨ç¤º/éè¡¨ç¤ºã‚’è¨­å®š
     _setTextPlane(textPlaneMode);
 
     if (1) {
@@ -801,10 +801,10 @@ void _ms_exit(int status) {
         // disk_container = NULL;
     }
     if (psg != NULL) {
-        ms_psg_shared_deinit(iomap);  // singleton‚Í deinit“à•”‚Åfree‚³‚ê‚é
+        ms_psg_shared_deinit(iomap);  // singletonã¯ deinitå†…éƒ¨ã§freeã•ã‚Œã‚‹
     }
     if (vdp != NULL) {
-        ms_vdp_shared_deinit();  // singleton‚Í deinit“à•”‚Åfree‚³‚ê‚é
+        ms_vdp_shared_deinit();  // singletonã¯ deinitå†…éƒ¨ã§freeã•ã‚Œã‚‹
         vdp = NULL;
     }
     if (rtc != NULL) {
@@ -813,11 +813,11 @@ void _ms_exit(int status) {
         rtc = NULL;
     }
     if (iomap != NULL) {
-        ms_iomap_shared_deinit();  // singleton‚Í deinit“à•”‚Åfree‚³‚ê‚é
+        ms_iomap_shared_deinit();  // singletonã¯ deinitå†…éƒ¨ã§freeã•ã‚Œã‚‹
         iomap = NULL;
     }
     if (memmap != NULL) {
-        ms_memmap_shared_deinit();  // singleton‚Í deinit“à•”‚Åfree‚³‚ê‚é
+        ms_memmap_shared_deinit();  // singletonã¯ deinitå†…éƒ¨ã§freeã•ã‚Œã‚‹
         memmap = NULL;
     }
     if (user_param.buf != NULL) {
@@ -828,24 +828,24 @@ void _ms_exit(int status) {
 }
 
 void ms_exit_failure() {
-    // ƒGƒ‰[I—¹
+    // ã‚¨ãƒ©ãƒ¼çµ‚äº†
     printf("Press any key to exit\n");
     getchar();
     _exit(EXIT_FAILURE);
 }
 
 void ms_exit() {
-    // ³íI—¹
+    // æ­£å¸¸çµ‚äº†
     _ms_exit(EXIT_SUCCESS);
 }
 
 /*
- X68000‚Ì _BITSNS ‚Å“¾‚ç‚ê‚éƒL[ƒ}ƒgƒŠƒNƒX‚ğMSX‚ÌƒL[ƒ}ƒgƒŠƒNƒX‚É•ÏŠ·‚·‚é‚½‚ß‚Ìƒ}ƒbƒsƒ“ƒO
+ X68000ã® _BITSNS ã§å¾—ã‚‰ã‚Œã‚‹ã‚­ãƒ¼ãƒãƒˆãƒªã‚¯ã‚¹ã‚’MSXã®ã‚­ãƒ¼ãƒãƒˆãƒªã‚¯ã‚¹ã«å¤‰æ›ã™ã‚‹ãŸã‚ã®ãƒãƒƒãƒ”ãƒ³ã‚°
 
- - X68000‘¤‚Ìƒ}ƒgƒŠƒNƒX
-        - X68000ŠÂ‹«ƒnƒ“ƒhƒuƒbƒN up287 _BITSNSv QÆ
- - MSX‘¤‚Ìƒ}ƒgƒŠƒNƒX
-        - MSXƒf[ƒ^ƒpƒbƒN p12 u2.5 ƒL[ƒ{[ƒhv QÆ
+ - X68000å´ã®ãƒãƒˆãƒªã‚¯ã‚¹
+        - X68000ç’°å¢ƒãƒãƒ³ãƒ‰ãƒ–ãƒƒã‚¯ ã€Œp287 _BITSNSã€ å‚ç…§
+ - MSXå´ã®ãƒãƒˆãƒªã‚¯ã‚¹
+        - MSXãƒ‡ãƒ¼ã‚¿ãƒ‘ãƒƒã‚¯ p12 ã€Œ2.5 ã‚­ãƒ¼ãƒœãƒ¼ãƒ‰ã€ å‚ç…§
  */
 uint32_t KEY_MAP[][8] = {
     //    BIT0    BIT1    BIT2    BIT3    BIT4    BIT5    BIT6    BIT7
@@ -863,13 +863,13 @@ uint32_t KEY_MAP[][8] = {
     {0x00201, 0x00203, 0x00580, 0x00520, 0x1c301, 0x00508, 0x1b280, 0x00408},
     // 6 [  M   ][  ,<  ][  .>  ][  /   ][  _   ][  SP  ][ HOME ][ DEL  ] HOME=CLS
     {0x00404, 0x00204, 0x00208, 0x00210, 0x00220, 0x00801, 0x00802, 0x00808},
-    // 7 [ RUP  ][ RDWN ][ UNDO ][ LEFT ][ UP   ][ RIGT ][ DOWN ][ CLR  ] UNDO=‰æ–Ê‚ğ‹­§“I‚É511ƒhƒbƒgƒ‚[ƒh‚É‚·‚é
+    // 7 [ RUP  ][ RDWN ][ UNDO ][ LEFT ][ UP   ][ RIGT ][ DOWN ][ CLR  ] UNDO=ç”»é¢ã‚’å¼·åˆ¶çš„ã«511ãƒ‰ãƒƒãƒˆãƒ¢ãƒ¼ãƒ‰ã«ã™ã‚‹
     {0x00000, 0x00000, 0xfc000, 0x21810, 0x22820, 0x24880, 0x23840, 0x00000},
     // 8 [ (/)  ][ (*)  ][ (-)  ][ (7)  ][ (8)  ][ (9)  ][ (+)  ][ (4)  ] TEN KEYs
     {0x00902, 0x00904, 0x00a20, 0x00a04, 0x00a08, 0x00a10, 0x00901, 0x00980},
     // 9 [ (5)  ][ (6)  ][ (=)  ][ (1)  ][ (2)  ][ (3)  ][ ENTR ][ (0)  ] TEN KEYs
     {0x00a01, 0x00a02, 0x00000, 0x00910, 0x00920, 0x00940, 0x00000, 0x00908},
-    // a [ (,)  ][ (.)  ][ KIGO ][TOROKU][ HELP ][ XF1  ][ XF2  ][ XF3  ] “o˜^=ƒGƒ~ƒ…ƒŒ[ƒ^I—¹, XF1=GRAPH
+    // a [ (,)  ][ (.)  ][ KIGO ][TOROKU][ HELP ][ XF1  ][ XF2  ][ XF3  ] ç™»éŒ²=ã‚¨ãƒŸãƒ¥ãƒ¬ãƒ¼ã‚¿çµ‚äº†, XF1=GRAPH
     {0x00a40, 0x00a80, 0xfd000, 0xff000, 0xfe000, 0x00604, 0x00000, 0x00000},
     // b [ XF4  ][ XF5  ][ KANA ][ ROME ][ CODE ][ CAPS ][ INS  ][ HIRA ]
     {0x00000, 0x00000, 0x00610, 0x00000, 0x00000, 0x00000, 0x00804, 0x00000},
@@ -895,7 +895,7 @@ uint16_t X68_TX_PAL_ORG;
 
 void willEnterEmuLoop() {
     if (hostdebug) {
-        // ƒfƒoƒbƒOƒ‚[ƒh‚Ìê‡‚ÍA‰æ–Êã‚ÌF‚ğ•ÏX‚µ‚ÄA‚Ç‚Ìƒ^ƒCƒ~ƒ“ƒO‚ÅÀs‚³‚ê‚Ä‚¢‚é‚©‚ğ‰Â‹‰»‚·‚é
+        // ãƒ‡ãƒãƒƒã‚°ãƒ¢ãƒ¼ãƒ‰ã®å ´åˆã¯ã€ç”»é¢ä¸Šã®è‰²ã‚’å¤‰æ›´ã—ã¦ã€ã©ã®ã‚¿ã‚¤ãƒŸãƒ³ã‚°ã§å®Ÿè¡Œã•ã‚Œã¦ã„ã‚‹ã‹ã‚’å¯è¦–åŒ–ã™ã‚‹
         X68_TX_PAL_ORG = X68_TX_PAL[0];
         X68_TX_PAL[0] = 0xffff;
     }
@@ -903,7 +903,7 @@ void willEnterEmuLoop() {
 
 void didExitEmuLoop() {
     if (hostdebug) {
-        // ƒfƒoƒbƒOƒ‚[ƒh‚Ìê‡‚ÍA‰æ–Êã‚ÌF‚ğ•ÏX‚µ‚ÄA‚Ç‚Ìƒ^ƒCƒ~ƒ“ƒO‚ÅÀs‚³‚ê‚Ä‚¢‚é‚©‚ğ‰Â‹‰»‚·‚é
+        // ãƒ‡ãƒãƒƒã‚°ãƒ¢ãƒ¼ãƒ‰ã®å ´åˆã¯ã€ç”»é¢ä¸Šã®è‰²ã‚’å¤‰æ›´ã—ã¦ã€ã©ã®ã‚¿ã‚¤ãƒŸãƒ³ã‚°ã§å®Ÿè¡Œã•ã‚Œã¦ã„ã‚‹ã‹ã‚’å¯è¦–åŒ–ã™ã‚‹
         X68_TX_PAL[0] = X68_TX_PAL_ORG;
     }
 }
@@ -954,7 +954,7 @@ int emuLoopImpl(unsigned int pc, unsigned int counter) {
             continue;
         }
         // int v = _iocs_bitsns(i);
-        int v = BITSNS_WORK[i];  // IOCS BITSNS‚Ìƒ[ƒNƒGƒŠƒA’¼ÚQÆ
+        int v = BITSNS_WORK[i];  // IOCS BITSNSã®ãƒ¯ãƒ¼ã‚¯ã‚¨ãƒªã‚¢ç›´æ¥å‚ç…§
         int mask = 1;
         for (j = 0; j < 8; j++) {
             if (v & mask) {
@@ -966,7 +966,7 @@ int emuLoopImpl(unsigned int pc, unsigned int counter) {
                 KEYSNS_tbl_ptr[Y] &= ~X;
                 int edge = !(last_bitsns[i] & mask);
                 if (S != 0) {
-                    // S‚ª0ˆÈŠO‚Ìê‡‚ÍA“ÁêƒL[‚ÅAƒzƒXƒg‘¤‚Ì‘€ì‚ğs‚¤
+                    // SãŒ0ä»¥å¤–ã®å ´åˆã¯ã€ç‰¹æ®Šã‚­ãƒ¼ã§ã€ãƒ›ã‚¹ãƒˆå´ã®æ“ä½œã‚’è¡Œã†
                     // 0x10-0x1f: [0] [1] [2] [3] [4] [5] [6] [7] [8] [9] [A] [B] [C] [D] [E] [F]
                     // 0x21-0x24: [LEFT] [UP] [DOWN] [RIGHT]
                     // 0xf0-0xf7: [SHIFT] [OPT1] [OPT2] [F6] [F7] [F8] [F9] [F10]
@@ -1056,23 +1056,23 @@ int emuLoopImpl(unsigned int pc, unsigned int counter) {
         }
     }
     if (hitkey) {
-        // •¶š“ü—Í‚ğ“Ç‚İÌ‚Ä‚ÄAƒL[ƒoƒbƒtƒ@‚ğ‹ó‚É‚·‚é
+        // æ–‡å­—å…¥åŠ›ã‚’èª­ã¿æ¨ã¦ã¦ã€ã‚­ãƒ¼ãƒãƒƒãƒ•ã‚¡ã‚’ç©ºã«ã™ã‚‹
         _dos_kflushio(0xff);
     }
 
     if (f6_key_hit) {
         if (shift_pressed) {
-            // ƒVƒtƒgƒL[‚Æ“¯‰Ÿ‚µ‚Ìê‡‚ÍAƒfƒoƒbƒOƒƒOƒŒƒxƒ‹‚ğ‰º‚°‚é
+            // ã‚·ãƒ•ãƒˆã‚­ãƒ¼ã¨åŒæ™‚æŠ¼ã—ã®å ´åˆã¯ã€ãƒ‡ãƒãƒƒã‚°ãƒ­ã‚°ãƒ¬ãƒ™ãƒ«ã‚’ä¸‹ã’ã‚‹
             debug_log_level = max(0, debug_log_level - 1);
         } else {
-            // ‚»‚êˆÈŠO‚Ìê‡‚ÍAƒfƒoƒbƒOƒƒOƒŒƒxƒ‹‚ğã‚°‚é
+            // ãã‚Œä»¥å¤–ã®å ´åˆã¯ã€ãƒ‡ãƒãƒƒã‚°ãƒ­ã‚°ãƒ¬ãƒ™ãƒ«ã‚’ä¸Šã’ã‚‹
             debug_log_level = min(7, debug_log_level + 1);
         }
-        printf("ƒfƒoƒbƒOƒƒOƒŒƒxƒ‹=%d\n", debug_log_level);
+        printf("ãƒ‡ãƒãƒƒã‚°ãƒ­ã‚°ãƒ¬ãƒ™ãƒ«=%d\n", debug_log_level);
     }
 
     if (toroku_key_hit) {
-        // “o˜^ƒL[‚ª‰Ÿ‚³‚ê‚½‚çƒ|[ƒY
+        // ç™»éŒ²ã‚­ãƒ¼ãŒæŠ¼ã•ã‚ŒãŸã‚‰ãƒãƒ¼ã‚º
         _setTextPlane(1);
         uint32_t psg_ch_enable = ms_psg_get_ch_enable();
         uint32_t scc_ch_enable = r_SCC_ch_enable();
@@ -1080,31 +1080,31 @@ int emuLoopImpl(unsigned int pc, unsigned int counter) {
         w_SCC_ch_enable(0);
         printf("Paused:\n[TOROKU]: Resume [RET]: Exit\n");
 
-        // ‚±‚Ìƒ^ƒCƒ~ƒ“ƒO‚ÅŠeƒhƒ‰ƒCƒo‚ÌƒR[ƒ‹ƒoƒbƒN‚ğŒÄ‚Ño‚·
+        // ã“ã®ã‚¿ã‚¤ãƒŸãƒ³ã‚°ã§å„ãƒ‰ãƒ©ã‚¤ãƒã®ã‚³ãƒ¼ãƒ«ãƒãƒƒã‚¯ã‚’å‘¼ã³å‡ºã™
         ms_memmap_did_pause(memmap);
 
         //
         while (1) {
-            int va = BITSNS_WORK[0xa];  // IOCS BITSNS‚Ìƒ[ƒNƒGƒŠƒA’¼ÚQÆ
-            if (!(va & 0x08)) {         // “o˜^ƒL[‚ª—£‚³‚ê‚é‚Ü‚Å‘Ò‚Â
+            int va = BITSNS_WORK[0xa];  // IOCS BITSNSã®ãƒ¯ãƒ¼ã‚¯ã‚¨ãƒªã‚¢ç›´æ¥å‚ç…§
+            if (!(va & 0x08)) {         // ç™»éŒ²ã‚­ãƒ¼ãŒé›¢ã•ã‚Œã‚‹ã¾ã§å¾…ã¤
                 break;
             }
         }
         while (1) {
             //
-            int va = BITSNS_WORK[0xa];  // IOCS BITSNS‚Ìƒ[ƒNƒGƒŠƒA’¼ÚQÆ
-            if (va & 0x08) {            // ‚à‚¤ˆê“x“o˜^ƒL[‚ª‰Ÿ‚³‚ê‚½‚çÄŠJ
+            int va = BITSNS_WORK[0xa];  // IOCS BITSNSã®ãƒ¯ãƒ¼ã‚¯ã‚¨ãƒªã‚¢ç›´æ¥å‚ç…§
+            if (va & 0x08) {            // ã‚‚ã†ä¸€åº¦ç™»éŒ²ã‚­ãƒ¼ãŒæŠ¼ã•ã‚ŒãŸã‚‰å†é–‹
                 break;
             }
-            int v3 = BITSNS_WORK[0x3];  // IOCS BITSNS‚Ìƒ[ƒNƒGƒŠƒA’¼ÚQÆ
-            if (v3 & 0x20) {            // ƒŠƒ^[ƒ“ƒL[‚ª‰Ÿ‚³‚ê‚½‚çI—¹
+            int v3 = BITSNS_WORK[0x3];  // IOCS BITSNSã®ãƒ¯ãƒ¼ã‚¯ã‚¨ãƒªã‚¢ç›´æ¥å‚ç…§
+            if (v3 & 0x20) {            // ãƒªã‚¿ãƒ¼ãƒ³ã‚­ãƒ¼ãŒæŠ¼ã•ã‚ŒãŸã‚‰çµ‚äº†
                 return 1;
             }
         }
         printf("->Resumed\n");
         while (1) {
-            int va = BITSNS_WORK[0xa];  // IOCS BITSNS‚Ìƒ[ƒNƒGƒŠƒA’¼ÚQÆ
-            if (!(va & 0x08)) {         // “o˜^ƒL[‚ª—£‚³‚ê‚é‚Ü‚Å‘Ò‚Â
+            int va = BITSNS_WORK[0xa];  // IOCS BITSNSã®ãƒ¯ãƒ¼ã‚¯ã‚¨ãƒªã‚¢ç›´æ¥å‚ç…§
+            if (!(va & 0x08)) {         // ç™»éŒ²ã‚­ãƒ¼ãŒé›¢ã•ã‚Œã‚‹ã¾ã§å¾…ã¤
                 break;
             }
         }
@@ -1114,8 +1114,8 @@ int emuLoopImpl(unsigned int pc, unsigned int counter) {
     }
 
     if (undo_key_hit) {
-        // UNDOƒL[‚ª‰Ÿ‚³‚ê‚½‚çA‹­§“I‚É511ƒhƒbƒgƒ‚[ƒh‚É‚·‚é
-        printf("\n512ƒhƒbƒgƒ‚[ƒh‚É‚µ‚Ü‚µ‚½\n");
+        // UNDOã‚­ãƒ¼ãŒæŠ¼ã•ã‚ŒãŸã‚‰ã€å¼·åˆ¶çš„ã«511ãƒ‰ãƒƒãƒˆãƒ¢ãƒ¼ãƒ‰ã«ã™ã‚‹
+        printf("\n512ãƒ‰ãƒƒãƒˆãƒ¢ãƒ¼ãƒ‰ã«ã—ã¾ã—ãŸ\n");
         ms_vdp_force_512dot_mode();
     }
 
@@ -1144,9 +1144,9 @@ int emuLoopImpl(unsigned int pc, unsigned int counter) {
             printf("Disk ejected\n");
         }
         if (num_key_hit >= 0) {
-            // num‚Í0-f‚Ü‚Å‚Ì16’Ê‚è
-            // 0‚Í 9scdrv‚ÉØ‚è‘Ö‚¦
-            // 1-15‚Í“o˜^‚³‚ê‚Ä‚¢‚éƒfƒBƒXƒNƒCƒ[ƒW‚ÉØ‚è‘Ö‚¦
+            // numã¯0-fã¾ã§ã®16é€šã‚Š
+            // 0ã¯ 9scdrvã«åˆ‡ã‚Šæ›¿ãˆ
+            // 1-15ã¯ç™»éŒ²ã•ã‚Œã¦ã„ã‚‹ãƒ‡ã‚£ã‚¹ã‚¯ã‚¤ãƒ¡ãƒ¼ã‚¸ã«åˆ‡ã‚Šæ›¿ãˆ
             disk_container->change_disk(disk_container, num_key_hit - 1);
             printf("Disk changed: %s\n", disk_container->current_disk->name);
         }
@@ -1154,7 +1154,7 @@ int emuLoopImpl(unsigned int pc, unsigned int counter) {
 
     if (f7_pressed) {
         if (esc_key_hit) {
-            // esc‚ª‰Ÿ‚³‚ê‚½‚ç‘Sƒ`ƒƒƒ“ƒlƒ‹‚ğƒgƒOƒ‹
+            // escãŒæŠ¼ã•ã‚ŒãŸã‚‰å…¨ãƒãƒ£ãƒ³ãƒãƒ«ã‚’ãƒˆã‚°ãƒ«
             uint32_t psg_ch = ms_psg_get_ch_enable();
             uint32_t scc_ch = r_SCC_ch_enable();
             if (psg_ch && scc_ch) {
@@ -1169,7 +1169,7 @@ int emuLoopImpl(unsigned int pc, unsigned int counter) {
         case 1:
         case 2:
         case 3:
-            // PSG ƒ`ƒƒƒ“ƒlƒ‹‚ÌƒgƒOƒ‹
+            // PSG ãƒãƒ£ãƒ³ãƒãƒ«ã®ãƒˆã‚°ãƒ«
             uint32_t ch = ms_psg_get_ch_enable();
             ch ^= 1 << (num_key_hit - 1);
             ms_psg_set_ch_enable(ch);
@@ -1178,7 +1178,7 @@ int emuLoopImpl(unsigned int pc, unsigned int counter) {
         case 5:
         case 6:
         case 7:
-            // SCC ƒ`ƒƒƒ“ƒlƒ‹‚ÌƒgƒOƒ‹
+            // SCC ãƒãƒ£ãƒ³ãƒãƒ«ã®ãƒˆã‚°ãƒ«
             uint32_t scc_ch = r_SCC_ch_enable();
             scc_ch ^= 1 << (num_key_hit - 4);
             w_SCC_ch_enable(scc_ch);
@@ -1189,13 +1189,13 @@ int emuLoopImpl(unsigned int pc, unsigned int counter) {
     }
 
     for (i = 0; i < 16; i++) {
-        last_bitsns[i] = ((uint8_t*)0x800)[i];  // IOCS BITSNS‚Ìƒ[ƒNƒGƒŠƒA’¼ÚQÆ‚µAˆê‚Â‘O‚Ì’l‚ğŠo‚¦‚Ä‚¨‚­
+        last_bitsns[i] = ((uint8_t*)0x800)[i];  // IOCS BITSNSã®ãƒ¯ãƒ¼ã‚¯ã‚¨ãƒªã‚¢ç›´æ¥å‚ç…§ã—ã€ä¸€ã¤å‰ã®å€¤ã‚’è¦šãˆã¦ãŠã
     }
 
     return 0;
 }
 
-// ƒƒ‚ƒŠƒ_ƒ“ƒv
+// ãƒ¡ãƒ¢ãƒªãƒ€ãƒ³ãƒ—
 void dump(unsigned int page, unsigned int pc_8k) {
     int i, j;
     int pcbase, pc;
@@ -1208,7 +1208,7 @@ void dump(unsigned int page, unsigned int pc_8k) {
     wr = interrupt_history_wr;
     for (i = 0; i < 8; i++) {
         unsigned int tick;
-        unsigned int process_type;  // 0: EIó‘Ô‚ÅŠ„‚è‚İ‚ª‚©‚©‚Á‚½, 1: EI‚¾‚Á‚½‚ªƒXƒLƒbƒv, 2: DIó‘Ô‚ÅŠ„‚è‚İ‚ªƒXƒLƒbƒv
+        unsigned int process_type;  // 0: EIçŠ¶æ…‹ã§å‰²ã‚Šè¾¼ã¿ãŒã‹ã‹ã£ãŸ, 1: EIã ã£ãŸãŒã‚¹ã‚­ãƒƒãƒ—, 2: DIçŠ¶æ…‹ã§å‰²ã‚Šè¾¼ã¿ãŒã‚¹ã‚­ãƒƒãƒ—
         unsigned int counter;
         rd = (interrupt_history_rd + i) % 32;
         if (rd == wr) {
@@ -1274,7 +1274,7 @@ void _moveTextPlane(int cursorKeyHit) {
 
     switch (cursorKeyHit) {
     case 1:
-        // ¶
+        // å·¦
         if (x >= diff) {
             x -= diff;
         } else {
@@ -1282,7 +1282,7 @@ void _moveTextPlane(int cursorKeyHit) {
         }
         break;
     case 2:
-        // ã
+        // ä¸Š
         if (y >= diff) {
             y -= diff;
         } else {
@@ -1290,16 +1290,16 @@ void _moveTextPlane(int cursorKeyHit) {
         }
         break;
     case 3:
-        // ‰º
-        if (y <= 512 - 192 - diff) {  // “K“–
+        // ä¸‹
+        if (y <= 512 - 192 - diff) {  // é©å½“
             y += diff;
         } else {
             y = 512 - 192;
         }
         break;
     case 4:
-        // ‰E
-        if (x <= 512 - 192 - diff) {  // “K“–
+        // å³
+        if (x <= 512 - 192 - diff) {  // é©å½“
             x += diff;
         } else {
             x = 512 - 192;
@@ -1313,15 +1313,15 @@ void _moveTextPlane(int cursorKeyHit) {
 void _setTextPlane(int textPlaneMode) {
     switch (textPlaneMode) {
     case 0:
-        // ƒeƒLƒXƒg•\¦OFF‚É‚·‚é‚ÉAƒfƒoƒbƒOƒƒO‚ğINFO‚É‚·‚é
+        // ãƒ†ã‚­ã‚¹ãƒˆè¡¨ç¤ºOFFã«ã™ã‚‹æ™‚ã«ã€ãƒ‡ãƒãƒƒã‚°ãƒ­ã‚°ã‚’INFOã«ã™ã‚‹
         debug_log_level = MS_LOG_INFO;
-        // ƒeƒLƒXƒg•\¦OFF
+        // ãƒ†ã‚­ã‚¹ãƒˆè¡¨ç¤ºOFF
         vdp->tx_active = 0;
         break;
     case 1:
-        // ƒeƒLƒXƒg•\¦ON‚É‚·‚é‚ÉAƒfƒoƒbƒOƒƒO‚ğŒ³‚É–ß‚·
+        // ãƒ†ã‚­ã‚¹ãƒˆè¡¨ç¤ºONã«ã™ã‚‹æ™‚ã«ã€ãƒ‡ãƒãƒƒã‚°ãƒ­ã‚°ã‚’å…ƒã«æˆ»ã™
         debug_log_level = _debug_log_level;
-        // ƒeƒLƒXƒg•\¦ON
+        // ãƒ†ã‚­ã‚¹ãƒˆè¡¨ç¤ºON
         vdp->tx_active = 1;
         break;
     }
@@ -1337,14 +1337,14 @@ int ms_system_file_open(const char* filename, int flag) {
     if (fh != -1) {
         return fh;
     }
-    // ƒx[ƒXƒfƒBƒŒƒNƒgƒŠ‚àŒŸõ
+    // ãƒ™ãƒ¼ã‚¹ãƒ‡ã‚£ãƒ¬ã‚¯ãƒˆãƒªã‚‚æ¤œç´¢
     char base_filename[256];
     sprintf(base_filename, "%s%s", base_dir, filename);
     fh = open(base_filename, flag);
     if (fh != -1) {
         return fh;
     }
-    // ƒx[ƒXƒfƒBƒŒƒNƒgƒŠ/msxroms‚àŒŸõ
+    // ãƒ™ãƒ¼ã‚¹ãƒ‡ã‚£ãƒ¬ã‚¯ãƒˆãƒª/msxromsã‚‚æ¤œç´¢
     sprintf(base_filename, "%smsxroms/%s", base_dir, filename);
     fh = open(base_filename, flag);
     if (fh != -1) {
@@ -1379,23 +1379,23 @@ void set_system_roms() {
             close(fh_subrom);
         }
         // Load default CBIOS ROMs
-        printf("BIOS ROM‚ªŒ©‚Â‚©‚è‚Ü‚¹‚ñBƒtƒ@ƒCƒ‹‚ğŠm”F‚µ‚Ä‚­‚¾‚³‚¢B\n");
+        printf("BIOS ROMãŒè¦‹ã¤ã‹ã‚Šã¾ã›ã‚“ã€‚ãƒ•ã‚¡ã‚¤ãƒ«ã‚’ç¢ºèªã—ã¦ãã ã•ã„ã€‚\n");
         printf(" BIOS ROM: %s\n", init_param.mainrom);
         printf(" SUB ROM : %s\n", init_param.subrom);
         ms_exit_failure();
         return;
     }
-    // DISK ROM‚Ìw’è‚ª‚ ‚ê‚Î“Ç‚İ‚Ş
+    // DISK ROMã®æŒ‡å®šãŒã‚ã‚Œã°èª­ã¿è¾¼ã‚€
     if (ms_system_file_exists(init_param.diskrom)) {
         printf("   DISK ROM: %s\n", init_param.diskrom);
         int i;
         for (i = 0; i < init_param.diskcount; i++) {
             printf(" Load disk [%d] : %s\n", i, init_param.diskimages[i]);
         }
-        // ƒfƒBƒXƒNƒRƒ“ƒeƒi‚Ì‰Šú‰»
+        // ãƒ‡ã‚£ã‚¹ã‚¯ã‚³ãƒ³ãƒ†ãƒŠã®åˆæœŸåŒ–
         disk_container = ms_disk_container_alloc();
         if (disk_container == NULL) {
-            printf("ƒƒ‚ƒŠ‚ªŠm•Û‚Å‚«‚Ü‚¹‚ñB\n");
+            printf("ãƒ¡ãƒ¢ãƒªãŒç¢ºä¿ã§ãã¾ã›ã‚“ã€‚\n");
             ms_exit();
             return;
         }
@@ -1411,13 +1411,13 @@ void set_system_roms() {
             allocateAndSetDISKBIOSROM(init_param.diskrom, disk_container);
             break;
         default:
-            printf("•s–¾‚ÈFDC‚Ìí—Ş‚Å‚·: %d\n", init_param.diskif);
+            printf("ä¸æ˜ãªFDCã®ç¨®é¡ã§ã™: %d\n", init_param.diskif);
             ms_exit_failure();
             break;
         }
     }
 
-    // Š¿šBASIC‚Ìw’è‚ª‚ ‚ê‚Î“Ç‚İ‚Ş
+    // æ¼¢å­—BASICã®æŒ‡å®šãŒã‚ã‚Œã°èª­ã¿è¾¼ã‚€
     int fh_kanjibasic = ms_system_file_open(init_param.kanjibasic, O_BINARY | O_RDONLY);
     if (fh_kanjibasic != -1) {
         printf("KANJI BASIC: %s\n", init_param.kanjibasic);
@@ -1436,37 +1436,37 @@ bool get_bool(char* str) {
 }
 
 /**
- * @brief MS.INI ƒtƒ@ƒCƒ‹‚ğ“Ç‚İ‚İA‰Šú‰»ƒpƒ‰ƒ[ƒ^‚ğİ’è‚µ‚Ü‚·
+ * @brief MS.INI ãƒ•ã‚¡ã‚¤ãƒ«ã‚’èª­ã¿è¾¼ã¿ã€åˆæœŸåŒ–ãƒ‘ãƒ©ãƒ¡ãƒ¼ã‚¿ã‚’è¨­å®šã—ã¾ã™
  *
- * @return uint8_t ƒ[ƒh‚Å‚«‚½ê‡1A¸”s‚µ‚½ê‡0
+ * @return uint8_t ãƒ­ãƒ¼ãƒ‰ã§ããŸå ´åˆ1ã€å¤±æ•—ã—ãŸå ´åˆ0
  */
 uint8_t load_user_param() {
     user_param = default_param;
 
-    int fh = ms_system_file_open("MS.INI", O_RDONLY);  // TEXT MODE ‚ÅŠJ‚­
+    int fh = ms_system_file_open("MS.INI", O_RDONLY);  // TEXT MODE ã§é–‹ã
     if (fh == -1) {
-        printf("MS.INI ƒtƒ@ƒCƒ‹‚ğŠJ‚¯‚Ü‚¹‚ñ‚Å‚µ‚½B\n");
+        printf("MS.INI ãƒ•ã‚¡ã‚¤ãƒ«ã‚’é–‹ã‘ã¾ã›ã‚“ã§ã—ãŸã€‚\n");
         return 0;
     }
     int size = filelength(fh);
     user_param.buf = (uint8_t*)new_malloc(size + 1);
     if (user_param.buf == NULL) {
-        printf("ƒƒ‚ƒŠ‚ªŠm•Û‚Å‚«‚Ü‚¹‚ñB\n");
+        printf("ãƒ¡ãƒ¢ãƒªãŒç¢ºä¿ã§ãã¾ã›ã‚“ã€‚\n");
         close(fh);
         return 0;
     }
-    int readsize = read(fh, user_param.buf, size);  // TEXT MODE‚È‚Ì‚Å2ƒoƒCƒg‚Ì‰üs‚ª1ƒoƒCƒg‚ÉŒ¸‚Á‚Ä‚¢‚é
+    int readsize = read(fh, user_param.buf, size);  // TEXT MODEãªã®ã§2ãƒã‚¤ãƒˆã®æ”¹è¡ŒãŒ1ãƒã‚¤ãƒˆã«æ¸›ã£ã¦ã„ã‚‹
     close(fh);
     user_param.buf[readsize] = '\0';
 
     user_param.diskcount = 0;
-    // 1s‚¸‚Â“Ç‚İ‚È‚ª‚çƒpƒ‰ƒ[ƒ^‚ğİ’è
+    // 1è¡Œãšã¤èª­ã¿ãªãŒã‚‰ãƒ‘ãƒ©ãƒ¡ãƒ¼ã‚¿ã‚’è¨­å®š
     // Read each line from the MS.INI file
     int pos = 0;
     while (pos < size) {
         while (pos < size) {
             if (user_param.buf[pos] == '\n' || user_param.buf[pos] == '\r') {
-                // ˜A‘±‚·‚é‰üs‚ğƒXƒLƒbƒv
+                // é€£ç¶šã™ã‚‹æ”¹è¡Œã‚’ã‚¹ã‚­ãƒƒãƒ—
                 pos++;
             } else {
                 break;
@@ -1481,7 +1481,7 @@ uint8_t load_user_param() {
         }
         user_param.buf[pos++] = '\0';
 
-        // s‚ªƒRƒƒ“ƒgs‚©‚Ç‚¤‚©‚ğƒ`ƒFƒbƒN
+        // è¡ŒãŒã‚³ãƒ¡ãƒ³ãƒˆè¡Œã‹ã©ã†ã‹ã‚’ãƒã‚§ãƒƒã‚¯
         if (line[0] == ';' || line[0] == '#') {
             continue;
         }
@@ -1498,7 +1498,7 @@ uint8_t load_user_param() {
         if (strcmp(param, "mainrom") == 0) {
             user_param.mainrom = value;
             if (user_param.slot_path[0][2] == default_param.slot_path[0][2]) {
-                // C-BIOS‚ÌƒƒS‚ğŠO‚·
+                // C-BIOSã®ãƒ­ã‚´ã‚’å¤–ã™
                 user_param.slot_path[0][2] = NULL;
             }
         }
@@ -1506,7 +1506,7 @@ uint8_t load_user_param() {
         else if (strcmp(param, "subrom") == 0) {
             user_param.subrom = value;
         }
-        // Check if the parameter is "diskrom" (",í—Ş" ‚ÅFDC‚Ìí—Ş‚ğw’è‰Â”\)
+        // Check if the parameter is "diskrom" (",ç¨®é¡" ã§FDCã®ç¨®é¡ã‚’æŒ‡å®šå¯èƒ½)
         else if (strcmp(param, "diskrom") == 0) {
             user_param.diskrom = separate_diskif(value, &user_param.diskif);
         }
@@ -1547,7 +1547,7 @@ uint8_t load_user_param() {
         // Check if the parameter is "diskimage"
         else if (strcmp(param, "diskimage") == 0) {
             if (user_param.diskcount >= 16) {
-                printf("ƒfƒBƒXƒNƒCƒ[ƒW‚Ì”‚ª‘½‚·‚¬‚Ü‚·\n");
+                printf("ãƒ‡ã‚£ã‚¹ã‚¯ã‚¤ãƒ¡ãƒ¼ã‚¸ã®æ•°ãŒå¤šã™ãã¾ã™\n");
             } else {
                 user_param.diskimages[user_param.diskcount++] = value;
             }
@@ -1570,7 +1570,7 @@ uint8_t load_user_param() {
             } else {
                 user_param.framerate_control = atoi(value);
                 if (user_param.framerate_control < 1 || user_param.framerate_control > 99999) {
-                    printf("framecon‚Ì’l‚ª•s³‚Å‚·\n");
+                    printf("frameconã®å€¤ãŒä¸æ­£ã§ã™\n");
                     user_param.framerate_control = 0;
                 } else {
                 }

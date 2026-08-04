@@ -23,14 +23,14 @@ static uint16_t _read16(ms_memmap_driver_t* driver, uint16_t addr);
 static void _write16(ms_memmap_driver_t* driver, uint16_t addr, uint16_t data);
 
 /*
-        Šm•Ûƒ‹[ƒ`ƒ“
+        ç¢ºä¿ãƒ«ãƒ¼ãƒãƒ³
  */
 THIS* ms_memmap_NORMALROM_alloc() {
     return (THIS*)new_malloc(sizeof(THIS));
 }
 
 /*
-        ‰Šú‰»ƒ‹[ƒ`ƒ“
+        åˆæœŸåŒ–ãƒ«ãƒ¼ãƒãƒ³
  */
 void ms_memmap_NORMALROM_init(THIS* instance, ms_memmap_t* memmap, uint8_t* buffer, int page) {
     if (instance == NULL) {
@@ -39,10 +39,10 @@ void ms_memmap_NORMALROM_init(THIS* instance, ms_memmap_t* memmap, uint8_t* buff
 
     ms_memmap_driver_init(&instance->base, memmap, buffer);
 
-    // ƒvƒƒpƒeƒB‚âƒƒ\ƒbƒh‚Ì“o˜^
+    // ãƒ—ãƒ­ãƒ‘ãƒ†ã‚£ã‚„ãƒ¡ã‚½ãƒƒãƒ‰ã®ç™»éŒ²
     instance->base.type = ROM_TYPE_NORMAL_ROM;
     instance->base.name = driver_name;
-    // instance->base.deinit = ms_memmap_NORMALROM_deinit; ƒI[ƒo[ƒ‰ƒCƒh•s—v
+    // instance->base.deinit = ms_memmap_NORMALROM_deinit; ã‚ªãƒ¼ãƒãƒ¼ãƒ©ã‚¤ãƒ‰ä¸è¦
     instance->base.did_attach = _did_attach;
     instance->base.will_detach = _will_detach;
     instance->base.did_update_memory_mapper = _did_update_memory_mapper;
@@ -88,7 +88,7 @@ static uint16_t _read16(ms_memmap_driver_t* driver, uint16_t addr) {
     THIS* d = (THIS*)driver;
     int local_addr = addr & 0x3fff;
 
-    // addr ‚Íƒy[ƒW‹«ŠE‚ð‚Ü‚½‚ª‚È‚¢‚æ‚¤‚É‚È‚Á‚Ä‚¢‚é‚Ì‚Å‹C‚É‚¹‚¸OK
+    // addr ã¯ãƒšãƒ¼ã‚¸å¢ƒç•Œã‚’ã¾ãŸãŒãªã„ã‚ˆã†ã«ãªã£ã¦ã„ã‚‹ã®ã§æ°—ã«ã›ãšOK
     return driver->buffer[local_addr] | (driver->buffer[local_addr + 1] << 8);
 }
 

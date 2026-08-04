@@ -114,5 +114,5 @@ void vdp_command_write_SCREEN12(ms_vdp_t* vdp, uint8_t cmd) {
 }
 
 void update_resolution_SCREEN12(ms_vdp_t* vdp) {
-    ms_vdp_update_resolution_COMMON(vdp, 1, 3, 0);  // 512, 65536色, BG不使用
+    ms_vdp_update_resolution_COMMON(vdp, 1, 3, 0);  // 512, 65536濶ｲ, BG荳堺ｽｿ逕ｨ
 }

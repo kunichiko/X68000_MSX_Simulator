@@ -14,14 +14,14 @@
 static char* driver_name = "DISKBIOS_PANASONIC";
 
 /*
-        Šm•Ûƒ‹[ƒ`ƒ“
+        ç¢ºä¿ãƒ«ãƒ¼ãƒãƒ³
  */
 THIS* ms_disk_bios_Panasonic_alloc() {
     return (THIS*)new_malloc(sizeof(THIS));
 }
 
 /*
-        ‰Šú‰»ƒ‹[ƒ`ƒ“
+        åˆæœŸåŒ–ãƒ«ãƒ¼ãƒãƒ³
  */
 void ms_disk_bios_Panasonic_init(THIS* instance, ms_memmap_t* memmap, uint8_t* buffer, ms_disk_container_t* container) {
     if (instance == NULL) {
@@ -31,7 +31,7 @@ void ms_disk_bios_Panasonic_init(THIS* instance, ms_memmap_t* memmap, uint8_t* b
 
     instance->base.type = ROM_TYPE_DOS_ROM;
     instance->base.name = driver_name;
-    // instance->base.deinit = ms_memmap_DISKBIOS_PANASONIC_deinit; ƒI[ƒo[ƒ‰ƒCƒh•s—v
+    // instance->base.deinit = ms_memmap_DISKBIOS_PANASONIC_deinit; ã‚ªãƒ¼ãƒãƒ¼ãƒ©ã‚¤ãƒ‰ä¸è¦
     instance->base.did_attach = ms_memmap_did_attach_DISKBIOS_PANASONIC;
     instance->base.will_detach = ms_memmap_will_detach_DISKBIOS_PANASONIC;
     instance->base.did_update_memory_mapper = ms_memmap_did_update_memory_mapper_DISKBIOS_PANASONIC;
@@ -40,11 +40,11 @@ void ms_disk_bios_Panasonic_init(THIS* instance, ms_memmap_t* memmap, uint8_t* b
     instance->base.write8 = ms_memmap_write8_DISKBIOS_PANASONIC;
     instance->base.write16 = ms_memmap_write16_DISKBIOS_PANASONIC;
 
-    // FDC‚ÌROM‚ÍƒXƒƒbƒg3-2‚É”z’u‚³‚ê‚Ä‚¢‚é‚ªA‘¼‚Ìƒy[ƒW‚Í’l0x00‚ª“Ç‚ß‚é‚æ‚¤‚É‚µ‚Ä‚¨‚«
-    // ‚»‚ê‚ç‚Ìƒy[ƒW‚Å‚àFDC‚ÌƒŒƒWƒXƒ^‚¾‚¯‚Í“Ç‚İ‘‚«‚Å‚«‚é‚æ‚¤‚É‚µ‚È‚¯‚ê‚Î‚¢‚¯‚È‚¢‚ç‚µ‚¢
+    // FDCã®ROMã¯ã‚¹ãƒ­ãƒƒãƒˆ3-2ã«é…ç½®ã•ã‚Œã¦ã„ã‚‹ãŒã€ä»–ã®ãƒšãƒ¼ã‚¸ã¯å€¤0x00ãŒèª­ã‚ã‚‹ã‚ˆã†ã«ã—ã¦ãŠã
+    // ãã‚Œã‚‰ã®ãƒšãƒ¼ã‚¸ã§ã‚‚FDCã®ãƒ¬ã‚¸ã‚¹ã‚¿ã ã‘ã¯èª­ã¿æ›¸ãã§ãã‚‹ã‚ˆã†ã«ã—ãªã‘ã‚Œã°ã„ã‘ãªã„ã‚‰ã—ã„
     uint8_t* zero_buffer = (uint8_t*)new_malloc(8 * 1024);
     if (zero_buffer == NULL) {
-        printf("ƒƒ‚ƒŠ‚ªŠm•Û‚Å‚«‚Ü‚¹‚ñB\n");
+        printf("ãƒ¡ãƒ¢ãƒªãŒç¢ºä¿ã§ãã¾ã›ã‚“ã€‚\n");
         return;
     }
     int i;
@@ -64,7 +64,7 @@ void ms_disk_bios_Panasonic_init(THIS* instance, ms_memmap_t* memmap, uint8_t* b
         instance->base.page8k_pointers[page8k] = zero_buffer;
     }
 
-    // FDC‚Ì‰Šú‰»
+    // FDCã®åˆæœŸåŒ–
     ms_disk_controller_TC8566A_init(&instance->fdc, container);
 
     return;
@@ -83,10 +83,10 @@ void ms_memmap_did_update_memory_mapper_DISKBIOS_PANASONIC(ms_memmap_driver_t* d
 /**
  * @brief
  * 	Address	R/W	Feature
- *	0x3FF8	W	ƒŒƒWƒXƒ^2 ‚ğXV (write only)
- *	0x3FF9	W	ƒŒƒWƒXƒ^3 ‚ğXV (write only)
- *	0x3FFA	R/W	ƒŒƒWƒXƒ^4 ‚ğQÆEXV
- *	0x3FFB	R/W	ƒŒƒWƒXƒ^5 ‚ğQÆEXV
+ *	0x3FF8	W	ãƒ¬ã‚¸ã‚¹ã‚¿2 ã‚’æ›´æ–° (write only)
+ *	0x3FF9	W	ãƒ¬ã‚¸ã‚¹ã‚¿3 ã‚’æ›´æ–° (write only)
+ *	0x3FFA	R/W	ãƒ¬ã‚¸ã‚¹ã‚¿4 ã‚’å‚ç…§ãƒ»æ›´æ–°
+ *	0x3FFB	R/W	ãƒ¬ã‚¸ã‚¹ã‚¿5 ã‚’å‚ç…§ãƒ»æ›´æ–°
  */
 uint8_t ms_memmap_read8_DISKBIOS_PANASONIC(ms_memmap_driver_t* driver, uint16_t addr) {
     THIS* d = (THIS*)driver;
@@ -98,16 +98,16 @@ uint8_t ms_memmap_read8_DISKBIOS_PANASONIC(ms_memmap_driver_t* driver, uint16_t 
         // Memory mapped DISK I/O
         switch (addr_16k) {
         case 0x3ff8:
-            // ƒŒƒWƒXƒ^2‚Í write only
+            // ãƒ¬ã‚¸ã‚¹ã‚¿2ã¯ write only
             return 0xff;
         case 0x3ff9:
-            // ƒŒƒWƒXƒ^3‚Í write only
+            // ãƒ¬ã‚¸ã‚¹ã‚¿3ã¯ write only
             return 0xff;
         case 0x3ffa:
-            // ƒŒƒWƒXƒ^4 ‚ğQÆ
+            // ãƒ¬ã‚¸ã‚¹ã‚¿4 ã‚’å‚ç…§
             return d->fdc.read_reg4(&d->fdc);
         case 0x3ffb:
-            // ƒŒƒWƒXƒ^5 ‚ğQÆ
+            // ãƒ¬ã‚¸ã‚¹ã‚¿5 ã‚’å‚ç…§
             return d->fdc.read_reg5(&d->fdc);
         default:
             MS_LOG(MS_LOG_INFO, "DISKBIOS_PANASONIC: read8: unknown addr: %04x\n", addr_16k);
@@ -124,10 +124,10 @@ uint8_t ms_memmap_read8_DISKBIOS_PANASONIC(ms_memmap_driver_t* driver, uint16_t 
 /**
  * @brief
  * 	Address	R/W	Feature
- *	0x3FF8	W	ƒŒƒWƒXƒ^2 ‚ğXV (write only)
- *	0x3FF9	W	ƒŒƒWƒXƒ^3 ‚ğXV (write only)
- *	0x3FFA	R/W	ƒŒƒWƒXƒ^4 ‚ğQÆEXV
- *	0x3FFB	R/W	ƒŒƒWƒXƒ^5 ‚ğQÆEXV
+ *	0x3FF8	W	ãƒ¬ã‚¸ã‚¹ã‚¿2 ã‚’æ›´æ–° (write only)
+ *	0x3FF9	W	ãƒ¬ã‚¸ã‚¹ã‚¿3 ã‚’æ›´æ–° (write only)
+ *	0x3FFA	R/W	ãƒ¬ã‚¸ã‚¹ã‚¿4 ã‚’å‚ç…§ãƒ»æ›´æ–°
+ *	0x3FFB	R/W	ãƒ¬ã‚¸ã‚¹ã‚¿5 ã‚’å‚ç…§ãƒ»æ›´æ–°
  */
 void ms_memmap_write8_DISKBIOS_PANASONIC(ms_memmap_driver_t* driver, uint16_t addr, uint8_t data) {
     THIS* d = (THIS*)driver;
@@ -139,19 +139,19 @@ void ms_memmap_write8_DISKBIOS_PANASONIC(ms_memmap_driver_t* driver, uint16_t ad
         // Memory mapped DISK I/O
         switch (addr_16k) {
         case 0x3ff8:
-            // ƒŒƒWƒXƒ^2 ‚ğXV
+            // ãƒ¬ã‚¸ã‚¹ã‚¿2 ã‚’æ›´æ–°
             d->fdc.write_reg2(&d->fdc, data);
             break;
         case 0x3ff9:
-            // ƒŒƒWƒXƒ^3 ‚ğXV
+            // ãƒ¬ã‚¸ã‚¹ã‚¿3 ã‚’æ›´æ–°
             d->fdc.write_reg3(&d->fdc, data);
             break;
         case 0x3ffa:
-            // ƒŒƒWƒXƒ^4 ‚ğXV
+            // ãƒ¬ã‚¸ã‚¹ã‚¿4 ã‚’æ›´æ–°
             d->fdc.write_reg4(&d->fdc, data);
             break;
         case 0x3ffb:
-            // ƒŒƒWƒXƒ^5 ‚ğXV
+            // ãƒ¬ã‚¸ã‚¹ã‚¿5 ã‚’æ›´æ–°
             d->fdc.write_reg5(&d->fdc, data);
             break;
         default:
@@ -162,7 +162,7 @@ void ms_memmap_write8_DISKBIOS_PANASONIC(ms_memmap_driver_t* driver, uint16_t ad
 }
 
 uint16_t ms_memmap_read16_DISKBIOS_PANASONIC(ms_memmap_driver_t* driver, uint16_t addr) {
-    // addr ‚Íƒy[ƒW‹«ŠE‚ğ‚Ü‚½‚ª‚È‚¢‚æ‚¤‚É‚È‚Á‚Ä‚¢‚é‚Ì‚Å‹C‚É‚¹‚¸OK
+    // addr ã¯ãƒšãƒ¼ã‚¸å¢ƒç•Œã‚’ã¾ãŸãŒãªã„ã‚ˆã†ã«ãªã£ã¦ã„ã‚‹ã®ã§æ°—ã«ã›ãšOK
     return ms_memmap_read8_DISKBIOS_PANASONIC(driver, addr) | (ms_memmap_read8_DISKBIOS_PANASONIC(driver, addr + 1) << 8);
 }
 

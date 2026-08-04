@@ -5,7 +5,7 @@
 #include "ms_vdp.h"
 
 /*
-        GRAPHIC7 (SCREEN 8) ‚Í 256~212ƒ‚[ƒh‚ÅAƒhƒbƒg‚²‚Æ‚É256F‰æw’è‰Â”\
+        GRAPHIC7 (SCREEN 8) ã¯ 256Ã—212ãƒ¢ãƒ¼ãƒ‰ã§ã€ãƒ‰ãƒƒãƒˆã”ã¨ã«256è‰²ç”»æŒ‡å®šå¯èƒ½
  */
 
 int init_GRAPHIC7(ms_vdp_t* vdp);
@@ -82,8 +82,8 @@ void write_vram_GRAPHIC7(ms_vdp_t* vdp, uint8_t data) {
 }
 
 void update_palette_GRAPHIC7(ms_vdp_t* vdp) {
-    // MSX‘¤‚ÌƒpƒŒƒbƒg‚Í‚È‚¢‚Ì‚ÅA
-    // X68000‚Ì 256FƒpƒŒƒbƒg‚ğ MSX‚Ì256F‚ÉŠ„‚è“–‚Ä‚é
+    // MSXå´ã®ãƒ‘ãƒ¬ãƒƒãƒˆã¯ãªã„ã®ã§ã€
+    // X68000ã® 256è‰²ãƒ‘ãƒ¬ãƒƒãƒˆã‚’ MSXã®256è‰²ã«å‰²ã‚Šå½“ã¦ã‚‹
     int i, r, g, b;
     uint16_t color;
     for (i = 0; i < 256; i++) {
@@ -96,7 +96,7 @@ void update_palette_GRAPHIC7(ms_vdp_t* vdp) {
         b = b | (b >> 2) | (b >> 4);
         color = (g << 11) | (r << 6) | b << 1;
         if (vdp->tx_active) {
-            // ‹P“x‚ğ”¼•ª‚É—‚Æ‚·
+            // è¼åº¦ã‚’åŠåˆ†ã«è½ã¨ã™
             color &= 0b1111011110111100;
             color >>= 1;
         }
@@ -106,20 +106,20 @@ void update_palette_GRAPHIC7(ms_vdp_t* vdp) {
 
 void update_pnametbl_baddr_GRAPHIC7(ms_vdp_t* vdp) {
     vdp->pnametbl_baddr = (vdp->_r02 << 11) & 0x10000;
-    // 256Fƒ‚[ƒh‚Ìê‡‚Í2‰æ–Ê‚µ‚©‚È‚¢‚ªA‚±‚Ì‚ÍA(b3,b2), (b1,b0) ‚ğƒyƒA‚ÅƒZƒbƒg‚µ‚Ü‚·
+    // 256è‰²ãƒ¢ãƒ¼ãƒ‰ã®å ´åˆã¯2ç”»é¢ã—ã‹ãªã„ãŒã€ã“ã®æ™‚ã¯ã€(b3,b2), (b1,b0) ã‚’ãƒšã‚¢ã§ã‚»ãƒƒãƒˆã—ã¾ã™
     vdp->gr_active = 0x3 << (vdp->pnametbl_baddr >> 15);
     switch (vdp->pnametbl_baddr >> 16) {
     case 0:
         vdp->gr_active = 0b0011;
-        vdp->gr_active_interlace = 0b0011;  // GRAPHIC7‚ÌƒCƒ“ƒ^[ƒŒ[ƒXƒ‚[ƒh‚Í‚Ü‚¾–¢‘Î‰
+        vdp->gr_active_interlace = 0b0011;  // GRAPHIC7ã®ã‚¤ãƒ³ã‚¿ãƒ¼ãƒ¬ãƒ¼ã‚¹ãƒ¢ãƒ¼ãƒ‰ã¯ã¾ã æœªå¯¾å¿œ
         break;
     case 1:
         vdp->gr_active = 0b1100;
-        vdp->gr_active_interlace = 0b1100;  // GRAPHIC7‚ÌƒCƒ“ƒ^[ƒŒ[ƒXƒ‚[ƒh‚Í‚Ü‚¾–¢‘Î‰
+        vdp->gr_active_interlace = 0b1100;  // GRAPHIC7ã®ã‚¤ãƒ³ã‚¿ãƒ¼ãƒ¬ãƒ¼ã‚¹ãƒ¢ãƒ¼ãƒ‰ã¯ã¾ã æœªå¯¾å¿œ
         break;
     default:
         vdp->gr_active = 0b0011;
-        vdp->gr_active_interlace = 0b0011;  // GRAPHIC7‚ÌƒCƒ“ƒ^[ƒŒ[ƒXƒ‚[ƒh‚Í‚Ü‚¾–¢‘Î‰
+        vdp->gr_active_interlace = 0b0011;  // GRAPHIC7ã®ã‚¤ãƒ³ã‚¿ãƒ¼ãƒ¬ãƒ¼ã‚¹ãƒ¢ãƒ¼ãƒ‰ã¯ã¾ã æœªå¯¾å¿œ
         break;
     }
     ms_vdp_update_visibility(vdp);
@@ -162,5 +162,5 @@ void vdp_command_write_GRAPHIC7(ms_vdp_t* vdp, uint8_t value) {
 }
 
 void update_resolution_GRAPHIC7(ms_vdp_t* vdp) {
-    ms_vdp_update_resolution_COMMON(vdp, 0, 1, 0);  // 256, 256F, BG•sg—p
+    ms_vdp_update_resolution_COMMON(vdp, 0, 1, 0);  // 256, 256è‰², BGä¸ä½¿ç”¨
 }

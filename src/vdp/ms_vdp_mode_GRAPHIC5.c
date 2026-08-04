@@ -5,12 +5,12 @@
 #include "ms_vdp.h"
 
 /*
-        GRAPHIC5 (SCREEN 6) �� 512�~212���[�h�ŁA�h�b�g���Ƃ�4�F��w��\
-        GRAPHIC5�̓���@�\:
-        * ���ӐF���^�C�����O�����
-                MS.X �ł͎��ӐF�̓T�|�[�g���Ă��Ȃ�(�e�L�X�g��ʂ��Ŕw�ʂɎ����Ă����Ύ����ł���̂ŁA�����l����)
-        * �X�v���C�g���^�C�����O�����
-                MS.X �ł̃X�v���C�g�̃^�C�����O�͏�������
+        GRAPHIC5 (SCREEN 6) は 512×212モードで、ドットごとに4色画指定可能
+        GRAPHIC5の特殊機能:
+        * 周辺色がタイリングされる
+                MS.X では周辺色はサポートしていない(テキスト画面を最背面に持っていけば実現できるので、将来考える)
+        * スプライトがタイリングされる
+                MS.X でのスプライトのタイリングは将来検討
  */
 
 int init_GRAPHIC5(ms_vdp_t* vdp);
@@ -151,5 +151,5 @@ void vdp_command_write_GRAPHIC5(ms_vdp_t* vdp, uint8_t value) {
 }
 
 void update_resolution_GRAPHIC5(ms_vdp_t* vdp) {
-    ms_vdp_update_resolution_COMMON(vdp, 1, 0, 0);  // 512, 16�F, BG�s�g�p
+    ms_vdp_update_resolution_COMMON(vdp, 1, 0, 0);  // 512, 16色, BG不使用
 }

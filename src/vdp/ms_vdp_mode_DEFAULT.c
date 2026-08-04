@@ -68,21 +68,21 @@ void write_vram_DEFAULT(ms_vdp_t* vdp, uint8_t data) {
 
 /*
 *
-*	�p���b�g�O�̓o�b�N�h���b�v�Ɏg�p���ꂽ���̂ݗL���B�|���a�f�̃p���b�g�P�ɃZ�b�g����B
-*	��TODO �o�b�N�h���b�v��BG���g���̂���߂��̂ōl������
+*	パレット０はバックドロップに使用された時のみ有効。－＞ＢＧのパレット１にセットする。
+*	→TODO バックドロップにBGを使うのをやめたので考え直す
 *
 
         lea.l	P_0,a0
-        lea.l	$E82220+2,a1			* �a�f�p�̃p���b�g
+        lea.l	$E82220+2,a1			* ＢＧ用のパレット
 
         move.w	back_color,d0
         add.w	d0,d0
-        move.w	0(a0,d0.w),(a1)			* a0 �� P_0 �̃A�h���X�������Ă���
+        move.w	0(a0,d0.w),(a1)			* a0 は P_0 のアドレスが入っている
 
         lea.l	2(a0),a0
         move.w	#15-1,d0
-        lea.l	g_palette+2,a1			* �O���t�B�b�N�p�̃p���b�g
-        lea.l	t_palette+32+2,a2		* �X�v���C�g�p�̃p���b�g(0x10?0x1f���g�p)
+        lea.l	g_palette+2,a1			* グラフィック用のパレット
+        lea.l	t_palette+32+2,a2		* スプライト用のパレット(0x10?0x1fを使用)
 @@:	move.w	(a0),(a1)+
         move.w	(a0)+,(a2)+
         dbra	d0,@b
@@ -112,9 +112,9 @@ void update_palette_DEFAULT(ms_vdp_t* vdp) {
     uint16_t alt_color_diff = diff_color(back_palette, vdp->palette[alt_color]);
     uint16_t color;
 
-    // �����F�͔w�i�F�������Č�����悤�ɂ���
+    // 透明色は背景色が透けて見えるようにする
     if (vdp->tx_active) {
-        // �P�x�𔼕��ɗ��Ƃ�
+        // 輝度を半分に落とす
         color = back_palette & 0b1111011110111100;
         color >>= 1;
     } else {
@@ -122,9 +122,9 @@ void update_palette_DEFAULT(ms_vdp_t* vdp) {
     }
     X68_GR_PAL[0] = color;
 
-    // �J���[�R�[�h0�Ƀp���b�g0�̐F�𓖂Ă͂߂�ꍇ�A
-    // X68000�̃X�v���C�g�̓J���[�R�[�h0��`��ł��Ȃ��̂Ŏ���15�F���������Ȃ���肪����
-    // ���̖��ɑΉ����邽�߂ɁA�w�i�F�Ƃ̍����ł��������F��w�i�F�̑�֐F�Ƃ��đI��
+    // カラーコード0にパレット0の色を当てはめる場合、
+    // X68000のスプライトはカラーコード0を描画できないので実質15色しか扱えない問題がある
+    // その問題に対応するために、背景色との差が最も小さい色を背景色の代替色として選ぶ
     for (i = 1; i < 16; i++) {
         color = vdp->palette[i];
         uint16_t diff = diff_color(back_palette, color);
@@ -133,7 +133,7 @@ void update_palette_DEFAULT(ms_vdp_t* vdp) {
             alt_color_diff = diff;
         }
         if (vdp->tx_active) {
-            // �P�x�𔼕��ɗ��Ƃ�
+            // 輝度を半分に落とす
             color &= 0b1111011110111100;
             color >>= 1;
         }
@@ -144,44 +144,44 @@ void update_palette_DEFAULT(ms_vdp_t* vdp) {
 }
 
 void update_pnametbl_baddr_DEFAULT(ms_vdp_t* vdp) {
-    // R02 �� b17-b10�������Ă���̂ŃV�t�g����
+    // R02 に b17-b10が入っているのでシフトする
     vdp->pnametbl_baddr = (vdp->_r02 << 10) & 0x1ffff;
 }
 
 void update_colortbl_baddr_DEFAULT(ms_vdp_t* vdp) {
-    // R03 �� b13-b6
-    // R10 �� b16-b14
+    // R03 に b13-b6
+    // R10 に b16-b14
     vdp->colortbl_baddr = ((vdp->_r10 << 14) | (vdp->_r03 << 6)) & 0x1ffff;
 }
 
 void update_pgentbl_baddr_DEFAULT(ms_vdp_t* vdp) {
-    // R04 �� b16-b11
+    // R04 に b16-b11
     vdp->pgentbl_baddr = (vdp->_r04 << 11) & 0x1ffff;
 }
 
 void update_sprattrtbl_baddr_MODE1(ms_vdp_t* vdp) {
-    // R05 �� b14-b7
-    // R11 �� b16-b15
-    // MODE1�ł́Ab7�܂Ŏg���Ab6-b0��0�Ƃ��Ĉ�����
+    // R05 に b14-b7
+    // R11 に b16-b15
+    // MODE1では、b7まで使われ、b6-b0は0として扱われる
     uint32_t addr = ((vdp->_r11 << 15) | (vdp->_r05 << 7)) & 0x1ff80;
     if (vdp->sprattrtbl_baddr != addr) {
-        // �X�V���ꂽ��A�S�ẴX�v���C�g�̃A�g���r���[�g���Đ�������
+        // 更新されたら、全てのスプライトのアトリビュートを再生成する
         vdp->sprattrtbl_baddr = addr;
         vdp->sprite_refresh_flag |= SPRITE_REFRESH_FLAG_ATTR;
     }
 }
 
 void update_sprattrtbl_baddr_MODE2(ms_vdp_t* vdp) {
-    // R05 �� b14-b7
-    // R11 �� b16-b15
+    // R05 に b14-b7
+    // R11 に b16-b15
 
-    // TODO: MODE2��b9-b7�̈��������߂Ē��ׂ�K�v������
-    // ese-vdp�ł͈ȉ��̂悤�ɂ��Ă���
-    // �A�g���r���[�g�e�[�u��: b9�͏������܂ꂽ�l�����̂܂܎g���Ab8-b7��0�Ƃ��Ĉ���
-    // �J���[�e�[�u��		: b9�̓A�g���r���[�g�e�[�u���̔��]�Ab8-b7��0�Ƃ��Ĉ���
+    // TODO: MODE2のb9-b7の扱いを改めて調べる必要がある
+    // ese-vdpでは以下のようにしていた
+    // アトリビュートテーブル: b9は書き込まれた値をそのまま使う、b8-b7は0として扱う
+    // カラーテーブル		: b9はアトリビュートテーブルの反転、b8-b7は0として扱う
     uint32_t addr = ((vdp->_r11 << 15) | (vdp->_r05 << 7)) & 0x1fe00;
     if (vdp->sprattrtbl_baddr != addr) {
-        // �X�V���ꂽ��A�S�ẴX�v���C�g�̃A�g���r���[�g���Đ�������
+        // 更新されたら、全てのスプライトのアトリビュートを再生成する
         vdp->sprattrtbl_baddr = addr;
         vdp->sprcolrtbl_baddr = addr ^ 0x200;
         ms_vdp_update_sprite_area(vdp);
@@ -190,20 +190,20 @@ void update_sprattrtbl_baddr_MODE2(ms_vdp_t* vdp) {
 }
 
 void update_sprpgentbl_baddr_MODE1(ms_vdp_t* vdp) {
-    // R06 �� b16-b11
+    // R06 に b16-b11
     uint32_t addr = (vdp->_r06 << 11) & 0x1ffff;
     if (vdp->sprpgentbl_baddr != addr) {
-        // �X�V���ꂽ��A�S�ẴX�v���C�g�̃p�^�[�����Đ�������
+        // 更新されたら、全てのスプライトのパターンを再生成する
         vdp->sprpgentbl_baddr = addr;
         vdp->sprite_refresh_flag |= SPRITE_REFRESH_FLAG_PGEN;
     }
 }
 
 void update_sprpgentbl_baddr_MODE2(ms_vdp_t* vdp) {
-    // R06 �� b16-b11
+    // R06 に b16-b11
     uint32_t addr = (vdp->_r06 << 11) & 0x1ffff;
     if (vdp->sprpgentbl_baddr != addr) {
-        // �X�V���ꂽ��A�S�ẴX�v���C�g�̃p�^�[�����Đ�������
+        // 更新されたら、全てのスプライトのパターンを再生成する
         vdp->sprpgentbl_baddr = addr;
         vdp->sprite_refresh_flag |= SPRITE_REFRESH_FLAG_PGEN;
         ms_vdp_update_sprite_area(vdp);
@@ -211,7 +211,7 @@ void update_sprpgentbl_baddr_MODE2(ms_vdp_t* vdp) {
 }
 
 /**
- * @brief VDP���W�X�^ R#7 �̐F�ݒ�
+ * @brief VDPレジスタ R#7 の色設定
  *
  * @param vdp
  */
@@ -227,8 +227,8 @@ char* get_mode_name_DEFAULT(ms_vdp_t* vdp) {
 }
 
 void vdp_command_exec_DEFAULT(ms_vdp_t* vdp, uint8_t cmd) {
-    MS_LOG(MS_LOG_INFO, "%s��VDP�R�}���h0x%02x�͂܂��������ł��B\n", vdp->ms_vdp_current_mode->get_mode_name(vdp), cmd);
-    // �O�̈�CE�r�b�g���N���A
+    MS_LOG(MS_LOG_INFO, "%sのVDPコマンド0x%02xはまだ未実装です。\n", vdp->ms_vdp_current_mode->get_mode_name(vdp), cmd);
+    // 念の為CEビットをクリア
     vdp->s02 &= 0xfe;
 }
 
@@ -243,7 +243,7 @@ void vdp_command_write_NONE(ms_vdp_t* vdp, uint8_t cmd) {
 }
 
 void update_resolution_DEFAULT(ms_vdp_t* vdp) {
-    ms_vdp_update_resolution_COMMON(vdp, 1, 0, 0);  // 512, 16�F, BG�s�g�p
+    ms_vdp_update_resolution_COMMON(vdp, 1, 0, 0);  // 512, 16色, BG不使用
 }
 
 void vsync_draw_NONE(ms_vdp_t* vdp) {

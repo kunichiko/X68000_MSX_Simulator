@@ -1,15 +1,15 @@
 /*
-        16KƒoƒCƒg/32KƒoƒCƒg‚ÌROM‚ðƒ~ƒ‰[ƒŠƒ“ƒO‚µ‚Ä”z’u‚·‚éƒhƒ‰ƒCƒo
+        16Kãƒã‚¤ãƒˆ/32Kãƒã‚¤ãƒˆã®ROMã‚’ãƒŸãƒ©ãƒ¼ãƒªãƒ³ã‚°ã—ã¦é…ç½®ã™ã‚‹ãƒ‰ãƒ©ã‚¤ãƒ
 
-        ’ÊíA16KƒoƒCƒg‚ÌROM‚Íƒy[ƒW1‚É”z’u‚³‚êA32KƒoƒCƒg‚ÌROM‚Íƒy[ƒW1‚Æƒy[ƒW2‚É”z’u‚³‚ê‚Ü‚·B
-        ‚½‚¾A‘½‚­‚ÌROMƒJ[ƒgƒŠƒbƒW‚ÍA‚»‚ê‚¼‚ê‚Ì“à—e‚ª‘¼‚Ìƒy[ƒW‚É‚àƒ~ƒ‰[‚³‚ê‚ÄŒ©‚¦‚é‚æ‚¤‚É‚È‚Á‚Ä‚¢‚Ü‚·B
-        * 16KƒoƒCƒgROM‚Ìê‡
-                * ‘S‚Ä‚Ìƒy[ƒW‚É“¯‚¶“à—e‚ªŒ©‚¦‚é
-        * 32KƒoƒCƒgROM‚Ìê‡
-                * ƒy[ƒW0‚Æƒy[ƒW2‚ª“¯‚¶“à—e
-                * ƒy[ƒW1‚Æƒy[ƒW3‚ª“¯‚¶“à—e
+        é€šå¸¸ã€16Kãƒã‚¤ãƒˆã®ROMã¯ãƒšãƒ¼ã‚¸1ã«é…ç½®ã•ã‚Œã€32Kãƒã‚¤ãƒˆã®ROMã¯ãƒšãƒ¼ã‚¸1ã¨ãƒšãƒ¼ã‚¸2ã«é…ç½®ã•ã‚Œã¾ã™ã€‚
+        ãŸã ã€å¤šãã®ROMã‚«ãƒ¼ãƒˆãƒªãƒƒã‚¸ã¯ã€ãã‚Œãžã‚Œã®å†…å®¹ãŒä»–ã®ãƒšãƒ¼ã‚¸ã«ã‚‚ãƒŸãƒ©ãƒ¼ã•ã‚Œã¦è¦‹ãˆã‚‹ã‚ˆã†ã«ãªã£ã¦ã„ã¾ã™ã€‚
+        * 16Kãƒã‚¤ãƒˆROMã®å ´åˆ
+                * å…¨ã¦ã®ãƒšãƒ¼ã‚¸ã«åŒã˜å†…å®¹ãŒè¦‹ãˆã‚‹
+        * 32Kãƒã‚¤ãƒˆROMã®å ´åˆ
+                * ãƒšãƒ¼ã‚¸0ã¨ãƒšãƒ¼ã‚¸2ãŒåŒã˜å†…å®¹
+                * ãƒšãƒ¼ã‚¸1ã¨ãƒšãƒ¼ã‚¸3ãŒåŒã˜å†…å®¹
 
-        –{ƒhƒ‰ƒCƒo‚ÍAŽw’è‚³‚ê‚½ƒoƒbƒtƒ@ƒTƒCƒY‚É‡‚í‚¹‚ÄA‚±‚ê‚ç‚Ìƒ~ƒ‰[ƒŠƒ“ƒO‚ðs‚¢‚Ü‚·B
+        æœ¬ãƒ‰ãƒ©ã‚¤ãƒã¯ã€æŒ‡å®šã•ã‚ŒãŸãƒãƒƒãƒ•ã‚¡ã‚µã‚¤ã‚ºã«åˆã‚ã›ã¦ã€ã“ã‚Œã‚‰ã®ãƒŸãƒ©ãƒ¼ãƒªãƒ³ã‚°ã‚’è¡Œã„ã¾ã™ã€‚
  */
 
 #include "ms_memmap_MIRROREDROM.h"
@@ -37,14 +37,14 @@ static uint16_t _read16(ms_memmap_driver_t* driver, uint16_t addr);
 static void _write16(ms_memmap_driver_t* driver, uint16_t addr, uint16_t data);
 
 /*
-        Šm•Ûƒ‹[ƒ`ƒ“
+        ç¢ºä¿ãƒ«ãƒ¼ãƒãƒ³
  */
 THIS* ms_memmap_MIRROREDROM_alloc() {
     return (THIS*)new_malloc(sizeof(THIS));
 }
 
 /*
-        ‰Šú‰»ƒ‹[ƒ`ƒ“
+        åˆæœŸåŒ–ãƒ«ãƒ¼ãƒãƒ³
  */
 void ms_memmap_MIRROREDROM_init(THIS* instance, ms_memmap_t* memmap, uint8_t* buffer, int buffer_length) {
     if (instance == NULL) {
@@ -52,16 +52,16 @@ void ms_memmap_MIRROREDROM_init(THIS* instance, ms_memmap_t* memmap, uint8_t* bu
     }
 
     if (buffer_length != 0x4000 && buffer_length != 0x8000) {
-        printf("MIRROREDROM‚Ìƒoƒbƒtƒ@ƒTƒCƒY‚Í16KƒoƒCƒg‚Ü‚½‚Í32KƒoƒCƒg‚Å‚ ‚é•K—v‚ª‚ ‚è‚Ü‚·\n");
+        printf("MIRROREDROMã®ãƒãƒƒãƒ•ã‚¡ã‚µã‚¤ã‚ºã¯16Kãƒã‚¤ãƒˆã¾ãŸã¯32Kãƒã‚¤ãƒˆã§ã‚ã‚‹å¿…è¦ãŒã‚ã‚Šã¾ã™\n");
         return;
     }
 
     ms_memmap_driver_init(&instance->base, memmap, buffer);
 
-    // ƒvƒƒpƒeƒB‚âƒƒ\ƒbƒh‚Ì“o˜^
+    // ãƒ—ãƒ­ãƒ‘ãƒ†ã‚£ã‚„ãƒ¡ã‚½ãƒƒãƒ‰ã®ç™»éŒ²
     instance->base.type = ROM_TYPE_MIRRORED_ROM;
     instance->base.name = driver_name;
-    // instance->base.deinit = ms_memmap_MIRROREDROM_deinit; ƒI[ƒo[ƒ‰ƒCƒh•s—v
+    // instance->base.deinit = ms_memmap_MIRROREDROM_deinit; ã‚ªãƒ¼ãƒãƒ¼ãƒ©ã‚¤ãƒ‰ä¸è¦
     instance->base.did_attach = _did_attach;
     instance->base.will_detach = _will_detach;
     instance->base.did_update_memory_mapper = _did_update_memory_mapper;
@@ -70,22 +70,22 @@ void ms_memmap_MIRROREDROM_init(THIS* instance, ms_memmap_t* memmap, uint8_t* bu
     instance->base.write8 = _write8;
     instance->base.write16 = _write16;
 
-    // ƒvƒ‰ƒCƒx[ƒgƒvƒƒpƒeƒB
+    // ãƒ—ãƒ©ã‚¤ãƒ™ãƒ¼ãƒˆãƒ—ãƒ­ãƒ‘ãƒ†ã‚£
     instance->buffer_length = buffer_length;
 
     int page8k;
     for (page8k = 0; page8k < 8; page8k++) {
         if (instance->buffer_length == 0x4000) {
-            // 16KƒoƒCƒgROM
+            // 16Kãƒã‚¤ãƒˆROM
             instance->base.page8k_pointers[page8k] = instance->base.buffer + (page8k % 2) * 0x2000;
         } else {
-            // 32KƒoƒCƒgROM
+            // 32Kãƒã‚¤ãƒˆROM
             int page = page8k / 2;
             if (page % 2 == 0) {
-                // ‹ô”ƒy[ƒW(0,2)
+                // å¶æ•°ãƒšãƒ¼ã‚¸(0,2)
                 instance->base.page8k_pointers[page8k] = instance->base.buffer + 0x4000 + (page8k % 2) * 0x2000;
             } else {
-                // Šï”ƒy[ƒW(1,3)
+                // å¥‡æ•°ãƒšãƒ¼ã‚¸(1,3)
                 instance->base.page8k_pointers[page8k] = instance->base.buffer + 0x0000 + (page8k % 2) * 0x2000;
             }
         }
@@ -122,7 +122,7 @@ static uint16_t _read16(ms_memmap_driver_t* driver, uint16_t addr) {
     int page8k = (addr >> 13) & 0x07;
     int local_addr = addr & 0x1fff;
 
-    // addr ‚Íƒy[ƒW‹«ŠE‚ð‚Ü‚½‚ª‚È‚¢‚æ‚¤‚É‚È‚Á‚Ä‚¢‚é‚Ì‚Å‹C‚É‚¹‚¸OK
+    // addr ã¯ãƒšãƒ¼ã‚¸å¢ƒç•Œã‚’ã¾ãŸãŒãªã„ã‚ˆã†ã«ãªã£ã¦ã„ã‚‹ã®ã§æ°—ã«ã›ãšOK
     uint16_t ret = (driver->page8k_pointers[page8k][local_addr]) | (((uint16_t)driver->page8k_pointers[page8k][local_addr + 1]) << 8);
     return ret;
 }

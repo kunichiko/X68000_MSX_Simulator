@@ -10,12 +10,12 @@ typedef struct ms_kanjirom12 {
     uint8_t* rom_data;
     uint32_t rom_size;
 
-    // ‘æˆê…€ƒAƒhƒŒƒX
+    // ç¬¬ä¸€æ°´æº–ã‚¢ãƒ‰ãƒ¬ã‚¹
     uint32_t addr1;
-    // ‘æ“ñ…€ƒAƒhƒŒƒX
+    // ç¬¬äºŒæ°´æº–ã‚¢ãƒ‰ãƒ¬ã‚¹
     uint32_t addr2;
 
-    // I/O port ƒAƒNƒZƒX‚ğ’ñ‹Ÿ
+    // I/O port ã‚¢ã‚¯ã‚»ã‚¹ã‚’æä¾›
     ms_ioport_t io_port_D8;
     ms_ioport_t io_port_D9;
     ms_ioport_t io_port_DA;

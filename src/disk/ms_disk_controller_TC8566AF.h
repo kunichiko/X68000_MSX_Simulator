@@ -41,10 +41,10 @@ typedef struct TC8566AF_command {
 /**
  * @brief
  * 	Address	R/W	Feature
- *	0x3FF8	W	���W�X�^2 ���X�V (write only)
- *	0x3FF9	W	���W�X�^3 ���X�V (write only)
- *	0x3FFA	R/W	���W�X�^4 ���Q�ƁE�X�V
- *	0x3FFB	R/W	���W�X�^5 ���Q�ƁE�X�V
+ *	0x3FF8	W	レジスタ2 を更新 (write only)
+ *	0x3FF9	W	レジスタ3 を更新 (write only)
+ *	0x3FFA	R/W	レジスタ4 を参照・更新
+ *	0x3FFB	R/W	レジスタ5 を参照・更新
  */
 typedef struct ms_disk_controller_TC8566AF {
     // methods
@@ -80,7 +80,7 @@ typedef struct ms_disk_controller_TC8566AF {
     uint8_t value_EOT;
     uint8_t value_GSL_GPL;  // Gap Skip Length / Gap Length
     uint8_t value_DTL_STP;
-    // format(Write ID)�Ŏg�����W�X�^
+    // format(Write ID)で使うレジスタ
     uint8_t value_SC;  // sectors / cylinder
     uint8_t value_D;   // filler data
 
@@ -98,12 +98,12 @@ typedef struct ms_disk_controller_TC8566AF {
     uint8_t driveId;
 
     //
-    uint16_t _rqm_delay_count;  // RQM�����܂ł̒x���J�E���^
+    uint16_t _rqm_delay_count;  // RQMが立つまでの遅延カウンタ
 
     // buffer
     int sector_buffer_ready;
     ms_disk_sector_t sector_buffer;
-    int sector_buffer_byte_offset;  // ���ǂݏ������Ă���Z�N�^�̃o�C�g�I�t�Z�b�g
+    int sector_buffer_byte_offset;  // 今読み書きしているセクタのバイトオフセット
     int sector_buffer_serach_count;
 } ms_disk_controller_TC8566AF_t;
 

@@ -1,6 +1,6 @@
 /*
 
-                �l�r�w.�r���������������� [[ MS ]]
+                ＭＳＸ.Ｓｉｍｕｌａｔｅｒ [[ MS ]]
 
                         ver.0.01	prpgramed by Kuni.
                                                                                         1994.10.24
@@ -20,7 +20,7 @@ extern char *command;
 extern int ssp;
 extern int com;
 
-/*				��ʂ�������				*/
+/*				画面を初期化				*/
 void display_set() {
     int i, j;
 
@@ -36,7 +36,7 @@ void display_set() {
     _iocs_skey_mod(0, 0, 0);
 }
 
-/*	�t�@�C���ꗗ��\������֐�	*/
+/*	ファイル一覧を表示する関数	*/
 
 void dir() {
 }
@@ -46,14 +46,14 @@ _files:
         link	a6,#0
         movem.l	d0-d7/a0-a6,-(sp)
 
-        movea.l	8(a6),a2	* a2 = ���ʂ�Ԃ��z��ւ̃|�C���^(�t�@�C���l�[��)
-        movea.l	12(a6),a4	* a4 = ���ʂ�Ԃ��z��ւ̃|�C���^(�t�@�C���̎��)
-                                *	0--- ���ʂ̃t�@�C��
-                                *	1--- ced�t�@�C��
-                                *	2--- �f�B���N�g��
-                                *	3--- �S�ēǂݍ��񂾂��Ƃ�����
+        movea.l	8(a6),a2	* a2 = 結果を返す配列へのポインタ(ファイルネーム)
+        movea.l	12(a6),a4	* a4 = 結果を返す配列へのポインタ(ファイルの種類)
+                                *	0--- 普通のファイル
+                                *	1--- cedファイル
+                                *	2--- ディレクトリ
+                                *	3--- 全て読み込んだことを示す
 
-        move.w	#%0011_0000,-(sp)	* �ʏ�̃t�@�C���ƃf�B���N�g��������
+        move.w	#%0011_0000,-(sp)	* 通常のファイルとディレクトリを検索
         pea.l	fnamebuf2
         pea.l	filebuf
         DOS	_FILES
@@ -67,24 +67,24 @@ loopf:	tst.l	d0
         move.w	#23,d0
 loopf1:
         move.b	(a3)+,d1
-        cmpi.b	#'.',d1			* �g���q�ɂԂ�����
+        cmpi.b	#'.',d1			* 拡張子にぶつかった
         beq	exp
-        cmpi.b	#0,d1			* �k�������ɂԂ�����
+        cmpi.b	#0,d1			* ヌル文字にぶつかった
         beq	null
         move.b	d1,(a2)+
 
         subq.w	#1,d0
         bne	loopf1
 
-        clr.l	d0			* �ʏ�̃t�@�C��
+        clr.l	d0			* 通常のファイル
 
 nextf:
         move.l	d0,(a4)+
         lea.l	filebuf+21,a3
         move.b	(a3),d1
-        and.b	#%0001_0000,d1		* �f�B���N�g�����H
+        and.b	#%0001_0000,d1		* ディレクトリか？
         beq	normal
-        move.l	#2,-4(a4)		* �f�B���N�g��������
+        move.l	#2,-4(a4)		* ディレクトリだった
 normal:
         pea.l	filebuf
         DOS	_NFILES
@@ -93,13 +93,13 @@ normal:
         bra	loopf
 
 donef:
-        move.l	#3,(a4)			* �t�@�C���̎�ނR�́A���ׂēǂݐ؂������Ƃ�����
+        move.l	#3,(a4)			* ファイルの種類３は、すべて読み切ったことを示す
         movem.l	(sp)+,d0-d7/a0-a6
         unlk	a6
 
         rts
 
-*	�g���q�̏���
+*	拡張子の処理
 exp:
         subq.w	#5,d0
 loope:
@@ -118,39 +118,39 @@ loopf2:
         cmpi.b	#'c',d0
         beq	next_e
         cmpi.b	#'C',d0
-        bne	not_ced			* �P�����ڂ�'c'�ł�'C'�ł��Ȃ�
+        bne	not_ced			* １文字目が'c'でも'C'でもない
 next_e:
         move.b	-3(a2),d0
         cmpi.b	#'e',d0
         beq	next_d
         cmpi.b	#'E',d0
-        bne	not_ced			* �P�����ڂ�'e'�ł�'E'�ł��Ȃ�
+        bne	not_ced			* １文字目が'e'でも'E'でもない
 next_d:
         move.b	-2(a2),d0
         cmpi.b	#'d',d0
         beq	next_ced
         cmpi.b	#'D',d0
-        bne	not_ced			* �P�����ڂ�'d'�ł�'D'�ł��Ȃ�
+        bne	not_ced			* １文字目が'd'でも'D'でもない
 
 next_ced:
-        move.l	#1,d0			* ced �t�@�C��
+        move.l	#1,d0			* ced ファイル
         bra	nextf
 
 not_ced:
         clr.l	d0
-        bra	nextf			* �ʏ�̃t�@�C��
+        bra	nextf			* 通常のファイル
 
-*	�k�������ɂԂ��������̏���
+*	ヌル文字にぶつかった時の処理
 null:
         subq.w	#1,d0
 loopn:
-        move.b	#' ',(a2)+		* �t�@�C���̍Ō�܂ł��X�y�[�X�Ŗ��߂�
+        move.b	#' ',(a2)+		* ファイルの最後までをスペースで埋める
         subq.w	#1,d0
         bne	loopn
 
-        move.b	#0,(a2)+		* �k������������
+        move.b	#0,(a2)+		* ヌル文字をつける
 
-        clr.l	d0			* �ʏ�̃t�@�C��
+        clr.l	d0			* 通常のファイル
         bra	nextf
 
 */
@@ -182,7 +182,7 @@ void exit() {
     _dos_exit();
 }
 
-void nothing() { /* �Ȃɂ����Ȃ��R�}���h			*/
+void nothing() { /* なにもしないコマンド			*/
     char errmes[] = "\ncommand or file not found\n";
 
     print(errmes);
@@ -190,9 +190,9 @@ void nothing() { /* �Ȃɂ����Ȃ��R�}���h			*/
     return;
 }
 
-/****************** �R�}���h�ݒ� ******************/
+/****************** コマンド設定 ******************/
 /*
-void *commands[64];			 ���ꂼ��̃R�}���h�̊֐��ւ̃|�C���^�z��
+void *commands[64];			 それぞれのコマンドの関数へのポインタ配列
 char command_name[64][10]={"ASSIGN","ATDIR" ,"ATTRIB","BASIC"   ,"BUFFERS","CD",
                                                         "CHDIR" ,"CHKDSK","CLS"   ,"COMMAND2","CONCAT" ,"COPY",
                                                         "DATE"  ,"DEL"   ,"DIR"   ,"ECHO"    ,"ERA"    ,"ERASE",
@@ -221,7 +221,7 @@ void command_init() {
 void command_ms() {
     int i, a;
 
-    command_init(); /* �R�}���h�ւ̃|�C���^�z��̏������Ȃ�	*/
+    command_init(); /* コマンドへのポインタ配列の初期化など	*/
 
     for (i = 0; i < 5; i++) {
         print(&opening[i]);
@@ -229,13 +229,13 @@ void command_ms() {
 
     for (;;) {
         print("A>");
-        com = 0; /* ���ݓ��͂���Ă��镶���� 	*/
+        com = 0; /* 現在入力されている文字数 	*/
 
         while (1) {
             a = _dos_inkey();
             if (a >= 32) {
                 if (com < 255) command[com++] = (char)a;
-                put(a); /* �����\��						*/
+                put(a); /* 文字表示						*/
             } else {
                 switch (a) {
                 case 8:
@@ -248,13 +248,13 @@ void command_ms() {
                     goto next;
                 }
             }
-            if ((_iocs_bitsns(0) & 2) == 2) /* �d�����L�[��������Ă�����I��		*/
+            if ((_iocs_bitsns(0) & 2) == 2) /* Ｅｓｃキーが押されていたら終了		*/
                 exit();
         }
 
     next:
-        command[com++] = '\0'; /* ������̍Ō�� null �������	*/
-        print("\n");           /* ���s							*/
+        command[com++] = '\0'; /* 文字列の最後に null をいれる	*/
+        print("\n");           /* 改行							*/
         do_command(command);
     }
 }

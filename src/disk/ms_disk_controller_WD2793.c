@@ -1,21 +1,21 @@
 /*
- * WD2793 ƒtƒƒbƒs[ƒfƒBƒXƒNƒRƒ“ƒgƒ[ƒ‰[‚ÌƒGƒ~ƒ…ƒŒ[ƒVƒ‡ƒ“
+ * WD2793 ãƒ•ãƒ­ãƒƒãƒ”ãƒ¼ãƒ‡ã‚£ã‚¹ã‚¯ã‚³ãƒ³ãƒˆãƒ­ãƒ¼ãƒ©ãƒ¼ã®ã‚¨ãƒŸãƒ¥ãƒ¬ãƒ¼ã‚·ãƒ§ãƒ³
  *
- * ŠT—v‚Í ms_disk_controller_WD2793.h ‚ðŽQÆ‚µ‚Ä‚­‚¾‚³‚¢BƒŒƒWƒXƒ^‚Ì I/O ‚Í
- * DISK BIOS ‚Ìƒƒ‚ƒŠƒ}ƒbƒvƒhƒ‰ƒCƒo (ms_disk_bios_Sony) ‚©‚ç‹ì“®‚³‚êAƒƒfƒBƒA
- * ƒAƒNƒZƒX‚Í TC8566AF ƒRƒ“ƒgƒ[ƒ‰[‚Æ“¯‚¶‚­ ms_disk_drive_floppy_t
- * ƒCƒ“ƒ^[ƒtƒF[ƒX‚ðÄ—˜—p‚µ‚Ü‚·B
+ * æ¦‚è¦ã¯ ms_disk_controller_WD2793.h ã‚’å‚ç…§ã—ã¦ãã ã•ã„ã€‚ãƒ¬ã‚¸ã‚¹ã‚¿ã® I/O ã¯
+ * DISK BIOS ã®ãƒ¡ãƒ¢ãƒªãƒžãƒƒãƒ—ãƒ‰ãƒ©ã‚¤ãƒ (ms_disk_bios_Sony) ã‹ã‚‰é§†å‹•ã•ã‚Œã€ãƒ¡ãƒ‡ã‚£ã‚¢
+ * ã‚¢ã‚¯ã‚»ã‚¹ã¯ TC8566AF ã‚³ãƒ³ãƒˆãƒ­ãƒ¼ãƒ©ãƒ¼ã¨åŒã˜ã ms_disk_drive_floppy_t
+ * ã‚¤ãƒ³ã‚¿ãƒ¼ãƒ•ã‚§ãƒ¼ã‚¹ã‚’å†åˆ©ç”¨ã—ã¾ã™ã€‚
  *
- * ƒŒƒWƒXƒ^”z’u (SONY/Philips ƒCƒ“ƒ^[ƒtƒF[ƒX‚ªƒy[ƒW1‚ÉŒ©‚¹‚Ä‚¢‚é‚à‚Ì):
- *   0x7FF8  R:ƒXƒe[ƒ^ƒX  W:ƒRƒ}ƒ“ƒh
- *   0x7FF9  R/W ƒgƒ‰ƒbƒNƒŒƒWƒXƒ^
- *   0x7FFA  R/W ƒZƒNƒ^ƒŒƒWƒXƒ^
- *   0x7FFB  R/W ƒf[ƒ^ƒŒƒWƒXƒ^
+ * ãƒ¬ã‚¸ã‚¹ã‚¿é…ç½® (SONY/Philips ã‚¤ãƒ³ã‚¿ãƒ¼ãƒ•ã‚§ãƒ¼ã‚¹ãŒãƒšãƒ¼ã‚¸1ã«è¦‹ã›ã¦ã„ã‚‹ã‚‚ã®):
+ *   0x7FF8  R:ã‚¹ãƒ†ãƒ¼ã‚¿ã‚¹  W:ã‚³ãƒžãƒ³ãƒ‰
+ *   0x7FF9  R/W ãƒˆãƒ©ãƒƒã‚¯ãƒ¬ã‚¸ã‚¹ã‚¿
+ *   0x7FFA  R/W ã‚»ã‚¯ã‚¿ãƒ¬ã‚¸ã‚¹ã‚¿
+ *   0x7FFB  R/W ãƒ‡ãƒ¼ã‚¿ãƒ¬ã‚¸ã‚¹ã‚¿
  *
- * ƒRƒ}ƒ“ƒh‚ÍƒRƒ}ƒ“ƒhƒoƒCƒg‚ÌãˆÊƒjƒuƒ‹‚ÅƒfƒR[ƒh‚µ‚Ü‚·:
+ * ã‚³ãƒžãƒ³ãƒ‰ã¯ã‚³ãƒžãƒ³ãƒ‰ãƒã‚¤ãƒˆã®ä¸Šä½ãƒ‹ãƒ–ãƒ«ã§ãƒ‡ã‚³ãƒ¼ãƒ‰ã—ã¾ã™:
  *   0x0X Restore, 0x1X Seek, 0x2/3X Step, 0x4/5X Step-in, 0x6/7X Step-out (Type I)
- *   0x8X Read Sector, 0x9X Read Sector (ƒ}ƒ‹ƒ`)   (Type II)
- *   0xAX Write Sector, 0xBX Write Sector (ƒ}ƒ‹ƒ`) (Type II)
+ *   0x8X Read Sector, 0x9X Read Sector (ãƒžãƒ«ãƒ)   (Type II)
+ *   0xAX Write Sector, 0xBX Write Sector (ãƒžãƒ«ãƒ) (Type II)
  *   0xCX Read Address, 0xEX Read Track, 0xFX Write Track (Type III)
  *   0xDX Force Interrupt (Type IV)
  */
@@ -31,8 +31,8 @@
 
 #define THIS ms_disk_controller_WD2793_t
 
-// 2DD ‚Ì 1ƒgƒ‰ƒbƒN•ª‚ÌƒoƒCƒg” (ms_disk_raw_track_t ‚Æ“¯‚¶)BƒCƒ“ƒfƒbƒNƒXƒpƒ‹ƒX‚ð
-// ƒGƒ~ƒ…ƒŒ[ƒVƒ‡ƒ“‚µ‚Ä‚¢‚È‚¢‚½‚ßAWrite Track (ƒtƒH[ƒ}ƒbƒg) ‚ÌI—¹”»’è‚ÉŽg‚¢‚Ü‚·B
+// 2DD ã® 1ãƒˆãƒ©ãƒƒã‚¯åˆ†ã®ãƒã‚¤ãƒˆæ•° (ms_disk_raw_track_t ã¨åŒã˜)ã€‚ã‚¤ãƒ³ãƒ‡ãƒƒã‚¯ã‚¹ãƒ‘ãƒ«ã‚¹ã‚’
+// ã‚¨ãƒŸãƒ¥ãƒ¬ãƒ¼ã‚·ãƒ§ãƒ³ã—ã¦ã„ãªã„ãŸã‚ã€Write Track (ãƒ•ã‚©ãƒ¼ãƒžãƒƒãƒˆ) ã®çµ‚äº†åˆ¤å®šã«ä½¿ã„ã¾ã™ã€‚
 #define WD2793_TRACK_LENGTH 6250
 
 static void wd2793_start_type1(THIS* d);
@@ -51,7 +51,7 @@ void ms_disk_controller_WD2793_init(THIS* instance, ms_disk_container_t* contain
     if (instance == NULL) {
         return;
     }
-    // ƒhƒ‰ƒCƒu0 ‚Ì‚ÝŽÀƒRƒ“ƒeƒi‚ðŽ‚¿A1-3 ‚Íƒ_ƒ~[ƒhƒ‰ƒCƒu‚Æ‚µ‚Ä‰Šú‰»‚µ‚Ü‚·
+    // ãƒ‰ãƒ©ã‚¤ãƒ–0 ã®ã¿å®Ÿã‚³ãƒ³ãƒ†ãƒŠã‚’æŒã¡ã€1-3 ã¯ãƒ€ãƒŸãƒ¼ãƒ‰ãƒ©ã‚¤ãƒ–ã¨ã—ã¦åˆæœŸåŒ–ã—ã¾ã™
     int i = 0;
     ms_disk_drive_floppy_init(&instance->drive[i], container);
     for (i = 1; i < 4; i++) {
@@ -86,22 +86,22 @@ void ms_disk_controller_WD2793_deinit(THIS* instance) {
 }
 
 // -----------------------------------------------------------------------------
-//  ƒRƒ}ƒ“ƒhƒŒƒWƒXƒ^ (0x7FF8 ‘‚«ž‚Ý)
+//  ã‚³ãƒžãƒ³ãƒ‰ãƒ¬ã‚¸ã‚¹ã‚¿ (0x7FF8 æ›¸ãè¾¼ã¿)
 // -----------------------------------------------------------------------------
 void ms_disk_controller_WD2793_set_command_reg(THIS* d, uint8_t value) {
     d->command_reg = value;
-    d->intrq = 0;  // V‚µ‚¢ƒRƒ}ƒ“ƒh‚Ì”­s‚ÅŠ„‚èž‚Ý—v‹‚ÍƒNƒŠƒA‚³‚ê‚é
+    d->intrq = 0;  // æ–°ã—ã„ã‚³ãƒžãƒ³ãƒ‰ã®ç™ºè¡Œã§å‰²ã‚Šè¾¼ã¿è¦æ±‚ã¯ã‚¯ãƒªã‚¢ã•ã‚Œã‚‹
 
     uint8_t type = value & 0xF0;
     MS_LOG(MS_LOG_FINE, "WD2793 CMD: %02x\n", value);
 
     if (type == 0xD0) {
-        // Type IV: Force Interrupt - ŽÀs’†‚ÌƒRƒ}ƒ“ƒh‚ð’†’f‚·‚é
+        // Type IV: Force Interrupt - å®Ÿè¡Œä¸­ã®ã‚³ãƒžãƒ³ãƒ‰ã‚’ä¸­æ–­ã™ã‚‹
         d->status_reg &= ~WD2793_ST_BUSY;
         d->drq = 0;
         d->xfer_mode = WD2793_XFER_NONE;
         if (value & 0x08) {
-            d->intrq = 1;  // ‘¦ŽžŠ„‚èž‚Ý‚ª—v‹‚³‚ê‚½ê‡
+            d->intrq = 1;  // å³æ™‚å‰²ã‚Šè¾¼ã¿ãŒè¦æ±‚ã•ã‚ŒãŸå ´åˆ
         }
         return;
     }
@@ -112,22 +112,22 @@ void ms_disk_controller_WD2793_set_command_reg(THIS* d, uint8_t value) {
     } else {
         switch (type) {
         case 0x80:  // Read Sector
-        case 0x90:  // Read Sector (ƒ}ƒ‹ƒ`)
+        case 0x90:  // Read Sector (ãƒžãƒ«ãƒ)
             wd2793_start_read_sector(d);
             break;
         case 0xA0:  // Write Sector
-        case 0xB0:  // Write Sector (ƒ}ƒ‹ƒ`)
+        case 0xB0:  // Write Sector (ãƒžãƒ«ãƒ)
             wd2793_start_write_sector(d);
             break;
         case 0xC0:  // Read Address
             wd2793_start_read_address(d);
             break;
-        case 0xE0:  // Read Track (–¢ŽÀ‘•BƒxƒXƒgƒGƒtƒH[ƒg)
+        case 0xE0:  // Read Track (æœªå®Ÿè£…ã€‚ãƒ™ã‚¹ãƒˆã‚¨ãƒ•ã‚©ãƒ¼ãƒˆ)
             MS_LOG(MS_LOG_INFO, "WD2793: READ TRACK not implemented\n");
             d->status_reg = 0;
             d->intrq = 1;
             break;
-        case 0xF0:  // Write Track (ƒtƒH[ƒ}ƒbƒg)
+        case 0xF0:  // Write Track (ãƒ•ã‚©ãƒ¼ãƒžãƒƒãƒˆ)
             wd2793_start_write_track(d);
             break;
         default:
@@ -140,7 +140,7 @@ void ms_disk_controller_WD2793_set_command_reg(THIS* d, uint8_t value) {
 }
 
 // -----------------------------------------------------------------------------
-//  ƒXƒe[ƒ^ƒXƒŒƒWƒXƒ^ (0x7FF8 “Ç‚Ýž‚Ý)
+//  ã‚¹ãƒ†ãƒ¼ã‚¿ã‚¹ãƒ¬ã‚¸ã‚¹ã‚¿ (0x7FF8 èª­ã¿è¾¼ã¿)
 // -----------------------------------------------------------------------------
 uint8_t ms_disk_controller_WD2793_get_status_reg(THIS* d) {
     ms_disk_drive_floppy_t* drive = &d->drive[d->current_drive];
@@ -149,9 +149,9 @@ uint8_t ms_disk_controller_WD2793_get_status_reg(THIS* d) {
     int is_type1 = ((d->command_reg & 0x80) == 0) || (type == 0xD0);
 
     if (is_type1) {
-        // Type I / Type IV: bit1-5 ‚Íƒwƒbƒh/ƒgƒ‰ƒbƒN/ƒCƒ“ƒfƒbƒNƒX‚Ìó‘Ô‚ðŽž”½‰f‚·‚é
+        // Type I / Type IV: bit1-5 ã¯ãƒ˜ãƒƒãƒ‰/ãƒˆãƒ©ãƒƒã‚¯/ã‚¤ãƒ³ãƒ‡ãƒƒã‚¯ã‚¹ã®çŠ¶æ…‹ã‚’éšæ™‚åæ˜ ã™ã‚‹
         st &= ~(WD2793_ST_INDEX | WD2793_ST_TRACK00 | WD2793_ST_HEAD_LOADED | WD2793_ST_WRITE_PROTECTED);
-        // ƒCƒ“ƒfƒbƒNƒX‘Ò‚¿‚Ìƒ‹[ƒv‚ªi‚Þ‚æ‚¤‚ÉA‹^Ž—ƒCƒ“ƒfƒbƒNƒXƒpƒ‹ƒX‚ðƒgƒOƒ‹‚·‚é
+        // ã‚¤ãƒ³ãƒ‡ãƒƒã‚¯ã‚¹å¾…ã¡ã®ãƒ«ãƒ¼ãƒ—ãŒé€²ã‚€ã‚ˆã†ã«ã€ç–‘ä¼¼ã‚¤ãƒ³ãƒ‡ãƒƒã‚¯ã‚¹ãƒ‘ãƒ«ã‚¹ã‚’ãƒˆã‚°ãƒ«ã™ã‚‹
         d->index_phase ^= 1;
         if (d->index_phase) {
             st |= WD2793_ST_INDEX;
@@ -166,7 +166,7 @@ uint8_t ms_disk_controller_WD2793_get_status_reg(THIS* d) {
             st |= WD2793_ST_WRITE_PROTECTED;
         }
     } else {
-        // Type II / III: bit1 ‚Í DRQ
+        // Type II / III: bit1 ã¯ DRQ
         if (d->drq) {
             st |= WD2793_ST_DRQ;
         } else {
@@ -174,20 +174,20 @@ uint8_t ms_disk_controller_WD2793_get_status_reg(THIS* d) {
         }
     }
 
-    // NOT READY (‘SƒRƒ}ƒ“ƒh‹¤’Ê)
+    // NOT READY (å…¨ã‚³ãƒžãƒ³ãƒ‰å…±é€š)
     if ((drive->container != NULL) && drive->is_disk_inserted(drive)) {
         st &= ~WD2793_ST_NOT_READY;
     } else {
         st |= WD2793_ST_NOT_READY;
     }
 
-    d->intrq = 0;  // ƒXƒe[ƒ^ƒXƒŒƒWƒXƒ^‚Ì“Ç‚Ýž‚Ý‚ÅŠ„‚èž‚Ý—v‹‚ÍƒNƒŠƒA‚³‚ê‚é
+    d->intrq = 0;  // ã‚¹ãƒ†ãƒ¼ã‚¿ã‚¹ãƒ¬ã‚¸ã‚¹ã‚¿ã®èª­ã¿è¾¼ã¿ã§å‰²ã‚Šè¾¼ã¿è¦æ±‚ã¯ã‚¯ãƒªã‚¢ã•ã‚Œã‚‹
     MS_LOG(MS_LOG_TRACE, "WD2793 ST: %02x\n", st);
     return st;
 }
 
 // -----------------------------------------------------------------------------
-//  ƒgƒ‰ƒbƒN / ƒZƒNƒ^ƒŒƒWƒXƒ^
+//  ãƒˆãƒ©ãƒƒã‚¯ / ã‚»ã‚¯ã‚¿ãƒ¬ã‚¸ã‚¹ã‚¿
 // -----------------------------------------------------------------------------
 void ms_disk_controller_WD2793_set_track_reg(THIS* d, uint8_t value) {
     d->track_reg = value;
@@ -203,14 +203,14 @@ uint8_t ms_disk_controller_WD2793_get_sector_reg(THIS* d) {
 }
 
 // -----------------------------------------------------------------------------
-//  ƒf[ƒ^ƒŒƒWƒXƒ^ (0x7FFB)
+//  ãƒ‡ãƒ¼ã‚¿ãƒ¬ã‚¸ã‚¹ã‚¿ (0x7FFB)
 // -----------------------------------------------------------------------------
 uint8_t ms_disk_controller_WD2793_get_data_reg(THIS* d) {
     if (d->xfer_mode == WD2793_XFER_READ_SECTOR && d->drq) {
         d->data_reg = d->sector_buffer.data[d->sector_buffer_byte_offset++];
         d->transfer_rest--;
         if (d->sector_buffer_byte_offset >= 512) {
-            // 1ƒZƒNƒ^•ª‚Ì“Ç‚Ýž‚Ý‚ªŠ®—¹
+            // 1ã‚»ã‚¯ã‚¿åˆ†ã®èª­ã¿è¾¼ã¿ãŒå®Œäº†
             if (d->multi) {
                 d->sector_reg++;
                 if (wd2793_find_sector(d)) {
@@ -265,27 +265,27 @@ void ms_disk_controller_WD2793_set_data_reg(THIS* d, uint8_t value) {
     }
 
     if (d->xfer_mode == WD2793_XFER_WRITE_TRACK && d->drq) {
-        // ƒxƒXƒgƒGƒtƒH[ƒg‚ÌƒtƒH[ƒ}ƒbƒgˆ—B‘‚«ž‚ÝƒoƒCƒg—ñ‚©‚ç ID ƒ}[ƒN(0xFE)‚É
-        // ‘±‚­ C,H,R,N ‚ÆAƒf[ƒ^ƒ}[ƒN(0xFB/0xF8)‚É‘±‚­ƒf[ƒ^ƒtƒB[ƒ‹ƒh‚ðŽæ‚èo‚µ‚Ü‚·B
-        // .DSK Œ`Ž®‚ÍƒMƒƒƒbƒvî•ñ‚ð•ÛŽ‚µ‚È‚¢‚½‚ßAƒMƒƒƒbƒv/CRC ƒoƒCƒg‚Í–³Ž‹‚µ‚Ü‚·B
+        // ãƒ™ã‚¹ãƒˆã‚¨ãƒ•ã‚©ãƒ¼ãƒˆã®ãƒ•ã‚©ãƒ¼ãƒžãƒƒãƒˆå‡¦ç†ã€‚æ›¸ãè¾¼ã¿ãƒã‚¤ãƒˆåˆ—ã‹ã‚‰ ID ãƒžãƒ¼ã‚¯(0xFE)ã«
+        // ç¶šã C,H,R,N ã¨ã€ãƒ‡ãƒ¼ã‚¿ãƒžãƒ¼ã‚¯(0xFB/0xF8)ã«ç¶šããƒ‡ãƒ¼ã‚¿ãƒ•ã‚£ãƒ¼ãƒ«ãƒ‰ã‚’å–ã‚Šå‡ºã—ã¾ã™ã€‚
+        // .DSK å½¢å¼ã¯ã‚®ãƒ£ãƒƒãƒ—æƒ…å ±ã‚’ä¿æŒã—ãªã„ãŸã‚ã€ã‚®ãƒ£ãƒƒãƒ—/CRC ãƒã‚¤ãƒˆã¯ç„¡è¦–ã—ã¾ã™ã€‚
         //
-        // ƒp[ƒT‚Ìó‘Ô‚ÍƒCƒ“ƒXƒ^ƒ“ƒX‘¤‚É•ÛŽ‚µ‚Ü‚· (addr_buffer / ƒIƒtƒZƒbƒg‚ð—¬—p):
-        //   addr_buffer[0..3]        = \’z’†ƒZƒNƒ^‚Ì CHRN
-        //   addr_buffer_offset phase = 0            : ƒAƒCƒhƒ‹ (ƒ}[ƒN‘Ò‚¿)
-        //                              1..4          : CHRN ‚Ì n-1 ƒoƒCƒg–Ú‚ðŽûW’†
-        //                              100..(100+L)  : ƒf[ƒ^ƒtƒB[ƒ‹ƒh‚ðŽûW’†
+        // ãƒ‘ãƒ¼ã‚µã®çŠ¶æ…‹ã¯ã‚¤ãƒ³ã‚¹ã‚¿ãƒ³ã‚¹å´ã«ä¿æŒã—ã¾ã™ (addr_buffer / ã‚ªãƒ•ã‚»ãƒƒãƒˆã‚’æµç”¨):
+        //   addr_buffer[0..3]        = æ§‹ç¯‰ä¸­ã‚»ã‚¯ã‚¿ã® CHRN
+        //   addr_buffer_offset phase = 0            : ã‚¢ã‚¤ãƒ‰ãƒ« (ãƒžãƒ¼ã‚¯å¾…ã¡)
+        //                              1..4          : CHRN ã® n-1 ãƒã‚¤ãƒˆç›®ã‚’åŽé›†ä¸­
+        //                              100..(100+L)  : ãƒ‡ãƒ¼ã‚¿ãƒ•ã‚£ãƒ¼ãƒ«ãƒ‰ã‚’åŽé›†ä¸­
         d->transfer_rest--;
         int phase = d->addr_buffer_offset;
         if (phase == 0) {
             if (value == 0xFE) {
-                d->addr_buffer_offset = 1;  // ID ƒAƒhƒŒƒXƒ}[ƒN -> CHRN ‚ÌŽûW‚ðŠJŽn
+                d->addr_buffer_offset = 1;  // ID ã‚¢ãƒ‰ãƒ¬ã‚¹ãƒžãƒ¼ã‚¯ -> CHRN ã®åŽé›†ã‚’é–‹å§‹
             } else if (value == 0xFB || value == 0xF8) {
-                d->addr_buffer_offset = 100;  // ƒf[ƒ^ (‚Ü‚½‚Ííœƒf[ƒ^) ƒ}[ƒN
+                d->addr_buffer_offset = 100;  // ãƒ‡ãƒ¼ã‚¿ (ã¾ãŸã¯å‰Šé™¤ãƒ‡ãƒ¼ã‚¿) ãƒžãƒ¼ã‚¯
             }
         } else if (phase >= 1 && phase <= 4) {
             d->addr_buffer[phase - 1] = value;
             if (phase == 4) {
-                d->addr_buffer_offset = 0;  // CHRN ‚ðŽæ“¾Bƒf[ƒ^ƒ}[ƒN‘Ò‚¿‚Ö
+                d->addr_buffer_offset = 0;  // CHRN ã‚’å–å¾—ã€‚ãƒ‡ãƒ¼ã‚¿ãƒžãƒ¼ã‚¯å¾…ã¡ã¸
             } else {
                 d->addr_buffer_offset = phase + 1;
             }
@@ -299,7 +299,7 @@ void ms_disk_controller_WD2793_set_data_reg(THIS* d, uint8_t value) {
                 d->sector_buffer.data[idx] = value;
             }
             if (idx + 1 >= len) {
-                // ƒf[ƒ^ƒtƒB[ƒ‹ƒh‚ð‘S‚ÄŽûW -> ƒZƒNƒ^‚ð‘‚«o‚·
+                // ãƒ‡ãƒ¼ã‚¿ãƒ•ã‚£ãƒ¼ãƒ«ãƒ‰ã‚’å…¨ã¦åŽé›† -> ã‚»ã‚¯ã‚¿ã‚’æ›¸ãå‡ºã™
                 ms_disk_drive_floppy_t* drive = &d->drive[d->current_drive];
                 d->sector_buffer.track = d->addr_buffer[0];
                 d->sector_buffer.head = d->addr_buffer[1];
@@ -321,7 +321,7 @@ void ms_disk_controller_WD2793_set_data_reg(THIS* d, uint8_t value) {
 }
 
 // -----------------------------------------------------------------------------
-//  ŠO•”§Œäƒ‰ƒCƒ“ (0x7FFC ƒTƒCƒh, 0x7FFD ƒhƒ‰ƒCƒu/ƒ‚[ƒ^[, 0x7FFF irq/drq)
+//  å¤–éƒ¨åˆ¶å¾¡ãƒ©ã‚¤ãƒ³ (0x7FFC ã‚µã‚¤ãƒ‰, 0x7FFD ãƒ‰ãƒ©ã‚¤ãƒ–/ãƒ¢ãƒ¼ã‚¿ãƒ¼, 0x7FFF irq/drq)
 // -----------------------------------------------------------------------------
 void ms_disk_controller_WD2793_set_side(THIS* d, uint8_t side) {
     d->side = side & 1;
@@ -359,7 +359,7 @@ uint8_t ms_disk_controller_WD2793_is_disk_changed(THIS* d) {
 }
 
 // -----------------------------------------------------------------------------
-//  ƒRƒ}ƒ“ƒhŽÀsƒwƒ‹ƒp[
+//  ã‚³ãƒžãƒ³ãƒ‰å®Ÿè¡Œãƒ˜ãƒ«ãƒ‘ãƒ¼
 // -----------------------------------------------------------------------------
 static void wd2793_end_command(THIS* d) {
     d->status_reg &= ~WD2793_ST_BUSY;
@@ -377,18 +377,18 @@ static void wd2793_start_type1(THIS* d) {
         d->present_track = 0;
         d->track_reg = 0;
         break;
-    case 0x10:  // Seek (ƒV[ƒNæƒgƒ‰ƒbƒN‚Íƒf[ƒ^ƒŒƒWƒXƒ^‚É“ü‚Á‚Ä‚¢‚é)
+    case 0x10:  // Seek (ã‚·ãƒ¼ã‚¯å…ˆãƒˆãƒ©ãƒƒã‚¯ã¯ãƒ‡ãƒ¼ã‚¿ãƒ¬ã‚¸ã‚¹ã‚¿ã«å…¥ã£ã¦ã„ã‚‹)
         d->present_track = d->data_reg;
         d->track_reg = d->data_reg;
         break;
-    case 0x20:  // Step (’¼‘O‚Ì•ûŒü‚ðŒJ‚è•Ô‚·)
+    case 0x20:  // Step (ç›´å‰ã®æ–¹å‘ã‚’ç¹°ã‚Šè¿”ã™)
     case 0x30:
         d->present_track += d->step_direction;
         if (d->command_reg & WD2793_FLAG_T) {
             d->track_reg += d->step_direction;
         }
         break;
-    case 0x40:  // Step-in (ƒgƒ‰ƒbƒN”Ô†‚ª‘‚¦‚é•ûŒü‚Ö)
+    case 0x40:  // Step-in (ãƒˆãƒ©ãƒƒã‚¯ç•ªå·ãŒå¢—ãˆã‚‹æ–¹å‘ã¸)
     case 0x50:
         d->step_direction = 1;
         d->present_track++;
@@ -396,7 +396,7 @@ static void wd2793_start_type1(THIS* d) {
             d->track_reg++;
         }
         break;
-    case 0x60:  // Step-out (ƒgƒ‰ƒbƒN0‚ÖŒü‚©‚¤•ûŒü‚Ö)
+    case 0x60:  // Step-out (ãƒˆãƒ©ãƒƒã‚¯0ã¸å‘ã‹ã†æ–¹å‘ã¸)
     case 0x70:
         d->step_direction = -1;
         if (d->present_track > 0) {
@@ -415,7 +415,7 @@ static void wd2793_start_type1(THIS* d) {
         drive->seek(drive, d->present_track);
     }
 
-    // ‚±‚ÌŠÈˆÕƒ‚ƒfƒ‹‚Å‚Í Type I ƒRƒ}ƒ“ƒh‚Í‘¦À‚ÉŠ®—¹‚·‚é
+    // ã“ã®ç°¡æ˜“ãƒ¢ãƒ‡ãƒ«ã§ã¯ Type I ã‚³ãƒžãƒ³ãƒ‰ã¯å³åº§ã«å®Œäº†ã™ã‚‹
     d->status_reg &= ~WD2793_ST_BUSY;
     d->drq = 0;
     d->xfer_mode = WD2793_XFER_NONE;
@@ -423,8 +423,8 @@ static void wd2793_start_type1(THIS* d) {
     MS_LOG(MS_LOG_FINE, "WD2793 TYPE1 done: track=%d\n", d->present_track);
 }
 
-// Œ»Ý‚Ìƒgƒ‰ƒbƒN‚©‚ç track_reg / side / sector_reg ‚Éˆê’v‚·‚éƒZƒNƒ^‚ð’T‚µ‚Ü‚·B
-// Œ©‚Â‚©‚ê‚Î d->sector_buffer ‚ð–„‚ß‚Ä 1 ‚ðAŒ©‚Â‚©‚ç‚È‚¯‚ê‚Î 0 ‚ð•Ô‚µ‚Ü‚·B
+// ç¾åœ¨ã®ãƒˆãƒ©ãƒƒã‚¯ã‹ã‚‰ track_reg / side / sector_reg ã«ä¸€è‡´ã™ã‚‹ã‚»ã‚¯ã‚¿ã‚’æŽ¢ã—ã¾ã™ã€‚
+// è¦‹ã¤ã‹ã‚Œã° d->sector_buffer ã‚’åŸ‹ã‚ã¦ 1 ã‚’ã€è¦‹ã¤ã‹ã‚‰ãªã‘ã‚Œã° 0 ã‚’è¿”ã—ã¾ã™ã€‚
 static uint8_t wd2793_find_sector(THIS* d) {
     ms_disk_drive_floppy_t* drive = &d->drive[d->current_drive];
     int i;
@@ -497,7 +497,7 @@ static void wd2793_start_write_sector(THIS* d) {
     d->sector_buffer_byte_offset = 0;
     d->transfer_rest = 512;
     memset(d->sector_buffer.data, 0, sizeof(d->sector_buffer.data));
-    d->drq = 1;  // ƒzƒXƒg‚ÉÅ‰‚Ìƒf[ƒ^ƒoƒCƒg‚ð—v‹‚·‚é
+    d->drq = 1;  // ãƒ›ã‚¹ãƒˆã«æœ€åˆã®ãƒ‡ãƒ¼ã‚¿ãƒã‚¤ãƒˆã‚’è¦æ±‚ã™ã‚‹
     MS_LOG(MS_LOG_DEBUG, "WD2793 WRITE SECTOR: C:%d H:%d R:%d\n", d->track_reg, d->side, d->sector_reg);
 }
 
@@ -514,14 +514,14 @@ static void wd2793_start_read_address(THIS* d) {
         return;
     }
 
-    // ID ƒtƒB[ƒ‹ƒh: C, H, R, N, CRC ãˆÊ, CRC ‰ºˆÊB512 ƒoƒCƒgƒZƒNƒ^‚È‚Ì‚Å N=2B
+    // ID ãƒ•ã‚£ãƒ¼ãƒ«ãƒ‰: C, H, R, N, CRC ä¸Šä½, CRC ä¸‹ä½ã€‚512 ãƒã‚¤ãƒˆã‚»ã‚¯ã‚¿ãªã®ã§ N=2ã€‚
     d->addr_buffer[0] = d->sector_buffer.track;
     d->addr_buffer[1] = d->sector_buffer.head;
     d->addr_buffer[2] = d->sector_buffer.sector;
     d->addr_buffer[3] = 2;
-    d->addr_buffer[4] = 0;  // CRC (ƒ‚ƒfƒ‹‰»‚µ‚Ä‚¢‚È‚¢)
+    d->addr_buffer[4] = 0;  // CRC (ãƒ¢ãƒ‡ãƒ«åŒ–ã—ã¦ã„ãªã„)
     d->addr_buffer[5] = 0;
-    // ID ‚Ìƒgƒ‰ƒbƒNƒAƒhƒŒƒX‚ÍƒZƒNƒ^ƒŒƒWƒXƒ^‚ÉƒRƒs[‚³‚ê‚é
+    // ID ã®ãƒˆãƒ©ãƒƒã‚¯ã‚¢ãƒ‰ãƒ¬ã‚¹ã¯ã‚»ã‚¯ã‚¿ãƒ¬ã‚¸ã‚¹ã‚¿ã«ã‚³ãƒ”ãƒ¼ã•ã‚Œã‚‹
     d->sector_reg = d->sector_buffer.track;
 
     d->addr_buffer_offset = 0;
@@ -550,8 +550,8 @@ static void wd2793_start_write_track(THIS* d) {
         return;
     }
 
-    // ƒxƒXƒgƒGƒtƒH[ƒg‚ÌƒtƒH[ƒ}ƒbƒgBƒCƒ“ƒfƒbƒNƒXƒpƒ‹ƒX‚ðƒGƒ~ƒ…ƒŒ[ƒVƒ‡ƒ“‚µ‚Ä‚¢‚È‚¢‚½‚ßA
-    // 1ƒgƒ‰ƒbƒN•ª‚ÌƒoƒCƒg‚ðŽó‚¯Žæ‚Á‚½Žž“_‚ÅI—¹‚µ‚Ü‚·Baddr_buffer_offset ‚Íƒp[ƒT‚Ìó‘Ô‚Å‚·B
+    // ãƒ™ã‚¹ãƒˆã‚¨ãƒ•ã‚©ãƒ¼ãƒˆã®ãƒ•ã‚©ãƒ¼ãƒžãƒƒãƒˆã€‚ã‚¤ãƒ³ãƒ‡ãƒƒã‚¯ã‚¹ãƒ‘ãƒ«ã‚¹ã‚’ã‚¨ãƒŸãƒ¥ãƒ¬ãƒ¼ã‚·ãƒ§ãƒ³ã—ã¦ã„ãªã„ãŸã‚ã€
+    // 1ãƒˆãƒ©ãƒƒã‚¯åˆ†ã®ãƒã‚¤ãƒˆã‚’å—ã‘å–ã£ãŸæ™‚ç‚¹ã§çµ‚äº†ã—ã¾ã™ã€‚addr_buffer_offset ã¯ãƒ‘ãƒ¼ã‚µã®çŠ¶æ…‹ã§ã™ã€‚
     d->xfer_mode = WD2793_XFER_WRITE_TRACK;
     d->addr_buffer_offset = 0;
     d->transfer_rest = WD2793_TRACK_LENGTH;

@@ -19,23 +19,23 @@ typedef struct ms_disk_drive_floppy {
     uint8_t (*is_disk_inserted)(ms_disk_drive_floppy_t* d);
 
     /**
-     * @brief ���݂̃w�b�h�ʒu����A���̃Z�N�^���擾���܂�
+     * @brief 現在のヘッド位置から、次のセクタを取得します
      *
-     * �����ƕ����I�ȃt���b�s�[�f�B�X�N�h���C�u���G�~�����[�V��������ꍇ�́A�o�ߎ���(CPU����)����
-     * �f�B�X�N�̉�]�ʒu���v�Z���āA���w�b�h���h���Ă���ʒu�̃Z�N�^���擾����K�v������܂����A
-     * �ЂƂ܂��ȈՓI�ɁA�V�[�N���ꂽ�g���b�N�̐擪���珇�ɃZ�N�^���擾����悤�ɂ��܂��B
+     * ちゃんと物理的なフロッピーディスクドライブをエミュレーションする場合は、経過時間(CPU時間)から
+     * ディスクの回転位置を計算して、今ヘッドが刺している位置のセクタを取得する必要がありますが、
+     * ひとまず簡易的に、シークされたトラックの先頭から順にセクタを取得するようにします。
      */
     uint8_t (*get_next_sector)(ms_disk_drive_floppy_t* d, ms_disk_sector_t* sector_buffer);
 
     /**
-     * @brief ���݂̃w�b�h�ʒu�̃g���b�N�ɃZ�N�^���������݂܂�
+     * @brief 現在のヘッド位置のトラックにセクタを書き込みます
      *
      */
     uint8_t (*write_sector)(ms_disk_drive_floppy_t* d, ms_disk_sector_t* sector_buffer);
 
     // properties
 
-    /* �f�B�X�N�R���e�i�B null�ɂ���ƃ_�~�[�h���C�u(�@�\���Ȃ��h���C�u)�Ƃ��ĐU�镑�� */
+    /* ディスクコンテナ。 nullにするとダミードライブ(機能しないドライブ)として振る舞う */
     ms_disk_container_t* container;
 
     uint8_t is_track00;

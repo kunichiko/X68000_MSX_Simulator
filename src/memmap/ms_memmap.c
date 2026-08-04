@@ -21,7 +21,7 @@ void select_slot_base_impl(ms_memmap_t* memmap, int page, int slot_base);
 void select_slot_ex_impl(ms_memmap_t* memmap, int slot_base, int page, int slot_ex);
 
 /*
-        memmapƒ‚ƒWƒ…[ƒ‹‚ÌŠm•Ûƒ‹[ƒ`ƒ“
+        memmapãƒ¢ã‚¸ãƒ¥ãƒ¼ãƒ«ã®ç¢ºä¿ãƒ«ãƒ¼ãƒãƒ³
  */
 ms_memmap_t* ms_memmap_shared_instance() {
     if (_shared != NULL) {
@@ -29,7 +29,7 @@ ms_memmap_t* ms_memmap_shared_instance() {
     }
     _shared = (ms_memmap_t*)new_malloc(sizeof(ms_memmap_t));
     if (_shared == NULL) {
-        printf("ƒƒ‚ƒŠ‚ªŠm•Û‚Å‚«‚Ü‚¹‚ñ\n");
+        printf("ãƒ¡ãƒ¢ãƒªãŒç¢ºä¿ã§ãã¾ã›ã‚“\n");
         return NULL;
     }
 
@@ -38,13 +38,13 @@ ms_memmap_t* ms_memmap_shared_instance() {
         ff_buffer[i] = 0xff;
     }
 
-    // ƒƒ“ƒo‚Ì‰Šú‰»
+    // ãƒ¡ãƒ³ãƒã®åˆæœŸåŒ–
     _shared->update_page_pointer = _update_page_pointer;
     _shared->current_ptr = ms_memmap_current_ptr;
 
     _shared->mainram_driver = ms_memmap_MAINRAM_alloc();
     if (_shared->mainram_driver == NULL) {
-        printf("ƒƒCƒ“ƒƒ‚ƒŠ‚ªŠm•Û‚Å‚«‚Ü‚¹‚ñ\n");
+        printf("ãƒ¡ã‚¤ãƒ³ãƒ¡ãƒ¢ãƒªãŒç¢ºä¿ã§ãã¾ã›ã‚“\n");
         new_free(_shared);
         return NULL;
     }
@@ -52,7 +52,7 @@ ms_memmap_t* ms_memmap_shared_instance() {
 
     _shared->nothing_driver = ms_memmap_NOTHING_alloc();
     if (_shared->nothing_driver == NULL) {
-        printf("NOTHINGƒhƒ‰ƒCƒo‚ªŠm•Û‚Å‚«‚Ü‚¹‚ñ\n");
+        printf("NOTHINGãƒ‰ãƒ©ã‚¤ãƒãŒç¢ºä¿ã§ãã¾ã›ã‚“\n");
         new_free(_shared);
         return NULL;
     }
@@ -67,18 +67,18 @@ ms_memmap_t* ms_memmap_shared_instance() {
         }
     }
 
-    // ƒXƒƒbƒg3‚ğŠg’£ƒXƒƒbƒg‚Æ‚µ‚Äg—p‚·‚é
+    // ã‚¹ãƒ­ãƒƒãƒˆ3ã‚’æ‹¡å¼µã‚¹ãƒ­ãƒƒãƒˆã¨ã—ã¦ä½¿ç”¨ã™ã‚‹
     _shared->slot_expanded.flag[3] = 1;
 
-    // ƒƒCƒ“ƒƒ‚ƒŠ‚ğƒXƒƒbƒg3-0‚ÉƒAƒ^ƒbƒ`
+    // ãƒ¡ã‚¤ãƒ³ãƒ¡ãƒ¢ãƒªã‚’ã‚¹ãƒ­ãƒƒãƒˆ3-0ã«ã‚¢ã‚¿ãƒƒãƒ
     if (ms_memmap_attach_driver(_shared, (ms_memmap_driver_t*)_shared->mainram_driver, 3, 0) != 0) {
-        printf("ƒƒCƒ“ƒƒ‚ƒŠ‚ÌƒAƒ^ƒbƒ`‚É¸”s‚µ‚Ü‚µ‚½\n");
+        printf("ãƒ¡ã‚¤ãƒ³ãƒ¡ãƒ¢ãƒªã®ã‚¢ã‚¿ãƒƒãƒã«å¤±æ•—ã—ã¾ã—ãŸ\n");
         ms_memmap_shared_deinit();
         new_free(_shared);
         return NULL;
     }
 
-    // Œ»ó‚Å‰Šú‰»
+    // ç¾çŠ¶ã§åˆæœŸåŒ–
     for (page = 0; page < 4; page++) {
         select_slot_base_impl(_shared, page, _shared->slot_sel[page]);
     }
@@ -106,26 +106,26 @@ void ms_memmap_shared_deinit() {
         }
     }
 
-    // ƒVƒ“ƒOƒ‹ƒgƒ“‚Ìê‡‚¾‚¯—áŠO“I‚É deinit‚Å free‚·‚é
+    // ã‚·ãƒ³ã‚°ãƒ«ãƒˆãƒ³ã®å ´åˆã ã‘ä¾‹å¤–çš„ã« deinitã§ freeã™ã‚‹
     new_free(_shared);
     _shared = NULL;
 }
 
 /**
- * @brief ƒXƒƒbƒg‚Éƒhƒ‰ƒCƒo‚ğƒAƒ^ƒbƒ`‚µ‚Ü‚·
+ * @brief ã‚¹ãƒ­ãƒƒãƒˆã«ãƒ‰ãƒ©ã‚¤ãƒã‚’ã‚¢ã‚¿ãƒƒãƒã—ã¾ã™
  *
- * ‚·‚Å‚É‚Ô‚Â‚©‚éƒhƒ‰ƒCƒo‚ªƒAƒ^ƒbƒ`‚³‚ê‚Ä‚¢‚½ê‡‚Í -1‚ğ•Ô‚µ‚Ü‚·B
- * Šg’£‚³‚ê‚Ä‚¢‚È‚¢ƒXƒƒbƒg‚É‘Î‚µAŠg’£ƒXƒƒbƒg”Ô†‚ªw’è‚³‚ê‚Ä‚¢‚½ê‡‚à -1‚ğ•Ô‚µ‚Ü‚·B
+ * ã™ã§ã«ã¶ã¤ã‹ã‚‹ãƒ‰ãƒ©ã‚¤ãƒãŒã‚¢ã‚¿ãƒƒãƒã•ã‚Œã¦ã„ãŸå ´åˆã¯ -1ã‚’è¿”ã—ã¾ã™ã€‚
+ * æ‹¡å¼µã•ã‚Œã¦ã„ãªã„ã‚¹ãƒ­ãƒƒãƒˆã«å¯¾ã—ã€æ‹¡å¼µã‚¹ãƒ­ãƒƒãƒˆç•ªå·ãŒæŒ‡å®šã•ã‚Œã¦ã„ãŸå ´åˆã‚‚ -1ã‚’è¿”ã—ã¾ã™ã€‚
  *
- * @param memmap memmapƒCƒ“ƒXƒ^ƒ“ƒX‚Ö‚Ìƒ|ƒCƒ“ƒ^
- * @param driver “o˜^‚µ‚½‚¢ƒhƒ‰ƒCƒo‚ÌƒCƒ“ƒXƒ^ƒ“ƒX
- * @param slot_base Šî–{ƒXƒƒbƒg”Ô†
- * @param slot_ex Šg’£ƒXƒƒbƒg”Ô†(Šî–{ƒXƒƒbƒg‚É”z’u‚µ‚½‚¢ê‡‚Í-1)
+ * @param memmap memmapã‚¤ãƒ³ã‚¹ã‚¿ãƒ³ã‚¹ã¸ã®ãƒã‚¤ãƒ³ã‚¿
+ * @param driver ç™»éŒ²ã—ãŸã„ãƒ‰ãƒ©ã‚¤ãƒã®ã‚¤ãƒ³ã‚¹ã‚¿ãƒ³ã‚¹
+ * @param slot_base åŸºæœ¬ã‚¹ãƒ­ãƒƒãƒˆç•ªå·
+ * @param slot_ex æ‹¡å¼µã‚¹ãƒ­ãƒƒãƒˆç•ªå·(åŸºæœ¬ã‚¹ãƒ­ãƒƒãƒˆã«é…ç½®ã—ãŸã„å ´åˆã¯-1)
  * @return ms_memmap_page_slot_t*
  */
 int ms_memmap_attach_driver(ms_memmap_t* memmap, ms_memmap_driver_t* driver, const int slot_base, const int slot_ex) {
     if (slot_ex >= 0 && memmap->slot_expanded.flag[slot_base] == 0) {
-        printf("Šg’£‚³‚ê‚Ä‚¢‚È‚¢ƒXƒƒbƒg‚ÌŠg’£ƒXƒƒbƒg‚É‚Í”z’u‚Å‚«‚Ü‚¹‚ñB\n");
+        printf("æ‹¡å¼µã•ã‚Œã¦ã„ãªã„ã‚¹ãƒ­ãƒƒãƒˆã®æ‹¡å¼µã‚¹ãƒ­ãƒƒãƒˆã«ã¯é…ç½®ã§ãã¾ã›ã‚“ã€‚\n");
         return -1;
     }
     int slot_ex_fallback;
@@ -135,7 +135,7 @@ int ms_memmap_attach_driver(ms_memmap_t* memmap, ms_memmap_driver_t* driver, con
         slot_ex_fallback = slot_ex;
     }
 
-    // ƒhƒ‰ƒCƒoƒŠƒXƒg‚É’Ç‰Á
+    // ãƒ‰ãƒ©ã‚¤ãƒãƒªã‚¹ãƒˆã«è¿½åŠ 
     int i;
     for (i = 0; i < 64; i++) {
         if (memmap->attached_drivers[i] == NULL) {
@@ -144,11 +144,11 @@ int ms_memmap_attach_driver(ms_memmap_t* memmap, ms_memmap_driver_t* driver, con
         }
     }
     if (i == 64) {
-        printf("ƒAƒ^ƒbƒ`‰Â”\‚Èƒhƒ‰ƒCƒo‚Ì”‚ğ’´‚¦‚Ü‚µ‚½\n");
+        printf("ã‚¢ã‚¿ãƒƒãƒå¯èƒ½ãªãƒ‰ãƒ©ã‚¤ãƒã®æ•°ã‚’è¶…ãˆã¾ã—ãŸ\n");
         return -1;
     }
 
-    // Õ“ËŒŸo
+    // è¡çªæ¤œå‡º
     int conflict = 0;
     int page;
     for (page = 0; page < 4; page++) {
@@ -159,15 +159,15 @@ int ms_memmap_attach_driver(ms_memmap_t* memmap, ms_memmap_driver_t* driver, con
         }
     }
     if (conflict) {
-        printf("ƒXƒƒbƒg‚Éƒhƒ‰ƒCƒo‚ª‚·‚Å‚ÉƒAƒ^ƒbƒ`‚³‚ê‚Ä‚¢‚Ü‚·B%s ‚ª”z’u‚Å‚«‚Ü‚¹‚ñ‚Å‚µ‚½B\n", driver->name);
+        printf("ã‚¹ãƒ­ãƒƒãƒˆã«ãƒ‰ãƒ©ã‚¤ãƒãŒã™ã§ã«ã‚¢ã‚¿ãƒƒãƒã•ã‚Œã¦ã„ã¾ã™ã€‚%s ãŒé…ç½®ã§ãã¾ã›ã‚“ã§ã—ãŸã€‚\n", driver->name);
         return -1;
     }
 
-    // ƒhƒ‰ƒCƒo‚ğƒAƒ^ƒbƒ`
+    // ãƒ‰ãƒ©ã‚¤ãƒã‚’ã‚¢ã‚¿ãƒƒãƒ
     for (page = 0; page < 4; page++) {
         if ((driver->page8k_pointers[page * 2 + 0] != NULL) || (driver->page8k_pointers[page * 2 + 1] != NULL)) {
             memmap->driver_page_map[slot_base][slot_ex_fallback][page] = driver;
-            // ‚±‚ÌƒAƒ^ƒbƒ`‚É‚æ‚Á‚ÄA¡Œ©‚¦‚Ä‚¢‚éƒy[ƒW‚ªXV‚³‚ê‚½‰Â”\«‚ª‚ ‚é‚Ì‚ÅŒÄ‚Ño‚·
+            // ã“ã®ã‚¢ã‚¿ãƒƒãƒã«ã‚ˆã£ã¦ã€ä»Šè¦‹ãˆã¦ã„ã‚‹ãƒšãƒ¼ã‚¸ãŒæ›´æ–°ã•ã‚ŒãŸå¯èƒ½æ€§ãŒã‚ã‚‹ã®ã§å‘¼ã³å‡ºã™
             select_slot_base_impl(memmap, page, memmap->slot_sel[page]);
         }
     }
@@ -197,14 +197,14 @@ int ms_memmap_did_pause(ms_memmap_t* memmap) {
 }
 
 /**
- * @brief ƒƒ‚ƒŠƒ}ƒbƒp[‚âƒƒKƒƒ€‚Ì‚æ‚¤‚ÉAƒhƒ‰ƒCƒo“à•”‚Åƒy[ƒW‚ªXV‚³‚ê‚½ê‡‚ÌƒR[ƒ‹ƒoƒbƒN
+ * @brief ãƒ¡ãƒ¢ãƒªãƒãƒƒãƒ‘ãƒ¼ã‚„ãƒ¡ã‚¬ãƒ­ãƒ ã®ã‚ˆã†ã«ã€ãƒ‰ãƒ©ã‚¤ãƒå†…éƒ¨ã§ãƒšãƒ¼ã‚¸ãŒæ›´æ–°ã•ã‚ŒãŸå ´åˆã®ã‚³ãƒ¼ãƒ«ãƒãƒƒã‚¯
  *
  * @param memmap
  * @param driver
  * @param page8k
  */
 static void _update_page_pointer(ms_memmap_t* memmap, ms_memmap_driver_t* driver, int page8k) {
-    // CPU‚ªŒ©‚Ä‚¢‚éƒy[ƒW‚ğXV
+    // CPUãŒè¦‹ã¦ã„ã‚‹ãƒšãƒ¼ã‚¸ã‚’æ›´æ–°
     uint8_t* ptr = memmap->current_driver[page8k / 2]->page8k_pointers[page8k];
     if (ptr != NULL) {
         memmap->current_ptr[page8k] = ptr;
@@ -212,37 +212,37 @@ static void _update_page_pointer(ms_memmap_t* memmap, ms_memmap_driver_t* driver
         memmap->current_ptr[page8k] = ff_buffer;
     }
 
-    // CPU‘¤‚É’Ê’m
+    // CPUå´ã«é€šçŸ¥
     ms_cpu_needs_refresh_PC = 1;
 }
 
 /**
- * @brief w’è‚³‚ê‚½ƒy[ƒW‚ÌƒXƒƒbƒg‚ğØ‚è‘Ö‚¦‚Ü‚·
+ * @brief æŒ‡å®šã•ã‚ŒãŸãƒšãƒ¼ã‚¸ã®ã‚¹ãƒ­ãƒƒãƒˆã‚’åˆ‡ã‚Šæ›¿ãˆã¾ã™
  *
  * @param memmap
- * @param page Ø‚è‘Ö‚¦‚½‚¢ƒy[ƒW
- * @param slot_base ƒXƒƒbƒg”Ô†
+ * @param page åˆ‡ã‚Šæ›¿ãˆãŸã„ãƒšãƒ¼ã‚¸
+ * @param slot_base ã‚¹ãƒ­ãƒƒãƒˆç•ªå·
  */
 void select_slot_base(ms_memmap_t* memmap, int page, int slot_base) {
     slot_base &= 0x03;
     if (memmap->slot_sel[page] == slot_base) {
-        // •ÏX‚ª‚È‚¢ê‡‚Í‰½‚à‚µ‚È‚¢
+        // å¤‰æ›´ãŒãªã„å ´åˆã¯ä½•ã‚‚ã—ãªã„
         return;
     }
     select_slot_base_impl(memmap, page, slot_base);
 }
 
 void select_slot_base_impl(ms_memmap_t* memmap, int page, int slot_base) {
-    // ‘I‘ğ‚µ‚½ƒXƒƒbƒg‚ªŠg’£‚³‚ê‚Ä‚¢‚é‚©’²‚×‚é
+    // é¸æŠã—ãŸã‚¹ãƒ­ãƒƒãƒˆãŒæ‹¡å¼µã•ã‚Œã¦ã„ã‚‹ã‹èª¿ã¹ã‚‹
     if (memmap->slot_expanded.flag[slot_base]) {
-        // Šg’£‚³‚ê‚Ä‚¢‚éê‡‚ÍŠg’£ƒXƒƒbƒg‘I‘ğƒŒƒWƒXƒ^‚ğŒ©‚é
+        // æ‹¡å¼µã•ã‚Œã¦ã„ã‚‹å ´åˆã¯æ‹¡å¼µã‚¹ãƒ­ãƒƒãƒˆé¸æŠãƒ¬ã‚¸ã‚¹ã‚¿ã‚’è¦‹ã‚‹
         int slot_ex = memmap->slot_sel_ex[slot_base][page];
         memmap->current_driver[page] = memmap->driver_page_map[slot_base][slot_ex][page];
     } else {
         memmap->current_driver[page] = memmap->driver_page_map[slot_base][0][page];
     }
 
-    // CPU‚ªŒ©‚Ä‚éƒ|ƒCƒ“ƒ^‚ğXV
+    // CPUãŒè¦‹ã¦ã‚‹ãƒã‚¤ãƒ³ã‚¿ã‚’æ›´æ–°
     _update_page_pointer(memmap, NULL, page * 2 + 0);
     _update_page_pointer(memmap, NULL, page * 2 + 1);
 
@@ -250,8 +250,8 @@ void select_slot_base_impl(ms_memmap_t* memmap, int page, int slot_base) {
 }
 
 /**
- * @brief w’è‚³‚ê‚½ƒy[ƒW‚ÌŠg’£ƒXƒƒbƒg‚ğØ‚è‘Ö‚¦‚Ü‚·B
- * ‘ÎÛ‚ÍAŒ»İƒy[ƒW3‚ÉŒ©‚¦‚Ä‚¢‚éŠî–{ƒXƒƒbƒg‚ÌŠg’£ƒXƒƒbƒg‚Å‚·B
+ * @brief æŒ‡å®šã•ã‚ŒãŸãƒšãƒ¼ã‚¸ã®æ‹¡å¼µã‚¹ãƒ­ãƒƒãƒˆã‚’åˆ‡ã‚Šæ›¿ãˆã¾ã™ã€‚
+ * å¯¾è±¡ã¯ã€ç¾åœ¨ãƒšãƒ¼ã‚¸3ã«è¦‹ãˆã¦ã„ã‚‹åŸºæœ¬ã‚¹ãƒ­ãƒƒãƒˆã®æ‹¡å¼µã‚¹ãƒ­ãƒƒãƒˆã§ã™ã€‚
  *
  * @param memmap
  * @param page
@@ -260,16 +260,16 @@ void select_slot_base_impl(ms_memmap_t* memmap, int page, int slot_base) {
 void select_slot_ex(ms_memmap_t* memmap, int page, int slot_ex) {
     slot_ex &= 0x03;
 
-    // ƒy[ƒW3‚ÉŒ©‚¦‚Ä‚¢‚éŠî–{ƒXƒƒbƒg‚ğæ“¾
+    // ãƒšãƒ¼ã‚¸3ã«è¦‹ãˆã¦ã„ã‚‹åŸºæœ¬ã‚¹ãƒ­ãƒƒãƒˆã‚’å–å¾—
     int slot_base = memmap->slot_sel[3];
-    // ‘I‘ğ‚µ‚½ƒXƒƒbƒg‚ªŠg’£‚³‚ê‚Ä‚¢‚é‚©’²‚×‚é
+    // é¸æŠã—ãŸã‚¹ãƒ­ãƒƒãƒˆãŒæ‹¡å¼µã•ã‚Œã¦ã„ã‚‹ã‹èª¿ã¹ã‚‹
     if (memmap->slot_expanded.flag[slot_base] == 0) {
-        // Šg’£‚³‚ê‚Ä‚¢‚È‚¢ê‡‚Í‰½‚à‚µ‚È‚¢
+        // æ‹¡å¼µã•ã‚Œã¦ã„ãªã„å ´åˆã¯ä½•ã‚‚ã—ãªã„
         return;
     }
 
     if (memmap->slot_sel_ex[slot_base][page] == slot_ex) {
-        // •ÏX‚ª‚È‚¢ê‡‚Í‰½‚à‚µ‚È‚¢
+        // å¤‰æ›´ãŒãªã„å ´åˆã¯ä½•ã‚‚ã—ãªã„
         return;
     }
     select_slot_ex_impl(memmap, slot_base, page, slot_ex);
@@ -277,9 +277,9 @@ void select_slot_ex(ms_memmap_t* memmap, int page, int slot_ex) {
 
 void select_slot_ex_impl(ms_memmap_t* memmap, int slot_base, int page, int slot_ex) {
     if (memmap->slot_sel[page] == slot_base) {
-        // ¡‰ñ•ÏX‚µ‚½Šg’£ƒXƒƒbƒg‚ªŒ©‚¦‚Ä‚¢‚éê‡‚¾‚¯XV
+        // ä»Šå›å¤‰æ›´ã—ãŸæ‹¡å¼µã‚¹ãƒ­ãƒƒãƒˆãŒè¦‹ãˆã¦ã„ã‚‹å ´åˆã ã‘æ›´æ–°
         memmap->current_driver[page] = memmap->driver_page_map[slot_base][slot_ex][page];
-        // CPU‚ªŒ©‚Ä‚éƒ|ƒCƒ“ƒ^‚ğXV
+        // CPUãŒè¦‹ã¦ã‚‹ãƒã‚¤ãƒ³ã‚¿ã‚’æ›´æ–°
         _update_page_pointer(memmap, NULL, page * 2 + 0);
         _update_page_pointer(memmap, NULL, page * 2 + 1);
     }
@@ -287,12 +287,12 @@ void select_slot_ex_impl(ms_memmap_t* memmap, int slot_base, int page, int slot_
 }
 
 /**
- * @brief ƒXƒƒbƒg‘I‘ğƒŒƒWƒXƒ^(ƒ|[ƒgA8h)‚Ö‚Ì‘‚«‚İ
+ * @brief ã‚¹ãƒ­ãƒƒãƒˆé¸æŠãƒ¬ã‚¸ã‚¹ã‚¿(ãƒãƒ¼ãƒˆA8h)ã¸ã®æ›¸ãè¾¼ã¿
  *
- * bit [1:0]	: ƒy[ƒW0‚ÌŠî–{ƒXƒƒbƒg”Ô†
- * bit [3:2]	: ƒy[ƒW1‚ÌŠî–{ƒXƒƒbƒg”Ô†
- * bit [5:4]	: ƒy[ƒW2‚ÌŠî–{ƒXƒƒbƒg”Ô†
- * bit [7:6]	: ƒy[ƒW3‚ÌŠî–{ƒXƒƒbƒg”Ô†
+ * bit [1:0]	: ãƒšãƒ¼ã‚¸0ã®åŸºæœ¬ã‚¹ãƒ­ãƒƒãƒˆç•ªå·
+ * bit [3:2]	: ãƒšãƒ¼ã‚¸1ã®åŸºæœ¬ã‚¹ãƒ­ãƒƒãƒˆç•ªå·
+ * bit [5:4]	: ãƒšãƒ¼ã‚¸2ã®åŸºæœ¬ã‚¹ãƒ­ãƒƒãƒˆç•ªå·
+ * bit [7:6]	: ãƒšãƒ¼ã‚¸3ã®åŸºæœ¬ã‚¹ãƒ­ãƒƒãƒˆç•ªå·
  *
  */
 void write_port_A8(uint8_t data) {
@@ -321,12 +321,12 @@ uint8_t read_exslot_reg() {
     uint8_t slot_base = _shared->slot_sel[3];
     uint8_t ret = _shared->slot_sel_ex[slot_base][0] | (_shared->slot_sel_ex[slot_base][1] << 2) |
                   (_shared->slot_sel_ex[slot_base][2] << 4) | (_shared->slot_sel_ex[slot_base][3] << 6);
-    // “Ç‚İo‚·‚Æ”½“]‚µ‚½’l‚ª“Ç‚ß‚é
+    // èª­ã¿å‡ºã™ã¨åè»¢ã—ãŸå€¤ãŒèª­ã‚ã‚‹
     return ~ret;
 }
 
 /**
- * @brief ƒƒ‚ƒŠƒ}ƒbƒp[‚ÌƒZƒOƒƒ“ƒgØ‚è‘Ö‚¦ˆ—
+ * @brief ãƒ¡ãƒ¢ãƒªãƒãƒƒãƒ‘ãƒ¼ã®ã‚»ã‚°ãƒ¡ãƒ³ãƒˆåˆ‡ã‚Šæ›¿ãˆå‡¦ç†
  *
  * @param data
  */
@@ -353,64 +353,64 @@ void write_port_FF(uint8_t data) {
 
 uint8_t ms_memmap_read8(uint16_t addr) {
     if (addr == 0xffff) {
-        // Šg’£ƒXƒƒbƒg‘I‘ğƒŒƒWƒXƒ^‚ÌƒAƒhƒŒƒX‚Ìê‡
-        // ƒy[ƒW3‚ªŠg’£‚³‚ê‚Ä‚¢‚é‚©‚Ç‚¤‚©‚ğ’²‚×‚é
+        // æ‹¡å¼µã‚¹ãƒ­ãƒƒãƒˆé¸æŠãƒ¬ã‚¸ã‚¹ã‚¿ã®ã‚¢ãƒ‰ãƒ¬ã‚¹ã®å ´åˆ
+        // ãƒšãƒ¼ã‚¸3ãŒæ‹¡å¼µã•ã‚Œã¦ã„ã‚‹ã‹ã©ã†ã‹ã‚’èª¿ã¹ã‚‹
         uint8_t slot_base = _shared->slot_sel[3];
         if (_shared->slot_expanded.flag[slot_base] == 1) {
-            // Šg’£‚³‚ê‚Ä‚¢‚éê‡‚ÍŠg’£ƒXƒƒbƒg‘I‘ğƒŒƒWƒXƒ^‚ğŒ©‚é
+            // æ‹¡å¼µã•ã‚Œã¦ã„ã‚‹å ´åˆã¯æ‹¡å¼µã‚¹ãƒ­ãƒƒãƒˆé¸æŠãƒ¬ã‚¸ã‚¹ã‚¿ã‚’è¦‹ã‚‹
             return read_exslot_reg();
         }
     }
-    // ƒAƒhƒŒƒX‚©‚çƒy[ƒW”Ô†‚ğæ“¾
+    // ã‚¢ãƒ‰ãƒ¬ã‚¹ã‹ã‚‰ãƒšãƒ¼ã‚¸ç•ªå·ã‚’å–å¾—
     int page = (addr >> 14) & 0x03;
-    // ƒy[ƒW‚©‚çƒhƒ‰ƒCƒo‚ğ“Á’è
+    // ãƒšãƒ¼ã‚¸ã‹ã‚‰ãƒ‰ãƒ©ã‚¤ãƒã‚’ç‰¹å®š
     ms_memmap_driver_t* d = _shared->current_driver[page];
     return d->read8(d, addr);
 }
 
 void ms_memmap_write8(uint16_t addr, uint8_t data) {
     if (addr == 0xffff) {
-        // Šg’£ƒXƒƒbƒg‘I‘ğƒŒƒWƒXƒ^‚ÌƒAƒhƒŒƒX‚Ìê‡
-        // ƒy[ƒW3‚ªŠg’£‚³‚ê‚Ä‚¢‚é‚©‚Ç‚¤‚©‚ğ’²‚×‚é
+        // æ‹¡å¼µã‚¹ãƒ­ãƒƒãƒˆé¸æŠãƒ¬ã‚¸ã‚¹ã‚¿ã®ã‚¢ãƒ‰ãƒ¬ã‚¹ã®å ´åˆ
+        // ãƒšãƒ¼ã‚¸3ãŒæ‹¡å¼µã•ã‚Œã¦ã„ã‚‹ã‹ã©ã†ã‹ã‚’èª¿ã¹ã‚‹
         uint8_t slot_base = _shared->slot_sel[3];
         if (_shared->slot_expanded.flag[slot_base] == 1) {
-            // Šg’£‚³‚ê‚Ä‚¢‚éê‡‚ÍŠg’£ƒXƒƒbƒg‘I‘ğƒŒƒWƒXƒ^‚É‘‚«‚Ş
+            // æ‹¡å¼µã•ã‚Œã¦ã„ã‚‹å ´åˆã¯æ‹¡å¼µã‚¹ãƒ­ãƒƒãƒˆé¸æŠãƒ¬ã‚¸ã‚¹ã‚¿ã«æ›¸ãè¾¼ã‚€
             write_exslot_reg(data);
             return;
         }
     }
-    // ƒAƒhƒŒƒX‚©‚çƒy[ƒW”Ô†‚ğæ“¾
+    // ã‚¢ãƒ‰ãƒ¬ã‚¹ã‹ã‚‰ãƒšãƒ¼ã‚¸ç•ªå·ã‚’å–å¾—
     int page = (addr >> 14) & 0x03;
-    // ƒy[ƒW‚©‚çƒhƒ‰ƒCƒo‚ğ“Á’è
+    // ãƒšãƒ¼ã‚¸ã‹ã‚‰ãƒ‰ãƒ©ã‚¤ãƒã‚’ç‰¹å®š
     ms_memmap_driver_t* d = _shared->current_driver[page];
     d->write8(d, addr, data);
 }
 
 uint16_t ms_memmap_read16(uint16_t addr) {
     if (addr == 0xfffe || (addr & 0x3fff) == 0x3fff) {
-        // Šg’£ƒXƒƒbƒg‘I‘ğƒŒƒWƒXƒ^‚ÌƒAƒhƒŒƒX‚É‚©‚©‚éê‡‚âA
-        // ƒy[ƒW‚ğŒ×‚®ê‡‚ÍA8ƒrƒbƒg‚¸‚Â“Ç‚Ş
+        // æ‹¡å¼µã‚¹ãƒ­ãƒƒãƒˆé¸æŠãƒ¬ã‚¸ã‚¹ã‚¿ã®ã‚¢ãƒ‰ãƒ¬ã‚¹ã«ã‹ã‹ã‚‹å ´åˆã‚„ã€
+        // ãƒšãƒ¼ã‚¸ã‚’è·¨ãå ´åˆã¯ã€8ãƒ“ãƒƒãƒˆãšã¤èª­ã‚€
         uint16_t ret = ms_memmap_read8(addr) | (ms_memmap_read8(addr + 1) << 8);
         return ret;
     }
-    // ƒAƒhƒŒƒX‚©‚çƒy[ƒW”Ô†‚ğæ“¾
+    // ã‚¢ãƒ‰ãƒ¬ã‚¹ã‹ã‚‰ãƒšãƒ¼ã‚¸ç•ªå·ã‚’å–å¾—
     int page = (addr >> 14) & 0x03;
-    // ƒy[ƒW‚©‚çƒhƒ‰ƒCƒo‚ğ“Á’è
+    // ãƒšãƒ¼ã‚¸ã‹ã‚‰ãƒ‰ãƒ©ã‚¤ãƒã‚’ç‰¹å®š
     ms_memmap_driver_t* d = _shared->current_driver[page];
     return d->read16(d, addr);
 }
 
 void ms_memmap_write16(uint16_t addr, uint16_t data) {
     if (addr == 0xfffe || (addr & 0x3fff) == 0x3fff) {
-        // Šg’£ƒXƒƒbƒg‘I‘ğƒŒƒWƒXƒ^‚ÌƒAƒhƒŒƒX‚Ì‚É‚©‚©‚éê‡‚âA
-        // ƒy[ƒW‚ğŒ×‚®ê‡‚ÍA8ƒrƒbƒg‚¸‚Â“Ç‚Ş
+        // æ‹¡å¼µã‚¹ãƒ­ãƒƒãƒˆé¸æŠãƒ¬ã‚¸ã‚¹ã‚¿ã®ã‚¢ãƒ‰ãƒ¬ã‚¹ã®ã«ã‹ã‹ã‚‹å ´åˆã‚„ã€
+        // ãƒšãƒ¼ã‚¸ã‚’è·¨ãå ´åˆã¯ã€8ãƒ“ãƒƒãƒˆãšã¤èª­ã‚€
         ms_memmap_write8(addr, data & 0xff);
         ms_memmap_write8(addr + 1, (data >> 8) & 0xff);
         return;
     }
-    // ƒAƒhƒŒƒX‚©‚çƒy[ƒW”Ô†‚ğæ“¾
+    // ã‚¢ãƒ‰ãƒ¬ã‚¹ã‹ã‚‰ãƒšãƒ¼ã‚¸ç•ªå·ã‚’å–å¾—
     int page = (addr >> 14) & 0x03;
-    // ƒy[ƒW‚©‚çƒhƒ‰ƒCƒo‚ğ“Á’è
+    // ãƒšãƒ¼ã‚¸ã‹ã‚‰ãƒ‰ãƒ©ã‚¤ãƒã‚’ç‰¹å®š
     ms_memmap_driver_t* d = _shared->current_driver[page];
     d->write16(d, addr, data);
 }

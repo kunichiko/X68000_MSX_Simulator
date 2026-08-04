@@ -1,94 +1,94 @@
 /*
-    ESE-SCC, MEGA-SCSI, WAVE-SCSI (MEGA-SCSI+SCC) ‚Ìƒoƒ“ƒNØ‚è‘Ö‚¦‚Ìd‘g‚İ
+    ESE-SCC, MEGA-SCSI, WAVE-SCSI (MEGA-SCSI+SCC) ã®ãƒãƒ³ã‚¯åˆ‡ã‚Šæ›¿ãˆã®ä»•çµ„ã¿
 
-        ƒƒKƒƒ€ƒRƒ“ƒgƒ[ƒ‰‚Æ‚µ‚Ä ASCII 8K•û®‚Å‚Í‚È‚­AKONAMI SCC•û®‚ğg‚Á‚Ä‚¢‚é‚Ì‚ÅAESE-RAM‚Æ‚Í
-        ƒoƒ“ƒNØ‚è‘Ö‚¦‚Ìd‘g‚İ‚ªˆÙ‚È‚è‚Ü‚·B
+        ãƒ¡ã‚¬ãƒ­ãƒ ã‚³ãƒ³ãƒˆãƒ­ãƒ¼ãƒ©ã¨ã—ã¦ ASCII 8Kæ–¹å¼ã§ã¯ãªãã€KONAMI SCCæ–¹å¼ã‚’ä½¿ã£ã¦ã„ã‚‹ã®ã§ã€ESE-RAMã¨ã¯
+        ãƒãƒ³ã‚¯åˆ‡ã‚Šæ›¿ãˆã®ä»•çµ„ã¿ãŒç•°ãªã‚Šã¾ã™ã€‚
 
-        œ region
-        MSX‚ÌƒXƒƒbƒg‚Ì Page1‚Æ Page2‚Ì 32KB‚Ì—Ìˆæ‚ğ 4‚Â‚Ì 8KBƒuƒƒbƒN‚É•ªŠ„‚µ‚Äˆµ‚¢‚Ü‚·B
-        ‚±‚Ì 8KBƒuƒƒbƒN‚ğ region ‚ÆŒÄ‚Ñ‚Ü‚·B
+        â— region
+        MSXã®ã‚¹ãƒ­ãƒƒãƒˆã® Page1ã¨ Page2ã® 32KBã®é ˜åŸŸã‚’ 4ã¤ã® 8KBãƒ–ãƒ­ãƒƒã‚¯ã«åˆ†å‰²ã—ã¦æ‰±ã„ã¾ã™ã€‚
+        ã“ã® 8KBãƒ–ãƒ­ãƒƒã‚¯ã‚’ region ã¨å‘¼ã³ã¾ã™ã€‚
         region 0: 0x4000-0x5fff
         region 1: 0x6000-0x7fff
         region 2: 0x8000-0x9fff
         region 3: 0xa000-0xbfff
 
-        œ segment
-        Å‘å1MB‚Ìƒƒ‚ƒŠ‚ğ 8KB‚¸‚Â‚É•ª‰ğ‚µ‚½‚à‚Ì‚ğ segment ‚ÆŒÄ‚Ñ‚Ü‚·B
-        - 1MB‚Ìê‡A128ŒÂ‚Ì segment ‚ª‚ ‚è‚Ü‚·B
-        - 512KB‚Ìê‡A64ŒÂ‚Ì segment ‚ª‚ ‚è‚Ü‚·B
+        â— segment
+        æœ€å¤§1MBã®ãƒ¡ãƒ¢ãƒªã‚’ 8KBãšã¤ã«åˆ†è§£ã—ãŸã‚‚ã®ã‚’ segment ã¨å‘¼ã³ã¾ã™ã€‚
+        - 1MBã®å ´åˆã€128å€‹ã® segment ãŒã‚ã‚Šã¾ã™ã€‚
+        - 512KBã®å ´åˆã€64å€‹ã® segment ãŒã‚ã‚Šã¾ã™ã€‚
 
-        œ ƒoƒ“ƒNØ‚è‘Ö‚¦
-        Še region‚Ìƒoƒ“ƒN‚ğØ‚è‘Ö‚¦‚é‚½‚ß‚É‚ÍAˆÈ‰º‚Ìƒƒ‚ƒŠ”Ô’n‚ÉƒZƒOƒƒ“ƒg”Ô†‚ğ‘‚«‚İ‚Ü‚·B
-        region 0: 0x4000-0x5fff (’Êí‚Í 0x4000‚ğg—p)
-        region 1: 0x6000-0x7fff (’Êí‚Í 0x6000‚ğg—p)
-        region 2: 0x8000-0x9fff (’Êí‚Í 0x8000‚ğg—p)
-        region 3: 0xa000-0xbfff (’Êí‚Í 0xa000‚ğg—p)
+        â— ãƒãƒ³ã‚¯åˆ‡ã‚Šæ›¿ãˆ
+        å„ regionã®ãƒãƒ³ã‚¯ã‚’åˆ‡ã‚Šæ›¿ãˆã‚‹ãŸã‚ã«ã¯ã€ä»¥ä¸‹ã®ãƒ¡ãƒ¢ãƒªç•ªåœ°ã«ã‚»ã‚°ãƒ¡ãƒ³ãƒˆç•ªå·ã‚’æ›¸ãè¾¼ã¿ã¾ã™ã€‚
+        region 0: 0x4000-0x5fff (é€šå¸¸ã¯ 0x4000ã‚’ä½¿ç”¨)
+        region 1: 0x6000-0x7fff (é€šå¸¸ã¯ 0x6000ã‚’ä½¿ç”¨)
+        region 2: 0x8000-0x9fff (é€šå¸¸ã¯ 0x8000ã‚’ä½¿ç”¨)
+        region 3: 0xa000-0xbfff (é€šå¸¸ã¯ 0xa000ã‚’ä½¿ç”¨)
 
-        ‚½‚¾‚µA‚à‚Æ‚à‚Æ KONAMI SCCƒƒKƒƒ€ƒRƒ“ƒgƒ[ƒ‰‚Í ƒoƒ“ƒN‚Ìw’è‚É 6bit‚µ‚©g‚¦‚È‚¢‚½‚ßA
-        Ø‚è‘Ö‚¦‚ç‚ê‚éƒZƒOƒƒ“ƒg‚Í 0-63‚Ü‚Å‚Ì64ŒÂ‚ÉŒÀ‚ç‚ê‚Ü‚·B‚±‚ê‚¾‚Æ 512KB‚Ü‚Å‚µ‚©ˆµ‚¦‚Ü‚¹‚ñB
-        (1MB‚Ü‚Åˆµ‚¤•û–@‚ÍŒãq)
+        ãŸã ã—ã€ã‚‚ã¨ã‚‚ã¨ KONAMI SCCãƒ¡ã‚¬ãƒ­ãƒ ã‚³ãƒ³ãƒˆãƒ­ãƒ¼ãƒ©ã¯ ãƒãƒ³ã‚¯ã®æŒ‡å®šã« 6bitã—ã‹ä½¿ãˆãªã„ãŸã‚ã€
+        åˆ‡ã‚Šæ›¿ãˆã‚‰ã‚Œã‚‹ã‚»ã‚°ãƒ¡ãƒ³ãƒˆã¯ 0-63ã¾ã§ã®64å€‹ã«é™ã‚‰ã‚Œã¾ã™ã€‚ã“ã‚Œã ã¨ 512KBã¾ã§ã—ã‹æ‰±ãˆã¾ã›ã‚“ã€‚
+        (1MBã¾ã§æ‰±ã†æ–¹æ³•ã¯å¾Œè¿°)
 
-        ‚±‚Ìƒoƒ“ƒNØ‚è‘Ö‚¦ƒŒƒWƒXƒ^‚ğu‰ºˆÊƒoƒ“ƒNØ‚è‘Ö‚¦ƒŒƒWƒXƒ^v‚ÆŒÄ‚Ñ‚Ü‚·B
+        ã“ã®ãƒãƒ³ã‚¯åˆ‡ã‚Šæ›¿ãˆãƒ¬ã‚¸ã‚¹ã‚¿ã‚’ã€Œä¸‹ä½ãƒãƒ³ã‚¯åˆ‡ã‚Šæ›¿ãˆãƒ¬ã‚¸ã‚¹ã‚¿ã€ã¨å‘¼ã³ã¾ã™ã€‚
 
-        œ SCCƒŒƒWƒXƒ^‚ÉƒAƒNƒZƒX‚·‚é•û–@
-        region 2‚Ìƒoƒ“ƒN‚ğ 0x3f‚É‚·‚é‚ÆA0x9800-0x9fff‚Ì”ÍˆÍ‚É SCCƒŒƒWƒXƒ^‚ªƒAƒNƒZƒX‰Â”\‚É‚È‚è‚Ü‚·B
-        region 2ˆÈŠO‚Ìƒoƒ“ƒN‚ğ 0x3f‚É‚µ‚½ê‡‚ÍAROM‚ÌƒZƒOƒƒ“ƒg0x3f‚ÉƒAƒNƒZƒX‚·‚é‚±‚Æ‚É‚È‚è‚Ü‚·B
+        â— SCCãƒ¬ã‚¸ã‚¹ã‚¿ã«ã‚¢ã‚¯ã‚»ã‚¹ã™ã‚‹æ–¹æ³•
+        region 2ã®ãƒãƒ³ã‚¯ã‚’ 0x3fã«ã™ã‚‹ã¨ã€0x9800-0x9fffã®ç¯„å›²ã« SCCãƒ¬ã‚¸ã‚¹ã‚¿ãŒã‚¢ã‚¯ã‚»ã‚¹å¯èƒ½ã«ãªã‚Šã¾ã™ã€‚
+        region 2ä»¥å¤–ã®ãƒãƒ³ã‚¯ã‚’ 0x3fã«ã—ãŸå ´åˆã¯ã€ROMã®ã‚»ã‚°ãƒ¡ãƒ³ãƒˆ0x3fã«ã‚¢ã‚¯ã‚»ã‚¹ã™ã‚‹ã“ã¨ã«ãªã‚Šã¾ã™ã€‚
 
-        œ SPC (SCSI Protocol Controller)‚ÌƒŒƒWƒXƒ^‚ÉƒAƒNƒZƒX‚·‚é•û–@
-        ã‹Lƒoƒ“ƒNØ‚è‘Ö‚¦ƒAƒhƒŒƒX‚Æ‚ÍˆÙ‚È‚é 0x7ffe, 0x7fff ‚Ì bit6‚ğ 1‚É‚·‚é‚ÆAregion 0‚É
-        SPC‚ÌƒŒƒWƒXƒ^‚ªŒ©‚¦‚é‚æ‚¤‚É‚È‚è‚Ü‚·B‚±‚ÌØ‚è‘Ö‚¦ƒŒƒWƒXƒ^‚ğuãˆÊƒoƒ“ƒNØ‚è‘Ö‚¦ƒŒƒWƒXƒ^v‚ÆŒÄ‚Ñ‚Ü‚·B
+        â— SPC (SCSI Protocol Controller)ã®ãƒ¬ã‚¸ã‚¹ã‚¿ã«ã‚¢ã‚¯ã‚»ã‚¹ã™ã‚‹æ–¹æ³•
+        ä¸Šè¨˜ãƒãƒ³ã‚¯åˆ‡ã‚Šæ›¿ãˆã‚¢ãƒ‰ãƒ¬ã‚¹ã¨ã¯ç•°ãªã‚‹ 0x7ffe, 0x7fff ã® bit6ã‚’ 1ã«ã™ã‚‹ã¨ã€region 0ã«
+        SPCã®ãƒ¬ã‚¸ã‚¹ã‚¿ãŒè¦‹ãˆã‚‹ã‚ˆã†ã«ãªã‚Šã¾ã™ã€‚ã“ã®åˆ‡ã‚Šæ›¿ãˆãƒ¬ã‚¸ã‚¹ã‚¿ã‚’ã€Œä¸Šä½ãƒãƒ³ã‚¯åˆ‡ã‚Šæ›¿ãˆãƒ¬ã‚¸ã‚¹ã‚¿ã€ã¨å‘¼ã³ã¾ã™ã€‚
 
-        ‚È‚¨A‚±‚Ìbit 6‚ğ1‚É‚µ‚Ä‚àregion 1-3‚É‚Í SPC‚ÌƒŒƒWƒXƒ^‚ÍŒ©‚¦‚¸A’Êí‚Ìƒoƒ“ƒNØ‚è‘Ö‚¦‚ªs‚í‚ê‚Ü‚·B
-        MS.X‚Å‚Í MEGA-SCSI‚Í‚Ü‚¾ƒTƒ|[ƒg‚µ‚Ä‚¢‚È‚¢‚Ì‚ÅSPC‚ÌÚ×‚ÍÈ—ª‚µ‚Ü‚·B
+        ãªãŠã€ã“ã®bit 6ã‚’1ã«ã—ã¦ã‚‚region 1-3ã«ã¯ SPCã®ãƒ¬ã‚¸ã‚¹ã‚¿ã¯è¦‹ãˆãšã€é€šå¸¸ã®ãƒãƒ³ã‚¯åˆ‡ã‚Šæ›¿ãˆãŒè¡Œã‚ã‚Œã¾ã™ã€‚
+        MS.Xã§ã¯ MEGA-SCSIã¯ã¾ã ã‚µãƒãƒ¼ãƒˆã—ã¦ã„ãªã„ã®ã§SPCã®è©³ç´°ã¯çœç•¥ã—ã¾ã™ã€‚
 
-        œ SRAM‚ğ‘‚«Š·‚¦‚é•û–@
-        ‚à‚Æ‚à‚ÆƒƒKƒƒ€ƒRƒ“ƒgƒ[ƒ‰‚ÍROM‚ğˆµ‚¤‚à‚Ì‚ÅA‘‚«Š·‚¦‰Â”\‚ÈSRAM‚ğˆµ‚¤‹@”\‚Í‚ ‚è‚Ü‚¹‚ñB
-        ÀÛA‘½‚­‚Ì—Ìˆæ‚Ö‚Ì‘‚«‚İ‚ªƒoƒ“ƒNØ‚è‘Ö‚¦ƒŒƒWƒXƒ^‚É‚È‚Á‚Ä‚¢‚é‚¹‚¢‚ÅA‚»‚Ì‚Ü‚Ü‚Å‚ÍSRAM‚Ì‘‚«Š·‚¦‚ª‚Å‚«‚Ü‚¹‚ñB
+        â— SRAMã‚’æ›¸ãæ›ãˆã‚‹æ–¹æ³•
+        ã‚‚ã¨ã‚‚ã¨ãƒ¡ã‚¬ãƒ­ãƒ ã‚³ãƒ³ãƒˆãƒ­ãƒ¼ãƒ©ã¯ROMã‚’æ‰±ã†ã‚‚ã®ã§ã€æ›¸ãæ›ãˆå¯èƒ½ãªSRAMã‚’æ‰±ã†æ©Ÿèƒ½ã¯ã‚ã‚Šã¾ã›ã‚“ã€‚
+        å®Ÿéš›ã€å¤šãã®é ˜åŸŸã¸ã®æ›¸ãè¾¼ã¿ãŒãƒãƒ³ã‚¯åˆ‡ã‚Šæ›¿ãˆãƒ¬ã‚¸ã‚¹ã‚¿ã«ãªã£ã¦ã„ã‚‹ã›ã„ã§ã€ãã®ã¾ã¾ã§ã¯SRAMã®æ›¸ãæ›ãˆãŒã§ãã¾ã›ã‚“ã€‚
 
-        SRAM‚ğ‘‚«Š·‚¦‚éê‡‚ÍASPC‚ÌƒŒƒWƒXƒ^ƒAƒNƒZƒX‚Å‚àg—p‚µ‚½ 0x7ffe, 0x7fff‚ÌuãˆÊƒoƒ“ƒNØ‚è‘Ö‚¦ƒŒƒWƒXƒ^v‚Ì
-        bit4‚ğg—p‚µ‚Ü‚·B‚±‚Ì bit4‚ğ 1‚É‚·‚é‚ÆŒ»İ‘I‘ğ‚³‚ê‚Ä‚¢‚éƒoƒ“ƒN‚ª‘‚«Š·‚¦‰Â”\‚É‚È‚èA‰ºˆÊƒoƒ“ƒNØ‚è‘Ö‚¦ƒŒƒWƒXƒ^‚à
-        g‚¦‚È‚­‚È‚è‚Ü‚·B
-        ‚±‚Ìó‘Ô‚Å‚àãˆÊƒoƒ“ƒNØ‚è‘Ö‚¦ƒŒƒWƒXƒ^‚Íg‚¦‚é‚Ì‚Å bit4‚ğ 0‚É–ß‚·‚±‚Æ‚ÅA’Êí‚Ìƒoƒ“ƒNØ‚è‘Ö‚¦‚ªs‚¦‚é‚æ‚¤‚É‚È‚è‚Ü‚·B
+        SRAMã‚’æ›¸ãæ›ãˆã‚‹å ´åˆã¯ã€SPCã®ãƒ¬ã‚¸ã‚¹ã‚¿ã‚¢ã‚¯ã‚»ã‚¹ã§ã‚‚ä½¿ç”¨ã—ãŸ 0x7ffe, 0x7fffã®ã€Œä¸Šä½ãƒãƒ³ã‚¯åˆ‡ã‚Šæ›¿ãˆãƒ¬ã‚¸ã‚¹ã‚¿ã€ã®
+        bit4ã‚’ä½¿ç”¨ã—ã¾ã™ã€‚ã“ã® bit4ã‚’ 1ã«ã™ã‚‹ã¨ç¾åœ¨é¸æŠã•ã‚Œã¦ã„ã‚‹ãƒãƒ³ã‚¯ãŒæ›¸ãæ›ãˆå¯èƒ½ã«ãªã‚Šã€ä¸‹ä½ãƒãƒ³ã‚¯åˆ‡ã‚Šæ›¿ãˆãƒ¬ã‚¸ã‚¹ã‚¿ã‚‚
+        ä½¿ãˆãªããªã‚Šã¾ã™ã€‚
+        ã“ã®çŠ¶æ…‹ã§ã‚‚ä¸Šä½ãƒãƒ³ã‚¯åˆ‡ã‚Šæ›¿ãˆãƒ¬ã‚¸ã‚¹ã‚¿ã¯ä½¿ãˆã‚‹ã®ã§ bit4ã‚’ 0ã«æˆ»ã™ã“ã¨ã§ã€é€šå¸¸ã®ãƒãƒ³ã‚¯åˆ‡ã‚Šæ›¿ãˆãŒè¡Œãˆã‚‹ã‚ˆã†ã«ãªã‚Šã¾ã™ã€‚
 
-        ‚È‚¨ASRAM‚Ì‘‚«Š·‚¦‚ª—LŒø‚É‚È‚é‚Ì‚Í region 0‚Æ1‚Ì‚İ‚ÅAregion 2, 3‚Å‚Íg‚¦‚Ü‚¹‚ñB
+        ãªãŠã€SRAMã®æ›¸ãæ›ãˆãŒæœ‰åŠ¹ã«ãªã‚‹ã®ã¯ region 0ã¨1ã®ã¿ã§ã€region 2, 3ã§ã¯ä½¿ãˆã¾ã›ã‚“ã€‚
 
-        œ 1MB‚ÌSRAM‚ğˆµ‚¤•û–@
-        ãˆÊƒoƒ“ƒNØ‚è‘Ö‚¦ƒŒƒWƒXƒ^‚Ìbit4‚ğ1‚É‚µ‚ÄSRAM‚Ì‘‚«Š·‚¦‰Â”\ƒ‚[ƒh‚Éİ’è‚µ‚Ä‚¢‚é‚Æ‚«‚ÍA
-        bit6‚ğ 1‚É‚µ‚Ä‚àAregion 0‚É SPC‚ÌƒŒƒWƒXƒ^‚ªŒ©‚¦‚¸A512KB-1MB‚ÌSRAM‚ªŒ©‚¦‚é‚æ‚¤‚É‚È‚è‚Ü‚·B
+        â— 1MBã®SRAMã‚’æ‰±ã†æ–¹æ³•
+        ä¸Šä½ãƒãƒ³ã‚¯åˆ‡ã‚Šæ›¿ãˆãƒ¬ã‚¸ã‚¹ã‚¿ã®bit4ã‚’1ã«ã—ã¦SRAMã®æ›¸ãæ›ãˆå¯èƒ½ãƒ¢ãƒ¼ãƒ‰ã«è¨­å®šã—ã¦ã„ã‚‹ã¨ãã¯ã€
+        bit6ã‚’ 1ã«ã—ã¦ã‚‚ã€region 0ã« SPCã®ãƒ¬ã‚¸ã‚¹ã‚¿ãŒè¦‹ãˆãšã€512KB-1MBã®SRAMãŒè¦‹ãˆã‚‹ã‚ˆã†ã«ãªã‚Šã¾ã™ã€‚
 
-        ‚¿‚å‚Á‚Æ‚â‚â‚±‚µ‚¢‚Å‚·‚ªAÀ‚ÍAãˆÊƒoƒ“ƒNØ‚è‘Ö‚¦ƒŒƒWƒXƒ^‚Ì bit6‚Æ bit4‚ÍAƒoƒ“ƒNƒAƒhƒŒƒX‚Ì bit6, bit7‚É
-        ‘Š“–‚·‚é‚Æl‚¦‚é‚Æ—‰ğ‚µ‚â‚·‚­‚È‚è‚Ü‚·B‚Â‚Ü‚èAbit6‚ğ 1‚É‚·‚é‚ÆAƒoƒ“ƒNƒAƒhƒŒƒX‚Ì bit6‚ª 1‚É‚È‚èAbit4‚ğ 1‚É‚·‚é‚Æ
-        ƒoƒ“ƒNƒAƒhƒŒƒX‚Ì bit7‚ª 1‚É‚È‚è‚Ü‚·B
-        ‚±‚Ì‚æ‚¤‚Él‚¦‚é‚ÆAŠeƒoƒ“ƒNƒAƒhƒŒƒX‚É‚ÍAˆÈ‰º‚Ì‚æ‚¤‚Èƒƒ‚ƒŠ‚ªƒ}ƒbƒsƒ“ƒO‚³‚ê‚Ä‚¢‚é‚±‚Æ‚É‚È‚è‚Ü‚·B
+        ã¡ã‚‡ã£ã¨ã‚„ã‚„ã“ã—ã„ã§ã™ãŒã€å®Ÿã¯ã€ä¸Šä½ãƒãƒ³ã‚¯åˆ‡ã‚Šæ›¿ãˆãƒ¬ã‚¸ã‚¹ã‚¿ã® bit6ã¨ bit4ã¯ã€ãƒãƒ³ã‚¯ã‚¢ãƒ‰ãƒ¬ã‚¹ã® bit6, bit7ã«
+        ç›¸å½“ã™ã‚‹ã¨è€ƒãˆã‚‹ã¨ç†è§£ã—ã‚„ã™ããªã‚Šã¾ã™ã€‚ã¤ã¾ã‚Šã€bit6ã‚’ 1ã«ã™ã‚‹ã¨ã€ãƒãƒ³ã‚¯ã‚¢ãƒ‰ãƒ¬ã‚¹ã® bit6ãŒ 1ã«ãªã‚Šã€bit4ã‚’ 1ã«ã™ã‚‹ã¨
+        ãƒãƒ³ã‚¯ã‚¢ãƒ‰ãƒ¬ã‚¹ã® bit7ãŒ 1ã«ãªã‚Šã¾ã™ã€‚
+        ã“ã®ã‚ˆã†ã«è€ƒãˆã‚‹ã¨ã€å„ãƒãƒ³ã‚¯ã‚¢ãƒ‰ãƒ¬ã‚¹ã«ã¯ã€ä»¥ä¸‹ã®ã‚ˆã†ãªãƒ¡ãƒ¢ãƒªãŒãƒãƒƒãƒ”ãƒ³ã‚°ã•ã‚Œã¦ã„ã‚‹ã“ã¨ã«ãªã‚Šã¾ã™ã€‚
 
-        0x00-0x3f: ƒZƒOƒƒ“ƒg”Ô† 0-63 ‚Ì SRAM (Read Only‚È‚Ì‚ÅROM‚Æ‚µ‚ÄU‚é•‘‚¤, Å‘å 512KB)
-        0x40-0x7f: SPC‚ÌƒŒƒWƒXƒ^ (Read/Write, ‚½‚¾‚µ region 0‚Å‚Ì‚İ—LŒø)
-        0x80-0xbf: ƒZƒOƒƒ“ƒg”Ô† 0-63 ‚Ì SRAM (Read/Write, Å‘å 512KB)
-        0xc0-0xff: ƒZƒOƒƒ“ƒg”Ô† 64-127 ‚Ì SRAM (Read/Write, Å‘å 512KB, ‚½‚¾‚µ region 0‚Å‚Ì‚İ—LŒø)
-        ¦‚½‚¾‚µAregion 2‚Éƒoƒ“ƒN0x3f‚ğw’è‚µ‚½ê‡‚ÍASCCƒŒƒWƒXƒ^‚ªƒ}ƒbƒsƒ“ƒO‚³‚ê‚Ü‚·
+        0x00-0x3f: ã‚»ã‚°ãƒ¡ãƒ³ãƒˆç•ªå· 0-63 ã® SRAM (Read Onlyãªã®ã§ROMã¨ã—ã¦æŒ¯ã‚‹èˆã†, æœ€å¤§ 512KB)
+        0x40-0x7f: SPCã®ãƒ¬ã‚¸ã‚¹ã‚¿ (Read/Write, ãŸã ã— region 0ã§ã®ã¿æœ‰åŠ¹)
+        0x80-0xbf: ã‚»ã‚°ãƒ¡ãƒ³ãƒˆç•ªå· 0-63 ã® SRAM (Read/Write, æœ€å¤§ 512KB)
+        0xc0-0xff: ã‚»ã‚°ãƒ¡ãƒ³ãƒˆç•ªå· 64-127 ã® SRAM (Read/Write, æœ€å¤§ 512KB, ãŸã ã— region 0ã§ã®ã¿æœ‰åŠ¹)
+        â€»ãŸã ã—ã€region 2ã«ãƒãƒ³ã‚¯0x3fã‚’æŒ‡å®šã—ãŸå ´åˆã¯ã€SCCãƒ¬ã‚¸ã‚¹ã‚¿ãŒãƒãƒƒãƒ”ãƒ³ã‚°ã•ã‚Œã¾ã™
 
-        ‚±‚Ì‚æ‚¤‚ÉAãˆÊƒoƒ“ƒNØ‚è‘Ö‚¦ƒŒƒWƒXƒ^‚ğ‚¤‚Ü‚­‚Â‚©‚¤‚ÆA1MB‚Ü‚Å‚ÌSRAM‚ğˆµ‚¤‚±‚Æ‚ª‚Å‚«‚Ü‚·B
-        ‚½‚¾‚µA‚±‚ê‚ª‰Â”\‚È‚Ì‚Í SPC‚ğ“‹Ú‚µ‚½ MEGA-SCSI, WAVE-SCSI ‚Ìê‡‚Ì‚İ‚Ì‚æ‚¤‚Å‚·B
+        ã“ã®ã‚ˆã†ã«ã€ä¸Šä½ãƒãƒ³ã‚¯åˆ‡ã‚Šæ›¿ãˆãƒ¬ã‚¸ã‚¹ã‚¿ã‚’ã†ã¾ãã¤ã‹ã†ã¨ã€1MBã¾ã§ã®SRAMã‚’æ‰±ã†ã“ã¨ãŒã§ãã¾ã™ã€‚
+        ãŸã ã—ã€ã“ã‚ŒãŒå¯èƒ½ãªã®ã¯ SPCã‚’æ­è¼‰ã—ãŸ MEGA-SCSI, WAVE-SCSI ã®å ´åˆã®ã¿ã®ã‚ˆã†ã§ã™ã€‚
 
-        œ ’ˆÓ“_
-        SPC‚âãˆÊ512KB‚Ì—Ìˆæ‚ÍAregion 0‚Å‚µ‚©ƒAƒNƒZƒX‚Å‚«‚Ü‚¹‚ñB‚Ü‚½ASCCƒŒƒWƒXƒ^‚Í region 2‚Å‚µ‚©ƒAƒNƒZƒX‚Å‚«‚Ü‚¹‚ñB
+        â— æ³¨æ„ç‚¹
+        SPCã‚„ä¸Šä½512KBã®é ˜åŸŸã¯ã€region 0ã§ã—ã‹ã‚¢ã‚¯ã‚»ã‚¹ã§ãã¾ã›ã‚“ã€‚ã¾ãŸã€SCCãƒ¬ã‚¸ã‚¹ã‚¿ã¯ region 2ã§ã—ã‹ã‚¢ã‚¯ã‚»ã‚¹ã§ãã¾ã›ã‚“ã€‚
 
-        ‚Ü‚Æ‚ß‚é‚ÆAˆÈ‰º‚Ì‚æ‚¤‚É‚È‚è‚Ü‚·B
+        ã¾ã¨ã‚ã‚‹ã¨ã€ä»¥ä¸‹ã®ã‚ˆã†ã«ãªã‚Šã¾ã™ã€‚
                          00-3E 3F   40-7E 7F   80-BF C0-FE FF
         region0 (4000-5fff): ROM   ROM  SPC   SPC  SRAM  SRAM  SRAM
         region1 (6000-7fff): ROM   ROM  00-3E 3F   SRAM  00-3E 3F
         region2 (8000-9fff): ROM   SCC  00-3E SCC  SRAM  00-3E SCC
         region3 (a000-bfff): ROM   ROM  00-3E 3F   SRAM  00-3E 3F
 
-        œ –{ƒ‚ƒWƒ…[ƒ‹‚ÌÀ‘••ûj
-        –{ƒ‚ƒWƒ…[ƒ‹‚ÍAselected_segment ‚É region 0-3‚Ì‚»‚ê‚¼‚ê‚Ì‘I‘ğ‚³‚ê‚Ä‚¢‚éƒZƒOƒƒ“ƒg”Ô†‚ğ•Û‚µ‚Ü‚·B
-        ƒZƒOƒƒ“ƒg”Ô†‚ÍAãˆÊƒoƒ“ƒN‘I‘ğƒŒƒWƒXƒ^‚Ì’l‚ğœ‚¢‚½ 6bit (‰ºˆÊƒoƒ“ƒN‘I‘ğƒŒƒWƒXƒ^‚Ì’l) ‚É‚È‚è‚Ü‚·B
-        ãˆÊƒoƒ“ƒNØ‚è‘Ö‚¦ƒŒƒWƒXƒ^‚Ì’l‚ÍAˆÈ‰º‚Ì‚æ‚¤‚É•Û‚µ‚Ü‚·B
+        â— æœ¬ãƒ¢ã‚¸ãƒ¥ãƒ¼ãƒ«ã®å®Ÿè£…æ–¹é‡
+        æœ¬ãƒ¢ã‚¸ãƒ¥ãƒ¼ãƒ«ã¯ã€selected_segment ã« region 0-3ã®ãã‚Œãã‚Œã®é¸æŠã•ã‚Œã¦ã„ã‚‹ã‚»ã‚°ãƒ¡ãƒ³ãƒˆç•ªå·ã‚’ä¿æŒã—ã¾ã™ã€‚
+        ã‚»ã‚°ãƒ¡ãƒ³ãƒˆç•ªå·ã¯ã€ä¸Šä½ãƒãƒ³ã‚¯é¸æŠãƒ¬ã‚¸ã‚¹ã‚¿ã®å€¤ã‚’é™¤ã„ãŸ 6bit (ä¸‹ä½ãƒãƒ³ã‚¯é¸æŠãƒ¬ã‚¸ã‚¹ã‚¿ã®å€¤) ã«ãªã‚Šã¾ã™ã€‚
+        ä¸Šä½ãƒãƒ³ã‚¯åˆ‡ã‚Šæ›¿ãˆãƒ¬ã‚¸ã‚¹ã‚¿ã®å€¤ã¯ã€ä»¥ä¸‹ã®ã‚ˆã†ã«ä¿æŒã—ã¾ã™ã€‚
 
-        * bit4: SRAM‚Ì‘‚«Š·‚¦‰Â”\ƒ‚[ƒh
-                * write_enable ‚É•Û
-        * bit6: 512KB-1MB‚ÌSRAM‚ğ‘I‘ğ‚·‚éƒ‚[ƒh
-                * upper_bank_enable ‚É•Û
+        * bit4: SRAMã®æ›¸ãæ›ãˆå¯èƒ½ãƒ¢ãƒ¼ãƒ‰
+                * write_enable ã«ä¿æŒ
+        * bit6: 512KB-1MBã®SRAMã‚’é¸æŠã™ã‚‹ãƒ¢ãƒ¼ãƒ‰
+                * upper_bank_enable ã«ä¿æŒ
 
  */
 
@@ -123,14 +123,14 @@ static void _write16(ms_memmap_driver_t* driver, uint16_t addr, uint16_t data);
 static void _fflush(ms_memmap_driver_t* driver);
 
 /*
-        Šm•Ûƒ‹[ƒ`ƒ“
+        ç¢ºä¿ãƒ«ãƒ¼ãƒãƒ³
  */
 THIS* ms_memmap_ESE_SCC_alloc() {
     return (THIS*)new_malloc(sizeof(THIS));
 }
 
 /*
-        ‰Šú‰»ƒ‹[ƒ`ƒ“
+        åˆæœŸåŒ–ãƒ«ãƒ¼ãƒãƒ³
  */
 void ms_memmap_ESE_SCC_init(THIS* instance, ms_memmap_t* memmap, uint8_t* buffer, uint32_t length, uint8_t* file_path) {
     if (instance == NULL) {
@@ -139,10 +139,10 @@ void ms_memmap_ESE_SCC_init(THIS* instance, ms_memmap_t* memmap, uint8_t* buffer
 
     ms_memmap_driver_init(&instance->base, memmap, buffer);
 
-    // ƒvƒƒpƒeƒB‚âƒƒ\ƒbƒh‚Ì“o˜^
+    // ãƒ—ãƒ­ãƒ‘ãƒ†ã‚£ã‚„ãƒ¡ã‚½ãƒƒãƒ‰ã®ç™»éŒ²
     instance->base.type = ROM_TYPE_ESE_SCC;
     instance->base.name = driver_name;
-    // instance->base.deinit = ms_memmap_ESE_SCC_deinit; ƒI[ƒo[ƒ‰ƒCƒh•s—v
+    // instance->base.deinit = ms_memmap_ESE_SCC_deinit; ã‚ªãƒ¼ãƒãƒ¼ãƒ©ã‚¤ãƒ‰ä¸è¦
     instance->base.did_attach = _did_attach;
     instance->base.will_detach = _will_detach;
     instance->base.did_pause = _did_pause;
@@ -156,22 +156,22 @@ void ms_memmap_ESE_SCC_init(THIS* instance, ms_memmap_t* memmap, uint8_t* buffer
     instance->base.buffer_length = length;
     instance->num_segments = length / 0x2000;
 
-    // ƒvƒ‰ƒCƒx[ƒgƒvƒƒpƒeƒB
+    // ãƒ—ãƒ©ã‚¤ãƒ™ãƒ¼ãƒˆãƒ—ãƒ­ãƒ‘ãƒ†ã‚£
     memcpy(instance->file_path, file_path, 256);
 
     int region;
     for (region = 0; region < 4; region++) {
-        _select_bank(instance, region, region);  // KONAMI SCCƒƒKƒƒ€‚Ìê‡A‰Šú’l‚Í0,1,2,3
+        _select_bank(instance, region, region);  // KONAMI SCCãƒ¡ã‚¬ãƒ­ãƒ ã®å ´åˆã€åˆæœŸå€¤ã¯0,1,2,3
     }
 
-    // SCC‚Ì‰Šú‰»
+    // SCCã®åˆæœŸåŒ–
     int i;
     uint8_t* scc_segment;
 
-    // ƒZƒOƒƒ“ƒg”Ô†63‚ÍSCCƒŒƒWƒXƒ^‚Æ‚µ‚Äg—p‚Å‚«‚é‚Ì‚ÅA‚»‚Ì—Ìˆæ‚ğŠm•Û
+    // ã‚»ã‚°ãƒ¡ãƒ³ãƒˆç•ªå·63ã¯SCCãƒ¬ã‚¸ã‚¹ã‚¿ã¨ã—ã¦ä½¿ç”¨ã§ãã‚‹ã®ã§ã€ãã®é ˜åŸŸã‚’ç¢ºä¿
     scc_segment = (uint8_t*)new_malloc(8 * 1024);
     if (scc_segment == NULL) {
-        printf("ƒƒ‚ƒŠ‚ªŠm•Û‚Å‚«‚Ü‚¹‚ñB\n");
+        printf("ãƒ¡ãƒ¢ãƒªãŒç¢ºä¿ã§ãã¾ã›ã‚“ã€‚\n");
         return;
     }
     for (i = 0; i < 8 * 1024; i++) {
@@ -190,28 +190,28 @@ static void _did_attach(ms_memmap_driver_t* driver) {
 }
 
 /**
- * @brief ƒhƒ‰ƒCƒo‚Ìƒfƒ^ƒbƒ`‚ÉŒÄ‚Ño‚³‚ê‚éƒR[ƒ‹ƒoƒbƒN‚ÅASRAM‚ğƒtƒ@ƒCƒ‹‚É‘‚«o‚µ‚Ü‚·
+ * @brief ãƒ‰ãƒ©ã‚¤ãƒã®ãƒ‡ã‚¿ãƒƒãƒæ™‚ã«å‘¼ã³å‡ºã•ã‚Œã‚‹ã‚³ãƒ¼ãƒ«ãƒãƒƒã‚¯ã§ã€SRAMã‚’ãƒ•ã‚¡ã‚¤ãƒ«ã«æ›¸ãå‡ºã—ã¾ã™
  *
  * @param driver
  * @return int
  */
 static int _will_detach(ms_memmap_driver_t* driver) {
-    MS_LOG(MS_LOG_INFO, "ESE-SCC‚ÌSRAM‚ğƒtƒ@ƒCƒ‹‚É‘‚«o‚µ‚Ü‚·\n");
+    MS_LOG(MS_LOG_INFO, "ESE-SCCã®SRAMã‚’ãƒ•ã‚¡ã‚¤ãƒ«ã«æ›¸ãå‡ºã—ã¾ã™\n");
     _fflush(driver);
     return 0;
 }
 
 /**
- * @brief ƒ|[ƒY‚ÉŒÄ‚Ño‚³‚ê‚éƒR[ƒ‹ƒoƒbƒN
+ * @brief ãƒãƒ¼ã‚ºæ™‚ã«å‘¼ã³å‡ºã•ã‚Œã‚‹ã‚³ãƒ¼ãƒ«ãƒãƒƒã‚¯
  *
  * @param driver
  */
 static void _did_pause(ms_memmap_driver_t* driver) {
     volatile uint8_t* BITSNS_WORK = (uint8_t*)0x800;
     if (BITSNS_WORK[0xe] & 1) {
-        // ƒ|[ƒY‚É SHIFTƒL[‚ª‰Ÿ‚³‚ê‚Ä‚¢‚½‚çASRAM‚ğƒtƒ@ƒCƒ‹‚É‘‚«o‚·
+        // ãƒãƒ¼ã‚ºæ™‚ã« SHIFTã‚­ãƒ¼ãŒæŠ¼ã•ã‚Œã¦ã„ãŸã‚‰ã€SRAMã‚’ãƒ•ã‚¡ã‚¤ãƒ«ã«æ›¸ãå‡ºã™
         _fflush(driver);
-        printf("ESE-SCC‚ÌSRAM‚ğƒtƒ@ƒCƒ‹‚É‘‚«o‚µ‚Ü‚µ‚½\n");
+        printf("ESE-SCCã®SRAMã‚’ãƒ•ã‚¡ã‚¤ãƒ«ã«æ›¸ãå‡ºã—ã¾ã—ãŸ\n");
     }
 }
 
@@ -219,23 +219,23 @@ static void _did_update_memory_mapper(ms_memmap_driver_t* driver, int slot, uint
 }
 
 /**
-  @brief region (0-3)‚ÉŒ©‚¹‚éƒoƒ“ƒN‚ğ‘I‘ğ‚µ‚Ü‚·
+  @brief region (0-3)ã«è¦‹ã›ã‚‹ãƒãƒ³ã‚¯ã‚’é¸æŠã—ã¾ã™
 
-        SCC•t‚«‚ÌKONAMI_SCCƒƒKƒƒ€‚ÌØ‚è‘Ö‚¦ˆ—
+        SCCä»˜ãã®KONAMI_SCCãƒ¡ã‚¬ãƒ­ãƒ ã®åˆ‡ã‚Šæ›¿ãˆå‡¦ç†
         https://www.msx.org/wiki/MegaROM_Mappers#Konami_MegaROMs_with_SCC
 
         * 4000h~5FFFh (mirror: C000h~DFFFh)
-                * Ø‚è‘Ö‚¦ƒAƒhƒŒƒX:	5000h (mirrors: 5001h~57FFh)
-                * ‰ŠúƒZƒOƒƒ“ƒg	0
+                * åˆ‡ã‚Šæ›¿ãˆã‚¢ãƒ‰ãƒ¬ã‚¹:	5000h (mirrors: 5001h~57FFh)
+                * åˆæœŸã‚»ã‚°ãƒ¡ãƒ³ãƒˆ	0
         * 6000h~7FFFh (mirror: E000h~FFFFh)
-                * Ø‚è‘Ö‚¦ƒAƒhƒŒƒX	7000h (mirrors: 7001h~77FFh)
-                * ‰ŠúƒZƒOƒƒ“ƒg	1
+                * åˆ‡ã‚Šæ›¿ãˆã‚¢ãƒ‰ãƒ¬ã‚¹	7000h (mirrors: 7001h~77FFh)
+                * åˆæœŸã‚»ã‚°ãƒ¡ãƒ³ãƒˆ	1
         * 8000h~9FFFh (mirror: 0000h~1FFFh)
-                * Ø‚è‘Ö‚¦ƒAƒhƒŒƒX	9000h (mirrors: 9001h~97FFh)
-                * ‰ŠúƒZƒOƒƒ“ƒg	Random
+                * åˆ‡ã‚Šæ›¿ãˆã‚¢ãƒ‰ãƒ¬ã‚¹	9000h (mirrors: 9001h~97FFh)
+                * åˆæœŸã‚»ã‚°ãƒ¡ãƒ³ãƒˆ	Random
         * A000h~BFFFh (mirror: 2000h~3FFFh)
-                * Ø‚è‘Ö‚¦ƒAƒhƒŒƒX	b000h (mirrors: B001h~B7FFh)
-                * ‰ŠúƒZƒOƒƒ“ƒg	Random
+                * åˆ‡ã‚Šæ›¿ãˆã‚¢ãƒ‰ãƒ¬ã‚¹	b000h (mirrors: B001h~B7FFh)
+                * åˆæœŸã‚»ã‚°ãƒ¡ãƒ³ãƒˆ	Random
 
  */
 static void _select_bank(THIS* d, int region, int segment) {
@@ -253,7 +253,7 @@ static void _select_bank(THIS* d, int region, int segment) {
             buf = NULL;
         } else {
             if ((region == 0) && d->upper_bank_enable && (d->num_segments == 128)) {
-                // 512KB-1MB‚ÌSRAM‚ğ‘I‘ğ
+                // 512KB-1MBã®SRAMã‚’é¸æŠ
                 buf = d->base.buffer + (segment * 0x2000) + 0x80000;
             } else {
                 buf = d->base.buffer + (segment * 0x2000);
@@ -263,7 +263,7 @@ static void _select_bank(THIS* d, int region, int segment) {
 
     d->base.page8k_pointers[(region + 2) & 0x7] = buf;
     d->base.memmap->update_page_pointer(d->base.memmap, (ms_memmap_driver_t*)d,
-                                        (region + 2) & 0x7);  // Ø‚è‘Ö‚¦‚ª‹N‚±‚Á‚½‚±‚Æ‚ğ memmap ‚É’Ê’m
+                                        (region + 2) & 0x7);  // åˆ‡ã‚Šæ›¿ãˆãŒèµ·ã“ã£ãŸã“ã¨ã‚’ memmap ã«é€šçŸ¥
 }
 
 static uint8_t _read8(ms_memmap_driver_t* driver, uint16_t addr) {
@@ -345,7 +345,7 @@ static void _write_scc_v1_reg(THIS* d, uint16_t addr, uint8_t data) {
     case 0x9899:
         d->scc_segment[addr & 0x1fef] = data;
         freq = d->scc_segment[0x1888] | (d->scc_segment[0x1889] << 8);
-        // w_SCC_freq(4, conv_freq(d, freq)); ƒTƒ|[ƒg‚µ‚Ä‚¢‚È‚¢
+        // w_SCC_freq(4, conv_freq(d, freq)); ã‚µãƒãƒ¼ãƒˆã—ã¦ã„ãªã„
         break;
     case 0x988a:
     case 0x989a:
@@ -370,7 +370,7 @@ static void _write_scc_v1_reg(THIS* d, uint16_t addr, uint8_t data) {
     case 0x988e:
     case 0x989e:
         d->scc_segment[addr & 0x1fef] = data;
-        // w_SCC_volume(4, data); ƒTƒ|[ƒg‚µ‚Ä‚¢‚È‚¢
+        // w_SCC_volume(4, data); ã‚µãƒãƒ¼ãƒˆã—ã¦ã„ãªã„
         break;
     case 0x988f:
     case 0x989f:
@@ -390,22 +390,22 @@ static void _write_scc_v1_reg(THIS* d, uint16_t addr, uint8_t data) {
 
 static void _write8(ms_memmap_driver_t* driver, uint16_t addr, uint8_t data) {
     THIS* d = (THIS*)driver;
-    int area = addr >> 11;  // 4KƒoƒCƒg’PˆÊ‚ÌƒGƒŠƒA”Ô†
+    int area = addr >> 11;  // 4Kãƒã‚¤ãƒˆå˜ä½ã®ã‚¨ãƒªã‚¢ç•ªå·
 
     if (area < 0x4 * 2 || area >= 0xc * 2) {
         MS_LOG(MS_LOG_FINE, "ESE_SCC: write out of range: %04x\n", addr);
         return;
     }
 
-    // ãˆÊƒoƒ“ƒNØ‚è‘Ö‚¦ƒŒƒWƒXƒ^
+    // ä¸Šä½ãƒãƒ³ã‚¯åˆ‡ã‚Šæ›¿ãˆãƒ¬ã‚¸ã‚¹ã‚¿
     if ((addr & 0x7ffe) == 0x7ffe) {
         d->upper_bank_enable = (data & 0x40) >> 6;
         d->write_enable = (data & 0x10) >> 4;
-        _select_bank(d, 0, d->selected_segment[0]);  // region 0 ‚É‰e‹¿‚ª‚ ‚é‚Ì‚ÅÄ‘I‘ğ‚·‚é
+        _select_bank(d, 0, d->selected_segment[0]);  // region 0 ã«å½±éŸ¿ãŒã‚ã‚‹ã®ã§å†é¸æŠã™ã‚‹
         return;
     }
 
-    // 0x4000-0x7ffd ‚ÌSRAM‚Ö‚Ì‘‚«‚İ
+    // 0x4000-0x7ffd ã®SRAMã¸ã®æ›¸ãè¾¼ã¿
     if (d->write_enable && (area < 0x8 * 2)) {
         int page8k = addr >> 13;
         int local_addr = addr & 0x1fff;
@@ -418,7 +418,7 @@ static void _write8(ms_memmap_driver_t* driver, uint16_t addr, uint8_t data) {
         return;
     }
 
-    // ƒoƒ“ƒNØ‚è‘Ö‚¦ˆ—‚ÆSCCƒŒƒWƒXƒ^‚Ö‚Ì‘‚«‚İ
+    // ãƒãƒ³ã‚¯åˆ‡ã‚Šæ›¿ãˆå‡¦ç†ã¨SCCãƒ¬ã‚¸ã‚¹ã‚¿ã¸ã®æ›¸ãè¾¼ã¿
     switch (area) {
     case 0x5 * 2:
         _select_bank(d, 0, data);
@@ -429,7 +429,7 @@ static void _write8(ms_memmap_driver_t* driver, uint16_t addr, uint8_t data) {
     case 0x9 * 2:
         _select_bank(d, 2, data);
         break;
-    case 0x9 * 2 + 1:  // 0x9800-0x9fff ‚É‚Í SCC‚ÌƒŒƒWƒXƒ^‚ª‚ ‚é
+    case 0x9 * 2 + 1:  // 0x9800-0x9fff ã«ã¯ SCCã®ãƒ¬ã‚¸ã‚¹ã‚¿ãŒã‚ã‚‹
         if ((d->selected_segment[2] == 0x3f) && r_SCC_enable()) {
             _write_scc_v1_reg(d, addr, data);
         }
@@ -448,7 +448,7 @@ static void _write16(ms_memmap_driver_t* driver, uint16_t addr, uint16_t data) {
 }
 
 /**
- * @brief ESE-SCC‚ÌSRAM‚ğƒtƒ@ƒCƒ‹‚É‘‚«o‚µ‚Ü‚·
+ * @brief ESE-SCCã®SRAMã‚’ãƒ•ã‚¡ã‚¤ãƒ«ã«æ›¸ãå‡ºã—ã¾ã™
  *
  * @param instance
  */
@@ -461,7 +461,7 @@ void _fflush(ms_memmap_driver_t* driver) {
 
     crt_fh = open(instance->file_path, O_RDWR | O_BINARY);
     if (crt_fh == -1) {
-        MS_LOG(MS_LOG_ERROR, "SRAMƒtƒ@ƒCƒ‹‚ªŠJ‚¯‚Ü‚¹‚ñ. %s\n", instance->file_path);
+        MS_LOG(MS_LOG_ERROR, "SRAMãƒ•ã‚¡ã‚¤ãƒ«ãŒé–‹ã‘ã¾ã›ã‚“. %s\n", instance->file_path);
         return;
     }
 

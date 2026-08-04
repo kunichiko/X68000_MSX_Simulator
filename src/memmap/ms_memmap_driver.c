@@ -4,20 +4,20 @@
 #include <stdint.h>
 
 /*
-        Šm•Ûƒ‹[ƒ`ƒ“(abstract class)‚È‚Ì‚ÅŽg‚í‚È‚¢
+        ç¢ºä¿ãƒ«ãƒ¼ãƒãƒ³(abstract class)ãªã®ã§ä½¿ã‚ãªã„
  */
 // ms_memmap_driver_t* ms_disk_media_init(char* file_path) {
 // 	return (ms_memmap_driver_t*)new_malloc(sizeof(ms_memmap_driver_t));
 // }
 
 /*
-        ‰Šú‰»ƒ‹[ƒ`ƒ“
+        åˆæœŸåŒ–ãƒ«ãƒ¼ãƒãƒ³
  */
 void ms_memmap_driver_init(ms_memmap_driver_t* instance, ms_memmap_t* memmap, uint8_t* buffer) {
     if (instance == NULL) {
         return;
     }
-    // ƒƒ\ƒbƒh‚Ì“o˜^
+    // ãƒ¡ã‚½ãƒƒãƒ‰ã®ç™»éŒ²
     instance->deinit = ms_memmap_driver_deinit;
     instance->memmap = memmap;
     instance->buffer = buffer;

@@ -5,7 +5,7 @@
 #include "ms_vdp.h"
 
 /*
-        GRAPHIC6 (SCREEN 7) ‚Í 512~212ƒ‚[ƒh‚ÅAƒhƒbƒg‚²‚Æ‚É16F‰æw’è‰Â”\
+        GRAPHIC6 (SCREEN 7) ã¯ 512Ã—212ãƒ¢ãƒ¼ãƒ‰ã§ã€ãƒ‰ãƒƒãƒˆã”ã¨ã«16è‰²ç”»æŒ‡å®šå¯èƒ½
  */
 
 int init_GRAPHIC6(ms_vdp_t* vdp);
@@ -139,5 +139,5 @@ void vdp_command_write_GRAPHIC6(ms_vdp_t* vdp, uint8_t value) {
 }
 
 void update_resolution_GRAPHIC6(ms_vdp_t* vdp) {
-    ms_vdp_update_resolution_COMMON(vdp, 1, 0, 0);  // 512, 16F, BG•sg—p
+    ms_vdp_update_resolution_COMMON(vdp, 1, 0, 0);  // 512, 16è‰², BGä¸ä½¿ç”¨
 }

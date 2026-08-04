@@ -17,7 +17,7 @@ static void _read_sector(ms_disk_media_t* instance, uint32_t sector_id, ms_secto
 static void _write_sector(ms_disk_media_t* instance, uint32_t sector_id, ms_sector_t* sector);
 
 /*
-        �m�ۃ��[�`��
+        確保ルーチン
  */
 THIS* ms_disk_media_dskformat_alloc() {
     return (THIS*)new_malloc(sizeof(THIS));
@@ -27,33 +27,33 @@ int ms_disk_media_dskformat_init(THIS* instance, char* file_path) {
     if (instance == NULL) {
         return 0;
     }
-    // base�N���X�̏�����
+    // baseクラスの初期化
     ms_disk_media_sectorbase_init(&instance->base, file_path);
-    // ���\�b�h�̓o�^
+    // メソッドの登録
     instance->base.base.deinit = (void (*)(ms_disk_media_t*))ms_disk_media_dskformat_deinit;  // override
     instance->base.read_sector = _read_sector;                                                // override
     instance->base.write_sector = _write_sector;                                              // override
 
-    // �v���p�e�B�̏�����
+    // プロパティの初期化
     instance->file_path = file_path;
-    int attr = _dos_chmod(file_path, -1);  // �t�@�C���������擾
+    int attr = _dos_chmod(file_path, -1);  // ファイル属性を取得
     if (attr == -1) {
-        printf("�t�@�C�������݂��܂���. %s\n", file_path);
+        printf("ファイルが存在しません. %s\n", file_path);
         return 0;
     }
     if ((attr & 0x20) == 0) {
-        printf("�t�@�C�����ʏ�̃t�@�C���ł͂���܂���. %s\n", file_path);
+        printf("ファイルが通常のファイルではありません. %s\n", file_path);
         return 0;
     }
     if ((attr & 0x10) != 0) {
-        printf("�f�B���N�g���͎w��ł��܂���. %s\n", file_path);
+        printf("ディレクトリは指定できません. %s\n", file_path);
         return 0;
     }
-    instance->base.base.is_write_protected = (attr & 0x1) == 1;  // READ ONLY����������΃��C�g�v���e�N�g
+    instance->base.base.is_write_protected = (attr & 0x1) == 1;  // READ ONLY属性があればライトプロテクト
     int mode = instance->base.base.is_write_protected ? O_RDONLY : O_RDWR;
     instance->file_handle = open(file_path, mode | O_BINARY);
     if (instance->file_handle == -1) {
-        printf("�t�@�C�����J���܂���. %s\n", file_path);
+        printf("ファイルが開けません. %s\n", file_path);
         return 0;
     }
     uint32_t file_size = filelength(instance->file_handle);
@@ -71,10 +71,10 @@ void ms_disk_media_dskformat_deinit(THIS* instance) {
 }
 
 /**
- * @brief �Z�N�^�[��ǂݍ��݂܂��B
+ * @brief セクターを読み込みます。
  *
  * @param instance
- * @param sector_id 1����n�܂邱�Ƃɒ���
+ * @param sector_id 1から始まることに注意
  * @param sector
  */
 static void _read_sector(ms_disk_media_t* instance, uint32_t sector_id, ms_sector_t* sector) {
@@ -94,17 +94,17 @@ static void _write_sector(ms_disk_media_t* instance, uint32_t sector_id, ms_sect
     uint32_t offset = index * 512;
     lseek(dsk->file_handle, offset, SEEK_SET);
     if (write(dsk->file_handle, sector, 512) != 512) {
-        MS_LOG(MS_LOG_ERROR, "�Z�N�^�̏������݂Ɏ��s���܂���. %s\n", dsk->file_path);
+        MS_LOG(MS_LOG_ERROR, "セクタの書き込みに失敗しました. %s\n", dsk->file_path);
         return;
     }
     MS_LOG(MS_LOG_FINE, "Wr logical sector: %d\n", sector_id);
 
-    // �t�@�C���̃t���b�V��
-    // HEiJ �� HFS(Host File System)��œ������Ă���ƁA���� _dos_flush() ���Ȃ��ƃt�@�C�����X�V����Ȃ�
-    // ���Ƃ��킩��B
-    // X68000�̎��@�̏ꍇ�A���̃v���Z�X�����̃t�@�C����`�����邱�Ƃ���{�I�ɂȂ��̂ŁA���ۂɃt���b�V������Ă���
-    // �����𒲂ׂ�̂�����i�������Z�b�g�����Ă݂邵���Ȃ��j�̂ŁA���ۂɎ��@�ł� flush ����Ă��Ȃ��̂��A
-    // ����t�� HFS�̓����ŁAflush ���Ă΂��܂�Host���̃t�@�C�����X�V���Ȃ��d�l�Ȃ̂��͂킩��Ȃ����A
-    // �G�~�����[�^���Ŏg���l�������̂ŁA�Ƃ肠���� flush ���Ă����B
+    // ファイルのフラッシュ
+    // HEiJ の HFS(Host File System)上で動かしていると、この _dos_flush() がないとファイルが更新されない
+    // ことがわかる。
+    // X68000の実機の場合、他のプロセスがこのファイルを覗き見ることが基本的にないので、実際にフラッシュされている
+    // 可動かを調べるのが難しい（強制リセットかけてみるしかない）ので、実際に実機でも flush されていないのか、
+    // それtも HFSの特性で、flush が呼ばれるまでHost側のファイルを更新しない仕様なのかはわからないが、
+    // エミュレータ環境で使う人も多いので、とりあえず flush しておく。
     _dos_fflush();
 }

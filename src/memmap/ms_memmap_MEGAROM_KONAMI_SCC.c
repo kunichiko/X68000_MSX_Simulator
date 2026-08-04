@@ -29,14 +29,14 @@ static void _write_scc_v1_reg(THIS* d, uint16_t addr, uint8_t data);
 static void _write_scc_v2_reg(THIS* d, uint16_t addr, uint8_t data);
 
 /*
-        Šm•Ûƒ‹[ƒ`ƒ“
+        ç¢ºä¿ãƒ«ãƒ¼ãƒãƒ³
  */
 THIS* ms_memmap_MEGAROM_KONAMI_SCC_alloc() {
     return (THIS*)new_malloc(sizeof(THIS));
 }
 
 /*
-        ‰Šú‰»ƒ‹[ƒ`ƒ“
+        åˆæœŸåŒ–ãƒ«ãƒ¼ãƒãƒ³
  */
 void ms_memmap_MEGAROM_KONAMI_SCC_init(THIS* instance, ms_memmap_t* memmap, uint8_t* buffer, uint32_t length) {
     if (instance == NULL) {
@@ -45,10 +45,10 @@ void ms_memmap_MEGAROM_KONAMI_SCC_init(THIS* instance, ms_memmap_t* memmap, uint
 
     ms_memmap_driver_init(&instance->base, memmap, buffer);
 
-    // ƒvƒƒpƒeƒB‚âƒƒ\ƒbƒh‚Ì“o˜^
+    // ãƒ—ãƒ­ãƒ‘ãƒ†ã‚£ã‚„ãƒ¡ã‚½ãƒƒãƒ‰ã®ç™»éŒ²
     instance->base.type = ROM_TYPE_MEGAROM_KONAMI_SCC;
     instance->base.name = driver_name;
-    // instance->base.deinit = ms_memmap_MEGAROM_KONAMI_SCC_deinit; ƒI[ƒo[ƒ‰ƒCƒh•s—v
+    // instance->base.deinit = ms_memmap_MEGAROM_KONAMI_SCC_deinit; ã‚ªãƒ¼ãƒãƒ¼ãƒ©ã‚¤ãƒ‰ä¸è¦
     instance->base.did_attach = _did_attach;
     instance->base.will_detach = _will_detach;
     instance->base.did_update_memory_mapper = _did_update_memory_mapper;
@@ -69,29 +69,29 @@ void ms_memmap_MEGAROM_KONAMI_SCC_init(THIS* instance, ms_memmap_t* memmap, uint
 
     int region;
     for (region = 0; region < 4; region++) {
-        _select_bank(instance, region, region);  // KONAMI SCCƒƒKƒƒ€‚Ìê‡A‰Šú’l‚Í0,1,2,3
+        _select_bank(instance, region, region);  // KONAMI SCCãƒ¡ã‚¬ãƒ­ãƒ ã®å ´åˆã€åˆæœŸå€¤ã¯0,1,2,3
     }
 
-    // SCCƒŒƒWƒXƒ^‚Ì‰Šú‰»
+    // SCCãƒ¬ã‚¸ã‚¹ã‚¿ã®åˆæœŸåŒ–
     instance->scc_mode = 0;
 
     int i;
     uint8_t* scc_segment;
 
-    // ƒZƒOƒƒ“ƒg”Ô†63‚ÍSCCƒŒƒWƒXƒ^‚Æ‚µ‚Äg—p‚Å‚«‚é‚Ì‚ÅA‚»‚Ì—Ìˆæ‚ğŠm•Û
+    // ã‚»ã‚°ãƒ¡ãƒ³ãƒˆç•ªå·63ã¯SCCãƒ¬ã‚¸ã‚¹ã‚¿ã¨ã—ã¦ä½¿ç”¨ã§ãã‚‹ã®ã§ã€ãã®é ˜åŸŸã‚’ç¢ºä¿
     scc_segment = (uint8_t*)new_malloc(8 * 1024);
     if (scc_segment == NULL) {
-        printf("ƒƒ‚ƒŠ‚ªŠm•Û‚Å‚«‚Ü‚¹‚ñB\n");
+        printf("ãƒ¡ãƒ¢ãƒªãŒç¢ºä¿ã§ãã¾ã›ã‚“ã€‚\n");
         return;
     }
     if (instance->num_segments == 0x40) {
-        // 512KB‚Ìê‡AƒZƒOƒƒ“ƒg”Ô† 0x3f (63) ‚ÍSCCƒŒƒWƒXƒ^‚Æ—Ìˆæ‚ª‚©‚Ô‚Á‚Ä‚¢‚é‚¢‚Ì‚ÅA
-        // SCCƒŒƒWƒXƒ^ˆÈŠO‚Ì•”•ª‚É‚ÍROM‚Ìƒf[ƒ^‚ªŒ©‚¦‚é‚æ‚¤‚É‰Šú‰»‚·‚é
+        // 512KBã®å ´åˆã€ã‚»ã‚°ãƒ¡ãƒ³ãƒˆç•ªå· 0x3f (63) ã¯SCCãƒ¬ã‚¸ã‚¹ã‚¿ã¨é ˜åŸŸãŒã‹ã¶ã£ã¦ã„ã‚‹ã„ã®ã§ã€
+        // SCCãƒ¬ã‚¸ã‚¹ã‚¿ä»¥å¤–ã®éƒ¨åˆ†ã«ã¯ROMã®ãƒ‡ãƒ¼ã‚¿ãŒè¦‹ãˆã‚‹ã‚ˆã†ã«åˆæœŸåŒ–ã™ã‚‹
         for (i = 0; i < 8 * 1024; i++) {
             scc_segment[i] = buffer[0x3f * 0x2000 + i];
         }
     } else {
-        // ‚»‚êˆÈŠO‚Ìê‡‚Í0xff‚Å–„‚ß‚é
+        // ãã‚Œä»¥å¤–ã®å ´åˆã¯0xffã§åŸ‹ã‚ã‚‹
         for (i = 0; i < 8 * 1024; i++) {
             scc_segment[i] = 0xff;
         }
@@ -136,27 +136,27 @@ static uint16_t _read16(ms_memmap_driver_t* driver, uint16_t addr) {
 }
 
 /*
-        SCC•t‚«‚ÌKONAMI_SCCƒƒKƒƒ€‚ÌØ‚è‘Ö‚¦ˆ—
+        SCCä»˜ãã®KONAMI_SCCãƒ¡ã‚¬ãƒ­ãƒ ã®åˆ‡ã‚Šæ›¿ãˆå‡¦ç†
         https://www.msx.org/wiki/MegaROM_Mappers#Konami_MegaROMs_with_SCC
 
         * 4000h~5FFFh (mirror: C000h~DFFFh)
-                * Ø‚è‘Ö‚¦ƒAƒhƒŒƒX:	5000h (mirrors: 5001h~57FFh)
-                * ‰ŠúƒZƒOƒƒ“ƒg	0
+                * åˆ‡ã‚Šæ›¿ãˆã‚¢ãƒ‰ãƒ¬ã‚¹:	5000h (mirrors: 5001h~57FFh)
+                * åˆæœŸã‚»ã‚°ãƒ¡ãƒ³ãƒˆ	0
         * 6000h~7FFFh (mirror: E000h~FFFFh)
-                * Ø‚è‘Ö‚¦ƒAƒhƒŒƒX	7000h (mirrors: 7001h~77FFh)
-                * ‰ŠúƒZƒOƒƒ“ƒg	1
+                * åˆ‡ã‚Šæ›¿ãˆã‚¢ãƒ‰ãƒ¬ã‚¹	7000h (mirrors: 7001h~77FFh)
+                * åˆæœŸã‚»ã‚°ãƒ¡ãƒ³ãƒˆ	1
         * 8000h~9FFFh (mirror: 0000h~1FFFh)
-                * Ø‚è‘Ö‚¦ƒAƒhƒŒƒX	9000h (mirrors: 9001h~97FFh)
-                * ‰ŠúƒZƒOƒƒ“ƒg	Random
+                * åˆ‡ã‚Šæ›¿ãˆã‚¢ãƒ‰ãƒ¬ã‚¹	9000h (mirrors: 9001h~97FFh)
+                * åˆæœŸã‚»ã‚°ãƒ¡ãƒ³ãƒˆ	Random
         * A000h~BFFFh (mirror: 2000h~3FFFh)
-                * Ø‚è‘Ö‚¦ƒAƒhƒŒƒX	b000h (mirrors: B001h~B7FFh)
-                * ‰ŠúƒZƒOƒƒ“ƒg	Random
+                * åˆ‡ã‚Šæ›¿ãˆã‚¢ãƒ‰ãƒ¬ã‚¹	b000h (mirrors: B001h~B7FFh)
+                * åˆæœŸã‚»ã‚°ãƒ¡ãƒ³ãƒˆ	Random
 
-        SCC+‚Ìê‡A0xb800-0xbfff‚ÉSCC+‚ÌƒŒƒWƒXƒ^‚ª‚ ‚éB
-        “Á‚ÉA0xbffe, 0xbfff‚ÉSCC+‚Ìƒ‚[ƒhƒŒƒWƒXƒ^‚ª‚ ‚éB—¼Ò‚Í“¯ˆê‚ÌƒŒƒWƒXƒ^B
+        SCC+ã®å ´åˆã€0xb800-0xbfffã«SCC+ã®ãƒ¬ã‚¸ã‚¹ã‚¿ãŒã‚ã‚‹ã€‚
+        ç‰¹ã«ã€0xbffe, 0xbfffã«SCC+ã®ãƒ¢ãƒ¼ãƒ‰ãƒ¬ã‚¸ã‚¹ã‚¿ãŒã‚ã‚‹ã€‚ä¸¡è€…ã¯åŒä¸€ã®ãƒ¬ã‚¸ã‚¹ã‚¿ã€‚
 
-        SCC+‚ğg—p‚·‚é‚½‚ß‚É‚Í‚Ü‚¸A0xbffe‚Ì bit4‚ğ1‚É‚·‚é•K—v‚ª‚ ‚éB
-        ‚»‚ÌŒãASCC‚Ìƒoƒ“ƒN4(A000h~BFFFh, page8k=5)‚Ì‘I‘ğƒŒƒWƒXƒ^‚Ìbit7‚ğ1‚É‚·‚é‚ÆASCC+‚ÌƒŒƒWƒXƒ^‚ªƒAƒNƒZƒX‰Â”\‚É‚È‚éB
+        SCC+ã‚’ä½¿ç”¨ã™ã‚‹ãŸã‚ã«ã¯ã¾ãšã€0xbffeã® bit4ã‚’1ã«ã™ã‚‹å¿…è¦ãŒã‚ã‚‹ã€‚
+        ãã®å¾Œã€SCCã®ãƒãƒ³ã‚¯4(A000h~BFFFh, page8k=5)ã®é¸æŠãƒ¬ã‚¸ã‚¹ã‚¿ã®bit7ã‚’1ã«ã™ã‚‹ã¨ã€SCC+ã®ãƒ¬ã‚¸ã‚¹ã‚¿ãŒã‚¢ã‚¯ã‚»ã‚¹å¯èƒ½ã«ãªã‚‹ã€‚
  */
 static void _select_bank(THIS* d, int region, int segment) {
     uint8_t* buf = NULL;
@@ -176,7 +176,7 @@ static void _select_bank(THIS* d, int region, int segment) {
         }
     } else {
         if ((segment == 3) && (segment & 0x80)) {
-            // SCC+‚Ìê‡Aregion 3‚Ì‘I‘ğƒŒƒWƒXƒ^‚Ìbit7‚ğ1‚É‚·‚é‚ÆASCC+‚ÌƒŒƒWƒXƒ^‚ªƒAƒNƒZƒX‰Â”\‚É‚È‚é
+            // SCC+ã®å ´åˆã€region 3ã®é¸æŠãƒ¬ã‚¸ã‚¹ã‚¿ã®bit7ã‚’1ã«ã™ã‚‹ã¨ã€SCC+ã®ãƒ¬ã‚¸ã‚¹ã‚¿ãŒã‚¢ã‚¯ã‚»ã‚¹å¯èƒ½ã«ãªã‚‹
             buf = d->scc_segment;
             segment = 0x80;
         } else {
@@ -193,7 +193,7 @@ static void _select_bank(THIS* d, int region, int segment) {
     d->selected_segment[region] = segment;
     d->base.page8k_pointers[(region + 2) & 0x7] = buf;
     d->base.memmap->update_page_pointer(d->base.memmap, (ms_memmap_driver_t*)d,
-                                        (region + 2) & 0x7);  // Ø‚è‘Ö‚¦‚ª‹N‚±‚Á‚½‚±‚Æ‚ğ memmap ‚É’Ê’m
+                                        (region + 2) & 0x7);  // åˆ‡ã‚Šæ›¿ãˆãŒèµ·ã“ã£ãŸã“ã¨ã‚’ memmap ã«é€šçŸ¥
 }
 
 /*
@@ -261,7 +261,7 @@ static void _write_scc_v1_reg(THIS* d, uint16_t addr, uint8_t data) {
     case 0x9899:
         d->scc_segment[addr & 0x1fef] = data;
         freq = d->scc_segment[0x1888] | (d->scc_segment[0x1889] << 8);
-        // w_SCC_freq(4, conv_freq(d, freq)); ƒTƒ|[ƒg‚µ‚Ä‚¢‚È‚¢
+        // w_SCC_freq(4, conv_freq(d, freq)); ã‚µãƒãƒ¼ãƒˆã—ã¦ã„ãªã„
         break;
     case 0x988a:
     case 0x989a:
@@ -286,7 +286,7 @@ static void _write_scc_v1_reg(THIS* d, uint16_t addr, uint8_t data) {
     case 0x988e:
     case 0x989e:
         d->scc_segment[addr & 0x1fef] = data;
-        // w_SCC_volume(4, data); ƒTƒ|[ƒg‚µ‚Ä‚¢‚È‚¢
+        // w_SCC_volume(4, data); ã‚µãƒãƒ¼ãƒˆã—ã¦ã„ãªã„
         break;
     case 0x988f:
     case 0x989f:
@@ -346,7 +346,7 @@ static void _write_scc_v2_reg(THIS* d, uint16_t addr, uint8_t data) {
     case 0xb8b9:
         d->scc_segment[addr & 0x1fef] = data;
         freq = d->scc_segment[0x18a8] | (d->scc_segment[0x18a9] << 8);
-        // w_SCC_freq(4, conv_freq(d, freq)); ƒTƒ|[ƒg‚µ‚Ä‚¢‚È‚¢
+        // w_SCC_freq(4, conv_freq(d, freq)); ã‚µãƒãƒ¼ãƒˆã—ã¦ã„ãªã„
         break;
     case 0xb8aa:
     case 0xb8ba:
@@ -371,7 +371,7 @@ static void _write_scc_v2_reg(THIS* d, uint16_t addr, uint8_t data) {
     case 0xb8ae:
     case 0xb8be:
         d->scc_segment[addr & 0x1fef] = data;
-        // w_SCC_volume(4, data); ƒTƒ|[ƒg‚µ‚Ä‚¢‚È‚¢
+        // w_SCC_volume(4, data); ã‚µãƒãƒ¼ãƒˆã—ã¦ã„ãªã„
         break;
     case 0xb8af:
     case 0xb8bf:
@@ -391,7 +391,7 @@ static void _write_scc_v2_reg(THIS* d, uint16_t addr, uint8_t data) {
 
 static void _write8(ms_memmap_driver_t* driver, uint16_t addr, uint8_t data) {
     THIS* d = (THIS*)driver;
-    // ƒoƒ“ƒNØ‚è‘Ö‚¦ˆ—
+    // ãƒãƒ³ã‚¯åˆ‡ã‚Šæ›¿ãˆå‡¦ç†
     int area = addr >> 11;
     switch (area) {
     case 0x5 * 2:
@@ -403,7 +403,7 @@ static void _write8(ms_memmap_driver_t* driver, uint16_t addr, uint8_t data) {
     case 0x9 * 2:
         _select_bank(d, 2, data);
         break;
-    case 0x9 * 2 + 1:  // 0x9800-0x9fff ‚É‚Í SCC‚ÌƒŒƒWƒXƒ^‚ª‚ ‚é
+    case 0x9 * 2 + 1:  // 0x9800-0x9fff ã«ã¯ SCCã®ãƒ¬ã‚¸ã‚¹ã‚¿ãŒã‚ã‚‹
         if ((d->selected_segment[2] == 0x3f) && (d->scc_mode == 0) && (r_SCC_enable() != 0)) {
             _write_scc_v1_reg(d, addr, data);
         }
@@ -411,7 +411,7 @@ static void _write8(ms_memmap_driver_t* driver, uint16_t addr, uint8_t data) {
     case 0xb * 2:
         _select_bank(d, 3, data);
         break;
-    case 0xb * 2 + 1:  // 0xb800-0xbfff ‚É‚Í SCC+‚ÌƒŒƒWƒXƒ^‚ª‚ ‚é
+    case 0xb * 2 + 1:  // 0xb800-0xbfff ã«ã¯ SCC+ã®ãƒ¬ã‚¸ã‚¹ã‚¿ãŒã‚ã‚‹
         if (r_SCC_enable() != 0) {
             if ((addr == 0xbffe) || (addr == 0xbfff)) {
                 _write_scc_mode_reg(d, addr, data);

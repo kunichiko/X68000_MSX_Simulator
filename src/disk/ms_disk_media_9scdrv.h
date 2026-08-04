@@ -10,10 +10,10 @@
 
 typedef struct ms_disk_media_9scdrv ms_disk_media_9scdrv_t;
 
-#define MS_DISK_9SCDRV_CYLINDER_BUFFER_COUNT 4  // 2ƒVƒŠƒ“ƒ_•ª
+#define MS_DISK_9SCDRV_CYLINDER_BUFFER_COUNT 4  // 2ã‚·ãƒªãƒ³ãƒ€åˆ†
 
 /**
- * @brief 9scdrvŒo—R‚ÅÀ2DDƒƒfƒBƒA‚ğms_disk_media_t ‚Åˆµ‚¤‚½‚ß‚Ì\‘¢‘Ì‚Å‚·B
+ * @brief 9scdrvçµŒç”±ã§å®Ÿ2DDãƒ¡ãƒ‡ã‚£ã‚¢ã‚’ms_disk_media_t ã§æ‰±ã†ãŸã‚ã®æ§‹é€ ä½“ã§ã™ã€‚
  *
  */
 typedef struct ms_disk_media_9scdrv {
@@ -24,8 +24,8 @@ typedef struct ms_disk_media_9scdrv {
     ms_disk_9scdrv_drive_t drive;
 
     // track buffers
-    uint8_t cylinder_buffer_info[MS_DISK_9SCDRV_CYLINDER_BUFFER_COUNT];         // cylinder_buffer‚ª‚Ç‚Ìƒgƒ‰ƒbƒN‚ğw‚µ‚Ä‚¢‚é‚©
-    uint8_t cylinder_buffer[MS_DISK_9SCDRV_CYLINDER_BUFFER_COUNT][9 * 2][512];  // 9ƒZƒNƒ^A512ƒoƒCƒgA2ƒwƒbƒh•ª
+    uint8_t cylinder_buffer_info[MS_DISK_9SCDRV_CYLINDER_BUFFER_COUNT];         // cylinder_bufferãŒã©ã®ãƒˆãƒ©ãƒƒã‚¯ã‚’æŒ‡ã—ã¦ã„ã‚‹ã‹
+    uint8_t cylinder_buffer[MS_DISK_9SCDRV_CYLINDER_BUFFER_COUNT][9 * 2][512];  // 9ã‚»ã‚¯ã‚¿ã€512ãƒã‚¤ãƒˆã€2ãƒ˜ãƒƒãƒ‰åˆ†
 } ms_disk_media_9scdrv_t;
 
 ms_disk_media_9scdrv_t* ms_disk_media_9scdrv_alloc();

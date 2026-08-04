@@ -58,9 +58,9 @@ ms_vdp_mode_t ms_vdp_GRAPHIC2 = {
     // crt_width
     256,
     // dots_per_byte
-    0,  // VDPƒRƒ}ƒ“ƒh—p‚È‚Ì‚Å–¢g—p
+    0,  // VDPã‚³ãƒãƒ³ãƒ‰ç”¨ãªã®ã§æœªä½¿ç”¨
     // bits_per_dot
-    0  // VDPƒRƒ}ƒ“ƒh—p‚È‚Ì‚Å–¢g—p
+    0  // VDPã‚³ãƒãƒ³ãƒ‰ç”¨ãªã®ã§æœªä½¿ç”¨
 };
 
 void write_pname_tbl_GRAPHIC2(ms_vdp_t* vdp, uint32_t addr, uint8_t data);
@@ -140,7 +140,7 @@ char* get_mode_name_GRAPHIC2(ms_vdp_t* vdp) {
 }
 
 void update_resolution_GRAPHIC2(ms_vdp_t* vdp) {
-    ms_vdp_update_resolution_COMMON(vdp, 0, 0, 0);  // 256, 16F, BG•sg—p
+    ms_vdp_update_resolution_COMMON(vdp, 0, 0, 0);  // 256, 16è‰², BGä¸ä½¿ç”¨
 }
 
 void write_pname_tbl_GRAPHIC2(ms_vdp_t* vdp, uint32_t addr, uint8_t data) {
@@ -181,7 +181,7 @@ static int num_refresh = 0;
 void vsync_draw_GRAPHIC2(ms_vdp_t* vdp) {
     int i;
     if (refresh_addr == 0) {
-        // ƒ‹[ƒv‚Ìæ“ª
+        // ãƒ«ãƒ¼ãƒ—ã®å…ˆé ­
         for (i = 0; i < 8; i++) {
             rewrite_flag_buffer[i] = ms_vdp_rewrite_flag_tbl[i];
             ms_vdp_rewrite_flag_tbl[i] = 0;
@@ -190,10 +190,10 @@ void vsync_draw_GRAPHIC2(ms_vdp_t* vdp) {
         num_refresh = 0;
     }
     uint8_t* vram = vdp->vram;
-    // 1‰ñ‚Ìvsync‚Å‘‚«Š·‚¦‚é”‚ÌãŒÀ
-    // int refresh_count = 16;				// ‚¾‚¢‚½‚¢60ƒtƒŒ[ƒ€ = 1•b‚Å 32•¶šx24s=768•¶š‚ª‘‚«Š·‚¦‚ç‚ê‚éŒvZ
-    int refresh_count = 32;  // ‚¾‚¢‚½‚¢30ƒtƒŒ[ƒ€ = 0.5•b‚Å 32•¶šx24s=768•¶š‚ª‘‚«Š·‚¦‚ç‚ê‚éŒvZ
-    // 1‰ñ‚Ìvsync‚Åƒ`ƒFƒbƒN‚·‚é”‚ÌãŒÀ
+    // 1å›ã®vsyncã§æ›¸ãæ›ãˆã‚‹æ•°ã®ä¸Šé™
+    // int refresh_count = 16;				// ã ã„ãŸã„60ãƒ•ãƒ¬ãƒ¼ãƒ  = 1ç§’ã§ 32æ–‡å­—x24è¡Œ=768æ–‡å­—ãŒæ›¸ãæ›ãˆã‚‰ã‚Œã‚‹è¨ˆç®—
+    int refresh_count = 32;  // ã ã„ãŸã„30ãƒ•ãƒ¬ãƒ¼ãƒ  = 0.5ç§’ã§ 32æ–‡å­—x24è¡Œ=768æ–‡å­—ãŒæ›¸ãæ›ãˆã‚‰ã‚Œã‚‹è¨ˆç®—
+    // 1å›ã®vsyncã§ãƒã‚§ãƒƒã‚¯ã™ã‚‹æ•°ã®ä¸Šé™
     int check_count = 128;
     while (refresh_count > 0 && check_count > 0) {
         uint8_t data = vram[refresh_addr];
@@ -206,10 +206,10 @@ void vsync_draw_GRAPHIC2(ms_vdp_t* vdp) {
         }
         check_count--;
         refresh_addr++;
-        // GRAPHIC2‚Í24s‚µ‚©Œ©‚¦‚È‚¢‚Ì‚ÅA32x24 = 768•¶š‚Ü‚Å‚İ‚é
-        // TODO: GRAPHIC3‚Ìê‡‚ÍcƒXƒNƒ[ƒ‹‚âA212ƒ‰ƒCƒ“ƒ‚[ƒh‚ª‚ ‚é‚Ì‚ÅAÅŒã‚Ü‚ÅŒ©‚é•K—v‚ª‚ ‚é
+        // GRAPHIC2ã¯24è¡Œã—ã‹è¦‹ãˆãªã„ã®ã§ã€32x24 = 768æ–‡å­—ã¾ã§ã¿ã‚‹
+        // TODO: GRAPHIC3ã®å ´åˆã¯ç¸¦ã‚¹ã‚¯ãƒ­ãƒ¼ãƒ«ã‚„ã€212ãƒ©ã‚¤ãƒ³ãƒ¢ãƒ¼ãƒ‰ãŒã‚ã‚‹ã®ã§ã€æœ€å¾Œã¾ã§è¦‹ã‚‹å¿…è¦ãŒã‚ã‚‹
         if ((refresh_addr & 0x3ff) == 0x300) {
-            // ˆêü‚µ‚½‚Ì‚Å‰Šú‰»
+            // ä¸€å‘¨ã—ãŸã®ã§åˆæœŸåŒ–
             refresh_addr = 0;
             return;
         }
@@ -218,7 +218,7 @@ void vsync_draw_GRAPHIC2(ms_vdp_t* vdp) {
 
 void _refresh_GRAPHIC2(ms_vdp_t* vdp) {
     if (1) {
-        // ‚±‚Ìê‚Å‚·‚®‚É‚Í‘‚«Š·‚¦‚¸‚ÉAƒtƒ‰ƒO‚¾‚¯ƒZƒbƒg‚µ‚ÄAvsync_draw‚Å‘‚«Š·‚¦‚é
+        // ã“ã®å ´ã§ã™ãã«ã¯æ›¸ãæ›ãˆãšã«ã€ãƒ•ãƒ©ã‚°ã ã‘ã‚»ãƒƒãƒˆã—ã¦ã€vsync_drawã§æ›¸ãæ›ãˆã‚‹
         int i;
         for (i = 0; i < 8; i++) {
             ms_vdp_rewrite_flag_tbl[i] = 0xffffffff;
@@ -226,7 +226,7 @@ void _refresh_GRAPHIC2(ms_vdp_t* vdp) {
         refresh_addr = 0;
         return;
     } else {
-        // Œ»İ‚ÌVRAM‚Ìó‘Ô‚ğŒ³‚É‰æ–Ê‚ğÄ•`‰æ
+        // ç¾åœ¨ã®VRAMã®çŠ¶æ…‹ã‚’å…ƒã«ç”»é¢ã‚’å†æç”»
         int x, y;
         for (y = 0; y < 32; y++) {
             for (x = 0; x < 32; x++) {

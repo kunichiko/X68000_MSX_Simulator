@@ -57,12 +57,12 @@ ms_vdp_mode_t ms_vdp_GRAPHIC3 = {
     // crt_width
     256,
     // dots_per_byte
-    0,  // VDPコマンド用なので未使用
+    0,  // VDP繧ｳ繝槭Φ繝臥畑縺ｪ縺ｮ縺ｧ譛ｪ菴ｿ逕ｨ
     // bits_per_dot
-    0  // VDPコマンド用なので未使用
+    0  // VDP繧ｳ繝槭Φ繝臥畑縺ｪ縺ｮ縺ｧ譛ｪ菴ｿ逕ｨ
 };
 
-/* スプライトモード以外、GRAPHIC2と同じ */
+/* 繧ｹ繝励Λ繧､繝医Δ繝ｼ繝我ｻ･螟悶；RAPHIC2縺ｨ蜷後§ */
 
 int init_GRAPHIC3(ms_vdp_t* vdp) {
     set_GRAPHIC2_mac();
@@ -135,5 +135,5 @@ char* get_mode_name_GRAPHIC3(ms_vdp_t* vdp) {
 }
 
 void update_resolution_GRAPHIC3(ms_vdp_t* vdp) {
-    ms_vdp_update_resolution_COMMON(vdp, 0, 0, 0);  // 256, 16色, BG不使用
+    ms_vdp_update_resolution_COMMON(vdp, 0, 0, 0);  // 256, 16濶ｲ, BG荳堺ｽｿ逕ｨ
 }

@@ -19,25 +19,25 @@ static void _change_disk(ms_disk_container_t* d, int disk_no);
 static uint8_t _is_disk_changed(ms_disk_container_t* d);
 
 /*
-        Šm•Ûƒ‹[ƒ`ƒ“
+        ç¢ºä¿ãƒ«ãƒ¼ãƒãƒ³
  */
 ms_disk_container_t* ms_disk_container_alloc() {
     return (ms_disk_container_t*)new_malloc(sizeof(ms_disk_container_t));
 }
 
 /**
- * @brief ƒfƒBƒXƒNƒRƒ“ƒeƒi‚ð‰Šú‰»‚µ‚Ü‚·
+ * @brief ãƒ‡ã‚£ã‚¹ã‚¯ã‚³ãƒ³ãƒ†ãƒŠã‚’åˆæœŸåŒ–ã—ã¾ã™
  *
  * @param instance
- * @param argc ƒ[ƒh‚·‚éƒfƒBƒXƒN‚Ì”
- * @param argv ƒ[ƒh‚·‚éƒfƒBƒXƒN‚ÌƒpƒX (argcŒÂ‚Ì•¶Žš—ñ)
+ * @param argc ãƒ­ãƒ¼ãƒ‰ã™ã‚‹ãƒ‡ã‚£ã‚¹ã‚¯ã®æ•°
+ * @param argv ãƒ­ãƒ¼ãƒ‰ã™ã‚‹ãƒ‡ã‚£ã‚¹ã‚¯ã®ãƒ‘ã‚¹ (argcå€‹ã®æ–‡å­—åˆ—)
  */
 void ms_disk_container_init(ms_disk_container_t* instance, int dskimage_count, char* dskimage_paths[],
                             ms_disk_9scdrv_drive_t drive_for_9scdrv) {
     if (instance == NULL) {
         return;
     }
-    // ƒƒ\ƒbƒh‚Ì“o˜^
+    // ãƒ¡ã‚½ãƒƒãƒ‰ã®ç™»éŒ²
     instance->deinit = ms_disk_container_deinit;
     instance->read_track = _read_track;
     instance->write_track = _write_track;
@@ -46,33 +46,33 @@ void ms_disk_container_init(ms_disk_container_t* instance, int dskimage_count, c
     instance->change_disk = _change_disk;
     instance->is_disk_changed = _is_disk_changed;
 
-    // ƒfƒBƒXƒN‚Ìƒ[ƒh (Å‘å16–‡‚Ü‚Å)
+    // ãƒ‡ã‚£ã‚¹ã‚¯ã®ãƒ­ãƒ¼ãƒ‰ (æœ€å¤§16æžšã¾ã§)
     if (dskimage_count > 0) {
         int i;
         for (i = 0; i < min(dskimage_count, 16); i++) {
-            // ‚Ð‚Æ‚Ü‚¸ .DSK ƒtƒH[ƒ}ƒbƒg‚Ì‚Ý‘Î‰ž
+            // ã²ã¨ã¾ãš .DSK ãƒ•ã‚©ãƒ¼ãƒžãƒƒãƒˆã®ã¿å¯¾å¿œ
             ms_disk_media_dskformat_t* disk = ms_disk_media_dskformat_alloc();
             if (ms_disk_media_dskformat_init(disk, dskimage_paths[i])) {
                 instance->disk_set[i] = (ms_disk_media_t*)disk;
             }
         }
         instance->disk_count = dskimage_count;
-        instance->change_disk(instance, 0);  // 1–‡–Ú‚ÌƒfƒBƒXƒN‚ðƒZƒbƒg
+        instance->change_disk(instance, 0);  // 1æžšç›®ã®ãƒ‡ã‚£ã‚¹ã‚¯ã‚’ã‚»ãƒƒãƒˆ
     }
 
-    // 9scdrvƒhƒ‰ƒCƒu‚Ì‰Šú‰»
+    // 9scdrvãƒ‰ãƒ©ã‚¤ãƒ–ã®åˆæœŸåŒ–
     instance->disk_9scdrv = NULL;
     if (drive_for_9scdrv != MS_DISK_9SCDRV_NONE) {
         instance->disk_9scdrv = ms_disk_media_9scdrv_alloc();
         if (instance->disk_9scdrv != NULL) {
             if (ms_disk_media_9scdrv_init(instance->disk_9scdrv, drive_for_9scdrv) == 0) {
-                // ‰Šú‰»Ž¸”s
+                // åˆæœŸåŒ–å¤±æ•—
                 free(instance->disk_9scdrv);
                 instance->disk_9scdrv = NULL;
                 printf("9scdrv drive initialization failed.\n");
             } else {
                 printf("9scdrv drive initialized.\n");
-                instance->change_disk(instance, -1);  // 9scdrv‚ÉØ‚è‘Ö‚¦
+                instance->change_disk(instance, -1);  // 9scdrvã«åˆ‡ã‚Šæ›¿ãˆ
             }
         }
     }
@@ -93,25 +93,25 @@ void ms_disk_container_deinit(ms_disk_container_t* instance) {
 static uint8_t _read_track(ms_disk_container_t* d, uint32_t track_no, uint8_t side, ms_disk_raw_track_t* raw_track) {
     ms_disk_media_t* current = d->current_disk;
     if (current == NULL) {
-        return 0;  // Ž¸”s
+        return 0;  // å¤±æ•—
     }
     current->read_track(current, track_no, side, raw_track);
 
-    return 1;  // ¬Œ÷
+    return 1;  // æˆåŠŸ
 }
 
 static uint8_t _write_track(ms_disk_container_t* d, uint32_t track_no, uint8_t side, ms_disk_raw_track_t* raw_track) {
     ms_disk_media_t* current = d->current_disk;
     if (current == NULL) {
-        return 0;  // Ž¸”s
+        return 0;  // å¤±æ•—
     }
     if (current->is_write_protected) {
         MS_LOG(MS_LOG_INFO, "Disk is write protected\n");
-        return 0;  // Ž¸”s
+        return 0;  // å¤±æ•—
     }
     current->write_track(current, track_no, side, raw_track);
 
-    return 1;  // ¬Œ÷
+    return 1;  // æˆåŠŸ
 }
 
 static void _flush_track(ms_disk_container_t* d) {
@@ -130,7 +130,7 @@ static void _change_disk(ms_disk_container_t* d, int disk_no) {
     }
     MS_LOG(MS_LOG_INFO, "Changing disk to: %d\n", disk_no);
     if (disk_no == -1) {
-        // 9scdrv‚ÉØ‚è‘Ö‚¦
+        // 9scdrvã«åˆ‡ã‚Šæ›¿ãˆ
         if (d->disk_9scdrv == NULL) {
             printf("9scdrv drive is not available.\n");
         } else {

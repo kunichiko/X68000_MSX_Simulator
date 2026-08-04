@@ -23,14 +23,14 @@ static uint16_t _read16(ms_memmap_driver_t* driver, uint16_t addr);
 static void _write16(ms_memmap_driver_t* driver, uint16_t addr, uint16_t data);
 
 /*
-        Šm•Ûƒ‹[ƒ`ƒ“
+        ç¢ºä¿ãƒ«ãƒ¼ãƒãƒ³
  */
 THIS* ms_memmap_MAINRAM_alloc() {
     return (THIS*)new_malloc(sizeof(THIS));
 }
 
 /*
-        ‰Šú‰»ƒ‹[ƒ`ƒ“
+        åˆæœŸåŒ–ãƒ«ãƒ¼ãƒãƒ³
  */
 void ms_memmap_MAINRAM_init(THIS* instance, ms_memmap_t* memmap) {
     if (instance == NULL) {
@@ -38,15 +38,15 @@ void ms_memmap_MAINRAM_init(THIS* instance, ms_memmap_t* memmap) {
     }
     uint8_t* buffer = (uint8_t*)new_malloc(MAINRAM_SIZE);
     if (buffer == NULL) {
-        printf("ƒƒ‚ƒŠ‚ªŠm•Û‚Å‚«‚Ü‚¹‚ñB\n");
+        printf("ãƒ¡ãƒ¢ãƒªãŒç¢ºä¿ã§ãã¾ã›ã‚“ã€‚\n");
         return;
     }
     ms_memmap_driver_init(&instance->base, memmap, buffer);
 
-    // ƒvƒƒpƒeƒB‚âƒƒ\ƒbƒh‚Ì“o˜^
+    // ãƒ—ãƒ­ãƒ‘ãƒ†ã‚£ã‚„ãƒ¡ã‚½ãƒƒãƒ‰ã®ç™»éŒ²
     instance->base.type = ROM_TYPE_MAPPER_RAM;
     instance->base.name = driver_name;
-    // instance->base.deinit = ms_memmap_MAINRAM_deinit; ƒI[ƒo[ƒ‰ƒCƒh•s—v
+    // instance->base.deinit = ms_memmap_MAINRAM_deinit; ã‚ªãƒ¼ãƒãƒ¼ãƒ©ã‚¤ãƒ‰ä¸è¦
     instance->base.did_attach = _did_attach;
     instance->base.will_detach = _will_detach;
     instance->base.did_update_memory_mapper = _did_update_memory_mapper;
@@ -91,7 +91,7 @@ static void _did_update_memory_mapper(ms_memmap_driver_t* driver, int page, uint
     d->base.page8k_pointers[page * 2 + 1] = d->base.buffer + (segment_num * 0x4000) + 0x2000;
     d->selected_segment[page] = segment_num;
 
-    // Ø‚è‘Ö‚¦‚ª‹N‚±‚Á‚½‚±‚Æ‚ð memmap ‚É’Ê’m
+    // åˆ‡ã‚Šæ›¿ãˆãŒèµ·ã“ã£ãŸã“ã¨ã‚’ memmap ã«é€šçŸ¥
     d->base.memmap->update_page_pointer(d->base.memmap, (ms_memmap_driver_t*)d, page * 2 + 0);
     d->base.memmap->update_page_pointer(d->base.memmap, (ms_memmap_driver_t*)d, page * 2 + 1);
 }
@@ -118,7 +118,7 @@ static uint16_t _read16(ms_memmap_driver_t* driver, uint16_t addr) {
     int slot = (addr >> 14) & 0x03;
     int long_addr = (addr & 0x3fff) + (0x4000 * d->selected_segment[slot]);
 
-    // addr ‚Íƒy[ƒW‹«ŠE‚ð‚Ü‚½‚ª‚È‚¢‚æ‚¤‚É‚È‚Á‚Ä‚¢‚é‚Ì‚Å‹C‚É‚¹‚¸OK
+    // addr ã¯ãƒšãƒ¼ã‚¸å¢ƒç•Œã‚’ã¾ãŸãŒãªã„ã‚ˆã†ã«ãªã£ã¦ã„ã‚‹ã®ã§æ°—ã«ã›ãšOK
     uint16_t ret = driver->buffer[long_addr] | (driver->buffer[long_addr + 1] << 8);
     return ret;
 }
@@ -128,7 +128,7 @@ static void _write16(ms_memmap_driver_t* driver, uint16_t addr, uint16_t data) {
     int slot = (addr >> 14) & 0x03;
     int long_addr = (addr & 0x3fff) + (0x4000 * d->selected_segment[slot]);
 
-    // addr ‚Íƒy[ƒW‹«ŠE‚ð‚Ü‚½‚ª‚È‚¢‚æ‚¤‚É‚È‚Á‚Ä‚¢‚é‚Ì‚Å‹C‚É‚¹‚¸OK
+    // addr ã¯ãƒšãƒ¼ã‚¸å¢ƒç•Œã‚’ã¾ãŸãŒãªã„ã‚ˆã†ã«ãªã£ã¦ã„ã‚‹ã®ã§æ°—ã«ã›ãšOK
     driver->buffer[long_addr] = data & 0xff;
     driver->buffer[long_addr + 1] = (data >> 8) & 0xff;
 }

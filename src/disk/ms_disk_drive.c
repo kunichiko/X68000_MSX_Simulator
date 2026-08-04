@@ -9,20 +9,20 @@
 #include "ms_disk.h"
 
 /*
-        確保ルーチン
+        遒ｺ菫昴Ν繝ｼ繝√Φ
  */
 ms_disk_drive_t* ms_disk_drive_alloc(char* file_path) {
     return (ms_disk_drive_t*)new_malloc(sizeof(ms_disk_drive_t));
 }
 
 /*
-        初期化ルーチン
+        蛻晄悄蛹悶Ν繝ｼ繝√Φ
  */
 void ms_disk_drive_init(ms_disk_drive_t* instance) {
     if (instance == NULL) {
         return;
     }
-    // メソッドの登録
+    // 繝｡繧ｽ繝�繝峨�ｮ逋ｻ骭ｲ
     instance->deinit = ms_disk_drive_deinit;
     return;
 }

@@ -16,11 +16,11 @@ CC = $(CROSS)gcc
 AS = run68 /Users/ohnaka/work/XEiJ/HFS/prog/HAS/HAS060.X
 LD = $(CROSS)gcc
 
-CFLAGS = -g -std=gnu90 -c -m68000 -O3 -finput-charset=CP932 -I${UTHASH_DIR}
-CFLAGS_DEBUG = -g -std=gnu90 -c -m68000 -DDEBUG -finput-charset=CP932 -I${UTHASH_DIR}
+CFLAGS = -g -std=gnu90 -c -m68000 -O3 -finput-charset=UTF-8 -fexec-charset=CP932 -I${UTHASH_DIR}
+CFLAGS_DEBUG = -g -std=gnu90 -c -m68000 -DDEBUG -finput-charset=UTF-8 -fexec-charset=CP932 -I${UTHASH_DIR}
 LDFLAGS = src/disk/9scdrv/_X_KPCHK_elf.o -lm -lbas -liocs -ldos -Wl,-e,msboot_start
 #LDFLAGS = src/disk/9scdrv/_X_KPCHK_elf.o -lm -lbas -liocs -ldos
-#GCC_OPTS = -c -O -g -finput-charset=CP932
+#GCC_OPTS = -c -O -g -finput-charset=UTF-8 -fexec-charset=CP932
 
 #LD = m68k-xelf-ld.x
 #LD_OPTS = -L /Users/ohnaka/work/XEiJ/HFS/XGCC/LIB/
@@ -30,7 +30,7 @@ LDFLAGS = src/disk/9scdrv/_X_KPCHK_elf.o -lm -lbas -liocs -ldos -Wl,-e,msboot_st
 ASFLAGS = -i $(SRC_DIR) -i $(ASMINC_DIR) -i $(VDP_DIR) -i $(MEMMAP_DIR) -i ${DISK_DIR} -i ${PERIPHERAL_DIR} -w0
 ASFLAGS_DEBUG = -d -s DEBUG $(ASFLAGS)
 
-# �I�u�W�F�N�g�t�@�C���̃��X�g��ϐ��ɂ܂Ƃ߂�
+# オブジェクトファイルのリストを変数にまとめる
 OBJS =	$(BUILD_DIR)/msboot_mac.o \
 		$(BUILD_DIR)/ms.o \
 		$(BUILD_DIR)/ms_R800_30_mac.o \

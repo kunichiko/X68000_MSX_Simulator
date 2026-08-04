@@ -14,7 +14,7 @@ static THIS* _shared = NULL;
 THIS* ms_iomap_shared_instance() {
     _shared = (THIS*)new_malloc(sizeof(ms_iomap_t));
     if (_shared == NULL) {
-        printf("ƒƒ‚ƒŠ‚ªŠm•Û‚Å‚«‚Ü‚¹‚ñ\n");
+        printf("ãƒ¡ãƒ¢ãƒªãŒç¢ºä¿ã§ãã¾ã›ã‚“\n");
         return NULL;
     }
     int i;
@@ -28,7 +28,7 @@ void ms_iomap_shared_deinit() {
     if (_shared == NULL) {
         return;
     }
-    // ƒVƒ“ƒOƒ‹ƒgƒ“‚Ìê‡‚Í deinit‚Å free‚·‚é
+    // ã‚·ãƒ³ã‚°ãƒ«ãƒˆãƒ³ã®å ´åˆã¯ deinitã§ freeã™ã‚‹
     new_free(_shared);
     _shared = NULL;
 }
@@ -50,7 +50,7 @@ void ms_iomap_out(uint8_t port, uint8_t data) {
         case 0xad:
         case 0xae:
         case 0xaf:
-        case 0xb8:  // ƒ‰ƒCƒgƒyƒ“?
+        case 0xb8:  // ãƒ©ã‚¤ãƒˆãƒšãƒ³?
         case 0xb9:
         case 0xba:
         case 0xbb:
@@ -59,7 +59,7 @@ void ms_iomap_out(uint8_t port, uint8_t data) {
             loglevel = MS_LOG_TRACE;
             break;
         }
-        MS_LOG(loglevel, "–¢‘Î‰žƒ|[ƒg Wr 0x%02x\n", port);
+        MS_LOG(loglevel, "æœªå¯¾å¿œãƒãƒ¼ãƒˆ Wr 0x%02x\n", port);
         return;
     }
     ioport->write(ioport, port, data);
@@ -74,7 +74,7 @@ uint8_t ms_iomap_in(uint8_t port) {
         case 0xad:
         case 0xae:
         case 0xaf:
-        case 0xb8:  // ƒ‰ƒCƒgƒyƒ“?
+        case 0xb8:  // ãƒ©ã‚¤ãƒˆãƒšãƒ³?
         case 0xb9:
         case 0xba:
         case 0xbb:
@@ -83,7 +83,7 @@ uint8_t ms_iomap_in(uint8_t port) {
             loglevel = MS_LOG_TRACE;
             break;
         }
-        MS_LOG(loglevel, "–¢‘Î‰žƒ|[ƒg Rd 0x%02x\n", port);
+        MS_LOG(loglevel, "æœªå¯¾å¿œãƒãƒ¼ãƒˆ Rd 0x%02x\n", port);
         return 0xff;
     }
     return ioport->read(ioport, port);

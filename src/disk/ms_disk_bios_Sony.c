@@ -1,10 +1,10 @@
 /*
- * SONY / Philips ƒ^ƒCƒv‚Ì WD2793 ƒCƒ“ƒ^[ƒtƒF[ƒX—p DISK BIOS ROM ƒhƒ‰ƒCƒoB
+ * SONY / Philips ã‚¿ã‚¤ãƒ—ã® WD2793 ã‚¤ãƒ³ã‚¿ãƒ¼ãƒ•ã‚§ãƒ¼ã‚¹ç”¨ DISK BIOS ROM ãƒ‰ãƒ©ã‚¤ãƒã€‚
  *
- * ƒŒƒWƒXƒ^ƒ}ƒbƒv‚Í ms_disk_bios_Sony.h ‚ğQÆ‚µ‚Ä‚­‚¾‚³‚¢BPanasonic (TC8566AF)
- * —pƒhƒ‰ƒCƒo‚ğ”Í‚Æ‚µ‚Äì¬‚µ‚Ä‚¢‚Ü‚·B16KB ‚Ì ROM ‚Íƒy[ƒW1 (0x4000-0x7FFF) ‚É
- * ”z’u‚³‚êAFDC ‚ÌƒŒƒWƒXƒ^‚Í‚»‚Ì 16KB ƒEƒBƒ“ƒhƒE‚Ì––”ö (ƒIƒtƒZƒbƒg 0x3FF8 ˆÈ~)
- * ‚ÅƒfƒR[ƒh‚³‚ê‚Ü‚·B
+ * ãƒ¬ã‚¸ã‚¹ã‚¿ãƒãƒƒãƒ—ã¯ ms_disk_bios_Sony.h ã‚’å‚ç…§ã—ã¦ãã ã•ã„ã€‚Panasonic (TC8566AF)
+ * ç”¨ãƒ‰ãƒ©ã‚¤ãƒã‚’ç¯„ã¨ã—ã¦ä½œæˆã—ã¦ã„ã¾ã™ã€‚16KB ã® ROM ã¯ãƒšãƒ¼ã‚¸1 (0x4000-0x7FFF) ã«
+ * é…ç½®ã•ã‚Œã€FDC ã®ãƒ¬ã‚¸ã‚¹ã‚¿ã¯ãã® 16KB ã‚¦ã‚£ãƒ³ãƒ‰ã‚¦ã®æœ«å°¾ (ã‚ªãƒ•ã‚»ãƒƒãƒˆ 0x3FF8 ä»¥é™)
+ * ã§ãƒ‡ã‚³ãƒ¼ãƒ‰ã•ã‚Œã¾ã™ã€‚
  */
 
 #include "ms_disk_bios_Sony.h"
@@ -42,11 +42,11 @@ void ms_disk_bios_Sony_init(THIS* instance, ms_memmap_t* memmap, uint8_t* buffer
     instance->base.write8 = ms_memmap_write8_DISKBIOS_SONY;
     instance->base.write16 = ms_memmap_write16_DISKBIOS_SONY;
 
-    // ROM ‚ğ‚½‚È‚¢ƒy[ƒW‚Í 0x00 ‚ğ“Ç‚İ•Ô‚µ‚Ü‚· (ƒŒƒWƒXƒ^ƒy[ƒW‚Í read8/write8 ‚Å
-    // “Ç‚İ‘‚«‚Å‚«‚é‚æ‚¤‚É‚·‚é‚Ì‚ÅA‚±‚±‚Å‚Í 0 –„‚ßƒoƒbƒtƒ@‚ğŠ„‚è“–‚Ä‚é‚¾‚¯‚Å‚·)B
+    // ROM ã‚’æŒãŸãªã„ãƒšãƒ¼ã‚¸ã¯ 0x00 ã‚’èª­ã¿è¿”ã—ã¾ã™ (ãƒ¬ã‚¸ã‚¹ã‚¿ãƒšãƒ¼ã‚¸ã¯ read8/write8 ã§
+    // èª­ã¿æ›¸ãã§ãã‚‹ã‚ˆã†ã«ã™ã‚‹ã®ã§ã€ã“ã“ã§ã¯ 0 åŸ‹ã‚ãƒãƒƒãƒ•ã‚¡ã‚’å‰²ã‚Šå½“ã¦ã‚‹ã ã‘ã§ã™)ã€‚
     uint8_t* zero_buffer = (uint8_t*)new_malloc(8 * 1024);
     if (zero_buffer == NULL) {
-        printf("ƒƒ‚ƒŠ‚ªŠm•Û‚Å‚«‚Ü‚¹‚ñB\n");
+        printf("ãƒ¡ãƒ¢ãƒªãŒç¢ºä¿ã§ãã¾ã›ã‚“ã€‚\n");
         return;
     }
     int i;
@@ -55,7 +55,7 @@ void ms_disk_bios_Sony_init(THIS* instance, ms_memmap_t* memmap, uint8_t* buffer
     }
     instance->zero_buffer = zero_buffer;
 
-    // ROM ‚Íƒy[ƒW1 (0x4000-0x7FFF) = page8k[2],[3] ‚É”z’u‚·‚é
+    // ROM ã¯ãƒšãƒ¼ã‚¸1 (0x4000-0x7FFF) = page8k[2],[3] ã«é…ç½®ã™ã‚‹
     int page8k = 0;
     for (; page8k < 2; page8k++) {
         instance->base.page8k_pointers[page8k] = zero_buffer;
@@ -97,10 +97,10 @@ uint8_t ms_memmap_read8_DISKBIOS_SONY(ms_memmap_driver_t* driver, uint16_t addr)
         case 0x3ffb:
             return ms_disk_controller_WD2793_get_data_reg(&d->fdc);
         case 0x3ffc:
-            // ƒTƒCƒhƒŒƒWƒXƒ^ (bit0 = ƒTƒCƒh‘I‘ğ)
+            // ã‚µã‚¤ãƒ‰ãƒ¬ã‚¸ã‚¹ã‚¿ (bit0 = ã‚µã‚¤ãƒ‰é¸æŠ)
             return d->side_reg;
         case 0x3ffd: {
-            // bit1-0 ƒhƒ‰ƒCƒu”Ô†, bit2 = 0 ‚ÅƒfƒBƒXƒNŒğŠ·‚ ‚è, bit7 ƒ‚[ƒ^[
+            // bit1-0 ãƒ‰ãƒ©ã‚¤ãƒ–ç•ªå·, bit2 = 0 ã§ãƒ‡ã‚£ã‚¹ã‚¯äº¤æ›ã‚ã‚Š, bit7 ãƒ¢ãƒ¼ã‚¿ãƒ¼
             uint8_t res = d->drive_reg & ~0x04;
             if (!ms_disk_controller_WD2793_is_disk_changed(&d->fdc)) {
                 res |= 0x04;
@@ -108,7 +108,7 @@ uint8_t ms_memmap_read8_DISKBIOS_SONY(ms_memmap_driver_t* driver, uint16_t addr)
             return res;
         }
         case 0x3fff: {
-            // IRQ/DRQ ƒ‰ƒCƒ“‚Í•‰˜_—B–¢Ú‘±ƒrƒbƒg‚Í 1 ‚Éƒvƒ‹ƒAƒbƒv‚³‚ê‚Ä‚¢‚é
+            // IRQ/DRQ ãƒ©ã‚¤ãƒ³ã¯è² è«–ç†ã€‚æœªæ¥ç¶šãƒ“ãƒƒãƒˆã¯ 1 ã«ãƒ—ãƒ«ã‚¢ãƒƒãƒ—ã•ã‚Œã¦ã„ã‚‹
             uint8_t value = 0xff;
             if (ms_disk_controller_WD2793_get_irq(&d->fdc)) {
                 value &= ~0x40;
@@ -146,25 +146,25 @@ void ms_memmap_write8_DISKBIOS_SONY(ms_memmap_driver_t* driver, uint16_t addr, u
             ms_disk_controller_WD2793_set_data_reg(&d->fdc, data);
             break;
         case 0x3ffc:
-            // ƒTƒCƒh‘I‘ğ (bit0)
+            // ã‚µã‚¤ãƒ‰é¸æŠ (bit0)
             d->side_reg = data;
             ms_disk_controller_WD2793_set_side(&d->fdc, data & 1);
             break;
         case 0x3ffd: {
-            // bit1-0 ƒhƒ‰ƒCƒu‘I‘ğ (00/10 -> A, 01 -> B, 11 -> ‚È‚µ), bit7 ƒ‚[ƒ^[
+            // bit1-0 ãƒ‰ãƒ©ã‚¤ãƒ–é¸æŠ (00/10 -> A, 01 -> B, 11 -> ãªã—), bit7 ãƒ¢ãƒ¼ã‚¿ãƒ¼
             d->drive_reg = data;
             uint8_t drive_no;
             switch (data & 0x03) {
             case 0:
             case 2:
-                drive_no = 0;  // ƒhƒ‰ƒCƒu A
+                drive_no = 0;  // ãƒ‰ãƒ©ã‚¤ãƒ– A
                 break;
             case 1:
-                drive_no = 1;  // ƒhƒ‰ƒCƒu B
+                drive_no = 1;  // ãƒ‰ãƒ©ã‚¤ãƒ– B
                 break;
             case 3:
             default:
-                drive_no = 3;  // ‚È‚µ (ƒ_ƒ~[ƒhƒ‰ƒCƒu‚ÉŠ„‚è“–‚Ä‚é)
+                drive_no = 3;  // ãªã— (ãƒ€ãƒŸãƒ¼ãƒ‰ãƒ©ã‚¤ãƒ–ã«å‰²ã‚Šå½“ã¦ã‚‹)
                 break;
             }
             ms_disk_controller_WD2793_set_drive(&d->fdc, drive_no);

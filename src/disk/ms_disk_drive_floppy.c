@@ -26,27 +26,27 @@ static uint8_t _get_next_sector(THIS* d, ms_disk_sector_t* sector_buffer);
 static uint8_t _write_sector(THIS* d, ms_disk_sector_t* sector_buffer);
 
 /*
-        Šm•Ûƒ‹[ƒ`ƒ“
+        ç¢ºä¿ãƒ«ãƒ¼ãƒãƒ³
  */
 THIS* ms_disk_drive_floppy_alloc() {
     return (THIS*)new_malloc(sizeof(THIS));
 }
 
 /*
-        ‰Šú‰»ƒ‹[ƒ`ƒ“
+        åˆæœŸåŒ–ãƒ«ãƒ¼ãƒãƒ³
  */
 void ms_disk_drive_floppy_init(THIS* instance, ms_disk_container_t* container) {
     if (instance == NULL) {
         return;
     }
     ms_disk_drive_init(&instance->base);
-    // ƒƒ\ƒbƒh‚Ì“o˜^ (override)
+    // ãƒ¡ã‚½ãƒƒãƒ‰ã®ç™»éŒ² (override)
     instance->base.deinit = (ms_disk_drive_deinit_t)ms_disk_drive_floppy_deinit;
     instance->base.read_track = (ms_disk_drive_read_track_t)_floppy_read_track;
     instance->base.write_track = (ms_disk_drive_write_track_t)_floppy_write_track;
     instance->base.flush_track = (ms_disk_drive_flush_track_t)_floppy_flush_track;
     instance->base.is_disk_changed = (ms_disk_drive_is_disk_changed_t)_floppy_is_disk_changed;
-    // ƒƒ\ƒbƒh‚Ì“o˜^
+    // ãƒ¡ã‚½ãƒƒãƒ‰ã®ç™»éŒ²
     instance->set_motor = _set_motor;
     instance->set_side = _set_side;
     instance->seek = _seek;
@@ -116,19 +116,19 @@ static uint8_t _is_disk_inserted(THIS* d) {
  *
  * @param d
  * @param sector_buffer
- * @return uint8_t ¬Œ÷‚Í1, ¸”s‚Í0
+ * @return uint8_t æˆåŠŸæ™‚ã¯1, å¤±æ•—æ™‚ã¯0
  */
 static uint8_t _get_next_sector(THIS* d, ms_disk_sector_t* sector_buffer) {
     if (d->_track_buffer_ready == 0) {
         ms_disk_raw_track_t* raw_track = &d->_track_buffer;
         if (!d->container->read_track(d->container, d->_present_cylinder_number, d->_present_side_number, raw_track)) {
-            return 0;  // ¸”s
+            return 0;  // å¤±æ•—
         }
         d->_track_buffer_ready = 1;
         d->_present_sector_number = 1;
     }
 
-    // TODO –{“–‚Í‚±‚±‚Åƒgƒ‰ƒbƒN‚Ì¶ƒf[ƒ^‚ğ‰ğÍ‚µ‚ÄƒZƒNƒ^‚ğæ“¾‚·‚é‚ªA‚±‚±‚Å‚ÍŒˆ‚ß‚¤‚¿‚Å“Ç‚İo‚·
+    // TODO æœ¬å½“ã¯ã“ã“ã§ãƒˆãƒ©ãƒƒã‚¯ã®ç”Ÿãƒ‡ãƒ¼ã‚¿ã‚’è§£æã—ã¦ã‚»ã‚¯ã‚¿ã‚’å–å¾—ã™ã‚‹ãŒã€ã“ã“ã§ã¯æ±ºã‚ã†ã¡ã§èª­ã¿å‡ºã™
     sector_buffer->track = d->_present_cylinder_number;
     sector_buffer->head = d->_present_side_number;
     sector_buffer->sector = d->_present_sector_number;
@@ -146,12 +146,12 @@ static uint8_t _get_next_sector(THIS* d, ms_disk_sector_t* sector_buffer) {
     sector_buffer->crc = 0;           // TODO CRC
     sector_buffer->crc_expected = 0;  // TODO CRC
 
-    // Ÿ‚ÌƒZƒNƒ^‚Ö
+    // æ¬¡ã®ã‚»ã‚¯ã‚¿ã¸
     d->_present_sector_number++;
     if (d->_present_sector_number > 9) {
         d->_present_sector_number = 0;
     }
-    return 1;  // ¬Œ÷
+    return 1;  // æˆåŠŸ
 }
 
 /**
@@ -159,14 +159,14 @@ static uint8_t _get_next_sector(THIS* d, ms_disk_sector_t* sector_buffer) {
  *
  * @param d
  * @param sector_buffer
- * @return uint8_t ¬Œ÷‚Í1, ¸”s‚Í0
+ * @return uint8_t æˆåŠŸæ™‚ã¯1, å¤±æ•—æ™‚ã¯0
  */
 static uint8_t _write_sector(THIS* d, ms_disk_sector_t* sector_buffer) {
     if (d->_track_buffer_ready == 0) {
         ms_disk_raw_track_t* raw_track = &d->_track_buffer;
         if (!d->container->read_track(d->container, d->_present_cylinder_number, d->_present_side_number, raw_track)) {
             MS_LOG(MS_LOG_ERROR, "Load track failed: C:%d H:%d\n", d->_present_cylinder_number, d->_present_side_number);
-            return 0;  // ¸”s
+            return 0;  // å¤±æ•—
         }
         d->_track_buffer_ready = 1;
     }
@@ -176,15 +176,15 @@ static uint8_t _write_sector(THIS* d, ms_disk_sector_t* sector_buffer) {
         MS_LOG(MS_LOG_ERROR, "Track number is invalid:\n C:%d H:%d (expect C:%d H:%d)\n",  //
                sector_buffer->track, sector_buffer->head,                                  //
                d->_present_cylinder_number, d->_present_side_number);
-        return 0;  // ¸”s
+        return 0;  // å¤±æ•—
     }
 
     if (sector_buffer->sector > 9) {
         MS_LOG(MS_LOG_ERROR, "Sector number is invalid: %d\n", sector_buffer->sector);
-        return 0;  // ¸”s
+        return 0;  // å¤±æ•—
     }
 
-    // TODO –{“–‚Í‚±‚±‚Åƒgƒ‰ƒbƒN‚Ì¶ƒf[ƒ^‚ğ‰ğÍ‚µ‚ÄƒZƒNƒ^‚ğæ“¾‚·‚é‚ªA‚±‚±‚Å‚ÍŒˆ‚ß‚¤‚¿‚Å‘‚«‚Ş
+    // TODO æœ¬å½“ã¯ã“ã“ã§ãƒˆãƒ©ãƒƒã‚¯ã®ç”Ÿãƒ‡ãƒ¼ã‚¿ã‚’è§£æã—ã¦ã‚»ã‚¯ã‚¿ã‚’å–å¾—ã™ã‚‹ãŒã€ã“ã“ã§ã¯æ±ºã‚ã†ã¡ã§æ›¸ãè¾¼ã‚€
     int offset = 80 + 12 + 3 + 1 + 50;            // track header size
     offset += 658 * (sector_buffer->sector - 1);  // sector position
     offset += 12;                                 // sector header size
@@ -198,14 +198,14 @@ static uint8_t _write_sector(THIS* d, ms_disk_sector_t* sector_buffer) {
     }
     // TODO CRC
 
-    // ‘‚«‚İ
+    // æ›¸ãè¾¼ã¿
     d->container->write_track(d->container, d->_present_cylinder_number, d->_present_side_number, &d->_track_buffer);
 
-    // Ÿ‚ÌƒZƒNƒ^‚Ö (Write‚Ì‚Í‚ ‚Ü‚èŠÖŒW‚È‚¢?)
+    // æ¬¡ã®ã‚»ã‚¯ã‚¿ã¸ (Writeã®æ™‚ã¯ã‚ã¾ã‚Šé–¢ä¿‚ãªã„?)
     d->_present_sector_number++;
     if (d->_present_sector_number > 9) {
         d->_present_sector_number = 0;
     }
 
-    return 1;  // ¬Œ÷
+    return 1;  // æˆåŠŸ
 }

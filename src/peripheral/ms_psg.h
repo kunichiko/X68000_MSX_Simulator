@@ -6,20 +6,20 @@
 #include "../ms_iomap.h"
 
 typedef struct ms_psg {
-    // PSG‚Ì•ªüƒpƒ‰ƒ[ƒ^n‚©‚çOPM‚Ìoct,note,kf‚É•ÏŠ·‚·‚éƒe[ƒuƒ‹
+    // PSGã®åˆ†å‘¨ãƒ‘ãƒ©ãƒ¡ãƒ¼ã‚¿nã‹ã‚‰OPMã®oct,note,kfã«å¤‰æ›ã™ã‚‹ãƒ†ãƒ¼ãƒ–ãƒ«
     uint8_t psg2octnote[4096];
     uint8_t psg2kf[4096];
 
-    // I/O port ƒAƒNƒZƒX‚ğ’ñ‹Ÿ
+    // I/O port ã‚¢ã‚¯ã‚»ã‚¹ã‚’æä¾›
     ms_ioport_t io_port_A0;
     ms_ioport_t io_port_A1;
     ms_ioport_t io_port_A2;
 
     // registers
-    // r00-r14‚Í ms_psg.has ‚ÌƒAƒZƒ“ƒuƒ‰ƒR[ƒh“à‚É’è‹`‚³‚ê‚Ä‚¢‚é
+    // r00-r14ã¯ ms_psg.has ã®ã‚¢ã‚»ãƒ³ãƒ–ãƒ©ã‚³ãƒ¼ãƒ‰å†…ã«å®šç¾©ã•ã‚Œã¦ã„ã‚‹
     uint8_t r15;
 
-    // ƒIƒvƒVƒ‡ƒ“
+    // ã‚ªãƒ—ã‚·ãƒ§ãƒ³
     bool use_iocs;
     bool swap_AB;
 } ms_psg_t;

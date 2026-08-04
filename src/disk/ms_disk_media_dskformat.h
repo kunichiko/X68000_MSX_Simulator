@@ -10,7 +10,7 @@
 typedef struct ms_disk_media_dskformat ms_disk_media_dskformat_t;
 
 /**
- * @brief .DSK�`���̃f�B�X�N�C���[�W���Ams_disk_media_t �ň������߂̍\���̂ł��B
+ * @brief .DSK形式のディスクイメージを、ms_disk_media_t で扱うための構造体です。
  *
  */
 typedef struct ms_disk_media_dskformat {

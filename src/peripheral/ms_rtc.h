@@ -13,7 +13,7 @@ typedef struct ms_rtc {
     uint8_t block2[13];
     uint8_t block3[13];
 
-    // I/O port ƒAƒNƒZƒX‚ğ’ñ‹Ÿ
+    // I/O port ã‚¢ã‚¯ã‚»ã‚¹ã‚’æä¾›
     ms_ioport_t io_port_B4;
     ms_ioport_t io_port_B5;
 } ms_rtc_t;

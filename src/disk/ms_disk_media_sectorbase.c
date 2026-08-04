@@ -11,22 +11,22 @@
 #include "ms_disk.h"
 
 /*
-        Šm•Ûƒ‹[ƒ`ƒ“
+        ç¢ºä¿ãƒ«ãƒ¼ãƒãƒ³
  */
 ms_disk_media_sectorbase_t* ms_disk_media_sectorbase_alloc() {
     return (ms_disk_media_sectorbase_t*)new_malloc(sizeof(ms_disk_media_sectorbase_t));
 }
 
 /*
-        ‰Šú‰»ƒ‹[ƒ`ƒ“
+        åˆæœŸåŒ–ãƒ«ãƒ¼ãƒãƒ³
  */
 void ms_disk_media_sectorbase_init(ms_disk_media_sectorbase_t* instance, char* name) {
     if (instance == NULL) {
         return;
     }
-    // baseƒNƒ‰ƒX‚Ì‰Šú‰»
+    // baseã‚¯ãƒ©ã‚¹ã®åˆæœŸåŒ–
     ms_disk_media_init(&instance->base, name);
-    // ƒƒ\ƒbƒh‚Ì“o˜^
+    // ãƒ¡ã‚½ãƒƒãƒ‰ã®ç™»éŒ²
     instance->base.deinit = (void (*)(ms_disk_media_t*))ms_disk_media_sectorbase_deinit;  // override
     instance->base.read_track = ms_disk_media_sectorbase_read_track;                      // override
     instance->base.write_track = ms_disk_media_sectorbase_write_track;                    // override
@@ -46,9 +46,9 @@ void _write_data_to_track(int count, uint8_t data, uint8_t* track, int* offset) 
 }
 
 /**
- * @brief CRC16‚ğŒvZ‚µ‚Ü‚·B
+ * @brief CRC16ã‚’è¨ˆç®—ã—ã¾ã™ã€‚
  *
- * TODO À‘•‚ª‚ ‚Á‚Ä‚¢‚é‚©‚¿‚á‚ñ‚ÆŠm”F‚·‚é
+ * TODO å®Ÿè£…ãŒã‚ã£ã¦ã„ã‚‹ã‹ã¡ã‚ƒã‚“ã¨ç¢ºèªã™ã‚‹
  *
  * @param CRC
  * @param data
@@ -85,7 +85,7 @@ uint16_t ms_disk_calc_CRC16(uint8_t* data, int length) {
 void ms_disk_media_sectorbase_read_track(ms_disk_media_t* media, uint32_t track_no, uint8_t side, ms_disk_raw_track_t* raw_track) {
     ms_disk_media_sectorbase_t* instance = (ms_disk_media_sectorbase_t*)media;
 
-    // openMSX‚Ì SectorBasedDisk.cc ‚©‚çˆø—p
+    // openMSXã® SectorBasedDisk.cc ã‹ã‚‰å¼•ç”¨
     // -- track --
     // gap4a         80 x 0x4e
     // sync          12 x 0x00
@@ -120,7 +120,7 @@ void ms_disk_media_sectorbase_read_track(ms_disk_media_t* media, uint32_t track_
     _write_data_to_track(1, 0xfc, track, &offset);   // index mark (2)
     _write_data_to_track(50, 0x4e, track, &offset);  // gap1
 
-    // ƒZƒNƒ^[”Ô†‚Í1‚©‚çn‚Ü‚é
+    // ã‚»ã‚¯ã‚¿ãƒ¼ç•ªå·ã¯1ã‹ã‚‰å§‹ã¾ã‚‹
     uint32_t sector_id = (track_no * instance->heads + side) * instance->sectors_per_track + 1;
     ms_sector_t sector;
     uint16_t CRC;
@@ -174,8 +174,8 @@ void ms_disk_media_sectorbase_write_track(ms_disk_media_t* media, uint32_t track
     int offset = 0;
     uint8_t* track = raw_track->data;
 
-    // –{“–‚ÍAraw_track‚ÌƒoƒCƒg—ñ‚ğƒfƒR[ƒh‚µ‚ÄAID addr mark ‚ğŒ©‚Â‚¯‚é•K—v‚ª‚ ‚é‚ªA
-    // ‚Ğ‚Æ‚Ü‚¸ŒÅ’èƒAƒhƒŒƒX‚Å’Šo‚·‚é
+    // æœ¬å½“ã¯ã€raw_trackã®ãƒã‚¤ãƒˆåˆ—ã‚’ãƒ‡ã‚³ãƒ¼ãƒ‰ã—ã¦ã€ID addr mark ã‚’è¦‹ã¤ã‘ã‚‹å¿…è¦ãŒã‚ã‚‹ãŒã€
+    // ã²ã¨ã¾ãšå›ºå®šã‚¢ãƒ‰ãƒ¬ã‚¹ã§æŠ½å‡ºã™ã‚‹
     uint16_t CRC;
     int i;
     for (i = 0; i < 9; i++) {
@@ -225,7 +225,7 @@ void ms_disk_media_sectorbase_write_track(ms_disk_media_t* media, uint32_t track
             printf("data mark is not found\n");
             ms_exit_failure();
         }
-        // ƒZƒNƒ^[”Ô†‚Í1‚©‚çn‚Ü‚é‚ªAR‚ª1‚©‚çn‚Ü‚é‚Ì‚ÅA‚»‚Ì‚Ü‚Üg‚¦‚ÎOK
+        // ã‚»ã‚¯ã‚¿ãƒ¼ç•ªå·ã¯1ã‹ã‚‰å§‹ã¾ã‚‹ãŒã€RãŒ1ã‹ã‚‰å§‹ã¾ã‚‹ã®ã§ã€ãã®ã¾ã¾ä½¿ãˆã°OK
         uint32_t sector_id = (track_no * instance->heads + side) * instance->sectors_per_track + R;
         instance->write_sector(media, sector_id, (ms_sector_t*)(track + offset));
     }

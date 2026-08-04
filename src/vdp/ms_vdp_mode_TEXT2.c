@@ -55,27 +55,27 @@ ms_vdp_mode_t ms_vdp_TEXT2 = {
     // crt_width
     512,
     // dots_per_byte
-    0,  // VDPƒRƒ}ƒ“ƒh—p‚È‚Ì‚Å–¢g—p
+    0,  // VDPã‚³ãƒãƒ³ãƒ‰ç”¨ãªã®ã§æœªä½¿ç”¨
     // bits_per_dot
-    0  // VDPƒRƒ}ƒ“ƒh—p‚È‚Ì‚Å–¢g—p
+    0  // VDPã‚³ãƒãƒ³ãƒ‰ç”¨ãªã®ã§æœªä½¿ç”¨
 };
 
 int init_TEXT2(ms_vdp_t* vdp) {
-    // TEXT2‚ÍA‰¡6ƒhƒbƒg‚ÌƒLƒƒƒ‰ƒNƒ^[‚ª80•¶š‚È‚Ì‚ÅA•‚ª480ƒhƒbƒg
-    // ‚»‚Ì‚½‚ßA¶‰E‚É16ƒhƒbƒg‚¸‚Â(X68000“I‚É‚à16ƒhƒbƒg‚¸‚Â)‚Ì”ñ•\¦—Ìˆæ‚ª‚ ‚é‚Ì‚Å
-    // ‚»‚±‚ğƒNƒŠƒA‚·‚é
+    // TEXT2ã¯ã€æ¨ª6ãƒ‰ãƒƒãƒˆã®ã‚­ãƒ£ãƒ©ã‚¯ã‚¿ãƒ¼ãŒ80æ–‡å­—ãªã®ã§ã€å¹…ãŒ480ãƒ‰ãƒƒãƒˆ
+    // ãã®ãŸã‚ã€å·¦å³ã«16ãƒ‰ãƒƒãƒˆãšã¤(X68000çš„ã«ã‚‚16ãƒ‰ãƒƒãƒˆãšã¤)ã®éè¡¨ç¤ºé ˜åŸŸãŒã‚ã‚‹ã®ã§
+    // ãã“ã‚’ã‚¯ãƒªã‚¢ã™ã‚‹
     int i, j;
     for (i = 0; i < 512; i++) {
         uint32_t* addr = (uint32_t*)(0xc00000 + i * 1024);
-        for (j = 0; j < 8; j++) {  // 32ƒrƒbƒg(2ƒhƒbƒg•ª)‚¸‚ÂƒNƒŠƒA‚·‚é‚Ì‚Å8‰ñ‚ÅOK
+        for (j = 0; j < 8; j++) {  // 32ãƒ“ãƒƒãƒˆ(2ãƒ‰ãƒƒãƒˆåˆ†)ãšã¤ã‚¯ãƒªã‚¢ã™ã‚‹ã®ã§8å›ã§OK
             *addr = 0;
             *(addr + 256 - 8) = 0;
             addr++;
         }
     }
 
-    //	VDP ƒŒƒxƒ‹‚Å‚ÍAGRAPHIC7‚É‚µ‚Ä‚à‘¼‚Ìƒ‚[ƒh‚ÌƒpƒŒƒbƒg‚Í•Û‘¶‚³‚ê‚é‚ªA
-    //	‚U‚W‚Å‚Q‚T‚UFƒ‚[ƒh‚É‚·‚é‚Æ”j‰ó‚³‚ê‚Ä‚µ‚Ü‚¤‚Ì‚ÅAÄ“xİ’è‚µ’¼‚·•K—v‚ª‚ ‚é
+    //	VDP ãƒ¬ãƒ™ãƒ«ã§ã¯ã€GRAPHIC7ã«ã—ã¦ã‚‚ä»–ã®ãƒ¢ãƒ¼ãƒ‰ã®ãƒ‘ãƒ¬ãƒƒãƒˆã¯ä¿å­˜ã•ã‚Œã‚‹ãŒã€
+    //	ï¼–ï¼˜ã§ï¼’ï¼•ï¼–è‰²ãƒ¢ãƒ¼ãƒ‰ã«ã™ã‚‹ã¨ç ´å£Šã•ã‚Œã¦ã—ã¾ã†ã®ã§ã€å†åº¦è¨­å®šã—ç›´ã™å¿…è¦ãŒã‚ã‚‹
     update_palette_TEXT2(vdp);
 
     vdp->gr_active = 1;
@@ -92,11 +92,11 @@ uint8_t read_vram_TEXT2(ms_vdp_t* vdp) {
 void write_vram_TEXT2(ms_vdp_t* vdp, uint8_t data) {
     vdp->vram[vdp->vram_addr] = data;
     //
-    uint32_t area = vdp->vram_addr & 0x1f800;  // ‰ºˆÊ11ƒrƒbƒg‚ğƒNƒŠƒA
+    uint32_t area = vdp->vram_addr & 0x1f800;  // ä¸‹ä½11ãƒ“ãƒƒãƒˆã‚’ã‚¯ãƒªã‚¢
     if (area == vdp->pgentbl_baddr) {
         w_p_gene_tx2_mac();
     } else {
-        area &= 0x1f000;  // ‰ºˆÊ12ƒrƒbƒg‚ğƒNƒŠƒA
+        area &= 0x1f000;  // ä¸‹ä½12ãƒ“ãƒƒãƒˆã‚’ã‚¯ãƒªã‚¢
         if (area == vdp->pnametbl_baddr) {
             w_p_name_tx2_mac(data);
         }
@@ -138,5 +138,5 @@ char* get_mode_name_TEXT2(ms_vdp_t* vdp) {
 }
 
 void update_resolution_TEXT2(ms_vdp_t* vdp) {
-    ms_vdp_update_resolution_COMMON(vdp, 1, 0, 0);  // 512, 16F, ƒXƒvƒ‰ƒCƒg•sg—p, BG•sg—p
+    ms_vdp_update_resolution_COMMON(vdp, 1, 0, 0);  // 512, 16è‰², ã‚¹ãƒ—ãƒ©ã‚¤ãƒˆä¸ä½¿ç”¨, BGä¸ä½¿ç”¨
 }
