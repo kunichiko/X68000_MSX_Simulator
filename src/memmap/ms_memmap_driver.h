@@ -2,59 +2,60 @@
 #define MS_MEMMAP_DRIVER_H
 
 #include <stdint.h>
+
 #include "ms_memmap.h"
 
 typedef struct ms_memmap_driver ms_memmap_driver_t;
 
 /**
- * @brief 
- * 
- * abstract class‚È‚Ì‚ÅAŠeƒƒ\ƒbƒh‚ÍƒTƒuƒNƒ‰ƒX‚ÅÀ‘•‚µ‚Ü‚·B
+ * @brief
+ *
+ * abstract classãªã®ã§ã€å„ãƒ¡ã‚½ãƒƒãƒ‰ã¯ã‚µãƒ–ã‚¯ãƒ©ã‚¹ã§å®Ÿè£…ã—ã¾ã™ã€‚
  */
 typedef struct ms_memmap_driver {
-	// –{ƒhƒ‰ƒCƒoƒCƒ“ƒXƒ^ƒ“ƒX‚ğ‰ğ•ú‚·‚éê‡‚ÉŒÄ‚Ño‚µ‚Ü‚·
-	void (*deinit)(ms_memmap_driver_t* driver);
-	// memmapƒ‚ƒWƒ…[ƒ‹‚ª–{ƒhƒ‰ƒCƒo‚ğƒAƒ^ƒbƒ`‚µ‚½Û‚ÉŒÄ‚Ño‚µ‚Ü‚·
-	void (*did_attach)(ms_memmap_driver_t* driver);
-	// memmapƒ‚ƒWƒ…[ƒ‹‚ª–{ƒhƒ‰ƒCƒo‚ğƒfƒ^ƒbƒ`‚·‚éÛ‚ÉŒÄ‚Ño‚µ‚Ü‚·
-	int (*will_detach)(ms_memmap_driver_t* driver);
-	// ƒVƒ~ƒ…ƒŒ[ƒ^‚ªƒ|[ƒY‚µ‚½‚Æ‚«‚ÉŒÄ‚Ño‚µ‚Ü‚·
-	void (*did_pause)(ms_memmap_driver_t* driver);
-	// ƒƒ‚ƒŠƒ}ƒbƒp[ƒZƒOƒƒ“ƒg‘I‘ğƒŒƒWƒXƒ^(port FCh,FDh,FEh,FFh) ‚Ì’l‚ª•ÏX‚³‚ê‚½Û‚ÉŒÄ‚Ño‚µ‚Ü‚·
-	void (*did_update_memory_mapper)(ms_memmap_driver_t* driver, int page, uint8_t segment_num);
-	// 8ƒrƒbƒg‚Ì“Ç‚İo‚µˆ—
-	uint8_t (*read8)(ms_memmap_driver_t* memmap, uint16_t addr);
-	// 16ƒrƒbƒg‚Ì“Ç‚İo‚µˆ—
-	uint16_t (*read16)(ms_memmap_driver_t* memmap, uint16_t addr);
-	// 8ƒrƒbƒg‚Ì‘‚«‚İˆ—
-	void (*write8)(ms_memmap_driver_t* memmap, uint16_t addr, uint8_t data);
-	// 16ƒrƒbƒg‚Ì‘‚«‚İˆ—
-	void (*write16)(ms_memmap_driver_t* memmap, uint16_t addr, uint16_t data);
+    // æœ¬ãƒ‰ãƒ©ã‚¤ãƒã‚¤ãƒ³ã‚¹ã‚¿ãƒ³ã‚¹ã‚’è§£æ”¾ã™ã‚‹å ´åˆã«å‘¼ã³å‡ºã—ã¾ã™
+    void (*deinit)(ms_memmap_driver_t* driver);
+    // memmapãƒ¢ã‚¸ãƒ¥ãƒ¼ãƒ«ãŒæœ¬ãƒ‰ãƒ©ã‚¤ãƒã‚’ã‚¢ã‚¿ãƒƒãƒã—ãŸéš›ã«å‘¼ã³å‡ºã—ã¾ã™
+    void (*did_attach)(ms_memmap_driver_t* driver);
+    // memmapãƒ¢ã‚¸ãƒ¥ãƒ¼ãƒ«ãŒæœ¬ãƒ‰ãƒ©ã‚¤ãƒã‚’ãƒ‡ã‚¿ãƒƒãƒã™ã‚‹éš›ã«å‘¼ã³å‡ºã—ã¾ã™
+    int (*will_detach)(ms_memmap_driver_t* driver);
+    // ã‚·ãƒŸãƒ¥ãƒ¬ãƒ¼ã‚¿ãŒãƒãƒ¼ã‚ºã—ãŸã¨ãã«å‘¼ã³å‡ºã—ã¾ã™
+    void (*did_pause)(ms_memmap_driver_t* driver);
+    // ãƒ¡ãƒ¢ãƒªãƒãƒƒãƒ‘ãƒ¼ã‚»ã‚°ãƒ¡ãƒ³ãƒˆé¸æŠãƒ¬ã‚¸ã‚¹ã‚¿(port FCh,FDh,FEh,FFh) ã®å€¤ãŒå¤‰æ›´ã•ã‚ŒãŸéš›ã«å‘¼ã³å‡ºã—ã¾ã™
+    void (*did_update_memory_mapper)(ms_memmap_driver_t* driver, int page, uint8_t segment_num);
+    // 8ãƒ“ãƒƒãƒˆã®èª­ã¿å‡ºã—å‡¦ç†
+    uint8_t (*read8)(ms_memmap_driver_t* memmap, uint16_t addr);
+    // 16ãƒ“ãƒƒãƒˆã®èª­ã¿å‡ºã—å‡¦ç†
+    uint16_t (*read16)(ms_memmap_driver_t* memmap, uint16_t addr);
+    // 8ãƒ“ãƒƒãƒˆã®æ›¸ãè¾¼ã¿å‡¦ç†
+    void (*write8)(ms_memmap_driver_t* memmap, uint16_t addr, uint8_t data);
+    // 16ãƒ“ãƒƒãƒˆã®æ›¸ãè¾¼ã¿å‡¦ç†
+    void (*write16)(ms_memmap_driver_t* memmap, uint16_t addr, uint16_t data);
 
-	// ƒ^ƒCƒv
-	int type;
-	// –¼Ì
-	const char* name;
+    // ã‚¿ã‚¤ãƒ—
+    int type;
+    // åç§°
+    const char* name;
 
-	// ‚±‚ê‚ğŠÇ—‚µ‚Ä‚¢‚é memmap ‚Ö‚ÌQÆ
-	ms_memmap_t* memmap;
-	//
-	int attached_slot_base;
-	//
-	int attached_slot_ex;
+    // ã“ã‚Œã‚’ç®¡ç†ã—ã¦ã„ã‚‹ memmap ã¸ã®å‚ç…§
+    ms_memmap_t* memmap;
+    //
+    int attached_slot_base;
+    //
+    int attached_slot_ex;
 
-	// 64KƒoƒCƒg‹óŠÔ‚ğ8KƒoƒCƒg’PˆÊ‚Å‹æØ‚Á‚½ƒ|ƒCƒ“ƒ^‚Ì”z—ñ
-	// ‚±‚Ìƒhƒ‰ƒCƒo‚ª‘Î‰‚µ‚Ä‚¢‚éƒy[ƒW‚Ìƒ|ƒCƒ“ƒ^‚Ì‚İƒZƒbƒg‚³‚ê‚Ä‚¨‚èA‚»‚êˆÈŠO‚ÍNULL‚ª“ü‚è‚Ü‚·
-	// “®ì’†‚Éƒ|ƒCƒ“ƒ^‚Ì’l‚ğ‘‚«Š·‚¦‚½ê‡‚ÍAmemmap->update_page_pointer(attached_slot, page_num)‚ğŒÄ‚Ño‚µ‚Ä‚­‚¾‚³‚¢
-	uint8_t* page8k_pointers[8];
+    // 64Kãƒã‚¤ãƒˆç©ºé–“ã‚’8Kãƒã‚¤ãƒˆå˜ä½ã§åŒºåˆ‡ã£ãŸãƒã‚¤ãƒ³ã‚¿ã®é…åˆ—
+    // ã“ã®ãƒ‰ãƒ©ã‚¤ãƒãŒå¯¾å¿œã—ã¦ã„ã‚‹ãƒšãƒ¼ã‚¸ã®ãƒã‚¤ãƒ³ã‚¿ã®ã¿ã‚»ãƒƒãƒˆã•ã‚Œã¦ãŠã‚Šã€ãã‚Œä»¥å¤–ã¯NULLãŒå…¥ã‚Šã¾ã™
+    // å‹•ä½œä¸­ã«ãƒã‚¤ãƒ³ã‚¿ã®å€¤ã‚’æ›¸ãæ›ãˆãŸå ´åˆã¯ã€memmap->update_page_pointer(attached_slot, page_num)ã‚’å‘¼ã³å‡ºã—ã¦ãã ã•ã„
+    uint8_t* page8k_pointers[8];
 
-	// buffer (Šeƒhƒ‰ƒCƒo‚ªg—p‚·‚éƒoƒbƒtƒ@—Ìˆæ)
-	uint8_t* buffer;
-	uint32_t buffer_length;
+    // buffer (å„ãƒ‰ãƒ©ã‚¤ãƒãŒä½¿ç”¨ã™ã‚‹ãƒãƒƒãƒ•ã‚¡é ˜åŸŸ)
+    uint8_t* buffer;
+    uint32_t buffer_length;
 
 } ms_memmap_driver_t;
 
-//ms_memmap_driver_t* ms_memmap_driver_alloc(); // abstract class‚È‚Ìd‚Åalloc‚Í•s—v
+// ms_memmap_driver_t* ms_memmap_driver_alloc(); // abstract classãªã®dã§allocã¯ä¸è¦
 void ms_memmap_driver_init(ms_memmap_driver_t* instance, ms_memmap_t* memmap, uint8_t* bufffer);
 void ms_memmap_driver_deinit(ms_memmap_driver_t* instance);
 

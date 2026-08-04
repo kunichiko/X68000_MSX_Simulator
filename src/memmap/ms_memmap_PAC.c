@@ -1,37 +1,39 @@
 /*
-	PAC (Pana Amusement PackAPanasoft SW-M001) ‚Ìƒhƒ‰ƒCƒo
+        PAC (Pana Amusement Packã€Panasoft SW-M001) ã®ãƒ‰ãƒ©ã‚¤ãƒ
 
-	PAC‚Ì SRAMƒAƒNƒZƒX•û–@ (ƒ\ƒtƒg‘¤‚©‚çŒ©‚½‹““®)
+        PACã® SRAMã‚¢ã‚¯ã‚»ã‚¹æ–¹æ³• (ã‚½ãƒ•ãƒˆå´ã‹ã‚‰è¦‹ãŸæŒ™å‹•)
 
-	* 1: 5FFEhA5FFFh‚ª FFh ‚Å‚ ‚é‚±‚Æ‚ğŠm”F‚·‚é
-	* 2: 5FFEh‚É 4Dh ‚ğ‘‚«‚ñ‚ÅA“Ç‚İo‚µ‚ÄA4Dh ‚Å‚ ‚é‚±‚Æ‚ğŠm”F‚·‚é
-		* ¨ ˆÙ‚È‚é’l‚ª“Ç‚ß‚½‚çA1‚Å“Ç‚İ‚ñ‚¾ 5FFEh‚Ì’l‚ğ‘‚«–ß‚µ‚ÄI—¹
-	* 3: 5FFFh‚É 69h ‚ğ‘‚«‚ñ‚ÅA“Ç‚İo‚µ‚ÄA69h ‚Å‚ ‚é‚±‚Æ‚ğŠm”F‚·‚é
-		* ¨ ˆÙ‚È‚é’l‚ª“Ç‚ß‚½‚çA1‚Å“Ç‚İ‚ñ‚¾ 5FFEh‚Ì’l‚ğ‘‚«–ß‚µ‚ÄI—¹
-	* 4: 4000h-5FFDh ‚Ì”ÍˆÍ‚ªSRAM—Ìˆæ‚Æ‚µ‚Ä—˜—p‰Â”\‚É‚È‚é
-	* 5: 5FFEh, 5FFFh ‚É 00h ‚ğ‘‚«‚ñ‚ÅI—¹ (4Dh, 69h ˆÈŠO‚ª‘‚«‚Ü‚ê‚ê‚ÎOK)
-	* 6: I—¹‚·‚é‚ÆA5FFEh, 5FFFh ‚©‚ç FFh ‚ª“Ç‚ß‚é‚æ‚¤‚É‚È‚é
+        * 1: 5FFEhã€5FFFhãŒ FFh ã§ã‚ã‚‹ã“ã¨ã‚’ç¢ºèªã™ã‚‹
+        * 2: 5FFEhã« 4Dh ã‚’æ›¸ãè¾¼ã‚“ã§ã€èª­ã¿å‡ºã—ã¦ã€4Dh ã§ã‚ã‚‹ã“ã¨ã‚’ç¢ºèªã™ã‚‹
+                * â†’ ç•°ãªã‚‹å€¤ãŒèª­ã‚ãŸã‚‰ã€1ã§èª­ã¿è¾¼ã‚“ã  5FFEhã®å€¤ã‚’æ›¸ãæˆ»ã—ã¦çµ‚äº†
+        * 3: 5FFFhã« 69h ã‚’æ›¸ãè¾¼ã‚“ã§ã€èª­ã¿å‡ºã—ã¦ã€69h ã§ã‚ã‚‹ã“ã¨ã‚’ç¢ºèªã™ã‚‹
+                * â†’ ç•°ãªã‚‹å€¤ãŒèª­ã‚ãŸã‚‰ã€1ã§èª­ã¿è¾¼ã‚“ã  5FFEhã®å€¤ã‚’æ›¸ãæˆ»ã—ã¦çµ‚äº†
+        * 4: 4000h-5FFDh ã®ç¯„å›²ãŒSRAMé ˜åŸŸã¨ã—ã¦åˆ©ç”¨å¯èƒ½ã«ãªã‚‹
+        * 5: 5FFEh, 5FFFh ã« 00h ã‚’æ›¸ãè¾¼ã‚“ã§çµ‚äº† (4Dh, 69h ä»¥å¤–ãŒæ›¸ãè¾¼ã¾ã‚Œã‚Œã°OK)
+        * 6: çµ‚äº†ã™ã‚‹ã¨ã€5FFEh, 5FFFh ã‹ã‚‰ FFh ãŒèª­ã‚ã‚‹ã‚ˆã†ã«ãªã‚‹
 
-	œ FM-PAC‚ÌSRAMƒoƒbƒNƒAƒbƒvƒtƒ@ƒCƒ‹‚Ìd—l
-	FM-PAC‚É‚Íƒƒ“ƒeƒiƒ“ƒXƒc[ƒ‹‚ªROM‚É“à‘ ‚³‚ê‚Ä‚¨‚èASRAMƒf[ƒ^‚ğƒtƒ@ƒCƒ‹‚ÉƒoƒbƒNƒAƒbƒv‚·‚é‚±‚Æ‚ª‚Å‚«‚éB
-	* Šg’£q‚Í .PAC
-	* ƒtƒ@ƒCƒ‹ƒTƒCƒY‚Í 8206 ƒoƒCƒg
-		* 16ƒoƒCƒgƒwƒbƒ_: "PAC2 BACKUP DATA"
-		* 1024ƒoƒCƒg‚ÌSRAMƒf[ƒ^ x 7
-		* 1022ƒoƒCƒg‚ÌSRAMƒf[ƒ^ x 1
-	
+        â— FM-PACã®SRAMãƒãƒƒã‚¯ã‚¢ãƒƒãƒ—ãƒ•ã‚¡ã‚¤ãƒ«ã®ä»•æ§˜
+        FM-PACã«ã¯ãƒ¡ãƒ³ãƒ†ãƒŠãƒ³ã‚¹ãƒ„ãƒ¼ãƒ«ãŒROMã«å†…è”µã•ã‚Œã¦ãŠã‚Šã€SRAMãƒ‡ãƒ¼ã‚¿ã‚’ãƒ•ã‚¡ã‚¤ãƒ«ã«ãƒãƒƒã‚¯ã‚¢ãƒƒãƒ—ã™ã‚‹ã“ã¨ãŒã§ãã‚‹ã€‚
+        * æ‹¡å¼µå­ã¯ .PAC
+        * ãƒ•ã‚¡ã‚¤ãƒ«ã‚µã‚¤ã‚ºã¯ 8206 ãƒã‚¤ãƒˆ
+                * 16ãƒã‚¤ãƒˆãƒ˜ãƒƒãƒ€: "PAC2 BACKUP DATA"
+                * 1024ãƒã‚¤ãƒˆã®SRAMãƒ‡ãƒ¼ã‚¿ x 7
+                * 1022ãƒã‚¤ãƒˆã®SRAMãƒ‡ãƒ¼ã‚¿ x 1
+
 
  */
 
+#include "ms_memmap_PAC.h"
+
+#include <fcntl.h>
+#include <stddef.h>
+#include <stdint.h>
 #include <stdio.h>
 #include <stdlib.h>
-#include <stdint.h>
-#include <stddef.h>
-#include <fcntl.h>
 #include <string.h>
+
 #include "../ms.h"
 #include "ms_memmap.h"
-#include "ms_memmap_PAC.h"
 
 #define THIS ms_memmap_driver_PAC_t
 
@@ -51,178 +53,179 @@ static void _write16(ms_memmap_driver_t* driver, uint16_t addr, uint16_t data);
 static void _fflush(ms_memmap_driver_t* driver);
 
 /*
-	Šm•Ûƒ‹[ƒ`ƒ“
+        ç¢ºä¿ãƒ«ãƒ¼ãƒãƒ³
  */
 THIS* ms_memmap_PAC_alloc() {
-	return (THIS*)new_malloc(sizeof(THIS));
+    return (THIS*)new_malloc(sizeof(THIS));
 }
 
 /*
-	‰Šú‰»ƒ‹[ƒ`ƒ“
+        åˆæœŸåŒ–ãƒ«ãƒ¼ãƒãƒ³
  */
-void ms_memmap_PAC_init(ms_memmap_driver_PAC_t* instance, ms_memmap_t* memmap, uint8_t* buffer, uint32_t buf_length, uint32_t file_length, uint8_t* file_path) {
-	if (instance == NULL) {
-		return;
-	}
+void ms_memmap_PAC_init(ms_memmap_driver_PAC_t* instance, ms_memmap_t* memmap, uint8_t* buffer, uint32_t buf_length, uint32_t file_length,
+                        uint8_t* file_path) {
+    if (instance == NULL) {
+        return;
+    }
 
-	if (file_length != 8206) {
-		MS_LOG(MS_LOG_ERROR,"PAC‚Ìƒtƒ@ƒCƒ‹ƒTƒCƒY‚Í 8206ƒoƒCƒg‚Å‚ ‚é•K—v‚ª‚ ‚è‚Ü‚·\n");
-		return;
-	}
-	// buffer‚Ìæ“ª16ƒoƒCƒg‚ª "PAC2 BACKUP DATA" ‚Å‚ ‚é‚±‚Æ‚ğŠm”F
-	if ( memcmp(buffer, "PAC2 BACKUP DATA", 16UL) != 0 ) {
-		MS_LOG(MS_LOG_ERROR,"PAC‚Ìƒtƒ@ƒCƒ‹ƒwƒbƒ_‚ª•s³‚Å‚·\n");
-		return;
-	}
+    if (file_length != 8206) {
+        MS_LOG(MS_LOG_ERROR, "PACã®ãƒ•ã‚¡ã‚¤ãƒ«ã‚µã‚¤ã‚ºã¯ 8206ãƒã‚¤ãƒˆã§ã‚ã‚‹å¿…è¦ãŒã‚ã‚Šã¾ã™\n");
+        return;
+    }
+    // bufferã®å…ˆé ­16ãƒã‚¤ãƒˆãŒ "PAC2 BACKUP DATA" ã§ã‚ã‚‹ã“ã¨ã‚’ç¢ºèª
+    if (memcmp(buffer, "PAC2 BACKUP DATA", 16UL) != 0) {
+        MS_LOG(MS_LOG_ERROR, "PACã®ãƒ•ã‚¡ã‚¤ãƒ«ãƒ˜ãƒƒãƒ€ãŒä¸æ­£ã§ã™\n");
+        return;
+    }
 
-	// ƒf[ƒ^’·‚Í16ƒoƒCƒg‚Ìƒwƒbƒ_+8192-2ƒoƒCƒg=8206ƒoƒCƒg‚¾‚ªAƒƒ‚ƒŠŠm•Û‚Í8K’PˆÊ‚Ås‚í‚ê‚Ä‚¢‚é‚Ì‚Å
-	// buffer‚Í16ƒoƒCƒg+8192ƒoƒCƒg‚Å‚ ‚é‚Æ‚µ‚Äˆµ‚Á‚Ä‚à–â‘è‚È‚¢‚Í‚¸
-	if (buf_length < 16+8192) {
-		MS_LOG(MS_LOG_ERROR,"PAC‚Ìƒoƒbƒtƒ@ƒTƒCƒY‚ª•s³‚Å‚·\n");
-		return;
-	}
-	ms_memmap_driver_init(&instance->base, memmap, buffer);
+    // ãƒ‡ãƒ¼ã‚¿é•·ã¯16ãƒã‚¤ãƒˆã®ãƒ˜ãƒƒãƒ€+8192-2ãƒã‚¤ãƒˆ=8206ãƒã‚¤ãƒˆã ãŒã€ãƒ¡ãƒ¢ãƒªç¢ºä¿ã¯8Kå˜ä½ã§è¡Œã‚ã‚Œã¦ã„ã‚‹ã®ã§
+    // bufferã¯16ãƒã‚¤ãƒˆ+8192ãƒã‚¤ãƒˆã§ã‚ã‚‹ã¨ã—ã¦æ‰±ã£ã¦ã‚‚å•é¡Œãªã„ã¯ãš
+    if (buf_length < 16 + 8192) {
+        MS_LOG(MS_LOG_ERROR, "PACã®ãƒãƒƒãƒ•ã‚¡ã‚µã‚¤ã‚ºãŒä¸æ­£ã§ã™\n");
+        return;
+    }
+    ms_memmap_driver_init(&instance->base, memmap, buffer);
 
-	// ƒvƒƒpƒeƒB‚âƒƒ\ƒbƒh‚Ì“o˜^
-	instance->base.type = ROM_TYPE_MIRRORED_ROM;
-	instance->base.name = driver_name;
-	//instance->base.deinit = ms_memmap_PAC_deinit; ƒI[ƒo[ƒ‰ƒCƒh•s—v
-	instance->base.did_attach = _did_attach;
-	instance->base.will_detach = _will_detach;
-	instance->base.did_pause = _did_pause;
-	instance->base.did_update_memory_mapper = _did_update_memory_mapper;
-	instance->base.read8 = _read8;
-	instance->base.read16 = _read16;
-	instance->base.write8 = _write8;
-	instance->base.write16 = _write16;
+    // ãƒ—ãƒ­ãƒ‘ãƒ†ã‚£ã‚„ãƒ¡ã‚½ãƒƒãƒ‰ã®ç™»éŒ²
+    instance->base.type = ROM_TYPE_MIRRORED_ROM;
+    instance->base.name = driver_name;
+    // instance->base.deinit = ms_memmap_PAC_deinit; ã‚ªãƒ¼ãƒãƒ¼ãƒ©ã‚¤ãƒ‰ä¸è¦
+    instance->base.did_attach = _did_attach;
+    instance->base.will_detach = _will_detach;
+    instance->base.did_pause = _did_pause;
+    instance->base.did_update_memory_mapper = _did_update_memory_mapper;
+    instance->base.read8 = _read8;
+    instance->base.read16 = _read16;
+    instance->base.write8 = _write8;
+    instance->base.write16 = _write16;
 
-	// ƒvƒ‰ƒCƒx[ƒgƒvƒƒpƒeƒB
-	memcpy(instance->file_path, file_path, 256);
-	instance->sram_enabled = 0;
-	instance->_5ffe = 0xff;
-	instance->_5fff = 0xff;
-	int i;
-	for(i=0;i<8192;i++) {
-		instance->disabled_buffer[i] = 0xff;
-	}
+    // ãƒ—ãƒ©ã‚¤ãƒ™ãƒ¼ãƒˆãƒ—ãƒ­ãƒ‘ãƒ†ã‚£
+    memcpy(instance->file_path, file_path, 256);
+    instance->sram_enabled = 0;
+    instance->_5ffe = 0xff;
+    instance->_5fff = 0xff;
+    int i;
+    for (i = 0; i < 8192; i++) {
+        instance->disabled_buffer[i] = 0xff;
+    }
 
-	int page8k;
-	for(page8k = 0; page8k < 8; page8k++) {
-		instance->base.page8k_pointers[page8k] = instance->disabled_buffer;
-	}
-	
-	return;
+    int page8k;
+    for (page8k = 0; page8k < 8; page8k++) {
+        instance->base.page8k_pointers[page8k] = instance->disabled_buffer;
+    }
+
+    return;
 }
 
 static void _did_attach(ms_memmap_driver_t* driver) {
 }
 
 /**
- * @brief ƒhƒ‰ƒCƒo‚Ìƒfƒ^ƒbƒ`‚ÉŒÄ‚Ño‚³‚ê‚éƒR[ƒ‹ƒoƒbƒN‚ÅAPAC‚ÌSRAM‚ğƒtƒ@ƒCƒ‹‚É‘‚«o‚µ‚Ü‚·
- * 
- * @param driver 
- * @return int 
+ * @brief ãƒ‰ãƒ©ã‚¤ãƒã®ãƒ‡ã‚¿ãƒƒãƒæ™‚ã«å‘¼ã³å‡ºã•ã‚Œã‚‹ã‚³ãƒ¼ãƒ«ãƒãƒƒã‚¯ã§ã€PACã®SRAMã‚’ãƒ•ã‚¡ã‚¤ãƒ«ã«æ›¸ãå‡ºã—ã¾ã™
+ *
+ * @param driver
+ * @return int
  */
 static int _will_detach(ms_memmap_driver_t* driver) {
-	MS_LOG(MS_LOG_INFO, "PAC‚ÌSRAM‚ğƒtƒ@ƒCƒ‹‚É‘‚«o‚µ‚Ü‚·\n");
-	_fflush(driver);
-	return 0;
+    MS_LOG(MS_LOG_INFO, "PACã®SRAMã‚’ãƒ•ã‚¡ã‚¤ãƒ«ã«æ›¸ãå‡ºã—ã¾ã™\n");
+    _fflush(driver);
+    return 0;
 }
 
 /**
- * @brief ƒ|[ƒY‚ÉŒÄ‚Ño‚³‚ê‚éƒR[ƒ‹ƒoƒbƒN
- * 
- * @param driver 
+ * @brief ãƒãƒ¼ã‚ºæ™‚ã«å‘¼ã³å‡ºã•ã‚Œã‚‹ã‚³ãƒ¼ãƒ«ãƒãƒƒã‚¯
+ *
+ * @param driver
  */
 static void _did_pause(ms_memmap_driver_t* driver) {
-	volatile uint8_t* BITSNS_WORK = (uint8_t*)0x800;
-	if (BITSNS_WORK[0xe] & 1) {
-		// ƒ|[ƒY‚É SHIFTƒL[‚ª‰Ÿ‚³‚ê‚Ä‚¢‚½‚çASRAM‚ğƒtƒ@ƒCƒ‹‚É‘‚«o‚·
-		_fflush(driver);
-		printf("PAC‚ÌSRAM‚ğƒtƒ@ƒCƒ‹‚É‘‚«o‚µ‚Ü‚µ‚½\n");
-	}
+    volatile uint8_t* BITSNS_WORK = (uint8_t*)0x800;
+    if (BITSNS_WORK[0xe] & 1) {
+        // ãƒãƒ¼ã‚ºæ™‚ã« SHIFTã‚­ãƒ¼ãŒæŠ¼ã•ã‚Œã¦ã„ãŸã‚‰ã€SRAMã‚’ãƒ•ã‚¡ã‚¤ãƒ«ã«æ›¸ãå‡ºã™
+        _fflush(driver);
+        printf("PACã®SRAMã‚’ãƒ•ã‚¡ã‚¤ãƒ«ã«æ›¸ãå‡ºã—ã¾ã—ãŸ\n");
+    }
 }
 
 static void _did_update_memory_mapper(ms_memmap_driver_t* driver, int slot, uint8_t segment_num) {
 }
 
 static uint8_t _read8(ms_memmap_driver_t* driver, uint16_t addr) {
-	THIS* d = (THIS*)driver;
-	int page8k = (addr >> 13) & 0x07;
-	int local_addr = addr & 0x1fff;
+    THIS* d = (THIS*)driver;
+    int page8k = (addr >> 13) & 0x07;
+    int local_addr = addr & 0x1fff;
 
-	if(local_addr == 0x5ffe) {
-		return d->_5ffe;
-	} else if(local_addr == 0x5fff) {
-		return d->_5fff;
-	}
-	uint8_t ret = driver->page8k_pointers[page8k][local_addr];
-	return ret;
+    if (local_addr == 0x5ffe) {
+        return d->_5ffe;
+    } else if (local_addr == 0x5fff) {
+        return d->_5fff;
+    }
+    uint8_t ret = driver->page8k_pointers[page8k][local_addr];
+    return ret;
 }
 
 static void _write8(ms_memmap_driver_t* driver, uint16_t addr, uint8_t data) {
-	THIS* d = (THIS*)driver;
-	int page8k = (addr >> 13) & 0x07;
-	int local_addr = addr & 0x1fff;
+    THIS* d = (THIS*)driver;
+    int page8k = (addr >> 13) & 0x07;
+    int local_addr = addr & 0x1fff;
 
-	if(addr == 0x5ffe) {
-		d->_5ffe = data;
-	} else if(addr == 0x5fff) {
-		d->_5fff = data;
-	} else if (page8k == 2 && d->sram_enabled) {
-		// SRAM‚ª—LŒø‚È‚Í page8k == 2 ‚É‚Í SRAM‚ªƒ}ƒbƒsƒ“ƒO‚³‚ê‚Ä‚¢‚é
-		driver->page8k_pointers[2][local_addr] = data;
-	}
-	if(d->_5ffe == 0x4d && d->_5fff == 0x69) {
-		if (d->sram_enabled == 0) {
-			MS_LOG(MS_LOG_INFO,"PAC‚ÌSRAM‚ªŠJ‚©‚ê‚Ü‚µ‚½\n");
-			d->sram_enabled = 1;
-			driver->page8k_pointers[2] = driver->buffer+16;
-			// Ø‚è‘Ö‚¦‚ª‹N‚±‚Á‚½‚±‚Æ‚ğ memmap ‚É’Ê’m
-			d->base.memmap->update_page_pointer( d->base.memmap, (ms_memmap_driver_t*)d, 2);
-		}
-	} else {
-		if (d->sram_enabled != 0) {
-			MS_LOG(MS_LOG_INFO,"PAC‚ÌSRAM‚ª•Â‚¶‚ç‚ê‚½‚Ì‚ÅAƒtƒ@ƒCƒ‹‚É‘‚«o‚µ‚Ü‚·\n");
-			d->sram_enabled = 0;
-			driver->page8k_pointers[2] = d->disabled_buffer;
-			_fflush(driver);
-			// Ø‚è‘Ö‚¦‚ª‹N‚±‚Á‚½‚±‚Æ‚ğ memmap ‚É’Ê’m
-			d->base.memmap->update_page_pointer( d->base.memmap, (ms_memmap_driver_t*)d, 2);
-		}
-	}
+    if (addr == 0x5ffe) {
+        d->_5ffe = data;
+    } else if (addr == 0x5fff) {
+        d->_5fff = data;
+    } else if (page8k == 2 && d->sram_enabled) {
+        // SRAMãŒæœ‰åŠ¹ãªæ™‚ã¯ page8k == 2 ã«ã¯ SRAMãŒãƒãƒƒãƒ”ãƒ³ã‚°ã•ã‚Œã¦ã„ã‚‹
+        driver->page8k_pointers[2][local_addr] = data;
+    }
+    if (d->_5ffe == 0x4d && d->_5fff == 0x69) {
+        if (d->sram_enabled == 0) {
+            MS_LOG(MS_LOG_INFO, "PACã®SRAMãŒé–‹ã‹ã‚Œã¾ã—ãŸ\n");
+            d->sram_enabled = 1;
+            driver->page8k_pointers[2] = driver->buffer + 16;
+            // åˆ‡ã‚Šæ›¿ãˆãŒèµ·ã“ã£ãŸã“ã¨ã‚’ memmap ã«é€šçŸ¥
+            d->base.memmap->update_page_pointer(d->base.memmap, (ms_memmap_driver_t*)d, 2);
+        }
+    } else {
+        if (d->sram_enabled != 0) {
+            MS_LOG(MS_LOG_INFO, "PACã®SRAMãŒé–‰ã˜ã‚‰ã‚ŒãŸã®ã§ã€ãƒ•ã‚¡ã‚¤ãƒ«ã«æ›¸ãå‡ºã—ã¾ã™\n");
+            d->sram_enabled = 0;
+            driver->page8k_pointers[2] = d->disabled_buffer;
+            _fflush(driver);
+            // åˆ‡ã‚Šæ›¿ãˆãŒèµ·ã“ã£ãŸã“ã¨ã‚’ memmap ã«é€šçŸ¥
+            d->base.memmap->update_page_pointer(d->base.memmap, (ms_memmap_driver_t*)d, 2);
+        }
+    }
 }
 
 static uint16_t _read16(ms_memmap_driver_t* driver, uint16_t addr) {
-	return _read8(driver, addr) | (_read8(driver, addr + 1) << 8);
+    return _read8(driver, addr) | (_read8(driver, addr + 1) << 8);
 }
 
 static void _write16(ms_memmap_driver_t* driver, uint16_t addr, uint16_t data) {
-	THIS* d = (THIS*)driver;
-	_write8(driver, addr + 0, data & 0xff);
-	_write8(driver, addr + 1, data >> 8);
-	return;
+    THIS* d = (THIS*)driver;
+    _write8(driver, addr + 0, data & 0xff);
+    _write8(driver, addr + 1, data >> 8);
+    return;
 }
 
 /**
- * @brief PAC‚ÌSRAM‚ğƒtƒ@ƒCƒ‹‚É‘‚«o‚µ‚Ü‚·
- * 
- * @param instance 
+ * @brief PACã®SRAMã‚’ãƒ•ã‚¡ã‚¤ãƒ«ã«æ›¸ãå‡ºã—ã¾ã™
+ *
+ * @param instance
  */
 void _fflush(ms_memmap_driver_t* driver) {
-	THIS* instance = (THIS*)driver;
-	int crt_fh;
-	int crt_length;
-	uint8_t *crt_buff;
-	int i;
+    THIS* instance = (THIS*)driver;
+    int crt_fh;
+    int crt_length;
+    uint8_t* crt_buff;
+    int i;
 
-	crt_fh = open( instance->file_path, O_RDWR | O_BINARY);
-	if (crt_fh == -1) {
-		MS_LOG(MS_LOG_ERROR,"PACƒtƒ@ƒCƒ‹‚ªŠJ‚¯‚Ü‚¹‚ñ. %s\n", instance->file_path);
-		return;
-	}
+    crt_fh = open(instance->file_path, O_RDWR | O_BINARY);
+    if (crt_fh == -1) {
+        MS_LOG(MS_LOG_ERROR, "PACãƒ•ã‚¡ã‚¤ãƒ«ãŒé–‹ã‘ã¾ã›ã‚“. %s\n", instance->file_path);
+        return;
+    }
 
-	write(crt_fh, instance->base.buffer, 16+8192-2);
+    write(crt_fh, instance->base.buffer, 16 + 8192 - 2);
 
-	close(crt_fh);
+    close(crt_fh);
 }

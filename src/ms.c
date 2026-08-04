@@ -1,33 +1,35 @@
 /*
 
-		‚l‚r‚w.‚r‚‰‚‚•‚Œ‚‚”‚…‚’ [[ MS ]]
-				[[ƒXƒ^[ƒgƒAƒbƒvƒvƒƒOƒ‰ƒ€ ]]
+                ï¼­ï¼³ï¼¸.ï¼³ï½‰ï½ï½•ï½Œï½ï½”ï½…ï½’ [[ MS ]]
+                                [[ã‚¹ã‚¿ãƒ¼ãƒˆã‚¢ãƒƒãƒ—ãƒ—ãƒ­ã‚°ãƒ©ãƒ  ]]
 
-	ver. 0.01	programmed by Kuni.
-										1995.9.15
+        ver. 0.01	programmed by Kuni.
+                                                                                1995.9.15
 
 */
 
+#include "ms.h"
+
+#include <ctype.h>
+#include <fcntl.h>
+#include <getopt.h>
+#include <stddef.h>
 #include <stdio.h>
 #include <stdlib.h>
-#include <stddef.h>
 #include <string.h>
 #include <unistd.h>
-#include <fcntl.h>
-#include <ctype.h>
-#include <getopt.h>
-#include <x68k/iocs.h>
 #include <x68k/dos.h>
-#include "ms.h"
+#include <x68k/iocs.h>
+
+#include "disk/ms_disk_container.h"
+#include "memmap/ms_memmap.h"
 #include "ms_R800.h"
 #include "ms_iomap.h"
-#include "memmap/ms_memmap.h"
-#include "vdp/ms_vdp.h"
-#include "disk/ms_disk_container.h"
-#include "peripheral/ms_psg.h"
-#include "peripheral/ms_rtc.h"
 #include "peripheral/ms_kanjirom12.h"
 #include "peripheral/ms_kanjirom_alt.h"
+#include "peripheral/ms_psg.h"
+#include "peripheral/ms_rtc.h"
+#include "vdp/ms_vdp.h"
 
 ms_init_params_t default_param;
 ms_init_params_t init_param;
@@ -36,13 +38,14 @@ ms_init_params_t user_param;
 //
 volatile uint8_t* BITSNS_WORK = (uint8_t*)0x800;
 
-// ƒvƒƒgƒ^ƒCƒvéŒ¾
-void ms_exit( void);
+// ãƒ—ãƒ­ãƒˆã‚¿ã‚¤ãƒ—å®£è¨€
+void ms_exit(void);
+void ms_exit_failure(void);
 uint8_t load_user_param();
-int search_open(const char *filename, int flag);
+int ms_system_file_open(const char* filename, int flag);
 
-// Œ»İ‚Ìİ’èƒƒOƒŒƒxƒ‹
-// ƒfƒoƒbƒOƒeƒLƒXƒg‰æ–Ê‚ªo‚Ä‚¢‚é‚¾‚¯‚±‚ÌƒƒOƒŒƒxƒ‹‚É‚È‚é
+// ç¾åœ¨ã®è¨­å®šãƒ­ã‚°ãƒ¬ãƒ™ãƒ«
+// ãƒ‡ãƒãƒƒã‚°ãƒ†ã‚­ã‚¹ãƒˆç”»é¢ãŒå‡ºã¦ã„ã‚‹æ™‚ã ã‘ã“ã®ãƒ­ã‚°ãƒ¬ãƒ™ãƒ«ã«ãªã‚‹
 static int _debug_log_level = MS_LOG_INFO;
 
 #ifdef DEBUG
@@ -51,46 +54,46 @@ static int textPlaneMode = 1;
 static int textPlaneMode = 0;
 #endif
 
-// ƒƒ‚ƒŠŠÖ˜A
+// ãƒ¡ãƒ¢ãƒªé–¢é€£
 ms_memmap_t* memmap = NULL;
 
-// I/OŠÖ˜A
+// I/Oé–¢é€£
 ms_iomap_t* iomap = NULL;
 
-// RTCŠÖ˜A
+// RTCé–¢é€£
 ms_rtc_t* rtc = NULL;
 
-// VDPŠÖ˜A
-ms_vdp_t* vdp = NULL;  // ms_vdp_shared ‚Æ“¯‚¶‚É‚È‚é‚Í‚¸
+// VDPé–¢é€£
+ms_vdp_t* vdp = NULL;  // ms_vdp_shared ã¨åŒã˜ã«ãªã‚‹ã¯ãš
 
-// PSGŠÖ˜A
-ms_psg_t* psg = NULL; // ms_psg_shared ‚Æ“¯‚¶‚É‚È‚é‚Í‚¸
+// PSGé–¢é€£
+ms_psg_t* psg = NULL;  // ms_psg_shared ã¨åŒã˜ã«ãªã‚‹ã¯ãš
 
-// DiskŠÖ˜A
+// Diské–¢é€£
 ms_disk_container_t* disk_container = NULL;
 
 /*
-  Slot‚ÉROM‚ğƒZƒbƒg‚µ‚Ü‚·B
-	int ms_memmap_set_rom( (void *)address, (char *)filename, (int)kind, (int)slot, (int)page);
+  Slotã«ROMã‚’ã‚»ãƒƒãƒˆã—ã¾ã™ã€‚
+        int ms_memmap_set_rom( (void *)address, (char *)filename, (int)kind, (int)slot, (int)page);
 
-  ˆø”F
-	void *ROM		: ROM‚ÌƒAƒhƒŒƒX
-	char *ROMName	: ROMƒtƒ@ƒCƒ‹–¼
-	int size		: ROM‚ÌƒTƒCƒY
-	int slot		: ƒXƒƒbƒg”Ô†
-	int page		: ƒy[ƒW”Ô†
+  å¼•æ•°ï¼š
+        void *ROM		: ROMã®ã‚¢ãƒ‰ãƒ¬ã‚¹
+        char *ROMName	: ROMãƒ•ã‚¡ã‚¤ãƒ«å
+        int size		: ROMã®ã‚µã‚¤ã‚º
+        int slot		: ã‚¹ãƒ­ãƒƒãƒˆç•ªå·
+        int page		: ãƒšãƒ¼ã‚¸ç•ªå·
 
-  ƒXƒƒbƒg”Ô†‚ÌÚ×F
-	slot %0000ssxx
-		ss: Šî–{ƒXƒƒbƒg”Ô†
-		xx: Šg’£ƒXƒƒbƒg”Ô†
+  ã‚¹ãƒ­ãƒƒãƒˆç•ªå·ã®è©³ç´°ï¼š
+        slot %0000ssxx
+                ss: åŸºæœ¬ã‚¹ãƒ­ãƒƒãƒˆç•ªå·
+                xx: æ‹¡å¼µã‚¹ãƒ­ãƒƒãƒˆç•ªå·
 
-	–ß‚è’lF(‚¿‚á‚ñ‚ÆÀ‘•‚³‚ê‚Ä‚¢‚È‚¢‚©‚à‚µ‚ê‚Ü‚¹‚ñ)
-		0	: ³íI—¹
-		-1	: ƒGƒ‰[
+        æˆ»ã‚Šå€¤ï¼š(ã¡ã‚ƒã‚“ã¨å®Ÿè£…ã•ã‚Œã¦ã„ãªã„ã‹ã‚‚ã—ã‚Œã¾ã›ã‚“)
+                0	: æ­£å¸¸çµ‚äº†
+                -1	: ã‚¨ãƒ©ãƒ¼
 */
-void ms_memmap_set_rom( void* address, const char* filename, int kind, int slot, int page);
-void ms_memmap_register_rom( void* address, int kind, int slot, int page);
+void ms_memmap_set_rom(void* address, const char* filename, int kind, int slot, int page);
+void ms_memmap_register_rom(void* address, int kind, int slot, int page);
 
 int emuLoop(unsigned int pc, unsigned int counter);
 
@@ -110,9 +113,9 @@ volatile extern unsigned short host_line;
 volatile extern unsigned int int_skip_counter;
 volatile extern unsigned int int_exec_counter;
 typedef struct interrupt_history_st {
-	unsigned short int_tick;
-	unsigned short process_type;
-	unsigned long emu_counter;
+    unsigned short int_tick;
+    unsigned short process_type;
+    unsigned long emu_counter;
 } interrupt_history_t;
 
 volatile extern interrupt_history_t* interrupt_history_ptr;
@@ -120,35 +123,46 @@ volatile extern unsigned short interrupt_history_wr;
 volatile extern unsigned short interrupt_history_rd;
 
 void printHelpAndExit(char* progname) {
-	fprintf(stderr, "Usage: %s  [-w CPU_WAIT] [-rm MAINROM] [-rs SUBROM] [-rd DISKBIOS] [-rk KANJIROM] [-r1 ROM_PATH for slot 1][,KIND] [-r2 ROM_PATH for slot 2][,KIND] [-rNM ROM_PATH for slot N page M] [IMAGE1.DSK] [IMAGE2.DSK]..\n", progname);
-	fprintf(stderr, " KIND is ROM type:\n");
-	fprintf(stderr, "    NOR: Normal ROM, G8K: GENERIC 8K, A8K: ASCII 8K, A16: ASCII 16K, KON: Konami, SCC: Konami SCC\n");
-	fprintf(stderr, " --vsrate vsync rate (1-60)\n");
-	fprintf(stderr, "    1: every frame, 2: every 2 frames, ...\n");
-	fprintf(stderr, "    default is 1.\n");
-	fprintf(stderr, " --framecon framerate control (auto, none, 1-99999)\n");
-	fprintf(stderr, "    default is auto.\n");
-	fprintf(stderr, " --hostrate host key operation rate (1-60)\n");
-	fprintf(stderr, "    1: every frame, 2: every 2 frames, ...\n");
-	fprintf(stderr, "    default is 3.\n");
-	fprintf(stderr, " --hostline host interruption line (1-500)\n");
-	fprintf(stderr, "    default is 200th line.\n");
-	fprintf(stderr, " --hostdebug\n");
-	fprintf(stderr, "    enable host process debug mode.\n");
-	fprintf(stderr, " --disablekanji\n");
-	fprintf(stderr, "    disable kanji ROM.\n");
-	fprintf(stderr, " --disablehsyncint\n");
-	fprintf(stderr, "    disable HSYNC interrupt.\n");
-	fprintf(stderr, " --disablescc\n");
-	fprintf(stderr, "    disable SCC sound.\n");
-	fprintf(stderr, "    You can specify which SCC channel to enable. 1: CH1, 2: CH2, 4: CH3, 8: CH4\n");
-	fprintf(stderr, " --disablekey\n");
-	fprintf(stderr, "    disable key input for performance test.\n");
-//	fprintf(stderr, " --debuglevel N\n");
-//	fprintf(stderr, "    0: None, 1: Info, 2: Debug, 3: Fine.\n");
-	fprintf(stderr, " --safe\n");
-	fprintf(stderr, "    safe mode. disable reading MS.INI.\n");
-	exit(EXIT_FAILURE);
+    fprintf(stderr,
+            "Usage: %s  [-w CPU_WAIT] [-rm MAINROM] [-rs SUBROM] [-rd DISKBIOS] [-rkb KANJIBASIC] [-rkr KANJIROM] [-r1 ROM_PATH for slot "
+            "1][,KIND] [-r2 ROM_PATH for slot 2][,KIND] [-rNM ROM_PATH for slot N page M] [IMAGE1.DSK] [IMAGE2.DSK]..\n",
+            progname);
+    fprintf(stderr, " KIND is ROM type:\n");
+    fprintf(stderr, "    NOR: Normal ROM, G8K: GENERIC 8K, A8K: ASCII 8K, A16: ASCII 16K, KON: Konami, SCC: Konami SCC\n");
+    fprintf(stderr, " --vsrate vsync rate (1-60)\n");
+    fprintf(stderr, "    1: every frame, 2: every 2 frames, ...\n");
+    fprintf(stderr, "    default is 1.\n");
+    fprintf(stderr, " --framecon framerate control (auto, none, 1-99999)\n");
+    fprintf(stderr, "    default is auto.\n");
+    fprintf(stderr, " --hostrate host key operation rate (1-60)\n");
+    fprintf(stderr, "    1: every frame, 2: every 2 frames, ...\n");
+    fprintf(stderr, "    default is 3.\n");
+    fprintf(stderr, " --hostline host interruption line (1-500)\n");
+    fprintf(stderr, "    default is 200th line.\n");
+    fprintf(stderr, " --hostdebug\n");
+    fprintf(stderr, "    enable host process debug mode.\n");
+    fprintf(stderr, " --disablekanji\n");
+    fprintf(stderr, "    disable kanji ROM.\n");
+    fprintf(stderr, " --disablehsyncint\n");
+    fprintf(stderr, "    disable HSYNC interrupt.\n");
+    fprintf(stderr, " --disablescc\n");
+    fprintf(stderr, "    disable SCC sound.\n");
+    fprintf(stderr, "    You can specify which SCC channel to enable. 1: CH1, 2: CH2, 4: CH3, 8: CH4\n");
+    fprintf(stderr, " --disablekey\n");
+    fprintf(stderr, "    disable key input for performance test.\n");
+    //	fprintf(stderr, " --debuglevel N\n");
+    //	fprintf(stderr, "    0: None, 1: Info, 2: Debug, 3: Fine.\n");
+    fprintf(stderr, " --joystick.useiocs\n");
+    fprintf(stderr, "    use IOCS for joystick input.\n");
+    fprintf(stderr, " --joystick.swapAB\n");
+    fprintf(stderr, "    swap joystick A/B button.\n");
+    fprintf(stderr, " --9scdrv\n");
+    fprintf(stderr, "    use 9scdrv for disk access. 0-3: drive number, -1: disable\n");
+    fprintf(stderr, " -rd DISKBIOS[,TYPE]\n");
+    fprintf(stderr, "    FDC type for the DISK BIOS. panasonic/tc8566af (default) or sony/philips/wd2793.\n");
+    fprintf(stderr, " --safe\n");
+    fprintf(stderr, "    safe mode. disable reading MS.INI.\n");
+    exit(EXIT_FAILURE);
 }
 
 int disablekanji = 0;
@@ -156,660 +170,717 @@ int disablehsyncint = 0;
 int disablekey = 0;
 int safemode = 0;
 int hostdebug = 0;
+int joystick_useiocs = 0;
+int joystick_swapAB = 0;
+int drive_for_9scdrv = -1;  // default is drive -1 (disable 9scdrv)
 
 char* separate_rom_kind(char* path, int* kind) {
-	char* p = strchr(path, ',');
-	if (p != NULL) {
-		*p = '\0';
-		p++;
-		if (strcasecmp(p, "MIR") == 0) {
-			*kind = ROM_TYPE_MIRRORED_ROM;
-		} else if (strcasecmp(p, "G8K") == 0) {
-			*kind = ROM_TYPE_MEGAROM_GENERIC_8K;
-		} else if (strcasecmp(p, "A8K") == 0) {
-			*kind = ROM_TYPE_MEGAROM_ASCII_8K;
-		} else if (strcasecmp(p, "A16") == 0) {
-			*kind = ROM_TYPE_MEGAROM_ASCII_16K;
-		} else if (strcasecmp(p, "KON") == 0) {
-			*kind = ROM_TYPE_MEGAROM_KONAMI;
-		} else if (strcasecmp(p, "SCC") == 0) {
-			*kind = ROM_TYPE_MEGAROM_KONAMI_SCC;
-		} else if (strcasecmp(p, "ERAM") == 0) {
-			*kind = ROM_TYPE_ESE_RAM;
-		} else if (strcasecmp(p, "ESCC") == 0) {
-			*kind = ROM_TYPE_ESE_SCC;
-		} else {
-			*kind = -1;
-		}
-	} else {
-		*kind = -1;
-	}
-	return path;
+    char* p = strchr(path, ',');
+    if (p != NULL) {
+        *p = '\0';
+        p++;
+        if (strcasecmp(p, "MIR") == 0) {
+            *kind = ROM_TYPE_MIRRORED_ROM;
+        } else if (strcasecmp(p, "G8K") == 0) {
+            *kind = ROM_TYPE_MEGAROM_GENERIC_8K;
+        } else if (strcasecmp(p, "A8K") == 0) {
+            *kind = ROM_TYPE_MEGAROM_ASCII_8K;
+        } else if (strcasecmp(p, "A16") == 0) {
+            *kind = ROM_TYPE_MEGAROM_ASCII_16K;
+        } else if (strcasecmp(p, "KON") == 0) {
+            *kind = ROM_TYPE_MEGAROM_KONAMI;
+        } else if (strcasecmp(p, "SCC") == 0) {
+            *kind = ROM_TYPE_MEGAROM_KONAMI_SCC;
+        } else if (strcasecmp(p, "ERAM") == 0) {
+            *kind = ROM_TYPE_ESE_RAM;
+        } else if (strcasecmp(p, "ESCC") == 0) {
+            *kind = ROM_TYPE_ESE_SCC;
+        } else {
+            *kind = -1;
+        }
+    } else {
+        *kind = -1;
+    }
+    return path;
 }
 
 /*
-	ƒƒCƒ“ŠÖ”
+        DISK ROM ã®ãƒ‘ã‚¹ã‹ã‚‰ ",ç¨®é¡" ã®ã‚µãƒ•ã‚£ãƒƒã‚¯ã‚¹ã‚’å–ã‚Šå‡ºã—ã€FDCã®ç¨®é¡ã‚’åˆ¤å®šã—ã¾ã™ã€‚
+        (ãƒ¡ã‚¬ãƒ­ãƒ ã®ç¨®é¡æŒ‡å®š separate_rom_kind() ã¨åŒã˜æ–¹å¼)
 
-	‹N“®ƒIƒvƒVƒ‡ƒ“F
-		-m filename		: MAIN ROM‚ğw’è‚µ‚½‚à‚Ì‚É•ÏX‚µ‚Ü‚·(32KƒoƒCƒg)
-		-rxx filename	: ƒXƒƒbƒg‚Éfilename‚ğƒZƒbƒg‚µ‚Ü‚·
-			xx: 10‚ÌˆÊ = ƒXƒƒbƒg”Ô†, 1‚ÌˆÊ = ƒy[ƒW”Ô†
-			—áF-r11 GAME1.ROM	: ƒXƒƒbƒg1-ƒy[ƒW1‚ÉGAME1.ROM‚ğƒZƒbƒg				
+        ä¾‹: "sony_disk.rom,sony"  -> ãƒ‘ã‚¹ã¯ "sony_disk.rom"ã€diskif ã¯ MS_DISKIF_SONY
+
+        ç¨®é¡ã‚’çœç•¥ã—ãŸå ´åˆã¯ Panasonic(TC8566AF) ã¨ã—ã¦æ‰±ã„ã¾ã™ã€‚
+        æ—¢çŸ¥ã®ç¨®é¡ä»¥å¤–ãŒæŒ‡å®šã•ã‚ŒãŸå ´åˆã¯ã‚¨ãƒ©ãƒ¼çµ‚äº†ã—ã¾ã™ã€‚
 */
-int main(int argc, char *argv[]) {
+char* separate_diskif(char* path, int* diskif) {
+    char* p = strchr(path, ',');
+    if (p != NULL) {
+        *p = '\0';
+        p++;
+        if (strcasecmp(p, "sony") == 0 || strcasecmp(p, "philips") == 0 || strcasecmp(p, "wd2793") == 0) {
+            *diskif = MS_DISKIF_SONY;
+        } else if (strcasecmp(p, "panasonic") == 0 || strcasecmp(p, "tc8566af") == 0) {
+            *diskif = MS_DISKIF_TC8566AF;
+        } else {
+            printf("ä¸æ˜ãªFDCã®ç¨®é¡ã§ã™: %s\n", p);
+            printf("  æŒ‡å®šã§ãã‚‹ç¨®é¡: panasonic / tc8566af / sony / philips / wd2793\n");
+            ms_exit_failure();
+        }
+    } else {
+        *diskif = MS_DISKIF_TC8566AF;  // çœç•¥æ™‚ã¯ Panasonic(TC8566AF)
+    }
+    return path;
+}
+
+/*
+        ãƒ¡ã‚¤ãƒ³é–¢æ•°
+
+        èµ·å‹•ã‚ªãƒ—ã‚·ãƒ§ãƒ³ï¼š
+                -m filename		: MAIN ROMã‚’æŒ‡å®šã—ãŸã‚‚ã®ã«å¤‰æ›´ã—ã¾ã™(32Kãƒã‚¤ãƒˆ)
+                -rxx filename	: ã‚¹ãƒ­ãƒƒãƒˆã«filenameã‚’ã‚»ãƒƒãƒˆã—ã¾ã™
+                        xx: 10ã®ä½ = ã‚¹ãƒ­ãƒƒãƒˆç•ªå·, 1ã®ä½ = ãƒšãƒ¼ã‚¸ç•ªå·
+                        ä¾‹ï¼š-r11 GAME1.ROM	: ã‚¹ãƒ­ãƒƒãƒˆ1-ãƒšãƒ¼ã‚¸1ã«GAME1.ROMã‚’ã‚»ãƒƒãƒˆ
+*/
+int main(int argc, char* argv[]) {
 #ifdef DEBUG
-	debug_log_level = MS_LOG_DEBUG;
-#else 
-	debug_log_level = MS_LOG_INFO;
+    debug_log_level = MS_LOG_DEBUG;
+#else
+    debug_log_level = MS_LOG_INFO;
 #endif
-	// argv[0]‚©‚çAÀsƒtƒ@ƒCƒ‹–¼‚ğæ‚èœ‚«AƒfƒBƒŒƒNƒgƒŠ–¼‚ğæ“¾
-	// ‚»‚ÌƒfƒBƒŒƒNƒgƒŠ‚ğƒx[ƒXƒfƒBƒŒƒNƒgƒŠ‚Æ‚µ‚Äİ’è
-	strncpy(base_dir, argv[0], sizeof(base_dir) - 1);
-	base_dir[sizeof(base_dir) - 1] = '\0'; // •¶š—ñ‚ÌI’[‚ğ•ÛØ
-	char *last_separator = strrchr(base_dir, '\\');
-	if (last_separator != NULL) {
-		// ÅŒã‚Ì \ ‚Íc‚·
-		*(last_separator+1) = '\0';
-	} else {
-		printf("ƒfƒBƒŒƒNƒgƒŠ–¼‚Ìæ“¾‚É¸”s‚µ‚Ü‚µ‚½\n");
-		return 1;
-	}
+    // argv[0]ã‹ã‚‰ã€å®Ÿè¡Œãƒ•ã‚¡ã‚¤ãƒ«åã‚’å–ã‚Šé™¤ãã€ãƒ‡ã‚£ãƒ¬ã‚¯ãƒˆãƒªåã‚’å–å¾—
+    // ãã®ãƒ‡ã‚£ãƒ¬ã‚¯ãƒˆãƒªã‚’ãƒ™ãƒ¼ã‚¹ãƒ‡ã‚£ãƒ¬ã‚¯ãƒˆãƒªã¨ã—ã¦è¨­å®š
+    strncpy(base_dir, argv[0], sizeof(base_dir) - 1);
+    base_dir[sizeof(base_dir) - 1] = '\0';  // æ–‡å­—åˆ—ã®çµ‚ç«¯ã‚’ä¿è¨¼
+    char* last_separator = strrchr(base_dir, '\\');
+    if (last_separator != NULL) {
+        // æœ€å¾Œã® \ ã¯æ®‹ã™
+        *(last_separator + 1) = '\0';
+    } else {
+        printf("ãƒ‡ã‚£ãƒ¬ã‚¯ãƒˆãƒªåã®å–å¾—ã«å¤±æ•—ã—ã¾ã—ãŸ\n");
+        return 1;
+    }
+    printf("Base directory: %s\n", base_dir);
 
-	int i, j;
-	int opt;
-	const char* optstring = "hm:s:w:r:" ; // optstring‚ğ’è‹`‚µ‚Ü‚·
-	const struct option longopts[] = {
-	  //{          *name,           has_arg,       *flag, val },
-	    {         "vsrate", required_argument,               0, 'A' },
-	    {       "framecon", required_argument,               0, 'B' },
-	    {       "hostrate", required_argument,               0, 'C' },
-	    {       "hostline", required_argument,               0, 'D' },
-		{      "hostdebug",       no_argument,      &hostdebug,  1  },
-		{   "disablekanji",       no_argument,   &disablekanji,  1  },
-		{"disablehsyncint",       no_argument,&disablehsyncint,  1  },
-		{    "disablescc",  optional_argument,               0, 'S' },
-		{     "disablekey",       no_argument,     &disablekey,  1  },
-		{           "safe",       no_argument,       &safemode,  1  },
-	    {                0,                 0,               0,  0  }, // termination
-	};
-	const struct option* longopt;
-	int longindex = 0;
+    int i, j;
+    int opt;
+    const char* optstring = "hm:s:w:r:";  // optstringã‚’å®šç¾©ã—ã¾ã™
+    const struct option longopts[] = {
+        //{          *name,           has_arg,            *flag, val },
+        {          "vsrate", required_argument,                 0, 'A'},
+        {        "framecon", required_argument,                 0, 'B'},
+        {        "hostrate", required_argument,                 0, 'C'},
+        {        "hostline", required_argument,                 0, 'D'},
+        {       "hostdebug",       no_argument,        &hostdebug,   1},
+        {    "disablekanji",       no_argument,     &disablekanji,   1},
+        { "disablehsyncint",       no_argument,  &disablehsyncint,   1},
+        {      "disablescc", optional_argument,                 0, 'S'},
+        {      "disablekey",       no_argument,       &disablekey,   1},
+        {            "safe",       no_argument,         &safemode,   1},
+        {"joystick.useiocs",       no_argument, &joystick_useiocs,   1},
+        { "joystick.swapAB",       no_argument,  &joystick_swapAB,   1},
+        {          "9scdrv", required_argument, &drive_for_9scdrv,   2},
+        {                 0,                 0,                 0,   0}, // termination
+    };
+    const struct option* longopt;
+    int longindex = 0;
 
-	printf("[[ MSX Simulator MS.X %s]]\n", MS_dot_X_VERSION);
+    printf("[[ MSX Simulator MS.X %s]]\n", MS_dot_X_VERSION);
 
-	unsigned int mpu_type = _iocs_mpu_stat();
-	if( (mpu_type & 0xf) < 3) {
-		printf("MS.X ‚Ì“®ì‚É‚Í 68030ˆÈã‚ª•K—v‚Å‚·\n");
-		ms_exit();
-	}
+    unsigned int mpu_type = _iocs_mpu_stat();
+    if ((mpu_type & 0xf) < 3) {
+        printf("MS.X ã®å‹•ä½œã«ã¯ 68030ä»¥ä¸ŠãŒå¿…è¦ã§ã™\n");
+        ms_exit_failure();
+    }
+    printf("MPU type: %04X\n", mpu_type);
 
-	// ƒfƒtƒHƒ‹ƒg‚Ì‰Šú‰»
-	default_param.buf = NULL;
-	default_param.diskrom = NULL;
-	default_param.kanjirom = NULL;
-	for(i=0;i<4;i++) {
-		for(j=0;j<4;j++) {
-			default_param.slot_path[i][j] = NULL;
-		}
-	}
-	default_param.cartridge_path_slot1 = NULL;
-	default_param.cartridge_kind_slot1 = -1;
-	default_param.cartridge_path_slot2 = NULL;
-	default_param.cartridge_kind_slot2 = -1;
-	default_param.cpu_wait = 0;
-	default_param.diskcount = 0;
-	for(i=0;i<16;i++) {
-		default_param.diskimages[i] = NULL;
-	}
-	default_param.mainrom = "cbios_main_msx2_jp.rom";
-	default_param.subrom = "cbios_sub.rom";
-	default_param.slot_path[0][2] = "cbios_logo_msx2.rom";
-	default_param.scc_enable = 0x0f;	// CH1-Ch4 enable
-	default_param.disablehsyncint = 0;
-	default_param.framerate_control = 0xffffffff; // auto
+    // ãƒ‡ãƒ•ã‚©ãƒ«ãƒˆã®åˆæœŸåŒ–
+    default_param.buf = NULL;
+    default_param.diskrom = NULL;
+    default_param.diskif = MS_DISKIF_TC8566AF;
+    default_param.kanjibasic = NULL;
+    default_param.kanjirom = NULL;
+    for (i = 0; i < 4; i++) {
+        for (j = 0; j < 4; j++) {
+            default_param.slot_path[i][j] = NULL;
+        }
+    }
+    default_param.cartridge_path_slot1 = NULL;
+    default_param.cartridge_kind_slot1 = -1;
+    default_param.cartridge_path_slot2 = NULL;
+    default_param.cartridge_kind_slot2 = -1;
+    default_param.cpu_wait = 0;
+    default_param.diskcount = 0;
+    for (i = 0; i < 16; i++) {
+        default_param.diskimages[i] = NULL;
+    }
+    default_param.drive_for_9scdrv = MS_DISK_9SCDRV_NONE;
+    default_param.mainrom = "cbios_main_msx2_jp.rom";
+    default_param.subrom = "cbios_sub.rom";
+    default_param.slot_path[0][2] = "cbios_logo_msx2.rom";
+    default_param.scc_enable = 0x0f;  // CH1-Ch4 enable
+    default_param.disablehsyncint = 0;
+    default_param.framerate_control = 0xffffffff;  // auto
+    //
+    default_param.joystick_use_iocs = false;
+    default_param.joystick_swap_AB = false;
 
-	// ƒ†[ƒU[İ’èƒtƒ@ƒCƒ‹‚Ì“Ç‚İ‚İ
-	if( load_user_param() ) {
-		// “Ç‚İ‚İ‚É¬Œ÷‚µ‚½ê‡‚ÍAƒfƒtƒHƒ‹ƒg‚Ìİ’è‚ğƒ†[ƒU[İ’è‚Åã‘‚«
-		init_param = user_param;
-	} else {
-		// “Ç‚İ‚İ‚É¸”s‚µ‚½ê‡‚ÍAƒfƒtƒHƒ‹ƒg‚Ìİ’è‚ğg—p
-		init_param = default_param;
-	}
+    // ãƒ¦ãƒ¼ã‚¶ãƒ¼è¨­å®šãƒ•ã‚¡ã‚¤ãƒ«ã®èª­ã¿è¾¼ã¿
+    if (load_user_param()) {
+        // èª­ã¿è¾¼ã¿ã«æˆåŠŸã—ãŸå ´åˆã¯ã€ãƒ‡ãƒ•ã‚©ãƒ«ãƒˆã®è¨­å®šã‚’ãƒ¦ãƒ¼ã‚¶ãƒ¼è¨­å®šã§ä¸Šæ›¸ã
+        init_param = user_param;
+    } else {
+        // èª­ã¿è¾¼ã¿ã«å¤±æ•—ã—ãŸå ´åˆã¯ã€ãƒ‡ãƒ•ã‚©ãƒ«ãƒˆã®è¨­å®šã‚’ä½¿ç”¨
+        init_param = default_param;
+    }
 
-	// ‚»‚Ì‘¼ƒ[ƒNƒGƒŠƒA‚Ì‰Šú‰»
-	for(i=0;i<32;i++) {
-		interrupt_history_ptr[i].int_tick = 0;
-		interrupt_history_ptr[i].process_type = 0;
-		interrupt_history_ptr[i].emu_counter = 0;
-	}
+    // ãã®ä»–ãƒ¯ãƒ¼ã‚¯ã‚¨ãƒªã‚¢ã®åˆæœŸåŒ–
+    for (i = 0; i < 32; i++) {
+        interrupt_history_ptr[i].int_tick = 0;
+        interrupt_history_ptr[i].process_type = 0;
+        interrupt_history_ptr[i].emu_counter = 0;
+    }
 
-	// ƒRƒ}ƒ“ƒhƒ‰ƒCƒ“ƒIƒvƒVƒ‡ƒ“‚Ì‰ğÍ
-	while ((opt = getopt_long(argc, argv, optstring, longopts, &longindex)) != -1)
-	{
-		switch (opt)
-		{
-		case 0: // ƒtƒ‰ƒO‚ªƒZƒbƒg‚³‚ê‚½ê‡
-			// ‚à‚µƒZ[ƒtƒ‚[ƒh‚¾‚Á‚½‚çAƒfƒtƒHƒ‹ƒg‚Ìƒpƒ‰ƒ[ƒ^‚É–ß‚·
-			if (safemode) {
-				printf("ƒZ[ƒtƒ‚[ƒh‚Å‹N“®‚µ‚Ü‚·B‘±s‚·‚éê‡‚Í‰½‚©ƒL[‚ğ‰Ÿ‚µ‚Ä‚­‚¾‚³‚¢B\n");
-				_iocs_b_keyinp();
-				init_param = default_param;
-			}
-			break;
-		case 'h': // -h ƒIƒvƒVƒ‡ƒ“
-			printHelpAndExit(argv[0]);
-			break;
-		case 'm': // -m ƒIƒvƒVƒ‡ƒ“
-			if (optarg != NULL)
-			{
-				init_param.mainrom = optarg;
-			}
-			break;
-		case 'w': // -w ƒIƒvƒVƒ‡ƒ“
-			if (optarg != NULL)
-			{
-				init_param.cpu_wait = atoi(optarg);
-			}
-			break;
-		case 's': // -s ƒIƒvƒVƒ‡ƒ“
-			if (optarg != NULL)
-			{
-				init_param.subrom = optarg;
-			}
-			break;
-		case 'r': // -rNN ƒIƒvƒVƒ‡ƒ“
-			if (strlen(optarg) == 1 && !isdigit(optarg[0]) ) {
-				// -r ‚É”šˆÈŠO‚ª‘±‚­ê‡
-				switch(optarg[0]) {
-				case 'm':
-					// ƒƒCƒ“ROM‚Ìw’è
-					if (argv[optind] != NULL)
-					{
-						init_param.mainrom = argv[optind++];
-					}
-					else
-					{
-						printf("ROMƒtƒ@ƒCƒ‹–¼‚ªw’è‚³‚ê‚Ä‚¢‚Ü‚¹‚ñ\n");
-						ms_exit();
-					}
-					break;
-				case 's':
-					// ƒTƒuROM‚Ìw’è
-					if (argv[optind] != NULL)
-					{
-						init_param.subrom = argv[optind++];
-					}
-					else
-					{
-						printf("ROMƒtƒ@ƒCƒ‹–¼‚ªw’è‚³‚ê‚Ä‚¢‚Ü‚¹‚ñ\n");
-						ms_exit();
-					}
-					break;
-				case 'd':
-					// ƒfƒBƒXƒNBIOS‚Ìw’è
-					if (argv[optind] != NULL)
-					{
-						init_param.diskrom = argv[optind++];
-					}
-					else
-					{
-						printf("ROMƒtƒ@ƒCƒ‹–¼‚ªw’è‚³‚ê‚Ä‚¢‚Ü‚¹‚ñ\n");
-						ms_exit();
-					}
-					break;
-				case 'k':
-					// Š¿šROM‚Ìw’è
-					if (argv[optind] != NULL)
-					{
-						init_param.kanjirom = argv[optind++];
-					}
-					else
-					{
-						printf("ROMƒtƒ@ƒCƒ‹–¼‚ªw’è‚³‚ê‚Ä‚¢‚Ü‚¹‚ñ\n");
-						ms_exit();
-					}
-				default:
-					printf("•s–¾‚ÈƒIƒvƒVƒ‡ƒ“‚Å‚·\n");
-					printHelpAndExit(argv[0]);
-					break;
-				}
-			} else if (strlen(optarg) == 1 && isdigit(optarg[0]) ) {
-				// -r ‚É”š‚ª1Œ…‘±‚­ê‡
-				int slot = atoi(optarg);
-				if ( slot >= 1 && slot <= 2) {
-					// Ÿ‚Ìˆø”iROMƒtƒ@ƒCƒ‹–¼j‚ğæ“¾
-					if (argv[optind] != NULL)
-					{
-						if (slot == 1) {
-							init_param.cartridge_path_slot1 = argv[optind++];
-							init_param.cartridge_path_slot1 = separate_rom_kind(init_param.cartridge_path_slot1, &init_param.cartridge_kind_slot1);
-						} else {
-							init_param.cartridge_path_slot2 = argv[optind++];
-							init_param.cartridge_path_slot2 = separate_rom_kind(init_param.cartridge_path_slot2, &init_param.cartridge_kind_slot2);
-						}
-					}
-					else
-					{
-						printf("ROMƒtƒ@ƒCƒ‹–¼‚ªw’è‚³‚ê‚Ä‚¢‚Ü‚¹‚ñ\n");
-						ms_exit();
-					}
-				} else {
-					printf("ƒXƒƒbƒg”Ô†‚Í1‚©2‚ğw’è‚µ‚Ä‚­‚¾‚³‚¢B\n");
-					printHelpAndExit(argv[0]);
-				}
-			} else if (strlen(optarg) == 2 && isdigit(optarg[0]) && isdigit(optarg[1])) {
-				// -r ‚É”š‚ª2Œ…‘±‚­ê‡
-				int num = atoi(optarg);
-				int slot = (num / 10);
-				int page = num % 10; // 1‚ÌˆÊ‚ªpage
-				if ( slot >= 0 && slot <= 3 && page >= 0 && page <= 3) {
-					// Ÿ‚Ìˆø”iROMƒtƒ@ƒCƒ‹–¼j‚ğæ“¾
-					if (argv[optind] != NULL)
-					{
-						init_param.slot_path[slot][page] = argv[optind++];
-					}
-					else
-					{
-						printf("ROMƒtƒ@ƒCƒ‹–¼‚ªw’è‚³‚ê‚Ä‚¢‚Ü‚¹‚ñ\n");
-						ms_exit();
-					}
-				} else {
-					printf("ƒXƒƒbƒg”Ô†‚ª•s³‚Å‚·\n");
-					printHelpAndExit(argv[0]);
-				}
-			} else {
-				// -r ’P“Æ‚Í -r1 ‚Æ“¯‚¶‚Æ‚İ‚È‚·
-				// Ÿ‚Ìˆø”iROMƒtƒ@ƒCƒ‹–¼j‚ğæ“¾
-				if (optarg != NULL)
-				{
-					init_param.cartridge_path_slot1 = optarg;
-					init_param.cartridge_path_slot1 = separate_rom_kind(init_param.cartridge_path_slot1, &init_param.cartridge_kind_slot1);
-				}
-				else
-				{
-					printf("ROMƒtƒ@ƒCƒ‹–¼‚ªw’è‚³‚ê‚Ä‚¢‚Ü‚¹‚ñ\n");
-					ms_exit();
-				}
-			}
-			break;
-		case 'A': // --vsrate N ƒIƒvƒVƒ‡ƒ“
-			// VSYNCƒŒ[ƒg‚Ìİ’è
-			longopt = &longopts[longindex];
-			if (longopt->has_arg == required_argument && optarg != NULL) {
-				ms_vdp_vsync_rate = atoi(optarg);
-				if (ms_vdp_vsync_rate < 1 || ms_vdp_vsync_rate > 61) {
-					printf("VSYNCƒŒ[ƒg‚ª•s³‚Å‚·\n");
-					printHelpAndExit(argv[0]);
-				}
-			} else {
-				printf("VSYNCƒŒ[ƒg‚ªw’è‚³‚ê‚Ä‚¢‚Ü‚¹‚ñ\n");
-				printHelpAndExit(argv[0]);
-			}
-			break;
-		case 'B': // --framecon N ƒIƒvƒVƒ‡ƒ“
-			// ƒtƒŒ[ƒ€ƒŒ[ƒg§Œä‚Ìİ’è
-			// "auto" - ©“®BŠ„‚è‚İˆ—‚ªd‚­‚È‚é‚Æ©“®‚ÅƒtƒŒ[ƒ€ƒXƒLƒbƒv‚·‚é
-			// "none" - ƒtƒŒ[ƒ€ƒXƒLƒbƒv‚µ‚È‚¢Bˆ—‚ªd‚­‚È‚é‚ÆƒtƒŠ[ƒY‚·‚éƒŠƒXƒN‚ ‚è
-			// 1-99999 - 1ƒtƒŒ[ƒ€’†‚ÌÅ¬Às–½—ß”‚ğw’è(‘å‚«‚È”‚ğw’è‚·‚é‚ÆƒtƒŒ[ƒ€—‚¿‚µ‚â‚·‚­‚È‚é‚ªA“®‚­ƒ\ƒtƒg‚ª‘‚¦‚é)
-			longopt = &longopts[longindex];
-			if (longopt->has_arg && optarg != NULL) {
-				if (strcasecmp(optarg, "auto") == 0) {
-					init_param.framerate_control = 0xffffffff;
-				} else if (strcasecmp(optarg, "none") == 0) {
-					init_param.framerate_control = 0;
-				} else {
-					init_param.framerate_control = atoi(optarg);
-					if (init_param.framerate_control < 1 || init_param.framerate_control > 99999) {
-						printf("ƒtƒŒ[ƒ€ƒŒ[ƒg§Œäƒ‹[ƒ‹‚Ìw’è‚ª•s³‚Å‚·\n");
-						printHelpAndExit(argv[0]);
-					}
-				}
-			} else {
-				printf("Š„‚è‚İƒuƒƒbƒNƒJƒEƒ“ƒg‚ªw’è‚³‚ê‚Ä‚¢‚Ü‚¹‚ñ\n");
-				printHelpAndExit(argv[0]);
-			}
-			break;
-		case 'C': // --hostrate N ƒIƒvƒVƒ‡ƒ“
-			// ƒzƒXƒgˆ—ƒŒ[ƒg‚Ìİ’è
-			longopt = &longopts[longindex];
-			if (longopt->has_arg && optarg != NULL) {
-				host_rate = atoi(optarg);
-				if (host_rate < 1 || host_rate > 61) {
-					printf("ƒzƒXƒgˆ—ƒŒ[ƒg‚ª•s³‚Å‚·\n");
-					printHelpAndExit(argv[0]);
-				}
-			} else {
-				printf("ƒzƒXƒgˆ—ƒŒ[ƒg‚ªw’è‚³‚ê‚Ä‚¢‚Ü‚¹‚ñ\n");
-				printHelpAndExit(argv[0]);
-			}
-			break;
-		case 'D': // --hostline N ƒIƒvƒVƒ‡ƒ“
-			// ƒzƒXƒgˆ—ƒ‰ƒCƒ“”Ô†‚Ìİ’è
-			longopt = &longopts[longindex];
-			if (longopt->has_arg && optarg != NULL) {
-				host_line = atoi(optarg);
-				if (host_line < 1 || host_line > 500) {
-					printf("ƒzƒXƒgˆ—ƒ‰ƒCƒ“”Ô†‚ª•s³‚Å‚·\n");
-					printHelpAndExit(argv[0]);
-				}
-			} else {
-				printf("ƒzƒXƒgˆ—’x‰„ƒJƒEƒ“ƒg‚ªw’è‚³‚ê‚Ä‚¢‚Ü‚¹‚ñ\n");
-				printHelpAndExit(argv[0]);
-			}
-			break;
-		case 'S': // --disablescc ƒIƒvƒVƒ‡ƒ“
-			// SCC‰¹Œ¹‚Ì–³Œø‰»
-			longopt = &longopts[longindex];
-			if (longopt->has_arg && optarg != NULL) {
-				init_param.scc_enable = atoi(optarg);
-				if (init_param.scc_enable < 1 || init_param.scc_enable > 0x10) {
-					printf("SCC—LŒøƒ`ƒƒƒ“ƒlƒ‹‚Ìw’è‚ª‚¨‚©‚µ‚¢‚Å‚·B\n");
-					printHelpAndExit(argv[0]);
-				}
-			} else {
-				init_param.scc_enable = 0;
-			}
-			break;
-		default: /* '?' */
-			printHelpAndExit(argv[0]);
-			break;
-		}
-	}
+    // ã‚³ãƒãƒ³ãƒ‰ãƒ©ã‚¤ãƒ³ã‚ªãƒ—ã‚·ãƒ§ãƒ³ã®è§£æ
+    while ((opt = getopt_long(argc, argv, optstring, longopts, &longindex)) != -1) {
+        switch (opt) {
+        case 0:  // ãƒ•ãƒ©ã‚°ãŒã‚»ãƒƒãƒˆã•ã‚ŒãŸå ´åˆ
+            // ã‚‚ã—ã‚»ãƒ¼ãƒ•ãƒ¢ãƒ¼ãƒ‰ã ã£ãŸã‚‰ã€ãƒ‡ãƒ•ã‚©ãƒ«ãƒˆã®ãƒ‘ãƒ©ãƒ¡ãƒ¼ã‚¿ã«æˆ»ã™
+            if (safemode) {
+                printf("ã‚»ãƒ¼ãƒ•ãƒ¢ãƒ¼ãƒ‰ã§èµ·å‹•ã—ã¾ã™ã€‚ç¶šè¡Œã™ã‚‹å ´åˆã¯ä½•ã‹ã‚­ãƒ¼ã‚’æŠ¼ã—ã¦ãã ã•ã„ã€‚\n");
+                _iocs_b_keyinp();
+                init_param = default_param;
+            }
+            break;
+        case 'h':  // -h ã‚ªãƒ—ã‚·ãƒ§ãƒ³
+            printHelpAndExit(argv[0]);
+            break;
+        case 'm':  // -m ã‚ªãƒ—ã‚·ãƒ§ãƒ³
+            if (optarg != NULL) {
+                init_param.mainrom = optarg;
+            }
+            break;
+        case 'w':  // -w ã‚ªãƒ—ã‚·ãƒ§ãƒ³
+            if (optarg != NULL) {
+                init_param.cpu_wait = atoi(optarg);
+            }
+            break;
+        case 's':  // -s ã‚ªãƒ—ã‚·ãƒ§ãƒ³
+            if (optarg != NULL) {
+                init_param.subrom = optarg;
+            }
+            break;
+        case 'r':  // -rNN ã‚ªãƒ—ã‚·ãƒ§ãƒ³
+            if (strlen(optarg) == 1 && !isdigit(optarg[0])) {
+                // -r ã«æ•°å­—ä»¥å¤–ãŒç¶šãå ´åˆ
+                switch (optarg[0]) {
+                case 'm':
+                    // ãƒ¡ã‚¤ãƒ³ROMã®æŒ‡å®š
+                    if (argv[optind] != NULL) {
+                        init_param.mainrom = argv[optind++];
+                    } else {
+                        printf("ROMãƒ•ã‚¡ã‚¤ãƒ«åãŒæŒ‡å®šã•ã‚Œã¦ã„ã¾ã›ã‚“\n");
+                        ms_exit_failure();
+                    }
+                    break;
+                case 's':
+                    // ã‚µãƒ–ROMã®æŒ‡å®š
+                    if (argv[optind] != NULL) {
+                        init_param.subrom = argv[optind++];
+                    } else {
+                        printf("ROMãƒ•ã‚¡ã‚¤ãƒ«åãŒæŒ‡å®šã•ã‚Œã¦ã„ã¾ã›ã‚“\n");
+                        ms_exit_failure();
+                    }
+                    break;
+                case 'd':
+                    // ãƒ‡ã‚£ã‚¹ã‚¯BIOSã®æŒ‡å®š (",ç¨®é¡" ã§FDCã®ç¨®é¡ã‚’æŒ‡å®šå¯èƒ½)
+                    if (argv[optind] != NULL) {
+                        init_param.diskrom = separate_diskif(argv[optind++], &init_param.diskif);
+                    } else {
+                        printf("ROMãƒ•ã‚¡ã‚¤ãƒ«åãŒæŒ‡å®šã•ã‚Œã¦ã„ã¾ã›ã‚“\n");
+                        ms_exit_failure();
+                    }
+                    break;
+                case 'k':
+                    if (optarg[1] == 'b') {
+                        // æ¼¢å­—BASICã®æŒ‡å®š
+                        if (argv[optind] != NULL) {
+                            init_param.kanjibasic = argv[optind++];
+                        } else {
+                            printf("æ¼¢å­—BASICãƒ•ã‚¡ã‚¤ãƒ«åãŒæŒ‡å®šã•ã‚Œã¦ã„ã¾ã›ã‚“\n");
+                            ms_exit();
+                        }
 
-	// getopt‚Ìƒ‹[ƒv‚ªI—¹‚µ‚½ŒãA’Êí‚Ìˆø”‚ğˆ—‚·‚é
-	// init_param.diskcount‚Í‚±‚Ì“_‚Å 1ˆÈã‚É‚È‚Á‚Ä‚¢‚é‚±‚Æ‚à‚ ‚é‚Ì‚Å’ˆÓ
-	for (i = optind; i < argc; i++) {
-		if (strcasestr(argv[i], ".dsk") != 0) {
-			init_param.diskimages[init_param.diskcount++] = argv[i];
-			if(init_param.diskcount >= 16) {
-				printf("ƒfƒBƒXƒNƒCƒ[ƒW‚Ì”‚ª‘½‚·‚¬‚Ü‚·\n");
-				ms_exit();
-			}
-		}
-	}
+                    } else if (optarg[1] == 'f') {
+                        // æ¼¢å­—ãƒ•ã‚©ãƒ³ãƒˆROMã®æŒ‡å®š
+                        if (argv[optind] != NULL) {
+                            init_param.kanjirom = argv[optind++];
+                        } else {
+                            printf("ROMãƒ•ã‚¡ã‚¤ãƒ«åãŒæŒ‡å®šã•ã‚Œã¦ã„ã¾ã›ã‚“\n");
+                            ms_exit();
+                        }
+                    } else {
+                        printf("ä¸æ˜ãªã‚ªãƒ—ã‚·ãƒ§ãƒ³ã§ã™\n");
+                        printHelpAndExit(argv[0]);
+                    }
+                default:
+                    printf("ä¸æ˜ãªã‚ªãƒ—ã‚·ãƒ§ãƒ³ã§ã™\n");
+                    printHelpAndExit(argv[0]);
+                    break;
+                }
+            } else if (strlen(optarg) == 1 && isdigit(optarg[0])) {
+                // -r ã«æ•°å­—ãŒ1æ¡ç¶šãå ´åˆ
+                int slot = atoi(optarg);
+                if (slot >= 1 && slot <= 2) {
+                    // æ¬¡ã®å¼•æ•°ï¼ˆROMãƒ•ã‚¡ã‚¤ãƒ«åï¼‰ã‚’å–å¾—
+                    if (argv[optind] != NULL) {
+                        if (slot == 1) {
+                            init_param.cartridge_path_slot1 = argv[optind++];
+                            init_param.cartridge_path_slot1 =
+                                separate_rom_kind(init_param.cartridge_path_slot1, &init_param.cartridge_kind_slot1);
+                        } else {
+                            init_param.cartridge_path_slot2 = argv[optind++];
+                            init_param.cartridge_path_slot2 =
+                                separate_rom_kind(init_param.cartridge_path_slot2, &init_param.cartridge_kind_slot2);
+                        }
+                    } else {
+                        printf("ROMãƒ•ã‚¡ã‚¤ãƒ«åãŒæŒ‡å®šã•ã‚Œã¦ã„ã¾ã›ã‚“\n");
+                        ms_exit_failure();
+                    }
+                } else {
+                    printf("ã‚¹ãƒ­ãƒƒãƒˆç•ªå·ã¯1ã‹2ã‚’æŒ‡å®šã—ã¦ãã ã•ã„ã€‚\n");
+                    printHelpAndExit(argv[0]);
+                }
+            } else if (strlen(optarg) == 2 && isdigit(optarg[0]) && isdigit(optarg[1])) {
+                // -r ã«æ•°å­—ãŒ2æ¡ç¶šãå ´åˆ
+                int num = atoi(optarg);
+                int slot = (num / 10);
+                int page = num % 10;  // 1ã®ä½ãŒpage
+                if (slot >= 0 && slot <= 3 && page >= 0 && page <= 3) {
+                    // æ¬¡ã®å¼•æ•°ï¼ˆROMãƒ•ã‚¡ã‚¤ãƒ«åï¼‰ã‚’å–å¾—
+                    if (argv[optind] != NULL) {
+                        init_param.slot_path[slot][page] = argv[optind++];
+                    } else {
+                        printf("ROMãƒ•ã‚¡ã‚¤ãƒ«åãŒæŒ‡å®šã•ã‚Œã¦ã„ã¾ã›ã‚“\n");
+                        ms_exit_failure();
+                    }
+                } else {
+                    printf("ã‚¹ãƒ­ãƒƒãƒˆç•ªå·ãŒä¸æ­£ã§ã™\n");
+                    printHelpAndExit(argv[0]);
+                }
+            } else {
+                // -r å˜ç‹¬ã¯ -r1 ã¨åŒã˜ã¨ã¿ãªã™
+                // æ¬¡ã®å¼•æ•°ï¼ˆROMãƒ•ã‚¡ã‚¤ãƒ«åï¼‰ã‚’å–å¾—
+                if (optarg != NULL) {
+                    init_param.cartridge_path_slot1 = optarg;
+                    init_param.cartridge_path_slot1 = separate_rom_kind(init_param.cartridge_path_slot1, &init_param.cartridge_kind_slot1);
+                } else {
+                    printf("ROMãƒ•ã‚¡ã‚¤ãƒ«åãŒæŒ‡å®šã•ã‚Œã¦ã„ã¾ã›ã‚“\n");
+                    ms_exit_failure();
+                }
+            }
+            break;
+        case 'A':  // --vsrate N ã‚ªãƒ—ã‚·ãƒ§ãƒ³
+            // VSYNCãƒ¬ãƒ¼ãƒˆã®è¨­å®š
+            longopt = &longopts[longindex];
+            if (longopt->has_arg == required_argument && optarg != NULL) {
+                ms_vdp_vsync_rate = atoi(optarg);
+                if (ms_vdp_vsync_rate < 1 || ms_vdp_vsync_rate > 61) {
+                    printf("VSYNCãƒ¬ãƒ¼ãƒˆãŒä¸æ­£ã§ã™\n");
+                    printHelpAndExit(argv[0]);
+                }
+            } else {
+                printf("VSYNCãƒ¬ãƒ¼ãƒˆãŒæŒ‡å®šã•ã‚Œã¦ã„ã¾ã›ã‚“\n");
+                printHelpAndExit(argv[0]);
+            }
+            break;
+        case 'B':  // --framecon N ã‚ªãƒ—ã‚·ãƒ§ãƒ³
+            // ãƒ•ãƒ¬ãƒ¼ãƒ ãƒ¬ãƒ¼ãƒˆåˆ¶å¾¡ã®è¨­å®š
+            // "auto" - è‡ªå‹•ã€‚å‰²ã‚Šè¾¼ã¿å‡¦ç†ãŒé‡ããªã‚‹ã¨è‡ªå‹•ã§ãƒ•ãƒ¬ãƒ¼ãƒ ã‚¹ã‚­ãƒƒãƒ—ã™ã‚‹
+            // "none" - ãƒ•ãƒ¬ãƒ¼ãƒ ã‚¹ã‚­ãƒƒãƒ—ã—ãªã„ã€‚å‡¦ç†ãŒé‡ããªã‚‹ã¨ãƒ•ãƒªãƒ¼ã‚ºã™ã‚‹ãƒªã‚¹ã‚¯ã‚ã‚Š
+            // 1-99999 - 1ãƒ•ãƒ¬ãƒ¼ãƒ ä¸­ã®æœ€å°å®Ÿè¡Œå‘½ä»¤æ•°ã‚’æŒ‡å®š(å¤§ããªæ•°ã‚’æŒ‡å®šã™ã‚‹ã¨ãƒ•ãƒ¬ãƒ¼ãƒ è½ã¡ã—ã‚„ã™ããªã‚‹ãŒã€å‹•ãã‚½ãƒ•ãƒˆãŒå¢—ãˆã‚‹)
+            longopt = &longopts[longindex];
+            if (longopt->has_arg && optarg != NULL) {
+                if (strcasecmp(optarg, "auto") == 0) {
+                    init_param.framerate_control = 0xffffffff;
+                } else if (strcasecmp(optarg, "none") == 0) {
+                    init_param.framerate_control = 0;
+                } else {
+                    init_param.framerate_control = atoi(optarg);
+                    if (init_param.framerate_control < 1 || init_param.framerate_control > 99999) {
+                        printf("ãƒ•ãƒ¬ãƒ¼ãƒ ãƒ¬ãƒ¼ãƒˆåˆ¶å¾¡ãƒ«ãƒ¼ãƒ«ã®æŒ‡å®šãŒä¸æ­£ã§ã™\n");
+                        printHelpAndExit(argv[0]);
+                    }
+                }
+            } else {
+                printf("å‰²ã‚Šè¾¼ã¿ãƒ–ãƒ­ãƒƒã‚¯ã‚«ã‚¦ãƒ³ãƒˆãŒæŒ‡å®šã•ã‚Œã¦ã„ã¾ã›ã‚“\n");
+                printHelpAndExit(argv[0]);
+            }
+            break;
+        case 'C':  // --hostrate N ã‚ªãƒ—ã‚·ãƒ§ãƒ³
+            // ãƒ›ã‚¹ãƒˆå‡¦ç†ãƒ¬ãƒ¼ãƒˆã®è¨­å®š
+            longopt = &longopts[longindex];
+            if (longopt->has_arg && optarg != NULL) {
+                host_rate = atoi(optarg);
+                if (host_rate < 1 || host_rate > 61) {
+                    printf("ãƒ›ã‚¹ãƒˆå‡¦ç†ãƒ¬ãƒ¼ãƒˆãŒä¸æ­£ã§ã™\n");
+                    printHelpAndExit(argv[0]);
+                }
+            } else {
+                printf("ãƒ›ã‚¹ãƒˆå‡¦ç†ãƒ¬ãƒ¼ãƒˆãŒæŒ‡å®šã•ã‚Œã¦ã„ã¾ã›ã‚“\n");
+                printHelpAndExit(argv[0]);
+            }
+            break;
+        case 'D':  // --hostline N ã‚ªãƒ—ã‚·ãƒ§ãƒ³
+            // ãƒ›ã‚¹ãƒˆå‡¦ç†ãƒ©ã‚¤ãƒ³ç•ªå·ã®è¨­å®š
+            longopt = &longopts[longindex];
+            if (longopt->has_arg && optarg != NULL) {
+                host_line = atoi(optarg);
+                if (host_line < 1 || host_line > 500) {
+                    printf("ãƒ›ã‚¹ãƒˆå‡¦ç†ãƒ©ã‚¤ãƒ³ç•ªå·ãŒä¸æ­£ã§ã™\n");
+                    printHelpAndExit(argv[0]);
+                }
+            } else {
+                printf("ãƒ›ã‚¹ãƒˆå‡¦ç†é…å»¶ã‚«ã‚¦ãƒ³ãƒˆãŒæŒ‡å®šã•ã‚Œã¦ã„ã¾ã›ã‚“\n");
+                printHelpAndExit(argv[0]);
+            }
+            break;
+        case 'S':  // --disablescc ã‚ªãƒ—ã‚·ãƒ§ãƒ³
+            // SCCéŸ³æºã®ç„¡åŠ¹åŒ–
+            longopt = &longopts[longindex];
+            if (longopt->has_arg && optarg != NULL) {
+                init_param.scc_enable = atoi(optarg);
+                if (init_param.scc_enable < 1 || init_param.scc_enable > 0x10) {
+                    printf("SCCæœ‰åŠ¹ãƒãƒ£ãƒ³ãƒãƒ«ã®æŒ‡å®šãŒãŠã‹ã—ã„ã§ã™ã€‚\n");
+                    printHelpAndExit(argv[0]);
+                }
+            } else {
+                init_param.scc_enable = 0;
+            }
+            break;
+        default: /* '?' */
+            printHelpAndExit(argv[0]);
+            break;
+        }
+    }
 
-	// 
-	if (disablehsyncint) {
-		init_param.disablehsyncint = 1;
-	}
+    // getoptã®ãƒ«ãƒ¼ãƒ—ãŒçµ‚äº†ã—ãŸå¾Œã€é€šå¸¸ã®å¼•æ•°ã‚’å‡¦ç†ã™ã‚‹
+    // init_param.diskcountã¯ã“ã®æ™‚ç‚¹ã§ 1ä»¥ä¸Šã«ãªã£ã¦ã„ã‚‹ã“ã¨ã‚‚ã‚ã‚‹ã®ã§æ³¨æ„
+    for (i = optind; i < argc; i++) {
+        if (strcasestr(argv[i], ".dsk") != 0) {
+            init_param.diskimages[init_param.diskcount++] = argv[i];
+            if (init_param.diskcount >= 16) {
+                printf("ãƒ‡ã‚£ã‚¹ã‚¯ã‚¤ãƒ¡ãƒ¼ã‚¸ã®æ•°ãŒå¤šã™ãã¾ã™\n");
+                ms_exit_failure();
+            }
+        }
+    }
 
-	// ƒtƒŒ[ƒ€ƒŒ[ƒg§Œä‚Ìİ’è
-	framerate_control = init_param.framerate_control;
+    // ã‚³ãƒãƒ³ãƒ‰ãƒ©ã‚¤ãƒ³å¼•æ•°ã§ ms.iniãƒ•ã‚¡ã‚¤ãƒ«ã®æŒ‡å®šã‚’ä¸Šæ›¸ã
+    if (disablehsyncint) {
+        init_param.disablehsyncint = 1;
+    }
+    if (joystick_useiocs) {
+        init_param.joystick_use_iocs = 1;
+    }
+    if (joystick_swapAB) {
+        init_param.joystick_swap_AB = 1;
+    }
 
-	//
-	if (_iocs_b_super(0) < 0)
-	{
-		printf("ƒX[ƒp[ƒoƒCƒU[ƒ‚[ƒh‚ÉˆÚs‚Å‚«‚Ü‚¹‚ñ‚Å‚µ‚½\n");
-		return -1;
-	}
+    // ãƒ•ãƒ¬ãƒ¼ãƒ ãƒ¬ãƒ¼ãƒˆåˆ¶å¾¡ã®è¨­å®š
+    framerate_control = init_param.framerate_control;
 
-	// CTRL+C‚Å’†’f‚³‚ê‚½‚Æ‚«‚ÉAms_exit‚ğŒÄ‚Ño‚·‚æ‚¤‚É‚·‚é
-	_dos_intvcs(0xfff1, ms_exit);
+    //
+    if (_iocs_b_super(0) < 0) {
+        printf("ã‚¹ãƒ¼ãƒ‘ãƒ¼ãƒã‚¤ã‚¶ãƒ¼ãƒ¢ãƒ¼ãƒ‰ã«ç§»è¡Œã§ãã¾ã›ã‚“ã§ã—ãŸ\n");
+        return -1;
+    }
 
-	/*
-	 ƒƒ‚ƒŠƒVƒXƒeƒ€‚Ì‰Šú‰»
-	 */
-	memmap = ms_memmap_shared_instance();
-	if (memmap == NULL)
-	{
-		printf("ƒƒ‚ƒŠƒVƒXƒeƒ€‚Ì‰Šú‰»‚É¸”s‚µ‚Ü‚µ‚½\n");
-		ms_exit();
-	}
+    // 9scdrvã®ãƒ‰ãƒ©ã‚¤ãƒ–ç•ªå·ã®è¨­å®š
+    if (0 <= drive_for_9scdrv && drive_for_9scdrv <= 3) {
+        init_param.drive_for_9scdrv = drive_for_9scdrv;
+    }
 
-	/*
-	 VDPƒVƒXƒeƒ€‚Ì‰Šú‰»
-	*/
-	vdp = ms_vdp_shared_instance();
-	if (vdp == NULL)
-	{
-		printf("VDPƒVƒXƒeƒ€‚Ì‰Šú‰»‚É¸”s‚µ‚Ü‚µ‚½\n");
-		ms_exit();
-	}
-	vdp->disablehsyncint = init_param.disablehsyncint;
-	vdp->hostdebugmode = hostdebug;
+    // CTRL+Cã§ä¸­æ–­ã•ã‚ŒãŸã¨ãã«ã€ms_exitã‚’å‘¼ã³å‡ºã™ã‚ˆã†ã«ã™ã‚‹
+    _dos_intvcs(0xfff1, ms_exit);
 
-	/*
-	 I/OƒVƒXƒeƒ€‚Ì‰Šú‰»
-	 */
-	iomap = ms_iomap_shared_instance();
-	if (iomap == NULL)
-	{
-		printf("I/OƒVƒXƒeƒ€‚Ì‰Šú‰»‚É¸”s‚µ‚Ü‚µ‚½\n");
-		ms_exit();
-	}
+    /*
+     ãƒ¡ãƒ¢ãƒªã‚·ã‚¹ãƒ†ãƒ ã®åˆæœŸåŒ–
+     */
+    memmap = ms_memmap_shared_instance();
+    if (memmap == NULL) {
+        printf("ãƒ¡ãƒ¢ãƒªã‚·ã‚¹ãƒ†ãƒ ã®åˆæœŸåŒ–ã«å¤±æ•—ã—ã¾ã—ãŸ\n");
+        ms_exit_failure();
+    }
 
-	printf("\n\n\n\n\n\n\n\n"); // TEXT‰æ–Ê‚ğã‚É8ƒ‰ƒCƒ“‚­‚ç‚¢ã‚°‚Ä‚¢‚é‚Ì‚ÅA‚»‚Ì•ª‰üs‚ğ“ü‚ê‚é
-	printf("\n\n\n\n\n\n\n\n"); // 256ƒhƒbƒgƒ‚[ƒh‚¾‚Æ‚³‚ç‚ÉŒ©‚¦‚È‚­‚È‚é‚Ì‚ÅA‚à‚¤­‚µ‰º‚°‚é
-	printf("[[ MSX Simulator MS.X %s]]\n", MS_dot_X_VERSION);
-	printf(" ‚±‚Ì‰æ–Ê‚Í HELP ƒL[‚ÅÁ‚¹‚Ü‚·\n");
+    /*
+     VDPã‚·ã‚¹ãƒ†ãƒ ã®åˆæœŸåŒ–
+    */
+    vdp = ms_vdp_shared_instance();
+    if (vdp == NULL) {
+        printf("VDPã‚·ã‚¹ãƒ†ãƒ ã®åˆæœŸåŒ–ã«å¤±æ•—ã—ã¾ã—ãŸ\n");
+        ms_exit_failure();
+    }
+    vdp->disablehsyncint = init_param.disablehsyncint;
+    vdp->hostdebugmode = hostdebug;
 
-	// İ’è’l‚Ì•\¦
-	switch(user_param.framerate_control) {
-	case 0x00000000:
-		printf("framecon=none\n");
-		break;
-	case 0xffffffff:
-		printf("framecon=auto\n");
-		break;
-	default:
-		printf("framecon=%d\n", user_param.framerate_control);
-		break;
-	}
+    /*
+     I/Oã‚·ã‚¹ãƒ†ãƒ ã®åˆæœŸåŒ–
+     */
+    iomap = ms_iomap_shared_instance();
+    if (iomap == NULL) {
+        printf("I/Oã‚·ã‚¹ãƒ†ãƒ ã®åˆæœŸåŒ–ã«å¤±æ•—ã—ã¾ã—ãŸ\n");
+        ms_exit_failure();
+    }
 
-	if (init_param.disablehsyncint) {
-		printf("HSYNCŠ„‚è‚İ‚ğ–³Œø‰»‚µ‚Ü‚·\n");
-	}
+    printf("\n\n\n\n\n\n\n\n");  // TEXTç”»é¢ã‚’ä¸Šã«8ãƒ©ã‚¤ãƒ³ãã‚‰ã„ä¸Šã’ã¦ã„ã‚‹ã®ã§ã€ãã®åˆ†æ”¹è¡Œã‚’å…¥ã‚Œã‚‹
+    printf("\n\n\n\n\n\n\n\n");  // 256ãƒ‰ãƒƒãƒˆãƒ¢ãƒ¼ãƒ‰ã ã¨ã•ã‚‰ã«è¦‹ãˆãªããªã‚‹ã®ã§ã€ã‚‚ã†å°‘ã—ä¸‹ã’ã‚‹
+    printf("[[ MSX Simulator MS.X %s]]\n", MS_dot_X_VERSION);
+    printf(" ã“ã®ç”»é¢ã¯ HELP ã‚­ãƒ¼ã§æ¶ˆã›ã¾ã™\n");
 
-	/*
-	 PSGƒVƒXƒeƒ€‚Ì‰Šú‰»
-	 */
-	psg = ms_psg_shared_instance();
-	if (psg == 0)
-	{
-		printf("‚o‚r‚f‚Ì‰Šú‰»‚É¸”s‚µ‚Ü‚µ‚½\n");
-		ms_exit();
-	}
-	ms_psg_shared_init(iomap);
+    // è¨­å®šå€¤ã®è¡¨ç¤º
+    switch (user_param.framerate_control) {
+    case 0x00000000:
+        printf("framecon=none\n");
+        break;
+    case 0xffffffff:
+        printf("framecon=auto\n");
+        break;
+    default:
+        printf("framecon=%d\n", user_param.framerate_control);
+        break;
+    }
 
-	// SCC
-	if (init_param.scc_enable != 0x0f) {
-		if (init_param.scc_enable == 0) {
-			printf("‹[—SCC‰¹Œ¹‚ğ–³Œø‰»‚µ‚Ü‚·\n");
-			w_SCC_enable(0);
-		} else{
-			printf("‹[—SCC‰¹Œ¹‚Ì");
-			for(i=0;i<4;i++) {
-				if (init_param.scc_enable & (1 << i)) {
-					printf(" CH%d", i+1);
-				}
-			}
-			printf("‚Ì‚İ—LŒø‚É‚µ‚Ü‚·\n");
-			w_SCC_enable(1);
-			w_SCC_ch_enable(init_param.scc_enable);
-		}
-	}
+    if (init_param.disablehsyncint) {
+        printf("HSYNCå‰²ã‚Šè¾¼ã¿ã‚’ç„¡åŠ¹åŒ–ã—ã¾ã™\n");
+    }
 
-	/*
-	 RTC‚Ì‰Šú‰»
-	 */
-	rtc = ms_rtc_alloc();
-	if (rtc == NULL)
-	{
-		printf("RTC‚Ì‰Šú‰»‚É¸”s‚µ‚Ü‚µ‚½\n");
-		ms_exit();
-	}
-	ms_rtc_init(rtc, iomap);
+    if (init_param.joystick_use_iocs) {
+        printf("ã‚¸ãƒ§ã‚¤ã‚¹ãƒ†ã‚£ãƒƒã‚¯ã®åˆ¶å¾¡ã«IOCSã‚’ä½¿ç”¨ã—ã¾ã™\n");
+    }
+    if (init_param.joystick_swap_AB) {
+        printf("ã‚¸ãƒ§ã‚¤ã‚¹ãƒ†ã‚£ãƒƒã‚¯ã®A/Bãƒœã‚¿ãƒ³ã‚’å…¥ã‚Œæ›¿ãˆã¾ã™\n");
+    }
 
-	/*
-	 Š¿šROM‚ÌƒZƒbƒg
-	 */
-	if (disablekanji) {
-		printf("Š¿šROM‚ğ–³Œø‰»‚µ‚Ü‚·\n");
-	} else if (init_param.kanjirom != NULL) {
-		ms_kanjirom12_t* k12 = ms_kanjirom12_alloc();
-		if (k12 == NULL) {
-			printf("Š¿šROM‚Ì‰Šú‰»‚É¸”s‚µ‚Ü‚µ‚½\n");
-			ms_exit();
-		}
-		ms_kanjirom12_init(k12, iomap, init_param.kanjirom);
-		printf("KANJIROM: %s\n", init_param.kanjirom);
-	} else {
-		printf("‘ã‘ÖŠ¿šROM‚ğg—p‚µ‚Ü‚·\n");
-		ms_kanjirom_alt_t* k_alt = ms_kanjirom_alt_alloc();
-		if (k_alt == NULL) {
-			printf("‘ã‘ÖŠ¿šROM‚Ì‰Šú‰»‚É¸”s‚µ‚Ü‚µ‚½\n");
-			ms_exit();
-		}
-		ms_kanjirom_alt_init(k_alt, iomap);
-	}
+    /*
+     PSGã‚·ã‚¹ãƒ†ãƒ ã®åˆæœŸåŒ–
+     */
+    psg = ms_psg_shared_instance();
+    if (psg == 0) {
+        printf("ï¼°ï¼³ï¼§ã®åˆæœŸåŒ–ã«å¤±æ•—ã—ã¾ã—ãŸ\n");
+        ms_exit_failure();
+    }
+    ms_psg_shared_init(iomap, &init_param);
 
-	/*
-	 SYSTEM ROM‚ÌƒZƒbƒg
-	 */
-	set_system_roms();
+    // SCC
+    if (init_param.scc_enable != 0x0f) {
+        if (init_param.scc_enable == 0) {
+            printf("æ“¬ä¼¼SCCéŸ³æºã‚’ç„¡åŠ¹åŒ–ã—ã¾ã™\n");
+            w_SCC_enable(0);
+        } else {
+            printf("æ“¬ä¼¼SCCéŸ³æºã®");
+            for (i = 0; i < 4; i++) {
+                if (init_param.scc_enable & (1 << i)) {
+                    printf(" CH%d", i + 1);
+                }
+            }
+            printf("ã®ã¿æœ‰åŠ¹ã«ã—ã¾ã™\n");
+            w_SCC_enable(1);
+            w_SCC_ch_enable(init_param.scc_enable);
+        }
+    }
 
-	// ‚»‚Ì‘¼‚ÌŒÂ•Êw’èROM‚ğƒZƒbƒg
-	for ( i = 0; i < 4; i++) {
-		for ( j = 0; j < 4; j++) {
-			if ( init_param.slot_path[i][j] != NULL) {
-				printf("ƒXƒƒbƒg%d-ƒy[ƒW%d‚ÉROM‚ğƒZƒbƒg‚µ‚Ü‚·: %s\n", i, j, init_param.slot_path[i][j]);
-				int fh = search_open(init_param.slot_path[i][j], O_BINARY | O_RDONLY);
-				if ( fh == -1) {
-					printf("ƒtƒ@ƒCƒ‹‚ªŠJ‚¯‚Ü‚¹‚ñ. %s\n", init_param.slot_path[i][j]);
-				} else {
-					allocateAndSetNORMALROM(fh, ROM_TYPE_NORMAL_ROM, i, -1, j);
-				}
-			}
-		}
-	}
+    /*
+     RTCã®åˆæœŸåŒ–
+     */
+    rtc = ms_rtc_alloc();
+    if (rtc == NULL) {
+        printf("RTCã®åˆæœŸåŒ–ã«å¤±æ•—ã—ã¾ã—ãŸ\n");
+        ms_exit_failure();
+    }
+    ms_rtc_init(rtc, iomap);
 
-	// ƒTƒCƒY‚ğ©“®”»•Ê‚µ‚ÄROM‚ğƒZƒbƒg
-	if (init_param.cartridge_path_slot1 != NULL) {
-		printf("Cartridge slot 1: %s\n", init_param.cartridge_path_slot1);
-		allocateAndSetCartridge(init_param.cartridge_path_slot1, 1, init_param.cartridge_kind_slot1);
-	}
-	if (init_param.cartridge_path_slot2 != NULL) {
-		printf("Cartridge slot 2: %s\n", init_param.cartridge_path_slot2);
-		allocateAndSetCartridge(init_param.cartridge_path_slot2, 2, init_param.cartridge_kind_slot2);
-	}
+    /*
+     æ¼¢å­—ROMã®ã‚»ãƒƒãƒˆ
+     */
+    if (disablekanji) {
+        printf("æ¼¢å­—ROMã‚’ç„¡åŠ¹åŒ–ã—ã¾ã™\n");
+    } else if (init_param.kanjirom != NULL) {
+        ms_kanjirom12_t* k12 = ms_kanjirom12_alloc();
+        if (k12 == NULL) {
+            printf("æ¼¢å­—ROMã®åˆæœŸåŒ–ã«å¤±æ•—ã—ã¾ã—ãŸ\n");
+            ms_exit_failure();
+        }
+        ms_kanjirom12_init(k12, iomap, init_param.kanjirom);
+        printf("KANJIROM: %s\n", init_param.kanjirom);
+    } else {
+        printf("ä»£æ›¿æ¼¢å­—ROMã‚’ä½¿ç”¨ã—ã¾ã™\n");
+        ms_kanjirom_alt_t* k_alt = ms_kanjirom_alt_alloc();
+        if (k_alt == NULL) {
+            printf("ä»£æ›¿æ¼¢å­—ROMã®åˆæœŸåŒ–ã«å¤±æ•—ã—ã¾ã—ãŸ\n");
+            ms_exit_failure();
+        }
+        ms_kanjirom_alt_init(k_alt, iomap);
+    }
 
-	MS_LOG(MS_LOG_DEBUG, "VSYNCƒŒ[ƒg=%d, ƒzƒXƒgˆ—ƒŒ[ƒg=%d\n", ms_vdp_vsync_rate, host_rate);
-	MS_LOG(MS_LOG_DEBUG, "VSYNCŒv‘ª’†...\n");
-	{
-		volatile int date,lastdate;
-		volatile int start,end;
+    /*
+     SYSTEM ROMã®ã‚»ãƒƒãƒˆ
+     */
+    set_system_roms();
 
-		date = _iocs_timeget();
-		lastdate = date;
-		while(date == lastdate) {	// •b‚ª•Ï‚í‚éuŠÔ‚ğ‘Ò‚Â
-			lastdate = date;
-			date = _iocs_timeget();
-		}
-		start = ms_vsync_interrupt_tick;		// ‚»‚Ì‚Æ‚«‚Ìtick‚ğæ“¾
-		date = _iocs_timeget();
-		lastdate = date;
-		while(date == lastdate) {	// •b‚ª•Ï‚í‚éuŠÔ‚ğ‘Ò‚Â
-			lastdate = date;
-			date = _iocs_timeget();
-		}
-		end = ms_vsync_interrupt_tick;		// ‚»‚Ì‚Æ‚«‚Ìtick‚ğæ“¾
+    // ãã®ä»–ã®å€‹åˆ¥æŒ‡å®šROMã‚’ã‚»ãƒƒãƒˆ
+    for (i = 0; i < 4; i++) {
+        for (j = 0; j < 4; j++) {
+            if (init_param.slot_path[i][j] != NULL) {
+                printf("ã‚¹ãƒ­ãƒƒãƒˆ%d-ãƒšãƒ¼ã‚¸%dã«ROMã‚’ã‚»ãƒƒãƒˆã—ã¾ã™: %s\n", i, j, init_param.slot_path[i][j]);
+                int fh = ms_system_file_open(init_param.slot_path[i][j], O_BINARY | O_RDONLY);
+                if (fh == -1) {
+                    printf("ãƒ•ã‚¡ã‚¤ãƒ«ãŒé–‹ã‘ã¾ã›ã‚“. %s\n", init_param.slot_path[i][j]);
+                } else {
+                    allocateAndSetNORMALROM(fh, ROM_TYPE_NORMAL_ROM, i, -1, j);
+                }
+            }
+        }
+    }
 
-		MS_LOG(MS_LOG_DEBUG, "VSYNC‰ñ”‚Í %d ‚Å‚·\n", end - start);
-	}
+    // ã‚µã‚¤ã‚ºã‚’è‡ªå‹•åˆ¤åˆ¥ã—ã¦ROMã‚’ã‚»ãƒƒãƒˆ
+    if (init_param.cartridge_path_slot1 != NULL) {
+        printf("Cartridge slot 1: %s\n", init_param.cartridge_path_slot1);
+        allocateAndSetCartridge(init_param.cartridge_path_slot1, 1, init_param.cartridge_kind_slot1);
+    }
+    if (init_param.cartridge_path_slot2 != NULL) {
+        printf("Cartridge slot 2: %s\n", init_param.cartridge_path_slot2);
+        allocateAndSetCartridge(init_param.cartridge_path_slot2, 2, init_param.cartridge_kind_slot2);
+    }
 
-	// 	‘Sƒy[ƒW‚Ì ƒXƒƒbƒg‚ğ‚O‚Å‰Šú‰»
-	write_port_A8(0);
+    MS_LOG(MS_LOG_DEBUG, "VSYNCãƒ¬ãƒ¼ãƒˆ=%d, ãƒ›ã‚¹ãƒˆå‡¦ç†ãƒ¬ãƒ¼ãƒˆ=%d\n", ms_vdp_vsync_rate, host_rate);
+    MS_LOG(MS_LOG_DEBUG, "VSYNCè¨ˆæ¸¬ä¸­...\n");
+    {
+        volatile int date, lastdate;
+        volatile int start, end;
 
-	// ƒeƒLƒXƒg‰æ–Ê‚Ì•\¦/”ñ•\¦‚ğİ’è
-	_setTextPlane(textPlaneMode);
+        date = _iocs_timeget();
+        lastdate = date;
+        while (date == lastdate) {  // ç§’ãŒå¤‰ã‚ã‚‹ç¬é–“ã‚’å¾…ã¤
+            lastdate = date;
+            date = _iocs_timeget();
+        }
+        start = ms_vsync_interrupt_tick;  // ãã®ã¨ãã®tickã‚’å–å¾—
+        date = _iocs_timeget();
+        lastdate = date;
+        while (date == lastdate) {  // ç§’ãŒå¤‰ã‚ã‚‹ç¬é–“ã‚’å¾…ã¤
+            lastdate = date;
+            date = _iocs_timeget();
+        }
+        end = ms_vsync_interrupt_tick;  // ãã®ã¨ãã®tickã‚’å–å¾—
 
-	if (1) {
-		ms_cpu_emulate(emuLoop, init_param.cpu_wait);
-	} else {
-		debugger();
-	}
+        MS_LOG(MS_LOG_DEBUG, "VSYNCå›æ•°ã¯ %d ã§ã™\n", end - start);
+    }
 
-	ms_exit();
+    // 	å…¨ãƒšãƒ¼ã‚¸ã® ã‚¹ãƒ­ãƒƒãƒˆã‚’ï¼ã§åˆæœŸåŒ–
+    write_port_A8(0);
+
+    // ãƒ†ã‚­ã‚¹ãƒˆç”»é¢ã®è¡¨ç¤º/éè¡¨ç¤ºã‚’è¨­å®š
+    _setTextPlane(textPlaneMode);
+
+    if (1) {
+        ms_cpu_emulate(emuLoop, init_param.cpu_wait);
+    } else {
+        debugger();
+    }
+
+    ms_exit();
+}
+
+void _ms_exit(int status) {
+    _iocs_crtmod(0x10);
+
+    if (disk_container != NULL) {
+        ms_disk_container_deinit(disk_container);
+        new_free(disk_container);
+        // disk_container = NULL;
+    }
+    if (psg != NULL) {
+        ms_psg_shared_deinit(iomap);  // singletonã¯ deinitå†…éƒ¨ã§freeã•ã‚Œã‚‹
+    }
+    if (vdp != NULL) {
+        ms_vdp_shared_deinit();  // singletonã¯ deinitå†…éƒ¨ã§freeã•ã‚Œã‚‹
+        vdp = NULL;
+    }
+    if (rtc != NULL) {
+        ms_rtc_deinit(rtc, iomap);
+        new_free(rtc);
+        rtc = NULL;
+    }
+    if (iomap != NULL) {
+        ms_iomap_shared_deinit();  // singletonã¯ deinitå†…éƒ¨ã§freeã•ã‚Œã‚‹
+        iomap = NULL;
+    }
+    if (memmap != NULL) {
+        ms_memmap_shared_deinit();  // singletonã¯ deinitå†…éƒ¨ã§freeã•ã‚Œã‚‹
+        memmap = NULL;
+    }
+    if (user_param.buf != NULL) {
+        new_free(user_param.buf);
+        user_param.buf = NULL;
+    }
+    exit(status);
+}
+
+void ms_exit_failure() {
+    // ã‚¨ãƒ©ãƒ¼çµ‚äº†
+    printf("Press any key to exit\n");
+    getchar();
+    _exit(EXIT_FAILURE);
 }
 
 void ms_exit() {
-	_iocs_crtmod(0x10);
-
-	if( disk_container != NULL ) {
-		ms_disk_container_deinit(disk_container);
-		new_free(disk_container);
-		//disk_container = NULL;
-	}
-	if ( psg != NULL ) {
-		ms_psg_shared_deinit(iomap);	// singleton‚Í deinit“à•”‚Åfree‚³‚ê‚é
-	}
-	if ( vdp != NULL ) {
-		ms_vdp_shared_deinit();	// singleton‚Í deinit“à•”‚Åfree‚³‚ê‚é
-		vdp = NULL;
-	}
-	if ( rtc != NULL ) {
-		ms_rtc_deinit(rtc, iomap);
-		new_free(rtc);
-		rtc = NULL;
-	}
-	if ( iomap != NULL ) {
-		ms_iomap_shared_deinit(); // singleton‚Í deinit“à•”‚Åfree‚³‚ê‚é
-		iomap = NULL;
-	}
-	if ( memmap != NULL ) {
-		ms_memmap_shared_deinit(); // singleton‚Í deinit“à•”‚Åfree‚³‚ê‚é
-		memmap = NULL;
-	}
-	if( user_param.buf != NULL) {
-		new_free(user_param.buf);
-		user_param.buf = NULL;
-	}
-	exit(0);
+    // æ­£å¸¸çµ‚äº†
+    _ms_exit(EXIT_SUCCESS);
 }
 
 /*
- X68000‚Ì _BITSNS ‚Å“¾‚ç‚ê‚éƒL[ƒ}ƒgƒŠƒNƒX‚ğMSX‚ÌƒL[ƒ}ƒgƒŠƒNƒX‚É•ÏŠ·‚·‚é‚½‚ß‚Ìƒ}ƒbƒsƒ“ƒO
+ X68000ã® _BITSNS ã§å¾—ã‚‰ã‚Œã‚‹ã‚­ãƒ¼ãƒãƒˆãƒªã‚¯ã‚¹ã‚’MSXã®ã‚­ãƒ¼ãƒãƒˆãƒªã‚¯ã‚¹ã«å¤‰æ›ã™ã‚‹ãŸã‚ã®ãƒãƒƒãƒ”ãƒ³ã‚°
 
- - X68000‘¤‚Ìƒ}ƒgƒŠƒNƒX
-	- X68000ŠÂ‹«ƒnƒ“ƒhƒuƒbƒN up287 _BITSNSv QÆ
- - MSX‘¤‚Ìƒ}ƒgƒŠƒNƒX
-	- MSXƒf[ƒ^ƒpƒbƒN p12 u2.5 ƒL[ƒ{[ƒhv QÆ
+ - X68000å´ã®ãƒãƒˆãƒªã‚¯ã‚¹
+        - X68000ç’°å¢ƒãƒãƒ³ãƒ‰ãƒ–ãƒƒã‚¯ ã€Œp287 _BITSNSã€ å‚ç…§
+ - MSXå´ã®ãƒãƒˆãƒªã‚¯ã‚¹
+        - MSXãƒ‡ãƒ¼ã‚¿ãƒ‘ãƒƒã‚¯ p12 ã€Œ2.5 ã‚­ãƒ¼ãƒœãƒ¼ãƒ‰ã€ å‚ç…§
  */
 uint32_t KEY_MAP[][8] = {
-	//    BIT0    BIT1    BIT2    BIT3    BIT4    BIT5    BIT6    BIT7
-	//0 [      ][ ESC  ][ 1    ][ 2    ][ 3    ][ 4    ][ 5    ][ 6    ]
-	{   0x00000,0x10704,0x11002,0x12004,0x13008,0x14010,0x15020,0x16040},
-	//1 [ 7    ][ 8    ][ 9    ][ 0    ][ -    ][ ^    ][ \    ][ BS   ]
-	{   0x17080,0x18101,0x19102,0x1a001,0x00104,0x00108,0x00110,0x00720},
-	//2 [ TAB  ][ Q    ][ W    ][ E    ][ R    ][ T    ][ Y    ][ U    ]
-	{   0x00708,0x00440,0x00510,0x00304,0x00480,0x00502,0x00540,0x00504},
-	//3 [ I    ][ O    ][ P    ][ @    ][  [   ][ RET  ][  A   ][  S   ]
-	{   0x00340,0x00410,0x00420,0x00120,0x00140,0x00780,0x00240,0x00501},
-	//4 [  D   ][  F   ][  G   ][  H   ][  J   ][  K   ][  L   ][  ;+  ]
-	{   0x00302,0x00308,0x00310,0x00320,0x00380,0x00401,0x00402,0x00180},
-	//5 [  :*  ][   ]  ][  Z   ][  X   ][  C   ][  V   ][  B   ][  N   ]
-	{   0x00201,0x00203,0x00580,0x00520,0x00301,0x00508,0x00280,0x00408},
-	//6 [  M   ][  ,<  ][  .>  ][  /   ][  _   ][  SP  ][ HOME ][ DEL  ] HOME=CLS
-	{   0x00404,0x00204,0x00208,0x00210,0x00220,0x00801,0x00802,0x00808}, 
-	//7 [ RUP  ][ RDWN ][ UNDO ][ LEFT ][ UP   ][ RIGT ][ DOWN ][ CLR  ]
-	{   0x00000,0x00000,0x00000,0x21810,0x22820,0x24880,0x23840,0x00000},
-	//8 [ (/)  ][ (*)  ][ (-)  ][ (7)  ][ (8)  ][ (9)  ][ (+)  ][ (4)  ] TEN KEYs
-	{   0x00902,0x00904,0x00a20,0x00a04,0x00a08,0x00a10,0x00901,0x00980},
-	//9 [ (5)  ][ (6)  ][ (=)  ][ (1)  ][ (2)  ][ (3)  ][ ENTR ][ (0)  ] TEN KEYs
-	{   0x00a01,0x00a02,0x00000,0x00910,0x00920,0x00940,0x00000,0x00908},
-	//a [ (,)  ][ (.)  ][ KIGO ][TOROKU][ HELP ][ XF1  ][ XF2  ][ XF3  ] “o˜^=ƒGƒ~ƒ…ƒŒ[ƒ^I—¹, XF1=GRAPH
-	{   0x00a40,0x00a80,0xfd000,0xff000,0xfe000,0x00604,0x00000,0x00000}, 
-	//b [ XF4  ][ XF5  ][ KANA ][ ROME ][ CODE ][ CAPS ][ INS  ][ HIRA ]
-	{   0x00000,0x00000,0x00610,0x00000,0x00000,0x00000,0x00804,0x00000},
-	//c [ ZENK ][ BRAK ][ COPY ][  F1  ][  F2  ][  F3  ][  F4  ][  F5  ] BRAK=STOP
-	{   0x00000,0x00710,0x00000,0x00620,0x00640,0x00680,0x00701,0x00702},
-	//d [  F6  ][  F7  ][  F8  ][  F9  ][  F10 ][      ][      ][      ] F6=DebugLevel, F7=Sound Channel On/Off
-	{   0xf3000,0xf4000,0xf5000,0xf6000,0xf7000,0x00000,0x00000,0x00000},
-	//e [ SHFT ][ CTRL ][ OPT1 ][ OPT2 ][      ][      ][      ][      ] OPT1=Disk Change
-	{   0xf0601,0x00602,0xf1000,0xf2000,0x00000,0x00000,0x00000,0x00000},
-	//f [      ][      ][      ][      ][      ][      ][      ][      ]
-	{   0x00000,0x00000,0x00000,0x00000,0x00000,0x00000,0x00000,0x00000}
+    //    BIT0    BIT1    BIT2    BIT3    BIT4    BIT5    BIT6    BIT7
+    // 0 [      ][ ESC  ][ 1    ][ 2    ][ 3    ][ 4    ][ 5    ][ 6    ]
+    {0x00000, 0xfb704, 0x11002, 0x12004, 0x13008, 0x14010, 0x15020, 0x16040},
+    // 1 [ 7    ][ 8    ][ 9    ][ 0    ][ -    ][ ^    ][ \    ][ BS   ]
+    {0x17080, 0x18101, 0x19102, 0x10001, 0x00104, 0x00108, 0x00110, 0x00720},
+    // 2 [ TAB  ][ Q    ][ W    ][ E    ][ R    ][ T    ][ Y    ][ U    ]
+    {0x00708, 0x00440, 0x00510, 0x1e304, 0x00480, 0x00502, 0x00540, 0x00504},
+    // 3 [ I    ][ O    ][ P    ][ @    ][  [   ][ RET  ][  A   ][  S   ]
+    {0x00340, 0x00410, 0x00420, 0x00120, 0x00140, 0x00780, 0x1a240, 0x00501},
+    // 4 [  D   ][  F   ][  G   ][  H   ][  J   ][  K   ][  L   ][  ;+  ]
+    {0x1d302, 0x1f308, 0x00310, 0x00320, 0x00380, 0x00401, 0x00402, 0x00180},
+    // 5 [  :*  ][   ]  ][  Z   ][  X   ][  C   ][  V   ][  B   ][  N   ]
+    {0x00201, 0x00203, 0x00580, 0x00520, 0x1c301, 0x00508, 0x1b280, 0x00408},
+    // 6 [  M   ][  ,<  ][  .>  ][  /   ][  _   ][  SP  ][ HOME ][ DEL  ] HOME=CLS
+    {0x00404, 0x00204, 0x00208, 0x00210, 0x00220, 0x00801, 0x00802, 0x00808},
+    // 7 [ RUP  ][ RDWN ][ UNDO ][ LEFT ][ UP   ][ RIGT ][ DOWN ][ CLR  ] UNDO=ç”»é¢ã‚’å¼·åˆ¶çš„ã«511ãƒ‰ãƒƒãƒˆãƒ¢ãƒ¼ãƒ‰ã«ã™ã‚‹
+    {0x00000, 0x00000, 0xfc000, 0x21810, 0x22820, 0x24880, 0x23840, 0x00000},
+    // 8 [ (/)  ][ (*)  ][ (-)  ][ (7)  ][ (8)  ][ (9)  ][ (+)  ][ (4)  ] TEN KEYs
+    {0x00902, 0x00904, 0x00a20, 0x00a04, 0x00a08, 0x00a10, 0x00901, 0x00980},
+    // 9 [ (5)  ][ (6)  ][ (=)  ][ (1)  ][ (2)  ][ (3)  ][ ENTR ][ (0)  ] TEN KEYs
+    {0x00a01, 0x00a02, 0x00000, 0x00910, 0x00920, 0x00940, 0x00000, 0x00908},
+    // a [ (,)  ][ (.)  ][ KIGO ][TOROKU][ HELP ][ XF1  ][ XF2  ][ XF3  ] ç™»éŒ²=ã‚¨ãƒŸãƒ¥ãƒ¬ãƒ¼ã‚¿çµ‚äº†, XF1=GRAPH
+    {0x00a40, 0x00a80, 0xfd000, 0xff000, 0xfe000, 0x00604, 0x00000, 0x00000},
+    // b [ XF4  ][ XF5  ][ KANA ][ ROME ][ CODE ][ CAPS ][ INS  ][ HIRA ]
+    {0x00000, 0x00000, 0x00610, 0x00000, 0x00000, 0x00000, 0x00804, 0x00000},
+    // c [ ZENK ][ BRAK ][ COPY ][  F1  ][  F2  ][  F3  ][  F4  ][  F5  ] BRAK=STOP
+    {0x00000, 0x00710, 0x00000, 0x00620, 0x00640, 0x00680, 0x00701, 0x00702},
+    // d [  F6  ][  F7  ][  F8  ][  F9  ][  F10 ][      ][      ][      ] F6=DebugLevel, F7=Sound Channel On/Off
+    {0xf3000, 0xf4000, 0xf5000, 0xf6000, 0xf7000, 0x00000, 0x00000, 0x00000},
+    // e [ SHFT ][ CTRL ][ OPT1 ][ OPT2 ][      ][      ][      ][      ] OPT1=Disk Change
+    {0xf0601, 0x00602, 0xf1000, 0xf2000, 0x00000, 0x00000, 0x00000, 0x00000},
+    // f [      ][      ][      ][      ][      ][      ][      ][      ]
+    {0x00000, 0x00000, 0x00000, 0x00000, 0x00000, 0x00000, 0x00000, 0x00000}
 };
 
 extern unsigned char* KEYSNS_tbl_ptr;
@@ -823,327 +894,349 @@ void sync_keyboard_leds();
 uint16_t X68_TX_PAL_ORG;
 
 void willEnterEmuLoop() {
-	if( hostdebug ) {
-		// ƒfƒoƒbƒOƒ‚[ƒh‚Ìê‡‚ÍA‰æ–Êã‚ÌF‚ğ•ÏX‚µ‚ÄA‚Ç‚Ìƒ^ƒCƒ~ƒ“ƒO‚ÅÀs‚³‚ê‚Ä‚¢‚é‚©‚ğ‰Â‹‰»‚·‚é
-		X68_TX_PAL_ORG = X68_TX_PAL[0];
-		X68_TX_PAL[0] = 0xffff;
-	}
+    if (hostdebug) {
+        // ãƒ‡ãƒãƒƒã‚°ãƒ¢ãƒ¼ãƒ‰ã®å ´åˆã¯ã€ç”»é¢ä¸Šã®è‰²ã‚’å¤‰æ›´ã—ã¦ã€ã©ã®ã‚¿ã‚¤ãƒŸãƒ³ã‚°ã§å®Ÿè¡Œã•ã‚Œã¦ã„ã‚‹ã‹ã‚’å¯è¦–åŒ–ã™ã‚‹
+        X68_TX_PAL_ORG = X68_TX_PAL[0];
+        X68_TX_PAL[0] = 0xffff;
+    }
 }
 
 void didExitEmuLoop() {
-	if( hostdebug ) {
-		// ƒfƒoƒbƒOƒ‚[ƒh‚Ìê‡‚ÍA‰æ–Êã‚ÌF‚ğ•ÏX‚µ‚ÄA‚Ç‚Ìƒ^ƒCƒ~ƒ“ƒO‚ÅÀs‚³‚ê‚Ä‚¢‚é‚©‚ğ‰Â‹‰»‚·‚é
-		X68_TX_PAL[0] = X68_TX_PAL_ORG;
-	}
+    if (hostdebug) {
+        // ãƒ‡ãƒãƒƒã‚°ãƒ¢ãƒ¼ãƒ‰ã®å ´åˆã¯ã€ç”»é¢ä¸Šã®è‰²ã‚’å¤‰æ›´ã—ã¦ã€ã©ã®ã‚¿ã‚¤ãƒŸãƒ³ã‚°ã§å®Ÿè¡Œã•ã‚Œã¦ã„ã‚‹ã‹ã‚’å¯è¦–åŒ–ã™ã‚‹
+        X68_TX_PAL[0] = X68_TX_PAL_ORG;
+    }
 }
 
 int emuLoopImpl(unsigned int pc, unsigned int counter);
 
 int emuLoop(unsigned int pc, unsigned int counter) {
-	willEnterEmuLoop();
-	int ret = emuLoopImpl(pc, counter);
-	didExitEmuLoop();
-	return ret;
+    willEnterEmuLoop();
+    int ret = emuLoopImpl(pc, counter);
+    didExitEmuLoop();
+    return ret;
 }
 
 int emuLoopImpl(unsigned int pc, unsigned int counter) {
-	static int emuLoopCounter = 0;
-	static uint8_t last_bitsns[16];
+    static int emuLoopCounter = 0;
+    static uint8_t last_bitsns[16];
 
-	emuLoopCounter++;
+    emuLoopCounter++;
 
-	if(emuLoopCounter % host_rate != 0) {
-		return 0;
-	}
+    if (emuLoopCounter % host_rate != 0) {
+        return 0;
+    }
 
-	int i,j;
-	uint32_t map;
-	uint8_t S, X, Y;
-	int hitkey = 0;
-	int shift_pressed = 0;
-	int opt1_pressed = 0;
-	int opt2_pressed = 0;
-	int f6_key_hit = 0;
-	int f7_pressed = 0;
-	int esc_key_hit = 0;
-	int num_key_hit = 0;
-	int cursor_key_hit = 0; // 1=LEFT, 2=UP, 3=DOWN, 4=RIGHT
-	int kigo_key_hit = 0;
-	int help_key_hit = 0;
-	int toroku_key_hit = 0;
+    int i, j;
+    uint32_t map;
+    uint8_t S, X, Y;
+    int hitkey = 0;
+    int shift_pressed = 0;
+    int opt1_pressed = 0;
+    int opt2_pressed = 0;
+    int f6_key_hit = 0;
+    int f7_pressed = 0;
+    int esc_key_hit = 0;
+    int num_key_hit = -1;
+    int cursor_key_hit = 0;  // 1=LEFT, 2=UP, 3=DOWN, 4=RIGHT
+    int kigo_key_hit = 0;
+    int help_key_hit = 0;
+    int toroku_key_hit = 0;
+    int undo_key_hit = 0;
 
-	sync_keyboard_leds();
+    sync_keyboard_leds();
 
-	for ( i = 0x00; i < 0x0f; i++) {
-		KEYSNS_tbl_ptr[i] = 0xff;
-	}
-	for ( i = 0x00; i < 0x0f; i++) {
-		if (disablekey == 1 && i != 0x0a) {
-			continue;
-		}
-		//int v = _iocs_bitsns(i);
-		int v = BITSNS_WORK[i];	// IOCS BITSNS‚Ìƒ[ƒNƒGƒŠƒA’¼ÚQÆ
-		int mask = 1;
-		for ( j = 0; j < 8; j++) {
-			if (v & mask) {
-				hitkey = 1;
-				map = KEY_MAP[i][j];
-				S = (map & 0xff000) >> 12;
-				Y = (map & 0xf00) >> 8;
-				X = (map & 0xff);
-				KEYSNS_tbl_ptr[Y] &= ~X;
-				int edge = !(last_bitsns[i] & mask);
-				if (S != 0)	{
-					// S‚ª0ˆÈŠO‚Ìê‡‚ÍA“ÁêƒL[‚ÅAƒzƒXƒg‘¤‚Ì‘€ì‚ğs‚¤
-					// 0x10-0x1a: [ESC] [1] [2] [3] [4] [5] [6] [7] [8] [9] [0]
-					// 0x21-0x24: [LEFT] [UP] [DOWN] [RIGHT]
-					// 0xf0-0xf7: [SHIFT] [OPT1] [OPT2] [F6] [F7] [F8] [F9] [F10]
-					// 0xfd: [KIGO]
-					// 0xfe: [HELP]
-					// 0xff: [TORK]
-					switch (S) {
-					case 0x10:
-						if(edge) {
-							esc_key_hit = 1;
-						}
-						break;
-					case 0x11:
-					case 0x12:
-					case 0x13:
-					case 0x14:
-					case 0x15:
-					case 0x16:
-					case 0x17:
-					case 0x18:
-					case 0x19:
-					case 0x1a:
-						if(edge) {
-							num_key_hit = S - 0x10;
-						}
-						break;
-					case 0x21:
-					case 0x22:
-					case 0x23:
-					case 0x24:
-						if(edge) {
-							cursor_key_hit = S-0x20;
-						}
-						break;
-					case 0xf0:
-						shift_pressed = 1;
-						break;
-					case 0xf1:
-						opt1_pressed = 1;
-						break;
-					case 0xf2:
-						opt2_pressed = 1;
-						break;
-					case 0xf3:
-						if(edge) {
-							f6_key_hit = 1;
-						}
-						break;
-					case 0xf4:
-						f7_pressed = 1;
-						break;
-					case 0xfd:
-						if(edge) {
-							kigo_key_hit = 1;
-						}
-						break;
-					case 0xfe:
-						if(edge) {
-							help_key_hit = 1;
-						}
-						break;
-					case 0xff:
-						if(edge) {
-							toroku_key_hit = 1;
-						}
-						break;
-					default:
-						MS_LOG(MS_LOG_ERROR, "Unknown special key: %d\n", S);
-						break;
-					}
-		 		}
-			}
-			mask <<= 1;
-		}
-	}
-	if (hitkey) {
-		// •¶š“ü—Í‚ğ“Ç‚İÌ‚Ä‚ÄAƒL[ƒoƒbƒtƒ@‚ğ‹ó‚É‚·‚é
-		_dos_kflushio(0xff);
-	}
+    for (i = 0x00; i < 0x0f; i++) {
+        KEYSNS_tbl_ptr[i] = 0xff;
+    }
+    for (i = 0x00; i < 0x0f; i++) {
+        if (disablekey == 1 && i != 0x0a) {
+            continue;
+        }
+        // int v = _iocs_bitsns(i);
+        int v = BITSNS_WORK[i];  // IOCS BITSNSã®ãƒ¯ãƒ¼ã‚¯ã‚¨ãƒªã‚¢ç›´æ¥å‚ç…§
+        int mask = 1;
+        for (j = 0; j < 8; j++) {
+            if (v & mask) {
+                hitkey = 1;
+                map = KEY_MAP[i][j];
+                S = (map & 0xff000) >> 12;
+                Y = (map & 0xf00) >> 8;
+                X = (map & 0xff);
+                KEYSNS_tbl_ptr[Y] &= ~X;
+                int edge = !(last_bitsns[i] & mask);
+                if (S != 0) {
+                    // SãŒ0ä»¥å¤–ã®å ´åˆã¯ã€ç‰¹æ®Šã‚­ãƒ¼ã§ã€ãƒ›ã‚¹ãƒˆå´ã®æ“ä½œã‚’è¡Œã†
+                    // 0x10-0x1f: [0] [1] [2] [3] [4] [5] [6] [7] [8] [9] [A] [B] [C] [D] [E] [F]
+                    // 0x21-0x24: [LEFT] [UP] [DOWN] [RIGHT]
+                    // 0xf0-0xf7: [SHIFT] [OPT1] [OPT2] [F6] [F7] [F8] [F9] [F10]
+                    // 0xfb: [ESC]
+                    // 0xfc: [UNDO]
+                    // 0xfd: [KIGO]
+                    // 0xfe: [HELP]
+                    // 0xff: [TORK]
+                    switch (S) {
+                    case 0x10:
+                    case 0x11:
+                    case 0x12:
+                    case 0x13:
+                    case 0x14:
+                    case 0x15:
+                    case 0x16:
+                    case 0x17:
+                    case 0x18:
+                    case 0x19:
+                    case 0x1a:
+                    case 0x1b:
+                    case 0x1c:
+                    case 0x1d:
+                    case 0x1e:
+                    case 0x1f:
+                        if (edge) {
+                            num_key_hit = S - 0x10;
+                        }
+                        break;
+                    case 0x21:
+                    case 0x22:
+                    case 0x23:
+                    case 0x24:
+                        if (edge) {
+                            cursor_key_hit = S - 0x20;
+                        }
+                        break;
+                    case 0xf0:
+                        shift_pressed = 1;
+                        break;
+                    case 0xf1:
+                        opt1_pressed = 1;
+                        break;
+                    case 0xf2:
+                        opt2_pressed = 1;
+                        break;
+                    case 0xf3:
+                        if (edge) {
+                            f6_key_hit = 1;
+                        }
+                        break;
+                    case 0xf4:
+                        f7_pressed = 1;
+                        break;
+                    case 0xfb:
+                        if (edge) {
+                            esc_key_hit = 1;
+                        }
+                        break;
+                    case 0xfc:
+                        if (edge) {
+                            undo_key_hit = 1;
+                        }
+                        break;
+                    case 0xfd:
+                        if (edge) {
+                            kigo_key_hit = 1;
+                        }
+                        break;
+                    case 0xfe:
+                        if (edge) {
+                            help_key_hit = 1;
+                        }
+                        break;
+                    case 0xff:
+                        if (edge) {
+                            toroku_key_hit = 1;
+                        }
+                        break;
+                    default:
+                        MS_LOG(MS_LOG_ERROR, "Unknown special key: %d\n", S);
+                        break;
+                    }
+                }
+            }
+            mask <<= 1;
+        }
+    }
+    if (hitkey) {
+        // æ–‡å­—å…¥åŠ›ã‚’èª­ã¿æ¨ã¦ã¦ã€ã‚­ãƒ¼ãƒãƒƒãƒ•ã‚¡ã‚’ç©ºã«ã™ã‚‹
+        _dos_kflushio(0xff);
+    }
 
-	if (f6_key_hit) {
-		if(shift_pressed) {
-			// ƒVƒtƒgƒL[‚Æ“¯‰Ÿ‚µ‚Ìê‡‚ÍAƒfƒoƒbƒOƒƒOƒŒƒxƒ‹‚ğ‰º‚°‚é
-			debug_log_level = max(0, debug_log_level - 1);
-		} else {
-			// ‚»‚êˆÈŠO‚Ìê‡‚ÍAƒfƒoƒbƒOƒƒOƒŒƒxƒ‹‚ğã‚°‚é
-			debug_log_level = min(7, debug_log_level + 1);
-		}
-		printf("ƒfƒoƒbƒOƒƒOƒŒƒxƒ‹=%d\n", debug_log_level);
-	}
+    if (f6_key_hit) {
+        if (shift_pressed) {
+            // ã‚·ãƒ•ãƒˆã‚­ãƒ¼ã¨åŒæ™‚æŠ¼ã—ã®å ´åˆã¯ã€ãƒ‡ãƒãƒƒã‚°ãƒ­ã‚°ãƒ¬ãƒ™ãƒ«ã‚’ä¸‹ã’ã‚‹
+            debug_log_level = max(0, debug_log_level - 1);
+        } else {
+            // ãã‚Œä»¥å¤–ã®å ´åˆã¯ã€ãƒ‡ãƒãƒƒã‚°ãƒ­ã‚°ãƒ¬ãƒ™ãƒ«ã‚’ä¸Šã’ã‚‹
+            debug_log_level = min(7, debug_log_level + 1);
+        }
+        printf("ãƒ‡ãƒãƒƒã‚°ãƒ­ã‚°ãƒ¬ãƒ™ãƒ«=%d\n", debug_log_level);
+    }
 
-	if (toroku_key_hit) {
-		// “o˜^ƒL[‚ª‰Ÿ‚³‚ê‚½‚çƒ|[ƒY
-		_setTextPlane(1);
-		uint32_t psg_ch_enable = r_PSG_ch_enable();
-		uint32_t scc_ch_enable = r_SCC_ch_enable();
-		w_PSG_ch_enable(0);
-		w_SCC_ch_enable(0);
-		printf("Paused:\n[TOROKU]: Resume [RET]: Exit\n");
+    if (toroku_key_hit) {
+        // ç™»éŒ²ã‚­ãƒ¼ãŒæŠ¼ã•ã‚ŒãŸã‚‰ãƒãƒ¼ã‚º
+        _setTextPlane(1);
+        uint32_t psg_ch_enable = ms_psg_get_ch_enable();
+        uint32_t scc_ch_enable = r_SCC_ch_enable();
+        ms_psg_set_ch_enable(0);
+        w_SCC_ch_enable(0);
+        printf("Paused:\n[TOROKU]: Resume [RET]: Exit\n");
 
-		// ‚±‚Ìƒ^ƒCƒ~ƒ“ƒO‚ÅŠeƒhƒ‰ƒCƒo‚ÌƒR[ƒ‹ƒoƒbƒN‚ğŒÄ‚Ño‚·
-		ms_memmap_did_pause(memmap);
+        // ã“ã®ã‚¿ã‚¤ãƒŸãƒ³ã‚°ã§å„ãƒ‰ãƒ©ã‚¤ãƒã®ã‚³ãƒ¼ãƒ«ãƒãƒƒã‚¯ã‚’å‘¼ã³å‡ºã™
+        ms_memmap_did_pause(memmap);
 
-		//
-		while(1) {
-			int va = BITSNS_WORK[0xa];	// IOCS BITSNS‚Ìƒ[ƒNƒGƒŠƒA’¼ÚQÆ
-			if (!(va & 0x08)) {	// “o˜^ƒL[‚ª—£‚³‚ê‚é‚Ü‚Å‘Ò‚Â
-				break;
-			}
-		}
-		while(1) {
-			//
-			int va = BITSNS_WORK[0xa];	// IOCS BITSNS‚Ìƒ[ƒNƒGƒŠƒA’¼ÚQÆ
-			if (va & 0x08) {	// ‚à‚¤ˆê“x“o˜^ƒL[‚ª‰Ÿ‚³‚ê‚½‚çÄŠJ
-				break;
-			}
-			int v3 = BITSNS_WORK[0x3];	// IOCS BITSNS‚Ìƒ[ƒNƒGƒŠƒA’¼ÚQÆ
-			if (v3 & 0x20) {	// ƒŠƒ^[ƒ“ƒL[‚ª‰Ÿ‚³‚ê‚½‚çI—¹
-				return 1;
-			}
-		}
-		printf("->Resumed\n");
-		while(1) {
-			int va = BITSNS_WORK[0xa];	// IOCS BITSNS‚Ìƒ[ƒNƒGƒŠƒA’¼ÚQÆ
-			if (!(va & 0x08)) {	// “o˜^ƒL[‚ª—£‚³‚ê‚é‚Ü‚Å‘Ò‚Â
-				break;
-			}
-		}
-		_setTextPlane(textPlaneMode);
-		w_PSG_ch_enable(psg_ch_enable);
-		w_SCC_ch_enable(scc_ch_enable);
-	}
+        //
+        while (1) {
+            int va = BITSNS_WORK[0xa];  // IOCS BITSNSã®ãƒ¯ãƒ¼ã‚¯ã‚¨ãƒªã‚¢ç›´æ¥å‚ç…§
+            if (!(va & 0x08)) {         // ç™»éŒ²ã‚­ãƒ¼ãŒé›¢ã•ã‚Œã‚‹ã¾ã§å¾…ã¤
+                break;
+            }
+        }
+        while (1) {
+            //
+            int va = BITSNS_WORK[0xa];  // IOCS BITSNSã®ãƒ¯ãƒ¼ã‚¯ã‚¨ãƒªã‚¢ç›´æ¥å‚ç…§
+            if (va & 0x08) {            // ã‚‚ã†ä¸€åº¦ç™»éŒ²ã‚­ãƒ¼ãŒæŠ¼ã•ã‚ŒãŸã‚‰å†é–‹
+                break;
+            }
+            int v3 = BITSNS_WORK[0x3];  // IOCS BITSNSã®ãƒ¯ãƒ¼ã‚¯ã‚¨ãƒªã‚¢ç›´æ¥å‚ç…§
+            if (v3 & 0x20) {            // ãƒªã‚¿ãƒ¼ãƒ³ã‚­ãƒ¼ãŒæŠ¼ã•ã‚ŒãŸã‚‰çµ‚äº†
+                return 1;
+            }
+        }
+        printf("->Resumed\n");
+        while (1) {
+            int va = BITSNS_WORK[0xa];  // IOCS BITSNSã®ãƒ¯ãƒ¼ã‚¯ã‚¨ãƒªã‚¢ç›´æ¥å‚ç…§
+            if (!(va & 0x08)) {         // ç™»éŒ²ã‚­ãƒ¼ãŒé›¢ã•ã‚Œã‚‹ã¾ã§å¾…ã¤
+                break;
+            }
+        }
+        _setTextPlane(textPlaneMode);
+        ms_psg_set_ch_enable(psg_ch_enable);
+        w_SCC_ch_enable(scc_ch_enable);
+    }
 
-	if (kigo_key_hit) {
-		printf("\n");
-		uint32_t h = framerate_count_his;
-		uint32_t framerate = ( ((h>>24)&0xff) + ((h>>16)&0xff) + ((h>>8)&0xff) + (h&0xff) ) / 4;
-		framerate /= ms_vdp_vsync_rate;
-		int frac = 60 / ms_vdp_vsync_rate;
-		printf("loop=%08d [%d/%d]\ncycle=%08ld wait=%ld\n", emuLoopCounter, framerate, frac, cpu_cycle_last, cpu_cycle_wait);
-		printf("COUNTER=%08x, inttick=%08d\n", counter, ms_vsync_interrupt_tick);
-		dump(pc >> 16, pc & 0x1fff);
-	}
+    if (undo_key_hit) {
+        // UNDOã‚­ãƒ¼ãŒæŠ¼ã•ã‚ŒãŸã‚‰ã€å¼·åˆ¶çš„ã«511ãƒ‰ãƒƒãƒˆãƒ¢ãƒ¼ãƒ‰ã«ã™ã‚‹
+        printf("\n512ãƒ‰ãƒƒãƒˆãƒ¢ãƒ¼ãƒ‰ã«ã—ã¾ã—ãŸ\n");
+        ms_vdp_force_512dot_mode();
+    }
 
-	if (help_key_hit) {
-		_toggleTextPlane();
-	}
+    if (kigo_key_hit) {
+        printf("\n");
+        uint32_t h = framerate_count_his;
+        uint32_t framerate = (((h >> 24) & 0xff) + ((h >> 16) & 0xff) + ((h >> 8) & 0xff) + (h & 0xff)) / 4;
+        framerate /= ms_vdp_vsync_rate;
+        int frac = 60 / ms_vdp_vsync_rate;
+        printf("loop=%08d [%d/%d]\ncycle=%08ld wait=%ld\n", emuLoopCounter, framerate, frac, cpu_cycle_last, cpu_cycle_wait);
+        printf("COUNTER=%08x, inttick=%08d\n", counter, ms_vsync_interrupt_tick);
+        dump(pc >> 16, pc & 0x1fff);
+    }
 
-	if (shift_pressed && cursor_key_hit ) {
-		_moveTextPlane(cursor_key_hit);
-	}
+    if (help_key_hit) {
+        _toggleTextPlane();
+    }
 
-	if (opt1_pressed) {
-		if(esc_key_hit) {
-			disk_container->eject_disk(disk_container);
-			printf("Disk ejected\n");
-		}
-		if(num_key_hit) {
-			disk_container->change_disk(disk_container, num_key_hit - 1);
-			printf("Disk changed: %s\n", disk_container->current_disk->name);
-		}
-	}
+    if (shift_pressed && cursor_key_hit) {
+        _moveTextPlane(cursor_key_hit);
+    }
 
-	if(f7_pressed) {
-		if (esc_key_hit) {
-			// esc‚ª‰Ÿ‚³‚ê‚½‚ç‘Sƒ`ƒƒƒ“ƒlƒ‹‚ğƒgƒOƒ‹
-			uint32_t psg_ch = r_PSG_ch_enable();
-			uint32_t scc_ch = r_SCC_ch_enable();
-			if(psg_ch && scc_ch) {
-				w_PSG_ch_enable(0);
-				w_SCC_ch_enable(0);
-			} else {
-				w_PSG_ch_enable(0x07);
-				w_SCC_ch_enable(0x0f);
-			}
-		}
-		switch(num_key_hit) {
-			case 1:
-			case 2:
-			case 3:
-				// PSG ƒ`ƒƒƒ“ƒlƒ‹‚ÌƒgƒOƒ‹
-				uint32_t ch = r_PSG_ch_enable();
-				ch ^= 1 << (num_key_hit - 1);
-				w_PSG_ch_enable(ch);
-				break;
-			case 4:
-			case 5:
-			case 6:
-			case 7:
-				// SCC ƒ`ƒƒƒ“ƒlƒ‹‚ÌƒgƒOƒ‹
-				uint32_t scc_ch = r_SCC_ch_enable();
-				scc_ch ^= 1 << (num_key_hit - 4);
-				w_SCC_ch_enable(scc_ch);
-				break;
-			default:
-				break;
-		}
-	}
+    if (opt1_pressed) {
+        if (esc_key_hit) {
+            disk_container->eject_disk(disk_container);
+            printf("Disk ejected\n");
+        }
+        if (num_key_hit >= 0) {
+            // numã¯0-fã¾ã§ã®16é€šã‚Š
+            // 0ã¯ 9scdrvã«åˆ‡ã‚Šæ›¿ãˆ
+            // 1-15ã¯ç™»éŒ²ã•ã‚Œã¦ã„ã‚‹ãƒ‡ã‚£ã‚¹ã‚¯ã‚¤ãƒ¡ãƒ¼ã‚¸ã«åˆ‡ã‚Šæ›¿ãˆ
+            disk_container->change_disk(disk_container, num_key_hit - 1);
+            printf("Disk changed: %s\n", disk_container->current_disk->name);
+        }
+    }
 
-	for(i=0;i<16;i++) {
-		last_bitsns[i] = ((uint8_t*)0x800)[i];	// IOCS BITSNS‚Ìƒ[ƒNƒGƒŠƒA’¼ÚQÆ‚µAˆê‚Â‘O‚Ì’l‚ğŠo‚¦‚Ä‚¨‚­
-	}
+    if (f7_pressed) {
+        if (esc_key_hit) {
+            // escãŒæŠ¼ã•ã‚ŒãŸã‚‰å…¨ãƒãƒ£ãƒ³ãƒãƒ«ã‚’ãƒˆã‚°ãƒ«
+            uint32_t psg_ch = ms_psg_get_ch_enable();
+            uint32_t scc_ch = r_SCC_ch_enable();
+            if (psg_ch && scc_ch) {
+                ms_psg_set_ch_enable(0);
+                w_SCC_ch_enable(0);
+            } else {
+                ms_psg_set_ch_enable(0x07);
+                w_SCC_ch_enable(0x0f);
+            }
+        }
+        switch (num_key_hit) {
+        case 1:
+        case 2:
+        case 3:
+            // PSG ãƒãƒ£ãƒ³ãƒãƒ«ã®ãƒˆã‚°ãƒ«
+            uint32_t ch = ms_psg_get_ch_enable();
+            ch ^= 1 << (num_key_hit - 1);
+            ms_psg_set_ch_enable(ch);
+            break;
+        case 4:
+        case 5:
+        case 6:
+        case 7:
+            // SCC ãƒãƒ£ãƒ³ãƒãƒ«ã®ãƒˆã‚°ãƒ«
+            uint32_t scc_ch = r_SCC_ch_enable();
+            scc_ch ^= 1 << (num_key_hit - 4);
+            w_SCC_ch_enable(scc_ch);
+            break;
+        default:
+            break;
+        }
+    }
 
-	return 0;
+    for (i = 0; i < 16; i++) {
+        last_bitsns[i] = ((uint8_t*)0x800)[i];  // IOCS BITSNSã®ãƒ¯ãƒ¼ã‚¯ã‚¨ãƒªã‚¢ç›´æ¥å‚ç…§ã—ã€ä¸€ã¤å‰ã®å€¤ã‚’è¦šãˆã¦ãŠã
+    }
+
+    return 0;
 }
 
-// ƒƒ‚ƒŠƒ_ƒ“ƒv
+// ãƒ¡ãƒ¢ãƒªãƒ€ãƒ³ãƒ—
 void dump(unsigned int page, unsigned int pc_8k) {
-	int i,j;
-	int pcbase,pc;
-	int data;
-	unsigned int current_int_skip_counter = int_skip_counter;
-	static unsigned int last_int_skip_counter = 0;
-	int rd,wr;
-	char process_type_char[] = {'E','S','D','?'};
+    int i, j;
+    int pcbase, pc;
+    int data;
+    unsigned int current_int_skip_counter = int_skip_counter;
+    static unsigned int last_int_skip_counter = 0;
+    int rd, wr;
+    char process_type_char[] = {'E', 'S', 'D', '?'};
 
-	wr = interrupt_history_wr;
-	for(i=0;i<8;i++) {
-		unsigned int tick;
-		unsigned int process_type; // 0: EIó‘Ô‚ÅŠ„‚è‚İ‚ª‚©‚©‚Á‚½, 1: EI‚¾‚Á‚½‚ªƒXƒLƒbƒv, 2: DIó‘Ô‚ÅŠ„‚è‚İ‚ªƒXƒLƒbƒv
-		unsigned int counter;
-		rd = (interrupt_history_rd + i) % 32;
-		if (rd == wr) {
-			break;
-		}
-		tick = interrupt_history_ptr[rd].int_tick;
-		process_type = interrupt_history_ptr[rd].process_type;
-		if (process_type > 2 ) {
-			process_type = 3;
-		}
-		counter = interrupt_history_ptr[rd].emu_counter;
-		printf("[%04x]%c:%06d >",tick,process_type_char[process_type],counter);
-	}
-	printf("\n");
+    wr = interrupt_history_wr;
+    for (i = 0; i < 8; i++) {
+        unsigned int tick;
+        unsigned int process_type;  // 0: EIçŠ¶æ…‹ã§å‰²ã‚Šè¾¼ã¿ãŒã‹ã‹ã£ãŸ, 1: EIã ã£ãŸãŒã‚¹ã‚­ãƒƒãƒ—, 2: DIçŠ¶æ…‹ã§å‰²ã‚Šè¾¼ã¿ãŒã‚¹ã‚­ãƒƒãƒ—
+        unsigned int counter;
+        rd = (interrupt_history_rd + i) % 32;
+        if (rd == wr) {
+            break;
+        }
+        tick = interrupt_history_ptr[rd].int_tick;
+        process_type = interrupt_history_ptr[rd].process_type;
+        if (process_type > 2) {
+            process_type = 3;
+        }
+        counter = interrupt_history_ptr[rd].emu_counter;
+        printf("[%04x]%c:%06d >", tick, process_type_char[process_type], counter);
+    }
+    printf("\n");
 
-	pc = (page << 13) | (pc_8k & 0x1fff);
-	pcbase = (pc & 0xfff0);
-	printf("PC=%04x, EXEC=%04d SKIP=%04d (+%04d)\n", (pc&0xffff), int_exec_counter, current_int_skip_counter,current_int_skip_counter - last_int_skip_counter);
-	last_int_skip_counter = current_int_skip_counter;
-	for (i = -1; i < 2; i++)
-	{
-		printf("%04x: ", pcbase + i * 16);
-		for (j = 0; j < 16; j++)
-		{
-			data = ms_memmap_read8(pcbase + i * 16 + j);
-			printf("%02x ", data);
-		}
-		printf("\n");
-	}
+    pc = (page << 13) | (pc_8k & 0x1fff);
+    pcbase = (pc & 0xfff0);
+    printf("PC=%04x, EXEC=%04d SKIP=%04d (+%04d)\n", (pc & 0xffff), int_exec_counter, current_int_skip_counter,
+           current_int_skip_counter - last_int_skip_counter);
+    last_int_skip_counter = current_int_skip_counter;
+    for (i = -1; i < 2; i++) {
+        printf("%04x: ", pcbase + i * 16);
+        for (j = 0; j < 16; j++) {
+            data = ms_memmap_read8(pcbase + i * 16 + j);
+            printf("%02x ", data);
+        }
+        printf("\n");
+    }
 }
 
 static uint8_t keyboard_led_counter = 0;
@@ -1153,328 +1246,354 @@ uint8_t ms_fdd_led_1;
 uint8_t ms_fdd_led_2;
 
 void sync_keyboard_leds() {
-	if (keyboard_led_counter == 0) {
-		keyboard_led_counter = 3;
-		uint8_t led_val = 0;
-		led_val |= ms_peripherals_led_caps ? 0b00001000 : 0;	// CAPS
-		led_val |= ms_peripherals_led_kana ? 0b00000001 : 0;	// KANA
-		led_val |= ms_fdd_led_1            ? 0b00000100 : 0;	// CODE
-		led_val |= ms_fdd_led_2            ? 0b00000010 : 0;	// ROME
-		if( last_led_val != led_val) {
-			ms_iocs_ledctrl(led_val, ms_peripherals_led_caps);
-			last_led_val = led_val;
-		}
-	} else {
-		keyboard_led_counter--;
-	}
+    if (keyboard_led_counter == 0) {
+        keyboard_led_counter = 3;
+        uint8_t led_val = 0;
+        led_val |= ms_peripherals_led_caps ? 0b00001000 : 0;  // CAPS
+        led_val |= ms_peripherals_led_kana ? 0b00000001 : 0;  // KANA
+        led_val |= ms_fdd_led_1 ? 0b00000100 : 0;             // CODE
+        led_val |= ms_fdd_led_2 ? 0b00000010 : 0;             // ROME
+        if (last_led_val != led_val) {
+            ms_iocs_ledctrl(led_val, ms_peripherals_led_caps);
+            last_led_val = led_val;
+        }
+    } else {
+        keyboard_led_counter--;
+    }
 }
 
 void _toggleTextPlane(void) {
-	textPlaneMode = (textPlaneMode + 1) % 2;
-	_setTextPlane(textPlaneMode);
+    textPlaneMode = (textPlaneMode + 1) % 2;
+    _setTextPlane(textPlaneMode);
 }
 
 void _moveTextPlane(int cursorKeyHit) {
-	static uint16_t x = 0;
-	static uint16_t y = 0;
-	int diff = 64;
+    static uint16_t x = 0;
+    static uint16_t y = 0;
+    int diff = 64;
 
-	switch (cursorKeyHit)
-	{
-	case 1:
-		// ¶
-		if (x >= diff) {
-			x -= diff;
-		} else {
-			x = 0;
-		}
-		break;
-	case 2:
-		// ã
-		if (y >= diff) {
-			y -= diff;
-		} else {
-			y = 0;
-		}
-		break;
-	case 3:
-		// ‰º
-		if (y <= 512 - 192 - diff) { // “K“–
-			y += diff;
-		} else {
-			y = 512 - 192;
-		}
-		break;
-	case 4:
-		// ‰E
-		if (x <= 512 - 192 - diff) { // “K“–
-			x += diff;
-		} else {
-			x = 512 - 192;
-		}
-		break;
-	}
-	CRTR_10 = x;
-	CRTR_11 = y;
+    switch (cursorKeyHit) {
+    case 1:
+        // å·¦
+        if (x >= diff) {
+            x -= diff;
+        } else {
+            x = 0;
+        }
+        break;
+    case 2:
+        // ä¸Š
+        if (y >= diff) {
+            y -= diff;
+        } else {
+            y = 0;
+        }
+        break;
+    case 3:
+        // ä¸‹
+        if (y <= 512 - 192 - diff) {  // é©å½“
+            y += diff;
+        } else {
+            y = 512 - 192;
+        }
+        break;
+    case 4:
+        // å³
+        if (x <= 512 - 192 - diff) {  // é©å½“
+            x += diff;
+        } else {
+            x = 512 - 192;
+        }
+        break;
+    }
+    CRTR_10 = x;
+    CRTR_11 = y;
 }
 
 void _setTextPlane(int textPlaneMode) {
-	switch (textPlaneMode)
-	{
-	case 0:
-		// ƒeƒLƒXƒg•\¦OFF‚É‚·‚é‚ÉAƒfƒoƒbƒOƒƒO‚ğINFO‚É‚·‚é
-		debug_log_level = MS_LOG_INFO;
-		// ƒeƒLƒXƒg•\¦OFF
-		vdp->tx_active = 0;
-		break;
-	case 1:
-		// ƒeƒLƒXƒg•\¦ON‚É‚·‚é‚ÉAƒfƒoƒbƒOƒƒO‚ğŒ³‚É–ß‚·
-		debug_log_level = _debug_log_level;
-		// ƒeƒLƒXƒg•\¦ON
-		vdp->tx_active = 1;
-		break;
-	}
-	ms_vdp_update_visibility(vdp);
-	vdp->ms_vdp_current_mode->update_palette(vdp);
+    switch (textPlaneMode) {
+    case 0:
+        // ãƒ†ã‚­ã‚¹ãƒˆè¡¨ç¤ºOFFã«ã™ã‚‹æ™‚ã«ã€ãƒ‡ãƒãƒƒã‚°ãƒ­ã‚°ã‚’INFOã«ã™ã‚‹
+        debug_log_level = MS_LOG_INFO;
+        // ãƒ†ã‚­ã‚¹ãƒˆè¡¨ç¤ºOFF
+        vdp->tx_active = 0;
+        break;
+    case 1:
+        // ãƒ†ã‚­ã‚¹ãƒˆè¡¨ç¤ºONã«ã™ã‚‹æ™‚ã«ã€ãƒ‡ãƒãƒƒã‚°ãƒ­ã‚°ã‚’å…ƒã«æˆ»ã™
+        debug_log_level = _debug_log_level;
+        // ãƒ†ã‚­ã‚¹ãƒˆè¡¨ç¤ºON
+        vdp->tx_active = 1;
+        break;
+    }
+    ms_vdp_update_visibility(vdp);
+    vdp->ms_vdp_current_mode->update_palette(vdp);
 }
 
-
-int search_open(const char *filename, int flag) {
-	if(filename == NULL) {
-		return -1;
-	}
-	int fh = open(filename, flag);
-	if (fh != -1) {
-	    return fh;
-	}
-	// ƒx[ƒXƒfƒBƒŒƒNƒgƒŠ‚àŒŸõ
-	char base_filename[256];
-	sprintf(base_filename, "%s%s", base_dir, filename);
-	fh = open(base_filename, flag);
-	if (fh != -1) {
-		return fh;
-	}
-	return -1;
+int ms_system_file_open(const char* filename, int flag) {
+    if (filename == NULL) {
+        return -1;
+    }
+    int fh = open(filename, flag);
+    if (fh != -1) {
+        return fh;
+    }
+    // ãƒ™ãƒ¼ã‚¹ãƒ‡ã‚£ãƒ¬ã‚¯ãƒˆãƒªã‚‚æ¤œç´¢
+    char base_filename[256];
+    sprintf(base_filename, "%s%s", base_dir, filename);
+    fh = open(base_filename, flag);
+    if (fh != -1) {
+        return fh;
+    }
+    // ãƒ™ãƒ¼ã‚¹ãƒ‡ã‚£ãƒ¬ã‚¯ãƒˆãƒª/msxromsã‚‚æ¤œç´¢
+    sprintf(base_filename, "%smsxroms/%s", base_dir, filename);
+    fh = open(base_filename, flag);
+    if (fh != -1) {
+        return fh;
+    }
+    return -1;
 }
 
-int file_exists(const char *filename) {
-	if(filename == NULL) {
-		return 0;
-	}
-	int fh = open(filename, O_RDONLY);
-	if (fh != -1) {
-		close(fh);
-		return 1;
-	}
-	return 0;
+int ms_system_file_exists(const char* filename) {
+    int fh = ms_system_file_open(filename, O_RDONLY);
+    if (fh != -1) {
+        close(fh);
+        return 1;
+    }
+    return 0;
 }
 
 void set_system_roms() {
-	int fh_mainrom = search_open(init_param.mainrom, O_BINARY | O_RDONLY);
-	int fh_subrom = search_open(init_param.subrom, O_BINARY | O_RDONLY);
-	if (fh_mainrom != -1 && fh_subrom != -1) {
-		// Load user-provided ROMs
-		printf("MAIN ROM: %s\n", init_param.mainrom);
-		allocateAndSetNORMALROM(fh_mainrom, ROM_TYPE_NORMAL_ROM, 0x00, -1, 0);
-		printf(" SUB ROM: %s\n", init_param.subrom);
-		allocateAndSetNORMALROM(fh_subrom, ROM_TYPE_NORMAL_ROM, 0x03, 1, 0);
-		if (file_exists(init_param.diskrom)) {
-			printf("DISK ROM: %s\n", init_param.diskrom);
-			int i;
-			for(i=0;i<init_param.diskcount;i++) {
-				printf(" Load disk [%d] : %s\n", i, init_param.diskimages[i]);
-			}
-			// ƒfƒBƒXƒNƒRƒ“ƒeƒi‚Ì‰Šú‰»
-			disk_container = ms_disk_container_alloc();
-			if (disk_container == NULL) {
-				printf("ƒƒ‚ƒŠ‚ªŠm•Û‚Å‚«‚Ü‚¹‚ñB\n");
-				ms_exit();
-				return;
-			}
-			ms_disk_container_init(disk_container, init_param.diskcount, init_param.diskimages);
+    int fh_mainrom = ms_system_file_open(init_param.mainrom, O_BINARY | O_RDONLY);
+    int fh_subrom = ms_system_file_open(init_param.subrom, O_BINARY | O_RDONLY);
+    if (fh_mainrom != -1 && fh_subrom != -1) {
+        // Load user-provided ROMs
+        printf("   MAIN ROM: %s\n", init_param.mainrom);
+        allocateAndSetNORMALROM(fh_mainrom, ROM_TYPE_NORMAL_ROM, 0x00, -1, 0);
+        printf("    SUB ROM: %s\n", init_param.subrom);
+        allocateAndSetNORMALROM(fh_subrom, ROM_TYPE_NORMAL_ROM, 0x03, 1, 0);
+    } else {
+        if (fh_mainrom != -1) {
+            close(fh_mainrom);
+        }
+        if (fh_subrom != -1) {
+            close(fh_subrom);
+        }
+        // Load default CBIOS ROMs
+        printf("BIOS ROMãŒè¦‹ã¤ã‹ã‚Šã¾ã›ã‚“ã€‚ãƒ•ã‚¡ã‚¤ãƒ«ã‚’ç¢ºèªã—ã¦ãã ã•ã„ã€‚\n");
+        printf(" BIOS ROM: %s\n", init_param.mainrom);
+        printf(" SUB ROM : %s\n", init_param.subrom);
+        ms_exit_failure();
+        return;
+    }
+    // DISK ROMã®æŒ‡å®šãŒã‚ã‚Œã°èª­ã¿è¾¼ã‚€
+    if (ms_system_file_exists(init_param.diskrom)) {
+        printf("   DISK ROM: %s\n", init_param.diskrom);
+        int i;
+        for (i = 0; i < init_param.diskcount; i++) {
+            printf(" Load disk [%d] : %s\n", i, init_param.diskimages[i]);
+        }
+        // ãƒ‡ã‚£ã‚¹ã‚¯ã‚³ãƒ³ãƒ†ãƒŠã®åˆæœŸåŒ–
+        disk_container = ms_disk_container_alloc();
+        if (disk_container == NULL) {
+            printf("ãƒ¡ãƒ¢ãƒªãŒç¢ºä¿ã§ãã¾ã›ã‚“ã€‚\n");
+            ms_exit();
+            return;
+        }
+        ms_disk_container_init(disk_container, init_param.diskcount, init_param.diskimages, init_param.drive_for_9scdrv);
 
-			allocateAndSetDISKBIOSROM(init_param.diskrom, disk_container);
-		}
-	} else {
-		if (fh_mainrom != -1) {
-			close(fh_mainrom);
-		}
-		if (fh_subrom != -1) {
-			close(fh_subrom);
-		}
-	    // Load default CBIOS ROMs
-		printf("BIOS ROM‚ªŒ©‚Â‚©‚è‚Ü‚¹‚ñBƒtƒ@ƒCƒ‹‚ğŠm”F‚µ‚Ä‚­‚¾‚³‚¢B\n");
-		printf(" BIOS ROM: %s\n", init_param.mainrom);
-		printf(" SUB ROM : %s\n", init_param.subrom);
-		ms_exit();
-		return;
-	}
+        switch (init_param.diskif) {
+        case MS_DISKIF_SONY:
+            printf("   FDC TYPE: SONY/Philips (WD2793)\n");
+            allocateAndSetDISKBIOSROM_Sony(init_param.diskrom, disk_container);
+            break;
+        case MS_DISKIF_TC8566AF:
+            printf("   FDC TYPE: Panasonic (TC8566AF)\n");
+            allocateAndSetDISKBIOSROM(init_param.diskrom, disk_container);
+            break;
+        default:
+            printf("ä¸æ˜ãªFDCã®ç¨®é¡ã§ã™: %d\n", init_param.diskif);
+            ms_exit_failure();
+            break;
+        }
+    }
+
+    // æ¼¢å­—BASICã®æŒ‡å®šãŒã‚ã‚Œã°èª­ã¿è¾¼ã‚€
+    int fh_kanjibasic = ms_system_file_open(init_param.kanjibasic, O_BINARY | O_RDONLY);
+    if (fh_kanjibasic != -1) {
+        printf("KANJI BASIC: %s\n", init_param.kanjibasic);
+        allocateAndSetNORMALROM(fh_kanjibasic, ROM_TYPE_NORMAL_ROM, 0x03, 1, 1);
+    }
+}
+
+bool get_bool(char* str) {
+    if (str == NULL) {
+        return false;
+    }
+    if (strcmp(str, "true") == 0) {
+        return true;
+    }
+    return false;
 }
 
 /**
- * @brief MS.INI ƒtƒ@ƒCƒ‹‚ğ“Ç‚İ‚İA‰Šú‰»ƒpƒ‰ƒ[ƒ^‚ğİ’è‚µ‚Ü‚·
- * 
- * @return uint8_t ƒ[ƒh‚Å‚«‚½ê‡1A¸”s‚µ‚½ê‡0
+ * @brief MS.INI ãƒ•ã‚¡ã‚¤ãƒ«ã‚’èª­ã¿è¾¼ã¿ã€åˆæœŸåŒ–ãƒ‘ãƒ©ãƒ¡ãƒ¼ã‚¿ã‚’è¨­å®šã—ã¾ã™
+ *
+ * @return uint8_t ãƒ­ãƒ¼ãƒ‰ã§ããŸå ´åˆ1ã€å¤±æ•—ã—ãŸå ´åˆ0
  */
 uint8_t load_user_param() {
-	user_param = default_param;
+    user_param = default_param;
 
-	int fh = search_open("MS.INI", O_RDONLY); // TEXT MODE ‚ÅŠJ‚­
-	if(fh == -1) {
-		printf("MS.INI ƒtƒ@ƒCƒ‹‚ğŠJ‚¯‚Ü‚¹‚ñ‚Å‚µ‚½B\n");
-		return 0;
-	}
-	int size = filelength(fh);
-	user_param.buf = (uint8_t*)new_malloc(size + 1);
-	if(user_param.buf == NULL) {
-		printf("ƒƒ‚ƒŠ‚ªŠm•Û‚Å‚«‚Ü‚¹‚ñB\n");
-		close(fh);
-		return 0;
-	}
-	int readsize = read(fh, user_param.buf, size); // TEXT MODE‚È‚Ì‚Å2ƒoƒCƒg‚Ì‰üs‚ª1ƒoƒCƒg‚ÉŒ¸‚Á‚Ä‚¢‚é
-	close(fh);
-	user_param.buf[readsize] = '\0';
+    int fh = ms_system_file_open("MS.INI", O_RDONLY);  // TEXT MODE ã§é–‹ã
+    if (fh == -1) {
+        printf("MS.INI ãƒ•ã‚¡ã‚¤ãƒ«ã‚’é–‹ã‘ã¾ã›ã‚“ã§ã—ãŸã€‚\n");
+        return 0;
+    }
+    int size = filelength(fh);
+    user_param.buf = (uint8_t*)new_malloc(size + 1);
+    if (user_param.buf == NULL) {
+        printf("ãƒ¡ãƒ¢ãƒªãŒç¢ºä¿ã§ãã¾ã›ã‚“ã€‚\n");
+        close(fh);
+        return 0;
+    }
+    int readsize = read(fh, user_param.buf, size);  // TEXT MODEãªã®ã§2ãƒã‚¤ãƒˆã®æ”¹è¡ŒãŒ1ãƒã‚¤ãƒˆã«æ¸›ã£ã¦ã„ã‚‹
+    close(fh);
+    user_param.buf[readsize] = '\0';
 
-	user_param.diskcount = 0;
-	// 1s‚¸‚Â“Ç‚İ‚È‚ª‚çƒpƒ‰ƒ[ƒ^‚ğİ’è
-	// Read each line from the MS.INI file
-	int pos = 0;
-	while (pos < size) {
-		while(pos<size) {
-			if( user_param.buf[pos] == '\n' || user_param.buf[pos] == '\r') {
-				// ˜A‘±‚·‚é‰üs‚ğƒXƒLƒbƒv
-				pos++;
-			} else {
-				break;
-			}
-		}
-		if(pos >= size) {
-			break;
-		}
-		char* line = user_param.buf + pos;
-		while(pos<size && user_param.buf[pos] != '\n') {
-			pos++;
-		}
-		user_param.buf[pos++] = '\0';
+    user_param.diskcount = 0;
+    // 1è¡Œãšã¤èª­ã¿ãªãŒã‚‰ãƒ‘ãƒ©ãƒ¡ãƒ¼ã‚¿ã‚’è¨­å®š
+    // Read each line from the MS.INI file
+    int pos = 0;
+    while (pos < size) {
+        while (pos < size) {
+            if (user_param.buf[pos] == '\n' || user_param.buf[pos] == '\r') {
+                // é€£ç¶šã™ã‚‹æ”¹è¡Œã‚’ã‚¹ã‚­ãƒƒãƒ—
+                pos++;
+            } else {
+                break;
+            }
+        }
+        if (pos >= size) {
+            break;
+        }
+        char* line = user_param.buf + pos;
+        while (pos < size && user_param.buf[pos] != '\n') {
+            pos++;
+        }
+        user_param.buf[pos++] = '\0';
 
-		// s‚ªƒRƒƒ“ƒgs‚©‚Ç‚¤‚©‚ğƒ`ƒFƒbƒN
-		if (line[0] == ';' || line[0] == '#') {
-			continue;
-		}
+        // è¡ŒãŒã‚³ãƒ¡ãƒ³ãƒˆè¡Œã‹ã©ã†ã‹ã‚’ãƒã‚§ãƒƒã‚¯
+        if (line[0] == ';' || line[0] == '#') {
+            continue;
+        }
+        printf("MS.INI: %s\n", line);
 
-		// Parse the line to extract the parameter and value
-		char* param = strtok(line, "=");
-		char* value = strtok(NULL, "=");
-		if (param == NULL || value == NULL) {
-			continue;
-		}
+        // Parse the line to extract the parameter and value
+        char* param = strtok(line, "=");
+        char* value = strtok(NULL, "=");
+        if (param == NULL || value == NULL) {
+            continue;
+        }
 
-		// Check if the parameter is "mainrom"
-		if (strcmp(param, "mainrom") == 0) {
-			user_param.mainrom = value;
-			if( user_param.slot_path[0][2] == default_param.slot_path[0][2] ) {
-				// C-BIOS‚ÌƒƒS‚ğŠO‚·
-				user_param.slot_path[0][2] = NULL;
-			}
-		}
-		// Check if the parameter is "subrom"
-		else if (strcmp(param, "subrom") == 0) {
-			user_param.subrom = value;
-		}
-		// Check if the parameter is "diskrom"
-		else if (strcmp(param, "diskrom") == 0) {
-			user_param.diskrom = value;
-		}
-		// Check if the parameter is "kanjirom"
-		else if (strcmp(param, "kanjirom") == 0) {
-			user_param.kanjirom = value;
-		}
-		// Check if the parameter starts with "slot"
-		else if (strncmp(param, "slot", 4) == 0) {
-			// Extract the slot number and page number from the parameter
-			int slot = param[4] - '0';
-			int page = param[6] - '0';
+        // Check if the parameter is "mainrom"
+        if (strcmp(param, "mainrom") == 0) {
+            user_param.mainrom = value;
+            if (user_param.slot_path[0][2] == default_param.slot_path[0][2]) {
+                // C-BIOSã®ãƒ­ã‚´ã‚’å¤–ã™
+                user_param.slot_path[0][2] = NULL;
+            }
+        }
+        // Check if the parameter is "subrom"
+        else if (strcmp(param, "subrom") == 0) {
+            user_param.subrom = value;
+        }
+        // Check if the parameter is "diskrom" (",ç¨®é¡" ã§FDCã®ç¨®é¡ã‚’æŒ‡å®šå¯èƒ½)
+        else if (strcmp(param, "diskrom") == 0) {
+            user_param.diskrom = separate_diskif(value, &user_param.diskif);
+        }
+        // Check if the parameter is "kanjirom"
+        else if (strcmp(param, "kanjirom") == 0) {
+            user_param.kanjirom = value;
+        }
+        // Check if the parameter is "kanjibasic"
+        else if (strcmp(param, "kanjibasic") == 0) {
+            user_param.kanjibasic = value;
+        }
+        // Check if the parameter starts with "slot"
+        else if (strncmp(param, "slot", 4) == 0) {
+            // Extract the slot number and page number from the parameter
+            int slot = param[4] - '0';
+            int page = param[6] - '0';
 
-			// Set the ROM path for the specified slot and page
-			user_param.slot_path[slot][page] = value;
-		}
-		// Check if the parameter starts with "r"
-		else if (strncmp(param, "r", 1) == 0) {
-			// Extract the slot number and page number from the parameter
-			int slot = param[1] - '0';
-			int page = param[2] - '0';
+            // Set the ROM path for the specified slot and page
+            user_param.slot_path[slot][page] = value;
+        }
+        // Check if the parameter starts with "r"
+        else if (strncmp(param, "r", 1) == 0) {
+            // Extract the slot number and page number from the parameter
+            int slot = param[1] - '0';
+            int page = param[2] - '0';
 
-			// Set the ROM path for the specified slot and page
-			user_param.slot_path[slot][page] = value;
-		}
-		// Check if the parameter is "cart1"
-		else if (strcmp(param, "cart1") == 0) {
-			user_param.cartridge_path_slot1 = separate_rom_kind(value, &user_param.cartridge_kind_slot1);
-		}
-		// Check if the parameter is "cart2"
-		else if (strcmp(param, "cart2") == 0) {
-			user_param.cartridge_path_slot2 = separate_rom_kind(value, &user_param.cartridge_kind_slot2);
-		}
-		// Check if the parameter is "diskimage"
-		else if (strcmp(param, "diskimage") == 0) {
-			if(user_param.diskcount >= 16) {
-				printf("ƒfƒBƒXƒNƒCƒ[ƒW‚Ì”‚ª‘½‚·‚¬‚Ü‚·\n");
-			} else {
-				user_param.diskimages[user_param.diskcount++] = value;
-			}
-		}
-		else if (strcmp(param, "cpu_wait") == 0 ) {
-			if (value == NULL) {
-				printf("cpu_wait‚Ì’l‚ª•s³‚Å‚·\n");
-			} else {
-				user_param.cpu_wait = atoi(value);
-			}
-		}
-		else if (strcmp(param, "disablehsyncint") == 0 ) {
-			user_param.disablehsyncint = 1;
-		}
-		else if (strcmp(param, "disablescc") == 0) {
-			if (value == NULL) {
-				user_param.scc_enable = 0;
-			} else {
-				user_param.scc_enable = atoi(value);
-			}
-		}
-		else if (strcmp(param, "framecon") == 0) {
-			if (value == NULL) {
-				printf("framecon‚Ì’l‚ª•s³‚Å‚·\n");
-			} else {
-				if (strcmp(value, "auto") == 0) {
-					user_param.framerate_control = 0xffffffff;
-				} else if (strcmp(value, "none") == 0) {
-					user_param.framerate_control = 0;
-				} else {
-					user_param.framerate_control = atoi(value);
-					if (user_param.framerate_control < 1 || user_param.framerate_control > 99999) {
-						printf("framecon‚Ì’l‚ª•s³‚Å‚·\n");
-						user_param.framerate_control = 0;
-					} else {
-					}
-				}
-			}
-		}
-	}
+            // Set the ROM path for the specified slot and page
+            user_param.slot_path[slot][page] = value;
+        }
+        // Check if the parameter is "cart1"
+        else if (strcmp(param, "cart1") == 0) {
+            user_param.cartridge_path_slot1 = separate_rom_kind(value, &user_param.cartridge_kind_slot1);
+        }
+        // Check if the parameter is "cart2"
+        else if (strcmp(param, "cart2") == 0) {
+            user_param.cartridge_path_slot2 = separate_rom_kind(value, &user_param.cartridge_kind_slot2);
+        }
+        // Check if the parameter is "diskimage"
+        else if (strcmp(param, "diskimage") == 0) {
+            if (user_param.diskcount >= 16) {
+                printf("ãƒ‡ã‚£ã‚¹ã‚¯ã‚¤ãƒ¡ãƒ¼ã‚¸ã®æ•°ãŒå¤šã™ãã¾ã™\n");
+            } else {
+                user_param.diskimages[user_param.diskcount++] = value;
+            }
+        } else if (strcmp(param, "9scdrv") == 0) {
+            user_param.drive_for_9scdrv = atoi(value);
+            if (user_param.drive_for_9scdrv < 0 || user_param.drive_for_9scdrv > 3) {
+                user_param.drive_for_9scdrv = MS_DISK_9SCDRV_NONE;  // default
+            }
+        } else if (strcmp(param, "cpu_wait") == 0) {
+            user_param.cpu_wait = atoi(value);
+        } else if (strcmp(param, "disablehsyncint") == 0) {
+            user_param.disablehsyncint = 1;
+        } else if (strcmp(param, "disablescc") == 0) {
+            user_param.scc_enable = atoi(value);
+        } else if (strcmp(param, "framecon") == 0) {
+            if (strcmp(value, "auto") == 0) {
+                user_param.framerate_control = 0xffffffff;
+            } else if (strcmp(value, "none") == 0) {
+                user_param.framerate_control = 0;
+            } else {
+                user_param.framerate_control = atoi(value);
+                if (user_param.framerate_control < 1 || user_param.framerate_control > 99999) {
+                    printf("frameconã®å€¤ãŒä¸æ­£ã§ã™\n");
+                    user_param.framerate_control = 0;
+                } else {
+                }
+            }
+        } else if (strcmp(param, "joystick.useiocs") == 0) {
+            user_param.joystick_use_iocs = get_bool(value);
+        } else if (strcmp(param, "joystick.swapAB") == 0) {
+            user_param.joystick_swap_AB = get_bool(value);
+        }
+    }
 
-	return 1;
+    return 1;
 }
-
 
 extern int filelength(int fh);
 
 /*
-	for debug
+        for debug
 */
-void dumpsp_c(uint8_t *const registers, uint32_t sp, uint32_t a0, uint32_t a4, uint32_t d7, uint32_t d4, uint32_t d6)
-{
-	int i;
-	for (i = 0; i < 16; i++)
-	{
-		printf("%02x ", registers[i]);
-	}
-	printf("   : SP=%04x a0=%08x a4=%08x d7=%08x d4=%08x d6=%08x\n", sp, a0, a4, d7, d4, d6);
+void dumpsp_c(uint8_t* const registers, uint32_t sp, uint32_t a0, uint32_t a4, uint32_t d7, uint32_t d4, uint32_t d6) {
+    int i;
+    for (i = 0; i < 16; i++) {
+        printf("%02x ", registers[i]);
+    }
+    printf("   : SP=%04x a0=%08x a4=%08x d7=%08x d4=%08x d6=%08x\n", sp, a0, a4, d7, d4, d6);
 }

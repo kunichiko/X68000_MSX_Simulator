@@ -1,23 +1,18 @@
 /*
 
-		‚l‚r‚w.‚r‚‰‚‚•‚Œ‚‚”‚…‚’ [[ MS ]]
+                ï¼­ï¼³ï¼¸.ï¼³ï½‰ï½ï½•ï½Œï½ï½”ï½…ï½’ [[ MS ]]
 
-			ver.0.01	prpgramed by Kuni.
-											1994.10.24
+                        ver.0.01	prpgramed by Kuni.
+                                                                                        1994.10.24
 
 */
 
-
 #include <stdio.h>
-#include <sys/iocs.h>
 #include <sys/dos.h>
+#include <sys/iocs.h>
 
-char opening[5][33] = {	"Msx Simulater For X680x0\n",
-						"                   ver 1.00  \n",
-						"System Simulation : MSX2      \n",
-						" CPU   Simulation : R800      \n",
-						"  OS   Simulation : MSX-DOS2  \n"
-					};
+char opening[5][33] = {"Msx Simulater For X680x0\n", "                   ver 1.00  \n", "System Simulation : MSX2      \n",
+                       " CPU   Simulation : R800      \n", "  OS   Simulation : MSX-DOS2  \n"};
 
 extern void *commands[];
 extern char *command;
@@ -25,140 +20,138 @@ extern char *command;
 extern int ssp;
 extern int com;
 
-/*				‰æ–Ê‚ğ‰Šú‰»				*/
+/*				ç”»é¢ã‚’åˆæœŸåŒ–				*/
 void display_set() {
-int i,j;
+    int i, j;
 
-	_iocs_apage( 0);
+    _iocs_apage(0);
 
-	_iocs_tgusemd( 0, 2);
-	_iocs_crtmod( 4);
-	_iocs_b_curoff();
-	_iocs_g_clr_on();
-	_iocs_sp_init();
-	_iocs_sp_on();
+    _iocs_tgusemd(0, 2);
+    _iocs_crtmod(4);
+    _iocs_b_curoff();
+    _iocs_g_clr_on();
+    _iocs_sp_init();
+    _iocs_sp_on();
 
-	_iocs_skey_mod(0,0,0);
+    _iocs_skey_mod(0, 0, 0);
 }
 
-/*	ƒtƒ@ƒCƒ‹ˆê——‚ğ•\¦‚·‚éŠÖ”	*/
+/*	ãƒ•ã‚¡ã‚¤ãƒ«ä¸€è¦§ã‚’è¡¨ç¤ºã™ã‚‹é–¢æ•°	*/
 
 void dir() {
-
-
 }
 
 /*
 _files:
-	link	a6,#0
-	movem.l	d0-d7/a0-a6,-(sp)
+        link	a6,#0
+        movem.l	d0-d7/a0-a6,-(sp)
 
-	movea.l	8(a6),a2	* a2 = Œ‹‰Ê‚ğ•Ô‚·”z—ñ‚Ö‚Ìƒ|ƒCƒ“ƒ^(ƒtƒ@ƒCƒ‹ƒl[ƒ€)
-	movea.l	12(a6),a4	* a4 = Œ‹‰Ê‚ğ•Ô‚·”z—ñ‚Ö‚Ìƒ|ƒCƒ“ƒ^(ƒtƒ@ƒCƒ‹‚Ìí—Ş)
-				*	0--- •’Ê‚Ìƒtƒ@ƒCƒ‹
-				*	1--- cedƒtƒ@ƒCƒ‹
-				*	2--- ƒfƒBƒŒƒNƒgƒŠ
-				*	3--- ‘S‚Ä“Ç‚İ‚ñ‚¾‚±‚Æ‚ğ¦‚·
+        movea.l	8(a6),a2	* a2 = çµæœã‚’è¿”ã™é…åˆ—ã¸ã®ãƒã‚¤ãƒ³ã‚¿(ãƒ•ã‚¡ã‚¤ãƒ«ãƒãƒ¼ãƒ )
+        movea.l	12(a6),a4	* a4 = çµæœã‚’è¿”ã™é…åˆ—ã¸ã®ãƒã‚¤ãƒ³ã‚¿(ãƒ•ã‚¡ã‚¤ãƒ«ã®ç¨®é¡)
+                                *	0--- æ™®é€šã®ãƒ•ã‚¡ã‚¤ãƒ«
+                                *	1--- cedãƒ•ã‚¡ã‚¤ãƒ«
+                                *	2--- ãƒ‡ã‚£ãƒ¬ã‚¯ãƒˆãƒª
+                                *	3--- å…¨ã¦èª­ã¿è¾¼ã‚“ã ã“ã¨ã‚’ç¤ºã™
 
-	move.w	#%0011_0000,-(sp)	* ’Êí‚Ìƒtƒ@ƒCƒ‹‚ÆƒfƒBƒŒƒNƒgƒŠ‚ğŒŸõ
-	pea.l	fnamebuf2
-	pea.l	filebuf
-	DOS	_FILES
-	lea.l	10(sp),sp
+        move.w	#%0011_0000,-(sp)	* é€šå¸¸ã®ãƒ•ã‚¡ã‚¤ãƒ«ã¨ãƒ‡ã‚£ãƒ¬ã‚¯ãƒˆãƒªã‚’æ¤œç´¢
+        pea.l	fnamebuf2
+        pea.l	filebuf
+        DOS	_FILES
+        lea.l	10(sp),sp
 
 loopf:	tst.l	d0
-	bmi	donef
+        bmi	donef
 
-	lea.l	filebuf+30,a3
-	clr.w	d2
-	move.w	#23,d0
+        lea.l	filebuf+30,a3
+        clr.w	d2
+        move.w	#23,d0
 loopf1:
-	move.b	(a3)+,d1
-	cmpi.b	#'.',d1			* Šg’£q‚É‚Ô‚Â‚©‚Á‚½
-	beq	exp
-	cmpi.b	#0,d1			* ƒkƒ‹•¶š‚É‚Ô‚Â‚©‚Á‚½
-	beq	null
-	move.b	d1,(a2)+
+        move.b	(a3)+,d1
+        cmpi.b	#'.',d1			* æ‹¡å¼µå­ã«ã¶ã¤ã‹ã£ãŸ
+        beq	exp
+        cmpi.b	#0,d1			* ãƒŒãƒ«æ–‡å­—ã«ã¶ã¤ã‹ã£ãŸ
+        beq	null
+        move.b	d1,(a2)+
 
-	subq.w	#1,d0
-	bne	loopf1
+        subq.w	#1,d0
+        bne	loopf1
 
-	clr.l	d0			* ’Êí‚Ìƒtƒ@ƒCƒ‹
+        clr.l	d0			* é€šå¸¸ã®ãƒ•ã‚¡ã‚¤ãƒ«
 
 nextf:
-	move.l	d0,(a4)+
-	lea.l	filebuf+21,a3
-	move.b	(a3),d1
-	and.b	#%0001_0000,d1		* ƒfƒBƒŒƒNƒgƒŠ‚©H
-	beq	normal
-	move.l	#2,-4(a4)		* ƒfƒBƒŒƒNƒgƒŠ‚¾‚Á‚½
+        move.l	d0,(a4)+
+        lea.l	filebuf+21,a3
+        move.b	(a3),d1
+        and.b	#%0001_0000,d1		* ãƒ‡ã‚£ãƒ¬ã‚¯ãƒˆãƒªã‹ï¼Ÿ
+        beq	normal
+        move.l	#2,-4(a4)		* ãƒ‡ã‚£ãƒ¬ã‚¯ãƒˆãƒªã ã£ãŸ
 normal:
-	pea.l	filebuf
-	DOS	_NFILES
-	addq.l	#4,sp
+        pea.l	filebuf
+        DOS	_NFILES
+        addq.l	#4,sp
 
-	bra	loopf
+        bra	loopf
 
 donef:
-	move.l	#3,(a4)			* ƒtƒ@ƒCƒ‹‚Ìí—Ş‚R‚ÍA‚·‚×‚Ä“Ç‚İØ‚Á‚½‚±‚Æ‚ğ¦‚·
-	movem.l	(sp)+,d0-d7/a0-a6
-	unlk	a6
+        move.l	#3,(a4)			* ãƒ•ã‚¡ã‚¤ãƒ«ã®ç¨®é¡ï¼“ã¯ã€ã™ã¹ã¦èª­ã¿åˆ‡ã£ãŸã“ã¨ã‚’ç¤ºã™
+        movem.l	(sp)+,d0-d7/a0-a6
+        unlk	a6
 
-	rts
+        rts
 
-*	Šg’£q‚Ìˆ—
+*	æ‹¡å¼µå­ã®å‡¦ç†
 exp:
-	subq.w	#5,d0
+        subq.w	#5,d0
 loope:
-	move.b	#' ',(a2)+
-	subq.w	#1,d0
-	bne	loope
+        move.b	#' ',(a2)+
+        subq.w	#1,d0
+        bne	loope
 
-	move.b	d1,(a2)+
-	move.w	#4,d0
+        move.b	d1,(a2)+
+        move.w	#4,d0
 loopf2:
-	move.b	(a3)+,(a2)+
-	subq.w	#1,d0
-	bne	loopf2
+        move.b	(a3)+,(a2)+
+        subq.w	#1,d0
+        bne	loopf2
 
-	move.b	-4(a2),d0
-	cmpi.b	#'c',d0
-	beq	next_e
-	cmpi.b	#'C',d0
-	bne	not_ced			* ‚P•¶š–Ú‚ª'c'‚Å‚à'C'‚Å‚à‚È‚¢
+        move.b	-4(a2),d0
+        cmpi.b	#'c',d0
+        beq	next_e
+        cmpi.b	#'C',d0
+        bne	not_ced			* ï¼‘æ–‡å­—ç›®ãŒ'c'ã§ã‚‚'C'ã§ã‚‚ãªã„
 next_e:
-	move.b	-3(a2),d0
-	cmpi.b	#'e',d0
-	beq	next_d
-	cmpi.b	#'E',d0
-	bne	not_ced			* ‚P•¶š–Ú‚ª'e'‚Å‚à'E'‚Å‚à‚È‚¢
+        move.b	-3(a2),d0
+        cmpi.b	#'e',d0
+        beq	next_d
+        cmpi.b	#'E',d0
+        bne	not_ced			* ï¼‘æ–‡å­—ç›®ãŒ'e'ã§ã‚‚'E'ã§ã‚‚ãªã„
 next_d:
-	move.b	-2(a2),d0
-	cmpi.b	#'d',d0
-	beq	next_ced
-	cmpi.b	#'D',d0
-	bne	not_ced			* ‚P•¶š–Ú‚ª'd'‚Å‚à'D'‚Å‚à‚È‚¢
+        move.b	-2(a2),d0
+        cmpi.b	#'d',d0
+        beq	next_ced
+        cmpi.b	#'D',d0
+        bne	not_ced			* ï¼‘æ–‡å­—ç›®ãŒ'd'ã§ã‚‚'D'ã§ã‚‚ãªã„
 
 next_ced:
-	move.l	#1,d0			* ced ƒtƒ@ƒCƒ‹
-	bra	nextf
+        move.l	#1,d0			* ced ãƒ•ã‚¡ã‚¤ãƒ«
+        bra	nextf
 
 not_ced:
-	clr.l	d0
-	bra	nextf			* ’Êí‚Ìƒtƒ@ƒCƒ‹
+        clr.l	d0
+        bra	nextf			* é€šå¸¸ã®ãƒ•ã‚¡ã‚¤ãƒ«
 
-*	ƒkƒ‹•¶š‚É‚Ô‚Â‚©‚Á‚½‚Ìˆ—
+*	ãƒŒãƒ«æ–‡å­—ã«ã¶ã¤ã‹ã£ãŸæ™‚ã®å‡¦ç†
 null:
-	subq.w	#1,d0
+        subq.w	#1,d0
 loopn:
-	move.b	#' ',(a2)+		* ƒtƒ@ƒCƒ‹‚ÌÅŒã‚Ü‚Å‚ğƒXƒy[ƒX‚Å–„‚ß‚é
-	subq.w	#1,d0
-	bne	loopn
+        move.b	#' ',(a2)+		* ãƒ•ã‚¡ã‚¤ãƒ«ã®æœ€å¾Œã¾ã§ã‚’ã‚¹ãƒšãƒ¼ã‚¹ã§åŸ‹ã‚ã‚‹
+        subq.w	#1,d0
+        bne	loopn
 
-	move.b	#0,(a2)+		* ƒkƒ‹•¶š‚ğ‚Â‚¯‚é
+        move.b	#0,(a2)+		* ãƒŒãƒ«æ–‡å­—ã‚’ã¤ã‘ã‚‹
 
-	clr.l	d0			* ’Êí‚Ìƒtƒ@ƒCƒ‹
-	bra	nextf
+        clr.l	d0			* é€šå¸¸ã®ãƒ•ã‚¡ã‚¤ãƒ«
+        bra	nextf
 
 */
 
@@ -183,86 +176,85 @@ void chdir() {
 void chkdsk() {
 }
 
-
 void exit() {
-/*	_iocs_b_super( ssp);			
-	_iocs_b_consol(0, 0, 64,32);	*/
-	_dos_exit();
+    /*	_iocs_b_super( ssp);
+            _iocs_b_consol(0, 0, 64,32);	*/
+    _dos_exit();
 }
 
-void nothing() {						/* ‚È‚É‚à‚µ‚È‚¢ƒRƒ}ƒ“ƒh			*/
-char errmes[] = "\ncommand or file not found\n";
+void nothing() { /* ãªã«ã‚‚ã—ãªã„ã‚³ãƒãƒ³ãƒ‰			*/
+    char errmes[] = "\ncommand or file not found\n";
 
-	print( errmes);
+    print(errmes);
 
-	return;
+    return;
 }
 
-/****************** ƒRƒ}ƒ“ƒhİ’è ******************/
+/****************** ã‚³ãƒãƒ³ãƒ‰è¨­å®š ******************/
 /*
-void *commands[64];			 ‚»‚ê‚¼‚ê‚ÌƒRƒ}ƒ“ƒh‚ÌŠÖ”‚Ö‚Ìƒ|ƒCƒ“ƒ^”z—ñ	
+void *commands[64];			 ãã‚Œãã‚Œã®ã‚³ãƒãƒ³ãƒ‰ã®é–¢æ•°ã¸ã®ãƒã‚¤ãƒ³ã‚¿é…åˆ—
 char command_name[64][10]={"ASSIGN","ATDIR" ,"ATTRIB","BASIC"   ,"BUFFERS","CD",
-							"CHDIR" ,"CHKDSK","CLS"   ,"COMMAND2","CONCAT" ,"COPY",
-							"DATE"  ,"DEL"   ,"DIR"   ,"ECHO"    ,"ERA"    ,"ERASE",
-							"EXIT"  ,"FORMAT","HELP"  ,"IF"      ,"MD"     ,"MKDIR",
-							"MODE"  ,"MOVE"  ,"MVDIR" ,"PATH"    ,"PAUSE"  ,"RAMDISK",
-							"RD"    ,"RD"    ,"REM"   ,"REN"     ,"RENAME" ,"RMDIR",
-							"RNDIR" ,"SET"   ,"TIME"  ,"TYPE"    ,"UNDEL"  ,"VER",
-							"VERIFY","VOL"};
+                                                        "CHDIR" ,"CHKDSK","CLS"   ,"COMMAND2","CONCAT" ,"COPY",
+                                                        "DATE"  ,"DEL"   ,"DIR"   ,"ECHO"    ,"ERA"    ,"ERASE",
+                                                        "EXIT"  ,"FORMAT","HELP"  ,"IF"      ,"MD"     ,"MKDIR",
+                                                        "MODE"  ,"MOVE"  ,"MVDIR" ,"PATH"    ,"PAUSE"  ,"RAMDISK",
+                                                        "RD"    ,"RD"    ,"REM"   ,"REN"     ,"RENAME" ,"RMDIR",
+                                                        "RNDIR" ,"SET"   ,"TIME"  ,"TYPE"    ,"UNDEL"  ,"VER",
+                                                        "VERIFY","VOL"};
 */
 
 void command_init() {
-int i;
+    int i;
 
-	for(i=0;i<64;i++)
-		commands[i] = nothing;
+    for (i = 0; i < 64; i++) commands[i] = nothing;
 
-	commands[ 0] = assign;
-	commands[ 1] = atdir;
-	commands[ 2] = attrib;
-	commands[ 3] = basic;
-	commands[ 4] = buffers;
-	commands[ 5] = chdir;
-	commands[ 6] = chdir;
-	commands[18] = exit;
+    commands[0] = assign;
+    commands[1] = atdir;
+    commands[2] = attrib;
+    commands[3] = basic;
+    commands[4] = buffers;
+    commands[5] = chdir;
+    commands[6] = chdir;
+    commands[18] = exit;
 }
 
 void command_ms() {
-int i,a;
+    int i, a;
 
-	command_init();						/* ƒRƒ}ƒ“ƒh‚Ö‚Ìƒ|ƒCƒ“ƒ^”z—ñ‚Ì‰Šú‰»‚È‚Ç	*/
+    command_init(); /* ã‚³ãƒãƒ³ãƒ‰ã¸ã®ãƒã‚¤ãƒ³ã‚¿é…åˆ—ã®åˆæœŸåŒ–ãªã©	*/
 
-	for( i=0; i<5; i++) {
-		print( &opening[i]);
-	}
+    for (i = 0; i < 5; i++) {
+        print(&opening[i]);
+    }
 
-	for(;;) {
-		print("A>");
-		com = 0;							/* Œ»İ“ü—Í‚³‚ê‚Ä‚¢‚é•¶š” 	*/
+    for (;;) {
+        print("A>");
+        com = 0; /* ç¾åœ¨å…¥åŠ›ã•ã‚Œã¦ã„ã‚‹æ–‡å­—æ•° 	*/
 
-		while(1) {
-			a = _dos_inkey();
-			if( a >= 32 ) {
-				if(com < 255)
-					command[com++] = (char)a;
-				put( a);					/* •¶š•\¦						*/
-			} else {
-				switch (a) {
-					case  8: if( com != 0) {
-								com--;
-								put( a);
-							}
-							break;
-					case 13: goto next;
-				}
-			}
-			if ((_iocs_bitsns( 0) & 2) == 2)	/* ‚d‚“‚ƒƒL[‚ª‰Ÿ‚³‚ê‚Ä‚¢‚½‚çI—¹		*/
-				exit();
-		}
+        while (1) {
+            a = _dos_inkey();
+            if (a >= 32) {
+                if (com < 255) command[com++] = (char)a;
+                put(a); /* æ–‡å­—è¡¨ç¤º						*/
+            } else {
+                switch (a) {
+                case 8:
+                    if (com != 0) {
+                        com--;
+                        put(a);
+                    }
+                    break;
+                case 13:
+                    goto next;
+                }
+            }
+            if ((_iocs_bitsns(0) & 2) == 2) /* ï¼¥ï½“ï½ƒã‚­ãƒ¼ãŒæŠ¼ã•ã‚Œã¦ã„ãŸã‚‰çµ‚äº†		*/
+                exit();
+        }
 
-	next:
-		command[com++] = '\0';				/* •¶š—ñ‚ÌÅŒã‚É null ‚ğ‚¢‚ê‚é	*/
-		print("\n");						/* ‰üs							*/
-		do_command( command);
-	}
+    next:
+        command[com++] = '\0'; /* æ–‡å­—åˆ—ã®æœ€å¾Œã« null ã‚’ã„ã‚Œã‚‹	*/
+        print("\n");           /* æ”¹è¡Œ							*/
+        do_command(command);
+    }
 }

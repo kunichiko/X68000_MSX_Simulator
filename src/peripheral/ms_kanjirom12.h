@@ -2,23 +2,24 @@
 #define MS_KANJIROM12_H
 
 #include <stdint.h>
+
 #include "../ms_iomap.h"
 
 typedef struct ms_kanjirom12 {
-	char* rom_path;
-	uint8_t* rom_data;
-	uint32_t rom_size;
+    char* rom_path;
+    uint8_t* rom_data;
+    uint32_t rom_size;
 
-	// ‘æˆê…€ƒAƒhƒŒƒX
-	uint32_t addr1;
-	// ‘æ“ñ…€ƒAƒhƒŒƒX
-	uint32_t addr2;
+    // ç¬¬ä¸€æ°´æº–ã‚¢ãƒ‰ãƒ¬ã‚¹
+    uint32_t addr1;
+    // ç¬¬äºŒæ°´æº–ã‚¢ãƒ‰ãƒ¬ã‚¹
+    uint32_t addr2;
 
-	// I/O port ƒAƒNƒZƒX‚ğ’ñ‹Ÿ
-	ms_ioport_t io_port_D8;
-	ms_ioport_t io_port_D9;
-	ms_ioport_t io_port_DA;
-	ms_ioport_t io_port_DB;
+    // I/O port ã‚¢ã‚¯ã‚»ã‚¹ã‚’æä¾›
+    ms_ioport_t io_port_D8;
+    ms_ioport_t io_port_D9;
+    ms_ioport_t io_port_DA;
+    ms_ioport_t io_port_DB;
 } ms_kanjirom12_t;
 
 ms_kanjirom12_t* ms_kanjirom12_alloc();

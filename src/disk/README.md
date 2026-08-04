@@ -113,10 +113,12 @@ MS.Xではまず、TC8566AFベースのFDCをエミュレーションするこ�
 		* 継承: ms_disk_drive_none型
 * ディスクコントローラー
 	* ms_disk_controller型
-		* 継承: ms_disk_controller_tc8566af型
+		* 継承: ms_disk_controller_tc8566af型 (Panasonic系, 東芝 TC8566AF)
+		* 継承: ms_disk_controller_wd2793型 (SONY/Philips系, Western Digital WD2793)
 * DISK BIOS
 	* ms_disk_bios型 (ms_memmap型を継承)
-		* 継承: ms_disk_bios_tc8566af型
+		* 継承: ms_disk_bios_Panasonic型 (TC8566AFを使用)
+		* 継承: ms_disk_bios_Sony型 (WD2793を使用。SONY/Philips両対応)
 
 将来的には、X68000実機に接続された 3.5インチ 2DD対応ドライブを直接使えるようにもしたいと考えています。TC8566AFへのコマンドをそのまま X68000の FDCにバイパスする方法もありうるかもしれませんが、タイミングがシビアなので、おそらくやるとしたら 9SCDRV.Xを使い、そちらのAPIを経由してアクセスすることになると考えています。
 

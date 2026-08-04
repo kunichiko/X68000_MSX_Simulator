@@ -1,10 +1,12 @@
+#include "ms_psg.h"
+
+#include <math.h>
+#include <stddef.h>
+#include <stdint.h>
 #include <stdio.h>
 #include <stdlib.h>
-#include <stdint.h>
-#include <stddef.h>
-#include <math.h>
 
-#include "ms_psg.h"
+#include "ms_psg_joy.h"
 
 int ms_psg_init_mac(uint8_t* psg2octnote, uint8_t* psg2kf);
 void ms_psg_deinit_mac(void);
@@ -26,157 +28,181 @@ static ms_psg_t* _shared = NULL;
 static initialized = 0;
 
 ms_psg_t* ms_psg_shared_instance() {
-	if( _shared != NULL) {
-		return _shared;
-	}
-	if ( (_shared = (ms_psg_t*)new_malloc(sizeof(ms_psg_t))) == NULL)
-	{
-		MS_LOG(MS_LOG_INFO,"ƒƒ‚ƒŠ‚ªŠm•Û‚Å‚«‚Ü‚¹‚ñ\n");
-		return NULL;
-	}
-	return _shared;
+    if (_shared != NULL) {
+        return _shared;
+    }
+    if ((_shared = (ms_psg_t*)new_malloc(sizeof(ms_psg_t))) == NULL) {
+        MS_LOG(MS_LOG_INFO, "ãƒ¡ãƒ¢ãƒªãŒç¢ºä¿ã§ãã¾ã›ã‚“\n");
+        return NULL;
+    }
+    return _shared;
 }
 
-void ms_psg_shared_init(ms_iomap_t* iomap) {
-	if (initialized) {
-		return;
-	}
-	initialized = 1;
+void ms_psg_shared_init(ms_iomap_t* iomap, ms_init_params_t* init_param) {
+    if (initialized) {
+        return;
+    }
+    initialized = 1;
 
-	// I/O port ƒAƒNƒZƒX‚ğ’ñ‹Ÿ
-	_shared->io_port_A0.instance = _shared;
-	_shared->io_port_A0.read = _read_psg_A0;
-	_shared->io_port_A0.write = _write_psg_A0;
-	ms_iomap_attach_ioport(iomap, 0xa0, &_shared->io_port_A0);
+    //
+    _shared->use_iocs = init_param->joystick_use_iocs;
+    _shared->swap_AB = init_param->joystick_swap_AB;
 
-	_shared->io_port_A1.instance = _shared;
-	_shared->io_port_A1.read = _read_psg_A1;
-	_shared->io_port_A1.write = _write_psg_A1;
-	ms_iomap_attach_ioport(iomap, 0xa1, &_shared->io_port_A1);
+    // I/O port ã‚¢ã‚¯ã‚»ã‚¹ã‚’æä¾›
+    _shared->io_port_A0.instance = _shared;
+    _shared->io_port_A0.read = _read_psg_A0;
+    _shared->io_port_A0.write = _write_psg_A0;
+    ms_iomap_attach_ioport(iomap, 0xa0, &_shared->io_port_A0);
 
-	_shared->io_port_A2.instance = _shared;
-	_shared->io_port_A2.read = _read_psg_A2;
-	_shared->io_port_A2.write = _write_psg_A2;
-	ms_iomap_attach_ioport(iomap, 0xa2, &_shared->io_port_A2);
+    _shared->io_port_A1.instance = _shared;
+    _shared->io_port_A1.read = _read_psg_A1;
+    _shared->io_port_A1.write = _write_psg_A1;
+    ms_iomap_attach_ioport(iomap, 0xa1, &_shared->io_port_A1);
 
-	// PSG‚Ì•ªüƒpƒ‰ƒ[ƒ^n‚©‚çOPM‚Ìoct,note,kf‚É•ÏŠ·‚·‚éƒe[ƒuƒ‹
-	// PSG‚Ì•ªüƒpƒ‰ƒ[ƒ^‚ğn‚Æ‚·‚é‚ÆAPSG‚Ìü”g”‚ÍAFpsg = 3579545 / (32 * n) [Hz]‚Æ‚È‚é
-	// OPM‚Ìü”g”‚ÍƒIƒNƒ^[ƒu(oct)Aƒm[ƒg(note)AƒL[ƒtƒ‰ƒNƒVƒ‡ƒ“(kf)‚Å•\‚³‚ê‚éB
-	// OPM‚ª 3.579545MHz‚Å‹ì“®‚³‚ê‚Ä‚¢‚éê‡Aoct=4, note=8, kf=0 ‚Å 440Hz‚ÌA‰¹‚ªo‚éB
-	// ®‚Å•\‚·‚Æ Fopm = 440 * 2^(oct-4 + (n-8)/12 + kf/12/64) [Hz]
-	// ‚Å‚ ‚é‚ÎAX68000‚ÌOPM‚Í 4MHz‚Å‹ì“®‚³‚ê‚Ä‚¢‚é‚½‚ßA
-	// Fopm = 440 * 2^(oct-4 + (n-8)/12 + kf/12/64) * 4/3.579545 [Hz]
-	// ‚Æ‚È‚éB
-	// ˆÈ‰ºAPSG‚Ì•ªüƒpƒ‰ƒ[ƒ^n‚©‚çOPM‚Ìoct,note,kf‚É•ÏŠ·‚·‚éƒe[ƒuƒ‹‚ğì¬‚·‚éB
-	// Fopm = Fpsg ‚Æ‚È‚é‚æ‚¤‚ÉAoct,note,kf‚ğ‹‚ß‚é•K—v‚ª‚ ‚é‚Ì‚ÅA‚Ü‚¸‚Í—¼Ò‚Ì“™®‚ğ—§‚Ä‚é‚ÆA
-	// 440 * 2^(oct-4 + (note-8)/12 + kf/12/64) * 4/3.579545 = 3579545 / (32 * n)
-	// ‚Æ‚È‚éB‚±‚ê‚ğ®—‚·‚é‚ÆA
-	// 2^(oct-4 + (note-8)/12 + kf/12/64) = 3579545 / (32 * n) * 3.579545 / 4 / 440
-	// 2^(oct-4 + (note-8)/12 + kf/12/64) = 227.50607967018821 / n
-	// oct-4 + (note-8)/12 + kf/12/64 = log2(227.50607967018821 / n)
-	// ‚Æ‚È‚éB
-	// O = (oct-4)
-	// N = (note-8)
-	// K = kf
-	// ‚Æ‚·‚é‚ÆA
-	// O*12*64 + N*64 + K = log2(227.50607967018821 / n) * 12 * 64
-	// ‚Æ‚È‚éB‚±‚±‚©‚çA
-	// O¨oct¨N¨note¨K‚Ì‡‚É‹‚ß‚Ä‚¢‚­B
-	// ‚Ü‚¸AN=0, K=0‚Æ‚µ‚ÄA‰E•Ó‚ğ’´‚¦‚È‚¢Å‘å‚Ì oct‚ğ‹‚ß‚éB(O‚Í•‰‚É‚È‚é‚ªAoct‚Í0ˆÈã)
-	// O‚ªŒˆ‚Ü‚é‚ÆA
-	// N*64 + K = (log2(227.50607967018821 / n) - O ) * 12 * 64
-	// N*64 + K = (log2(227.50607967018821 / n) + 4 - oct) * 12 * 64
-	// ‚Æ‚È‚é‚Ì‚ÅAŸ‚ÍAK=0‚Æ‚µ‚ÄA‰E•Ó‚ğ’´‚¦‚È‚¢Å‘å‚Ì note‚ğ‹‚ß‚éB(N‚Í•‰‚É‚È‚é‚ªAnote‚Í0ˆÈã)
-	// (note-8)*64 = (log2(227.50607967018821 / n) + 4 - oct) * 12 * 64
-	// note-8 = (log2(227.50607967018821 / n) + 4 - oct) * 12
-	// note = (log2(227.50607967018821 / n) + 4 - oct) * 12 + 8
-	// oct, note‚ªŠm’è‚·‚é‚ÆAK‚Í
-	// K = (log2(227.50607967018821 / n) + 4 - oct - (note-8)/12 ) * 12 * 64
-	// K = ((log2(227.50607967018821 / n) + 4 - oct) * 12 - note+8 ) * 64
-	// ‚Æ‚È‚é‚Ì‚ÅA‰E•Ó‚ğlÌŒÜ“ü‚µ‚Ä®”‰»‚µ‚ÄK‚ğ‹‚ß‚éB
-	// ÅŒã‚ÉAnote‚ª12ˆÈã‚É‚È‚éƒP[ƒX‚ª‚ ‚é‚Ì‚ÅAnote >= 12 ‚Ìê‡‚Í O‚ğ1‚Â‘‚â‚µ‚ÄAnote‚ğ12Œ¸‚ç‚·B
-	// ‚±‚ê‚ÅAPSG‚Ì•ªüƒpƒ‰ƒ[ƒ^n‚©‚çOPM‚Ìoct,note,kf‚É•ÏŠ·‚·‚éƒe[ƒuƒ‹‚ªì¬‚Å‚«‚éB
+    _shared->io_port_A2.instance = _shared;
+    _shared->io_port_A2.read = _read_psg_A2;
+    _shared->io_port_A2.write = _write_psg_A2;
+    ms_iomap_attach_ioport(iomap, 0xa2, &_shared->io_port_A2);
 
-	uint8_t n2value[] = {0,1,2,4,5,6,8,9,0xa,0xc,0xd,0xe};
-	int n;
-	_shared->psg2octnote[0] = 7<<4 | n2value[11];
-	for(n=1;n<4096;n++) {
-		double log2n = log2(227.50607967018821 / n);
-		int oct  = (int)(  log2n + 4);
-		int note = (int)( (log2n + 4 - oct) * 12 + 8);
-		int kf   = (int)(((log2n + 4 - oct) * 12 - note + 8) * 64 + 0.5);
-		if (kf > 63) {
-			// Œë·‚Å 64 ‚É‚È‚éê‡‚ª‚ ‚é‚Ì‚ÅA’²®
-			kf = 63;
-		}
-		if (note >= 12) {
-			oct++;
-			note -= 12;
-		}
-		if ( oct < 0 ) {
-			oct = 0;
-			note = 0;
-			kf = 0;
-		} else if ( oct > 7) {
-			oct = 7;
-			note = 11;
-			kf = 63;
-		}
-		_shared->psg2octnote[n] = (oct<<4) | n2value[note];
-		_shared->psg2kf[n] = kf << 2;
-		MS_LOG(MS_LOG_TRACE, "n=%d, Oct=%d, Note=%d, Kf=%d, octnote=%02x, kf=%02x\n", n, oct, note, kf, _shared->psg2octnote[n], _shared->psg2kf[n]);
-	}
+    // PSGã®åˆ†å‘¨ãƒ‘ãƒ©ãƒ¡ãƒ¼ã‚¿nã‹ã‚‰OPMã®oct,note,kfã«å¤‰æ›ã™ã‚‹ãƒ†ãƒ¼ãƒ–ãƒ«
+    // PSGã®åˆ†å‘¨ãƒ‘ãƒ©ãƒ¡ãƒ¼ã‚¿ã‚’nã¨ã™ã‚‹ã¨ã€PSGã®å‘¨æ³¢æ•°ã¯ã€Fpsg = 3579545 / (32 * n) [Hz]ã¨ãªã‚‹
+    // OPMã®å‘¨æ³¢æ•°ã¯ã‚ªã‚¯ã‚¿ãƒ¼ãƒ–(oct)ã€ãƒãƒ¼ãƒˆ(note)ã€ã‚­ãƒ¼ãƒ•ãƒ©ã‚¯ã‚·ãƒ§ãƒ³(kf)ã§è¡¨ã•ã‚Œã‚‹ã€‚
+    // OPMãŒ 3.579545MHzã§é§†å‹•ã•ã‚Œã¦ã„ã‚‹å ´åˆã€oct=4, note=8, kf=0 ã§ 440Hzã®AéŸ³ãŒå‡ºã‚‹ã€‚
+    // å¼ã§è¡¨ã™ã¨ Fopm = 440 * 2^(oct-4 + (n-8)/12 + kf/12/64) [Hz]
+    // ã§ã‚ã‚‹ã°ã€X68000ã®OPMã¯ 4MHzã§é§†å‹•ã•ã‚Œã¦ã„ã‚‹ãŸã‚ã€
+    // Fopm = 440 * 2^(oct-4 + (n-8)/12 + kf/12/64) * 4/3.579545 [Hz]
+    // ã¨ãªã‚‹ã€‚
+    // ä»¥ä¸‹ã€PSGã®åˆ†å‘¨ãƒ‘ãƒ©ãƒ¡ãƒ¼ã‚¿nã‹ã‚‰OPMã®oct,note,kfã«å¤‰æ›ã™ã‚‹ãƒ†ãƒ¼ãƒ–ãƒ«ã‚’ä½œæˆã™ã‚‹ã€‚
+    // Fopm = Fpsg ã¨ãªã‚‹ã‚ˆã†ã«ã€oct,note,kfã‚’æ±‚ã‚ã‚‹å¿…è¦ãŒã‚ã‚‹ã®ã§ã€ã¾ãšã¯ä¸¡è€…ã®ç­‰å¼ã‚’ç«‹ã¦ã‚‹ã¨ã€
+    // 440 * 2^(oct-4 + (note-8)/12 + kf/12/64) * 4/3.579545 = 3579545 / (32 * n)
+    // ã¨ãªã‚‹ã€‚ã“ã‚Œã‚’æ•´ç†ã™ã‚‹ã¨ã€
+    // 2^(oct-4 + (note-8)/12 + kf/12/64) = 3579545 / (32 * n) * 3.579545 / 4 / 440
+    // 2^(oct-4 + (note-8)/12 + kf/12/64) = 227.50607967018821 / n
+    // oct-4 + (note-8)/12 + kf/12/64 = log2(227.50607967018821 / n)
+    // ã¨ãªã‚‹ã€‚
+    // O = (oct-4)
+    // N = (note-8)
+    // K = kf
+    // ã¨ã™ã‚‹ã¨ã€
+    // O*12*64 + N*64 + K = log2(227.50607967018821 / n) * 12 * 64
+    // ã¨ãªã‚‹ã€‚ã“ã“ã‹ã‚‰ã€
+    // Oâ†’octâ†’Nâ†’noteâ†’Kã®é †ã«æ±‚ã‚ã¦ã„ãã€‚
+    // ã¾ãšã€N=0, K=0ã¨ã—ã¦ã€å³è¾ºã‚’è¶…ãˆãªã„æœ€å¤§ã® octã‚’æ±‚ã‚ã‚‹ã€‚(Oã¯è² ã«ãªã‚‹ãŒã€octã¯0ä»¥ä¸Š)
+    // OãŒæ±ºã¾ã‚‹ã¨ã€
+    // N*64 + K = (log2(227.50607967018821 / n) - O ) * 12 * 64
+    // N*64 + K = (log2(227.50607967018821 / n) + 4 - oct) * 12 * 64
+    // ã¨ãªã‚‹ã®ã§ã€æ¬¡ã¯ã€K=0ã¨ã—ã¦ã€å³è¾ºã‚’è¶…ãˆãªã„æœ€å¤§ã® noteã‚’æ±‚ã‚ã‚‹ã€‚(Nã¯è² ã«ãªã‚‹ãŒã€noteã¯0ä»¥ä¸Š)
+    // (note-8)*64 = (log2(227.50607967018821 / n) + 4 - oct) * 12 * 64
+    // note-8 = (log2(227.50607967018821 / n) + 4 - oct) * 12
+    // note = (log2(227.50607967018821 / n) + 4 - oct) * 12 + 8
+    // oct, noteãŒç¢ºå®šã™ã‚‹ã¨ã€Kã¯
+    // K = (log2(227.50607967018821 / n) + 4 - oct - (note-8)/12 ) * 12 * 64
+    // K = ((log2(227.50607967018821 / n) + 4 - oct) * 12 - note+8 ) * 64
+    // ã¨ãªã‚‹ã®ã§ã€å³è¾ºã‚’å››æ¨äº”å…¥ã—ã¦æ•´æ•°åŒ–ã—ã¦Kã‚’æ±‚ã‚ã‚‹ã€‚
+    // æœ€å¾Œã«ã€noteãŒ12ä»¥ä¸Šã«ãªã‚‹ã‚±ãƒ¼ã‚¹ãŒã‚ã‚‹ã®ã§ã€note >= 12 ã®å ´åˆã¯ Oã‚’1ã¤å¢—ã‚„ã—ã¦ã€noteã‚’12æ¸›ã‚‰ã™ã€‚
+    // ã“ã‚Œã§ã€PSGã®åˆ†å‘¨ãƒ‘ãƒ©ãƒ¡ãƒ¼ã‚¿nã‹ã‚‰OPMã®oct,note,kfã«å¤‰æ›ã™ã‚‹ãƒ†ãƒ¼ãƒ–ãƒ«ãŒä½œæˆã§ãã‚‹ã€‚
 
-	// ƒAƒZƒ“ƒuƒ‰ƒ‹[ƒ`ƒ“‚Ì‰Šú‰»
-	ms_psg_init_mac(_shared->psg2octnote, _shared->psg2kf);
+    uint8_t n2value[] = {0, 1, 2, 4, 5, 6, 8, 9, 0xa, 0xc, 0xd, 0xe};
+    int n;
+    _shared->psg2octnote[0] = 7 << 4 | n2value[11];
+    for (n = 1; n < 4096; n++) {
+        double log2n = log2(227.50607967018821 / n);
+        int oct = (int)(log2n + 4);
+        int note = (int)((log2n + 4 - oct) * 12 + 8);
+        int kf = (int)(((log2n + 4 - oct) * 12 - note + 8) * 64 + 0.5);
+        if (kf > 63) {
+            // èª¤å·®ã§ 64 ã«ãªã‚‹å ´åˆãŒã‚ã‚‹ã®ã§ã€èª¿æ•´
+            kf = 63;
+        }
+        if (note >= 12) {
+            oct++;
+            note -= 12;
+        }
+        if (oct < 0) {
+            oct = 0;
+            note = 0;
+            kf = 0;
+        } else if (oct > 7) {
+            oct = 7;
+            note = 11;
+            kf = 63;
+        }
+        _shared->psg2octnote[n] = (oct << 4) | n2value[note];
+        _shared->psg2kf[n] = kf << 2;
+        MS_LOG(MS_LOG_TRACE, "n=%d, Oct=%d, Note=%d, Kf=%d, octnote=%02x, kf=%02x\n",  //
+               n, oct, note, kf, _shared->psg2octnote[n], _shared->psg2kf[n]);
+    }
+
+    // ã‚¢ã‚»ãƒ³ãƒ–ãƒ©ãƒ«ãƒ¼ãƒãƒ³ã®åˆæœŸåŒ–
+    ms_psg_init_mac(_shared->psg2octnote, _shared->psg2kf);
 }
 
 void ms_psg_shared_deinit(ms_iomap_t* iomap) {
-	if (_shared == NULL) {
-		return;
-	}
-	ms_iomap_detach_ioport(iomap, 0xa0);
-	ms_iomap_detach_ioport(iomap, 0xa1);
-	ms_iomap_detach_ioport(iomap, 0xa2);
+    if (_shared == NULL) {
+        return;
+    }
+    ms_iomap_detach_ioport(iomap, 0xa0);
+    ms_iomap_detach_ioport(iomap, 0xa1);
+    ms_iomap_detach_ioport(iomap, 0xa2);
 
-	// ƒAƒZƒ“ƒuƒ‰ƒ‹[ƒ`ƒ“‚ÌI—¹ˆ—
-	ms_psg_deinit_mac();
+    // ã‚¢ã‚»ãƒ³ãƒ–ãƒ©ãƒ«ãƒ¼ãƒãƒ³ã®çµ‚äº†å‡¦ç†
+    ms_psg_deinit_mac();
 
-	// ƒVƒ“ƒOƒ‹ƒgƒ“‚Ìê‡‚Í deinit‚Å free‚·‚é
-	new_free(_shared);
-	_shared = NULL;
+    // ã‚·ãƒ³ã‚°ãƒ«ãƒˆãƒ³ã®å ´åˆã¯ deinitã§ freeã™ã‚‹
+    new_free(_shared);
+    _shared = NULL;
 }
 
 static uint8_t regnum;
 
 static void _write_psg_A0(ms_ioport_t* ioport, uint8_t port, uint8_t data) {
-	w_port_A0(data);
-	regnum = data;
+    w_port_A0(data);
+    regnum = data;
 }
 
 static uint8_t _read_psg_A0(ms_ioport_t* ioport, uint8_t port) {
-	return r_port_A0();
+    return r_port_A0();
 }
 
 static void _write_psg_A1(ms_ioport_t* ioport, uint8_t port, uint8_t data) {
-	w_port_A1(data);
-	//if ( regnum == 0x0f) {
-	//	MS_LOG(MS_LOG_DEBUG, "Wr PSG #%d=%02x\n", regnum, data);
-	//}
-		
+    if (regnum == 15) {
+        // MS_LOG(MS_LOG_DEBUG, "Wr PSG #%d=%02x\n", regnum, data);
+        ms_psg_write_R15(_shared, data);
+    } else {
+        w_port_A1(data);
+    }
 }
 
 static uint8_t _read_psg_A1(ms_ioport_t* ioport, uint8_t port) {
-	return 0xff;
+    return 0xff;
 }
 
 static void _write_psg_A2(ms_ioport_t* ioport, uint8_t port, uint8_t data) {
 }
 
+extern uint16_t ms_psg_port_sel;
+
 static uint8_t _read_psg_A2(ms_ioport_t* ioport, uint8_t port) {
-	uint8_t ret = r_port_A2();
-	//if ( a0 == 0x0e) {
-	//	MS_LOG(MS_LOG_DEBUG, "Rd PSG #%d=%02x\n", regnum, ret);
-	//}
-	return ret;
+    uint8_t ret;
+
+    switch (regnum) {
+    case 14:
+        ret = ms_psg_read_R14(_shared);
+        // R#14 ã§ã‚¸ãƒ§ã‚¤ã‚¹ãƒ†ã‚£ãƒƒã‚¯ã®çŠ¶æ…‹ã‚’è¿”ã™å ´åˆ
+        if ((ret & 0x03) == 0) {
+            // ä¸Šä¸‹ãƒœã‚¿ãƒ³ãŒåŒæ™‚æŠ¼ã•ã‚Œã¦ã„ã‚‹å ´åˆ = TOWNSPADã®SELECT
+            MS_LOG(MS_LOG_DEBUG, "JOY#%d SELECT(0x%02x)\n", ms_psg_port_sel ? 2 : 1, ret);
+        }
+        if ((ret & 0x0c) == 0) {
+            // å·¦å³ãƒœã‚¿ãƒ³ãŒåŒæ™‚æŠ¼ã•ã‚Œã¦ã„ã‚‹å ´åˆ = TOWNSPADã®START
+            MS_LOG(MS_LOG_DEBUG, "JOY#%d START(0x%02x)\n", ms_psg_port_sel ? 2 : 1, ret);
+        }
+        break;
+    case 15:
+        ret = ms_psg_read_R15(_shared);
+        break;
+    default:
+        ret = r_port_A2();
+    }
+    return ret;
 }

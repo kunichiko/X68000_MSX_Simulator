@@ -1,3 +1,5 @@
-*.c diff=sjis
-*.h diff=sjis
+# .c/.h は UTF-8 で管理する (コンパイル時に gcc の -fexec-charset=CP932 で
+# 文字列リテラルのみ SJIS に変換される)。
+# アセンブラ (.has/.mac) は HAS060 が SJIS 前提のため SJIS のまま管理する。
 *.has diff=sjis
+*.mac diff=sjis

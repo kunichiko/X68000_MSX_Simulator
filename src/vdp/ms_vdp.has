@@ -529,7 +529,11 @@ vsync_interrupt:
 	; auto
 	; autoの場合：CPUがまだ割り込み処理から戻っていない場合は、割り込みをスキップ
 	cmp.w	#0,cpu_in_interrupt
-	bne	9f	* 割り込みスキップ
+	beq	8f	* 割り込みをかける
+	addq.w	#1,framecon_skip_count	* 割り込みスキップ回数をカウント
+	cmp.w	#5,framecon_skip_count
+	ble	9f	* 5回以下なら割り込みスキップ
+	move.w	#0,framecon_skip_count
 	bra	8f	* 割り込みをかける
 
 1:	; 1 - 99999
@@ -662,6 +666,9 @@ framerate_count:
 	.dc.b	0
 framerate_count_his:
 	.dc.l	$3c3c3c3c	; all 60fps
+
+framecon_skip_count:
+	.dc.w	0		; autoでスキップした回数
 
 	.text
 ;

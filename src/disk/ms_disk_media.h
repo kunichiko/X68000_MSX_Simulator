@@ -2,25 +2,26 @@
 #define MS_DISK_MEDIA_H
 
 #include <stdint.h>
+
 #include "ms_disk.h"
 
 typedef struct ms_disk_media ms_disk_media_t;
 
 /**
- * @brief ‰~”Õó‚ÌƒƒfƒBƒA(Disk Media)‚ğ•\‚·\‘¢‘Ì‚Å‚·B
- * 
- * ms_disk_rawtrack_t ‚Å•\‚³‚ê‚é‰~”Õã‚Ìƒgƒ‰ƒbƒN‚ğg‚Á‚ÄƒAƒNƒZƒX‚µ‚Ü‚·Bƒgƒ‰ƒbƒN’PˆÊ‚È‚Ì‚ÅA
- * ‚»‚±‚©‚çƒZƒNƒ^‚É•ª‰ğ‚·‚éˆ—‚ÍƒRƒ“ƒgƒ[ƒ‰[ (ms_disk_controller_t) ‚ÌÓ–±‚Å‚·B
- * 
+ * @brief å††ç›¤çŠ¶ã®ãƒ¡ãƒ‡ã‚£ã‚¢(Disk Media)ã‚’è¡¨ã™æ§‹é€ ä½“ã§ã™ã€‚
+ *
+ * ms_disk_rawtrack_t ã§è¡¨ã•ã‚Œã‚‹å††ç›¤ä¸Šã®ãƒˆãƒ©ãƒƒã‚¯ã‚’ä½¿ã£ã¦ã‚¢ã‚¯ã‚»ã‚¹ã—ã¾ã™ã€‚ãƒˆãƒ©ãƒƒã‚¯å˜ä½ãªã®ã§ã€
+ * ãã“ã‹ã‚‰ã‚»ã‚¯ã‚¿ã«åˆ†è§£ã™ã‚‹å‡¦ç†ã¯ã‚³ãƒ³ãƒˆãƒ­ãƒ¼ãƒ©ãƒ¼ (ms_disk_controller_t) ã®è²¬å‹™ã§ã™ã€‚
+ *
  */
 typedef struct ms_disk_media {
-	// methods
-	void (*deinit)(ms_disk_media_t* media);
-	void (*read_track)(ms_disk_media_t* media, uint32_t track_no, uint8_t side, ms_disk_raw_track_t* raw_track);
-	void (*write_track)(ms_disk_media_t* media, uint32_t track_no, uint8_t side, ms_disk_raw_track_t* raw_track);
-	// properties
-	char* name;
-	uint8_t is_write_protected;
+    // methods
+    void (*deinit)(ms_disk_media_t* media);
+    void (*read_track)(ms_disk_media_t* media, uint32_t track_no, uint8_t side, ms_disk_raw_track_t* raw_track);
+    void (*write_track)(ms_disk_media_t* media, uint32_t track_no, uint8_t side, ms_disk_raw_track_t* raw_track);
+    // properties
+    char* name;
+    uint8_t is_write_protected;
 } ms_disk_media_t;
 
 ms_disk_media_t* ms_disk_media_alloc();

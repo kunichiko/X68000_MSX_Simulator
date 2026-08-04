@@ -2,6 +2,7 @@ SRC_DIR = src
 VDP_DIR = $(SRC_DIR)/vdp
 MEMMAP_DIR = $(SRC_DIR)/memmap
 DISK_DIR = $(SRC_DIR)/disk
+DISK_9SCDRV_DIR = $(DISK_DIR)/9scdrv
 PERIPHERAL_DIR = $(SRC_DIR)/peripheral
 UTHASH_DIR = $(SRC_DIR)/submodules/uthash/src
 
@@ -12,14 +13,14 @@ EXE_DIR = exe
 CROSS = m68k-xelf-
 CC = $(CROSS)gcc
 #AS = $(CROSS)as
-AS = run68 /Users/ohnaka/work/XEiJ/HFS/HAS/HAS060.X
+AS = run68 /Users/ohnaka/work/XEiJ/HFS/prog/HAS/HAS060.X
 LD = $(CROSS)gcc
 
-CFLAGS = -g -std=gnu90 -c -m68000 -O3 -finput-charset=CP932 -I${UTHASH_DIR}
-CFLAGS_DEBUG = -g -std=gnu90 -c -m68000 -DDEBUG -finput-charset=CP932 -I${UTHASH_DIR}
-LDFLAGS = -lm -lbas -liocs -ldos
-
-#GCC_OPTS = -c -O -g -finput-charset=CP932
+CFLAGS = -g -std=gnu90 -c -m68000 -O3 -finput-charset=UTF-8 -fexec-charset=CP932 -I${UTHASH_DIR}
+CFLAGS_DEBUG = -g -std=gnu90 -c -m68000 -DDEBUG -finput-charset=UTF-8 -fexec-charset=CP932 -I${UTHASH_DIR}
+LDFLAGS = src/disk/9scdrv/_X_KPCHK_elf.o -lm -lbas -liocs -ldos -Wl,-e,msboot_start
+#LDFLAGS = src/disk/9scdrv/_X_KPCHK_elf.o -lm -lbas -liocs -ldos
+#GCC_OPTS = -c -O -g -finput-charset=UTF-8 -fexec-charset=CP932
 
 #LD = m68k-xelf-ld.x
 #LD_OPTS = -L /Users/ohnaka/work/XEiJ/HFS/XGCC/LIB/
@@ -29,8 +30,9 @@ LDFLAGS = -lm -lbas -liocs -ldos
 ASFLAGS = -i $(SRC_DIR) -i $(ASMINC_DIR) -i $(VDP_DIR) -i $(MEMMAP_DIR) -i ${DISK_DIR} -i ${PERIPHERAL_DIR} -w0
 ASFLAGS_DEBUG = -d -s DEBUG $(ASFLAGS)
 
-# オブジェクトファイルのリストを変数にまとめる
-OBJS = $(BUILD_DIR)/ms.o \
+# 繧ｪ繝悶ず繧ｧ繧ｯ繝医ヵ繧｡繧､繝ｫ縺ｮ繝ｪ繧ｹ繝医ｒ螟画焚縺ｫ縺ｾ縺ｨ繧√ｋ
+OBJS =	$(BUILD_DIR)/msboot_mac.o \
+		$(BUILD_DIR)/ms.o \
 		$(BUILD_DIR)/ms_R800_30_mac.o \
 		$(BUILD_DIR)/ms_R800_flag_mac.o \
 		$(BUILD_DIR)/ms_iomap.o \
@@ -41,6 +43,8 @@ OBJS = $(BUILD_DIR)/ms.o \
 		$(BUILD_DIR)/ms_rtc.o \
 		$(BUILD_DIR)/ms_psg.o \
 		$(BUILD_DIR)/ms_psg_mac.o \
+		$(BUILD_DIR)/ms_psg_joy.o \
+		$(BUILD_DIR)/ms_psg_joy_mac.o \
 		$(BUILD_DIR)/ms_kanjirom12.o \
 		$(BUILD_DIR)/ms_kanjirom_alt.o \
 		$(BUILD_DIR)/ms_memmap.o \
@@ -78,13 +82,19 @@ OBJS = $(BUILD_DIR)/ms.o \
 		$(BUILD_DIR)/ms_disk_media.o \
 		$(BUILD_DIR)/ms_disk_media_sectorbase.o \
 		$(BUILD_DIR)/ms_disk_media_dskformat.o \
+		$(BUILD_DIR)/ms_disk_media_9scdrv.o \
 		$(BUILD_DIR)/ms_disk_container.o \
 		$(BUILD_DIR)/ms_disk_drive.o \
 		$(BUILD_DIR)/ms_disk_drive_floppy.o \
 		$(BUILD_DIR)/ms_disk_controller_TC8566AF.o \
-		$(BUILD_DIR)/ms_disk_bios_Panasonic.o
+		$(BUILD_DIR)/ms_disk_bios_Panasonic.o \
+		$(BUILD_DIR)/ms_disk_controller_WD2793.o \
+		$(BUILD_DIR)/ms_disk_bios_Sony.o \
+		$(BUILD_DIR)/ms_disk_9scdrv.o \
+		$(BUILD_DIR)/ms_disk_9scdrv_mac.o
 
-OBJS_DEBUG = $(BUILD_DIR)/ms_d.o \
+OBJS_DEBUG = $(BUILD_DIR)/msboot_mac.o \
+		$(BUILD_DIR)/ms_d.o \
 		$(BUILD_DIR)/ms_R800_30_mac_d.o \
 		$(BUILD_DIR)/ms_R800_flag_mac_d.o \
 		$(BUILD_DIR)/ms_iomap_d.o \
@@ -95,6 +105,8 @@ OBJS_DEBUG = $(BUILD_DIR)/ms_d.o \
 		$(BUILD_DIR)/ms_rtc_d.o \
 		$(BUILD_DIR)/ms_psg_d.o \
 		$(BUILD_DIR)/ms_psg_mac_d.o \
+		$(BUILD_DIR)/ms_psg_joy_d.o \
+		$(BUILD_DIR)/ms_psg_joy_mac_d.o \
 		$(BUILD_DIR)/ms_kanjirom12_d.o \
 		$(BUILD_DIR)/ms_kanjirom_alt_d.o \
 		$(BUILD_DIR)/ms_memmap_d.o \
@@ -132,11 +144,16 @@ OBJS_DEBUG = $(BUILD_DIR)/ms_d.o \
 		$(BUILD_DIR)/ms_disk_media_d.o \
 		$(BUILD_DIR)/ms_disk_media_sectorbase_d.o \
 		$(BUILD_DIR)/ms_disk_media_dskformat_d.o \
+		$(BUILD_DIR)/ms_disk_media_9scdrv_d.o \
 		$(BUILD_DIR)/ms_disk_container_d.o \
 		$(BUILD_DIR)/ms_disk_drive_d.o \
 		$(BUILD_DIR)/ms_disk_drive_floppy_d.o \
 		$(BUILD_DIR)/ms_disk_controller_TC8566AF_d.o \
-		$(BUILD_DIR)/ms_disk_bios_Panasonic_d.o
+		$(BUILD_DIR)/ms_disk_bios_Panasonic_d.o \
+		$(BUILD_DIR)/ms_disk_controller_WD2793_d.o \
+		$(BUILD_DIR)/ms_disk_bios_Sony_d.o \
+		$(BUILD_DIR)/ms_disk_9scdrv_d.o \
+		$(BUILD_DIR)/ms_disk_9scdrv_mac_d.o
 
 all: update_version copy_to_target_all 
 
@@ -236,6 +253,23 @@ ${BUILD_DIR}/%_mac.o: $(DISK_DIR)/%.has
 	rm $@.tmp
 
 ${BUILD_DIR}/%_mac_d.o: $(DISK_DIR)/%.has $(SRC_DIR)/ms.mac
+	$(AS) $(ASFLAGS_DEBUG) $< -o $@.tmp
+	x68k2elf.py $@.tmp $@
+	rm $@.tmp
+
+# 9scdrv files
+${BUILD_DIR}/%.o: $(DISK_9SCDRV_DIR)/%.c $(DISK_DIR)/ms_disk.h $(SRC_DIR)/ms.h
+	$(CC) $(CFLAGS) $< -o $@
+
+${BUILD_DIR}/%_d.o: $(DISK_9SCDRV_DIR)/%.c $(DISK_DIR)/ms_disk.h $(SRC_DIR)/ms.h
+	$(CC) $(CFLAGS_DEBUG) $< -o $@
+
+${BUILD_DIR}/%_mac.o: $(DISK_9SCDRV_DIR)/%.has
+	$(AS) $(ASFLAGS) $< -o $@.tmp
+	x68k2elf.py $@.tmp $@
+	rm $@.tmp
+
+${BUILD_DIR}/%_mac_d.o: $(DISK_9SCDRV_DIR)/%.has $(SRC_DIR)/ms.mac
 	$(AS) $(ASFLAGS_DEBUG) $< -o $@.tmp
 	x68k2elf.py $@.tmp $@
 	rm $@.tmp

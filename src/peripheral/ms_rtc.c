@@ -1,10 +1,10 @@
+#include "ms_rtc.h"
+
+#include <fcntl.h>
+#include <stddef.h>
+#include <stdint.h>
 #include <stdio.h>
 #include <stdlib.h>
-#include <stdint.h>
-#include <stddef.h>
-#include <fcntl.h>
-
-#include "ms_rtc.h"
 
 #define THIS ms_rtc_t
 
@@ -14,189 +14,187 @@ static uint8_t read_rtc_B4(ms_ioport_t* ioport, uint8_t port);
 static void write_rtc_B5(ms_ioport_t* ioport, uint8_t port, uint8_t data);
 static uint8_t read_rtc_B5(ms_ioport_t* ioport, uint8_t port);
 
-#define RTC_X68K ((volatile uint16_t *)0xe8a000) // RTCƒŒƒWƒXƒ^
+#define RTC_X68K ((volatile uint16_t*)0xe8a000)  // RTCãƒ¬ã‚¸ã‚¹ã‚¿
 
 uint8_t read_rtc_datetime(uint8_t regnum);
 void write_rtc_datetime(uint8_t regnum, uint8_t data);
 
 THIS* ms_rtc_alloc() {
-	THIS* instance = NULL;
-	if( (instance = (ms_rtc_t*)new_malloc(sizeof(ms_rtc_t))) == NULL) {
-		printf("ƒƒ‚ƒŠ‚ªŠm•Û‚Å‚«‚Ü‚¹‚ñ\n");
-		return NULL;
-	}
-	return instance;
+    THIS* instance = NULL;
+    if ((instance = (ms_rtc_t*)new_malloc(sizeof(ms_rtc_t))) == NULL) {
+        printf("ãƒ¡ãƒ¢ãƒªãŒç¢ºä¿ã§ãã¾ã›ã‚“\n");
+        return NULL;
+    }
+    return instance;
 }
 
 void ms_rtc_init(ms_rtc_t* instance, ms_iomap_t* iomap) {
-	if (instance == NULL) {
-		return;
-	}
+    if (instance == NULL) {
+        return;
+    }
 
-	instance->regnum = 0;
-	instance->r13 = 0;
-	instance->r14 = 0;
-	instance->r15 = 0;
+    instance->regnum = 0;
+    instance->r13 = 0;
+    instance->r14 = 0;
+    instance->r15 = 0;
 
-	int i;
-	for (i = 0; i < 13; i++) {
-		instance->block2[i] = 0;
-		instance->block3[i] = 0;
-	}
+    int i;
+    for (i = 0; i < 13; i++) {
+        instance->block2[i] = 0;
+        instance->block3[i] = 0;
+    }
 
-	// MSX‚ÅƒoƒbƒeƒŠƒoƒbƒNƒAƒbƒv‚³‚ê‚Ä‚¢‚éİ’è’l‚ğƒfƒtƒHƒ‹ƒg’l‚É‚µ‚Ä‚¨‚­
-	// TODO: ƒtƒ@ƒCƒ‹‚É‰i‘±‰»‚Å‚«‚é‚æ‚¤‚É‚·‚é
-	instance->block2[0] = 10;		// •Û‘¶’l‚ª—LŒø‚Èê‡‚Í10‚É‚È‚é
-	instance->block2[1] = 0x00;	// X-Adjust
-	instance->block2[2] = 0x00;	// Y-Adjust
-	instance->block2[3] = 0x01;	// SCREEN MODE
-	instance->block2[4] = 0x00;	// SCREEN WIDTH (‰ºˆÊ4bit)
-	instance->block2[5] = 0x02;	// SCREEN WIDTH (ãˆÊ3bit)
-	instance->block2[6] = 0x0f;	// TEXT COLOR
-	instance->block2[7] = 0x04;	// BACKGROUND COLOR
-	instance->block2[8] = 0x07;	// BORDER COLOR
-	instance->block2[9] = 0x01;	// b3:ƒ{[ƒŒ[ƒg, b2:ƒvƒŠƒ“ƒ^í•Ê, b1:ƒL[ƒNƒŠƒbƒN, b0:ƒL[ON/OFF
-	instance->block2[10] = 0x00;	// b3-2:BEEP timbre, b1-0:BEEP volume
-	instance->block2[11] = 0x00;	// b1-0:‹N“®ƒƒS‚ÌF
-	instance->block2[12] = 0x00;	// ƒGƒŠƒAƒR[ƒh(0:“ú–{, 1:•Ä‘, etc)
+    // MSXã§ãƒãƒƒãƒ†ãƒªãƒãƒƒã‚¯ã‚¢ãƒƒãƒ—ã•ã‚Œã¦ã„ã‚‹è¨­å®šå€¤ã‚’ãƒ‡ãƒ•ã‚©ãƒ«ãƒˆå€¤ã«ã—ã¦ãŠã
+    // TODO: ãƒ•ã‚¡ã‚¤ãƒ«ã«æ°¸ç¶šåŒ–ã§ãã‚‹ã‚ˆã†ã«ã™ã‚‹
+    instance->block2[0] = 10;     // ä¿å­˜å€¤ãŒæœ‰åŠ¹ãªå ´åˆã¯10ã«ãªã‚‹
+    instance->block2[1] = 0x00;   // X-Adjust
+    instance->block2[2] = 0x00;   // Y-Adjust
+    instance->block2[3] = 0x01;   // SCREEN MODE
+    instance->block2[4] = 0x00;   // SCREEN WIDTH (ä¸‹ä½4bit)
+    instance->block2[5] = 0x02;   // SCREEN WIDTH (ä¸Šä½3bit)
+    instance->block2[6] = 0x0f;   // TEXT COLOR
+    instance->block2[7] = 0x04;   // BACKGROUND COLOR
+    instance->block2[8] = 0x07;   // BORDER COLOR
+    instance->block2[9] = 0x01;   // b3:ãƒœãƒ¼ãƒ¬ãƒ¼ãƒˆ, b2:ãƒ—ãƒªãƒ³ã‚¿ç¨®åˆ¥, b1:ã‚­ãƒ¼ã‚¯ãƒªãƒƒã‚¯, b0:ã‚­ãƒ¼ON/OFF
+    instance->block2[10] = 0x00;  // b3-2:BEEP timbre, b1-0:BEEP volume
+    instance->block2[11] = 0x00;  // b1-0:èµ·å‹•ãƒ­ã‚´ã®è‰²
+    instance->block2[12] = 0x00;  // ã‚¨ãƒªã‚¢ã‚³ãƒ¼ãƒ‰(0:æ—¥æœ¬, 1:ç±³å›½, etc)
 
-	// I/O port ƒAƒNƒZƒX‚ğ’ñ‹Ÿ
-	instance->io_port_B4.instance = instance;
-	instance->io_port_B4.read = read_rtc_B4;
-	instance->io_port_B4.write = write_rtc_B4;
-	ms_iomap_attach_ioport(iomap, 0xb4, &instance->io_port_B4);
+    // I/O port ã‚¢ã‚¯ã‚»ã‚¹ã‚’æä¾›
+    instance->io_port_B4.instance = instance;
+    instance->io_port_B4.read = read_rtc_B4;
+    instance->io_port_B4.write = write_rtc_B4;
+    ms_iomap_attach_ioport(iomap, 0xb4, &instance->io_port_B4);
 
-	instance->io_port_B5.instance = instance;
-	instance->io_port_B5.read = read_rtc_B5;
-	instance->io_port_B5.write = write_rtc_B5;
-	ms_iomap_attach_ioport(iomap, 0xb5, &instance->io_port_B5);
+    instance->io_port_B5.instance = instance;
+    instance->io_port_B5.read = read_rtc_B5;
+    instance->io_port_B5.write = write_rtc_B5;
+    ms_iomap_attach_ioport(iomap, 0xb5, &instance->io_port_B5);
 }
-
 
 void ms_rtc_deinit(ms_rtc_t* instance, ms_iomap_t* iomap) {
-	if (instance == NULL) {
-		return;
-	}
-	ms_iomap_detach_ioport(iomap, 0xb4);
-	ms_iomap_detach_ioport(iomap, 0xb5);
+    if (instance == NULL) {
+        return;
+    }
+    ms_iomap_detach_ioport(iomap, 0xb4);
+    ms_iomap_detach_ioport(iomap, 0xb5);
 }
-
 
 // I/O port
 
-// 
-// ‚q‚…‚‚Œ ‚s‚‰‚‚… ‚b‚Œ‚‚ƒ‚‹
-// 
-//  Port B4: ƒŒƒWƒXƒ^”Ô†w’è
-//  Port B5: ƒŒƒWƒXƒ^‚Ì“Ç‚İ‘‚«
-// 
-// [MSX‚ÌRTCƒŒƒWƒXƒ^‚Í RICOH RP-5C01](https://www.msx.org/wiki/Ricoh_RP-5C01)‚ÅA
-// 4‚Â‚ÌƒuƒƒbƒN‚É15ŒÂ‚¸‚Â‚ÌƒŒƒWƒXƒ^‚ª‚ ‚é(ŠeƒŒƒWƒXƒ^‚Í4bit•)B
-// ‚½‚¾‚µAƒŒƒWƒXƒ^13-15‚Í‚Ç‚ÌƒuƒƒbƒN‚Å‚à“¯‚¶‚à‚Ì‚ªŒ©‚¦‚Ä‚¢‚é‚Ì‚ÅA‘ƒŒƒWƒXƒ^”‚Í 3+12*4=51B
-// 
-// * ƒuƒƒbƒN‹¤’Ê: 13-15
-//    * ƒŒƒWƒXƒ^13: ƒ‚[ƒhƒŒƒWƒXƒ^
-// * ƒuƒƒbƒN0: 0-12
-//    * Œv‚Ì”NŒ“ú•ª•b‚ªŠi”[‚³‚ê‚Ä‚¢‚é
-// * ƒuƒƒbƒN1: 0-12
-//    * ƒAƒ‰[ƒ€‚ªŠi”[‚³‚ê‚Ä‚¢‚é‚ªAMSX‚Å‚Íg—p‚µ‚Ä‚¢‚È‚¢
-// * ƒuƒƒbƒN2: 0-12
-//    * MSX‚Ìİ’è’l(‰æ–Ê‚ÌF‚âSET ADJUST‚Ì’l‚È‚Ç)‚ªŠi”[‚³‚ê‚Ä‚¢‚é
+//
+// ï¼²ï½…ï½ï½Œ ï¼´ï½‰ï½ï½… ï¼£ï½Œï½ï½ƒï½‹
+//
+//  Port B4: ãƒ¬ã‚¸ã‚¹ã‚¿ç•ªå·æŒ‡å®š
+//  Port B5: ãƒ¬ã‚¸ã‚¹ã‚¿ã®èª­ã¿æ›¸ã
+//
+// [MSXã®RTCãƒ¬ã‚¸ã‚¹ã‚¿ã¯ RICOH RP-5C01](https://www.msx.org/wiki/Ricoh_RP-5C01)ã§ã€
+// 4ã¤ã®ãƒ–ãƒ­ãƒƒã‚¯ã«15å€‹ãšã¤ã®ãƒ¬ã‚¸ã‚¹ã‚¿ãŒã‚ã‚‹(å„ãƒ¬ã‚¸ã‚¹ã‚¿ã¯4bitå¹…)ã€‚
+// ãŸã ã—ã€ãƒ¬ã‚¸ã‚¹ã‚¿13-15ã¯ã©ã®ãƒ–ãƒ­ãƒƒã‚¯ã§ã‚‚åŒã˜ã‚‚ã®ãŒè¦‹ãˆã¦ã„ã‚‹ã®ã§ã€ç·ãƒ¬ã‚¸ã‚¹ã‚¿æ•°ã¯ 3+12*4=51ã€‚
+//
+// * ãƒ–ãƒ­ãƒƒã‚¯å…±é€š: 13-15
+//    * ãƒ¬ã‚¸ã‚¹ã‚¿13: ãƒ¢ãƒ¼ãƒ‰ãƒ¬ã‚¸ã‚¹ã‚¿
+// * ãƒ–ãƒ­ãƒƒã‚¯0: 0-12
+//    * æ™‚è¨ˆã®å¹´æœˆæ—¥æ™‚åˆ†ç§’ãŒæ ¼ç´ã•ã‚Œã¦ã„ã‚‹
+// * ãƒ–ãƒ­ãƒƒã‚¯1: 0-12
+//    * ã‚¢ãƒ©ãƒ¼ãƒ æ™‚åˆ»ãŒæ ¼ç´ã•ã‚Œã¦ã„ã‚‹ãŒã€MSXã§ã¯ä½¿ç”¨ã—ã¦ã„ãªã„
+// * ãƒ–ãƒ­ãƒƒã‚¯2: 0-12
+//    * MSXã®è¨­å®šå€¤(ç”»é¢ã®è‰²ã‚„SET ADJUSTã®å€¤ãªã©)ãŒæ ¼ç´ã•ã‚Œã¦ã„ã‚‹
 
 static uint8_t read_rtc_B4(ms_ioport_t* ioport, uint8_t port) {
-	THIS* instance = (THIS*)ioport->instance;
-	// ƒŒƒWƒXƒ^”Ô†‚ğ•Ô‚·
-	return instance->regnum;
+    THIS* instance = (THIS*)ioport->instance;
+    // ãƒ¬ã‚¸ã‚¹ã‚¿ç•ªå·ã‚’è¿”ã™
+    return instance->regnum;
 }
 
 static void write_rtc_B4(ms_ioport_t* ioport, uint8_t port, uint8_t data) {
-	THIS* instance = (THIS*)ioport->instance;
-	// ƒŒƒWƒXƒ^”Ô†‚ğƒZƒbƒg
-	instance->regnum = data;
+    THIS* instance = (THIS*)ioport->instance;
+    // ãƒ¬ã‚¸ã‚¹ã‚¿ç•ªå·ã‚’ã‚»ãƒƒãƒˆ
+    instance->regnum = data;
 }
 
 static uint8_t read_rtc_B5(ms_ioport_t* ioport, uint8_t port) {
-	THIS* instance = (THIS*)ioport->instance;
-	// ƒŒƒWƒXƒ^‚Ì“Ç‚İo‚µ
-	switch(instance->regnum) {
-	case 13:
-		// Mode register
-		// b3: Timer Enable
-		// b2: Alarm Enable
-		// b1-2: Block number
-		return instance->r13;
-	case 14:
-		// Test register
-		return instance->r14;
-	case 15:
-		// Reset controller
-		return instance->r15;
-	default:
-		// ƒŒƒWƒXƒ^0-12‚ÍƒuƒƒbƒN‚É‚æ‚Á‚ÄˆÙ‚È‚é
-		switch(instance->r13 & 0x03) {
-		case 0:
-			return read_rtc_datetime(instance->regnum);
-		case 1:
-			return 0xff;
-		case 2:
-			return instance->block2[instance->regnum];
-		case 3:
-			return instance->block3[instance->regnum];
-		default:
-			break;
-		}
-	}
-	return 0xff;
+    THIS* instance = (THIS*)ioport->instance;
+    // ãƒ¬ã‚¸ã‚¹ã‚¿ã®èª­ã¿å‡ºã—
+    switch (instance->regnum) {
+    case 13:
+        // Mode register
+        // b3: Timer Enable
+        // b2: Alarm Enable
+        // b1-2: Block number
+        return instance->r13;
+    case 14:
+        // Test register
+        return instance->r14;
+    case 15:
+        // Reset controller
+        return instance->r15;
+    default:
+        // ãƒ¬ã‚¸ã‚¹ã‚¿0-12ã¯ãƒ–ãƒ­ãƒƒã‚¯ã«ã‚ˆã£ã¦ç•°ãªã‚‹
+        switch (instance->r13 & 0x03) {
+        case 0:
+            return read_rtc_datetime(instance->regnum);
+        case 1:
+            return 0xff;
+        case 2:
+            return instance->block2[instance->regnum];
+        case 3:
+            return instance->block3[instance->regnum];
+        default:
+            break;
+        }
+    }
+    return 0xff;
 }
 
 static void write_rtc_B5(ms_ioport_t* ioport, uint8_t port, uint8_t data) {
-	THIS* instance = (THIS*)ioport->instance;
-	// ƒŒƒWƒXƒ^‚Ì‘‚«‚İ
-	switch(instance->regnum) {
-	case 13:
-		instance->r13 = data;
-		break;
-	case 14:
-		instance->r14 = data;
-		break;
-	case 15:
-		instance->r15 = data;
-		break;
-	default:
-		// ƒŒƒWƒXƒ^0-12‚ÍƒuƒƒbƒN‚É‚æ‚Á‚ÄˆÙ‚È‚é
-		switch(instance->r13 & 0x03) {
-		case 0:
-			write_rtc_datetime(instance->regnum, data);
-			break;
-		case 1:
-			break;
-		case 2:
-			instance->block2[instance->regnum] = data;
-			break;
-		case 3:
-			instance->block3[instance->regnum] = data;
-			break;
-		default:
-			break;
-		}
-	}
+    THIS* instance = (THIS*)ioport->instance;
+    // ãƒ¬ã‚¸ã‚¹ã‚¿ã®æ›¸ãè¾¼ã¿
+    switch (instance->regnum) {
+    case 13:
+        instance->r13 = data;
+        break;
+    case 14:
+        instance->r14 = data;
+        break;
+    case 15:
+        instance->r15 = data;
+        break;
+    default:
+        // ãƒ¬ã‚¸ã‚¹ã‚¿0-12ã¯ãƒ–ãƒ­ãƒƒã‚¯ã«ã‚ˆã£ã¦ç•°ãªã‚‹
+        switch (instance->r13 & 0x03) {
+        case 0:
+            write_rtc_datetime(instance->regnum, data);
+            break;
+        case 1:
+            break;
+        case 2:
+            instance->block2[instance->regnum] = data;
+            break;
+        case 3:
+            instance->block3[instance->regnum] = data;
+            break;
+        default:
+            break;
+        }
+    }
 }
 
 /**
- * @brief RTC‚Ì”NŒ“ú•ª•b‚ğ“Ç‚İo‚µ‚Ü‚·
- * 
- * w’è‚³‚ê‚½ƒŒƒWƒXƒ^‚Ì’l‚É‘Š“–‚·‚é’l‚ğX68000‚ÌRTC‚©‚ç”NŒ“ú•ª•b‚ğ“Ç‚İo‚µA
- * ‚»‚Ì’l‚ğ•Ô‚µ‚Ü‚·B
- * 
- * @param regnum MSX‚ÌRTC‚ÌƒŒƒWƒXƒ^”Ô†(0-12) (ƒuƒƒbƒN0‘O’ñ)
- * @return uint8_t “Ç‚İo‚µ‚½’l
+ * @brief RTCã®å¹´æœˆæ—¥æ™‚åˆ†ç§’ã‚’èª­ã¿å‡ºã—ã¾ã™
+ *
+ * æŒ‡å®šã•ã‚ŒãŸãƒ¬ã‚¸ã‚¹ã‚¿ã®å€¤ã«ç›¸å½“ã™ã‚‹å€¤ã‚’X68000ã®RTCã‹ã‚‰å¹´æœˆæ—¥æ™‚åˆ†ç§’ã‚’èª­ã¿å‡ºã—ã€
+ * ãã®å€¤ã‚’è¿”ã—ã¾ã™ã€‚
+ *
+ * @param regnum MSXã®RTCã®ãƒ¬ã‚¸ã‚¹ã‚¿ç•ªå·(0-12) (ãƒ–ãƒ­ãƒƒã‚¯0å‰æ)
+ * @return uint8_t èª­ã¿å‡ºã—ãŸå€¤
  */
 uint8_t read_rtc_datetime(uint8_t regnum) {
-	// X68000‚ÌRTC‚ÆƒŒƒWƒXƒ^‚Ì•À‚Ñ‚Í“¯‚¶‚¾‚ªAX68000‘¤‚Íƒ[ƒhƒAƒNƒZƒX‚ª•K—v
-	// ‚½‚¾AC‚Ìƒ|ƒCƒ“ƒ^‚ğ uint16_t Œ^‚É‚µ‚Ä‚ ‚é‚Ì‚ÅA‚»‚Ì‚Ü‚Ü”Ô†‚ğ“n‚¹‚Î“Ç‚İo‚¹‚é
-	return RTC_X68K[regnum] & 0x0f;	 // ‰ºˆÊ4bit‚¾‚¯—LŒø
+    // X68000ã®RTCã¨ãƒ¬ã‚¸ã‚¹ã‚¿ã®ä¸¦ã³ã¯åŒã˜ã ãŒã€X68000å´ã¯ãƒ¯ãƒ¼ãƒ‰ã‚¢ã‚¯ã‚»ã‚¹ãŒå¿…è¦
+    // ãŸã ã€Cã®ãƒã‚¤ãƒ³ã‚¿ã‚’ uint16_t å‹ã«ã—ã¦ã‚ã‚‹ã®ã§ã€ãã®ã¾ã¾ç•ªå·ã‚’æ¸¡ã›ã°èª­ã¿å‡ºã›ã‚‹
+    return RTC_X68K[regnum] & 0x0f;  // ä¸‹ä½4bitã ã‘æœ‰åŠ¹
 }
 
 void write_rtc_datetime(uint8_t regnum, uint8_t data) {
-	// “ú•t‚Ì‘‚«‚İ‚ÍŠë‚È‚¢‚Ì‚ÅÀ‘•‚µ‚È‚¢
+    // æ—¥ä»˜ã®æ›¸ãè¾¼ã¿ã¯å±ãªã„ã®ã§å®Ÿè£…ã—ãªã„
 }

@@ -2,30 +2,34 @@
 #define MS_DISK_CONTAINER_H
 
 #include <stdint.h>
+
 #include "ms_disk.h"
 #include "ms_disk_media.h"
+#include "ms_disk_media_9scdrv.h"
 
 typedef struct ms_disk_container ms_disk_container_t;
 
 typedef struct ms_disk_container {
-	void (*deinit)(ms_disk_container_t* drive);	// baseƒNƒ‰ƒX‚¾‚¯ deinit‚ğ‚Â (qƒNƒ‰ƒX‚ÍƒI[ƒo[ƒ‰ƒCƒh‚·‚é)
-	// methods
-	uint8_t (*read_track)(ms_disk_container_t* d, uint32_t track_no, uint8_t side, ms_disk_raw_track_t* raw_track);
-	uint8_t (*write_track)(ms_disk_container_t* d, uint32_t track_no, uint8_t side, ms_disk_raw_track_t* raw_track);
-	void (*flush_track)(ms_disk_container_t* d);
-	void (*eject_disk)(ms_disk_container_t* d);
-	void (*change_disk)(ms_disk_container_t* d, int disk_no);
-	uint8_t (*is_disk_changed)(ms_disk_container_t* d);
-	// properties
-	ms_disk_media_t* current_disk;
-	int disk_count;
-	ms_disk_media_t* disk_set[16];	// Å‘å16–‡‚Ü‚Å
-	// private prroperties
-	uint8_t disk_changed;
+    void (*deinit)(ms_disk_container_t* drive);  // baseã‚¯ãƒ©ã‚¹ã ã‘ deinitã‚’æŒã¤ (å­ã‚¯ãƒ©ã‚¹ã¯ã‚ªãƒ¼ãƒãƒ¼ãƒ©ã‚¤ãƒ‰ã™ã‚‹)
+    // methods
+    uint8_t (*read_track)(ms_disk_container_t* d, uint32_t track_no, uint8_t side, ms_disk_raw_track_t* raw_track);
+    uint8_t (*write_track)(ms_disk_container_t* d, uint32_t track_no, uint8_t side, ms_disk_raw_track_t* raw_track);
+    void (*flush_track)(ms_disk_container_t* d);
+    void (*eject_disk)(ms_disk_container_t* d);
+    void (*change_disk)(ms_disk_container_t* d, int disk_no);  // -1ãªã‚‰9scdrvã«åˆ‡ã‚Šæ›¿ãˆ
+    uint8_t (*is_disk_changed)(ms_disk_container_t* d);
+    // properties
+    ms_disk_media_t* current_disk;
+    int disk_count;
+    ms_disk_media_t* disk_set[16];        // æœ€å¤§16æšã¾ã§ã®ã‚¤ãƒ¡ãƒ¼ã‚¸
+    ms_disk_media_9scdrv_t* disk_9scdrv;  // 9scdrvãƒ‰ãƒ©ã‚¤ãƒ– (NULLãªã‚‰æœªä½¿ç”¨)
+    // private prroperties
+    uint8_t disk_changed;
 } ms_disk_container_t;
 
 ms_disk_container_t* ms_disk_container_alloc();
-void ms_disk_container_init(ms_disk_container_t* instance, int argc, char* argv[]);
+void ms_disk_container_init(ms_disk_container_t* instance, int dskimage_count, char* dskimage_paths[],
+                            ms_disk_9scdrv_drive_t drive_for_9scdrv);
 void ms_disk_container_deinit(ms_disk_container_t* instance);
 
 #endif

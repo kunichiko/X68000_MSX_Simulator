@@ -1,10 +1,10 @@
+#include "ms_kanjirom12.h"
+
+#include <fcntl.h>
+#include <stddef.h>
+#include <stdint.h>
 #include <stdio.h>
 #include <stdlib.h>
-#include <stdint.h>
-#include <stddef.h>
-#include <fcntl.h>
-
-#include "ms_kanjirom12.h"
 
 #define THIS ms_kanjirom12_t
 
@@ -18,182 +18,178 @@ static void _write_kanji_DB(ms_ioport_t* ioport, uint8_t port, uint8_t data);
 static uint8_t _read_kanji_DB(ms_ioport_t* ioport, uint8_t port);
 
 THIS* ms_kanjirom12_alloc() {
-	THIS* instance = NULL;
-	if( (instance = (ms_kanjirom12_t*)new_malloc(sizeof(ms_kanjirom12_t))) == NULL) {
-		printf("ƒƒ‚ƒŠ‚ªŠm•Û‚Å‚«‚Ü‚¹‚ñ\n");
-		return NULL;
-	}
-	return instance;
+    THIS* instance = NULL;
+    if ((instance = (ms_kanjirom12_t*)new_malloc(sizeof(ms_kanjirom12_t))) == NULL) {
+        printf("ãƒ¡ãƒ¢ãƒªãŒç¢ºä¿ã§ãã¾ã›ã‚“\n");
+        return NULL;
+    }
+    return instance;
 }
 
 void ms_kanjirom12_init(ms_kanjirom12_t* instance, ms_iomap_t* iomap, char* rom_path) {
-	if (instance == NULL) {
-		return;
-	}
-	instance->rom_path = rom_path;
-	instance->rom_data = NULL;
-	// rom_path ‚Ìƒtƒ@ƒCƒ‹‚ğ“Ç‚İ‚Ş
-	int fh = open(rom_path, O_RDONLY | O_BINARY);
-	if (fh == -1) {
-		printf("ƒtƒ@ƒCƒ‹‚ªŠJ‚¯‚Ü‚¹‚ñ. %s\n", rom_path);
-		return;
-	}
-	int length = filelength(fh);
-	if (length == -1) {
-		printf("ƒtƒ@ƒCƒ‹‚Ì’·‚³‚ªæ“¾‚Å‚«‚Ü‚¹‚ñB\n");
-		close(fh);
-		return;
-	}
-	instance->rom_data = (uint8_t*)new_malloc(length);
-	if (instance->rom_data == NULL) {
-		printf("ƒƒ‚ƒŠ‚ªŠm•Û‚Å‚«‚Ü‚¹‚ñB\n");
-		close(fh);
-		return;
-	}
-	read(fh, instance->rom_data, length);
-	close(fh);
-	instance->rom_size = length;
+    if (instance == NULL) {
+        return;
+    }
+    instance->rom_path = rom_path;
+    instance->rom_data = NULL;
+    // rom_path ã®ãƒ•ã‚¡ã‚¤ãƒ«ã‚’èª­ã¿è¾¼ã‚€
+    int fh = open(rom_path, O_RDONLY | O_BINARY);
+    if (fh == -1) {
+        printf("ãƒ•ã‚¡ã‚¤ãƒ«ãŒé–‹ã‘ã¾ã›ã‚“. %s\n", rom_path);
+        return;
+    }
+    int length = filelength(fh);
+    if (length == -1) {
+        printf("ãƒ•ã‚¡ã‚¤ãƒ«ã®é•·ã•ãŒå–å¾—ã§ãã¾ã›ã‚“ã€‚\n");
+        close(fh);
+        return;
+    }
+    instance->rom_data = (uint8_t*)new_malloc(length);
+    if (instance->rom_data == NULL) {
+        printf("ãƒ¡ãƒ¢ãƒªãŒç¢ºä¿ã§ãã¾ã›ã‚“ã€‚\n");
+        close(fh);
+        return;
+    }
+    read(fh, instance->rom_data, length);
+    close(fh);
+    instance->rom_size = length;
 
-	// ‘æˆê…€ƒAƒhƒŒƒX
-	instance->addr1 = 0x00000;
-	// ‘æ“ñ…€ƒAƒhƒŒƒX
-	instance->addr2 = 0x20000;
+    // ç¬¬ä¸€æ°´æº–ã‚¢ãƒ‰ãƒ¬ã‚¹
+    instance->addr1 = 0x00000;
+    // ç¬¬äºŒæ°´æº–ã‚¢ãƒ‰ãƒ¬ã‚¹
+    instance->addr2 = 0x20000;
 
-	// I/O port ƒAƒNƒZƒX‚ğ’ñ‹Ÿ
-	instance->io_port_D8.instance = instance;
-	instance->io_port_D8.read = _read_kanji_D8;
-	instance->io_port_D8.write = _write_kanji_D8;
-	ms_iomap_attach_ioport(iomap, 0xd8, &instance->io_port_D8);
+    // I/O port ã‚¢ã‚¯ã‚»ã‚¹ã‚’æä¾›
+    instance->io_port_D8.instance = instance;
+    instance->io_port_D8.read = _read_kanji_D8;
+    instance->io_port_D8.write = _write_kanji_D8;
+    ms_iomap_attach_ioport(iomap, 0xd8, &instance->io_port_D8);
 
-	instance->io_port_D9.instance = instance;
-	instance->io_port_D9.read = _read_kanji_D9;
-	instance->io_port_D9.write = _write_kanji_D9;
-	ms_iomap_attach_ioport(iomap, 0xd9, &instance->io_port_D9);
+    instance->io_port_D9.instance = instance;
+    instance->io_port_D9.read = _read_kanji_D9;
+    instance->io_port_D9.write = _write_kanji_D9;
+    ms_iomap_attach_ioport(iomap, 0xd9, &instance->io_port_D9);
 
-	instance->io_port_DA.instance = instance;
-	instance->io_port_DA.read = _read_kanji_DA;
-	instance->io_port_DA.write = _write_kanji_DA;
-	ms_iomap_attach_ioport(iomap, 0xda, &instance->io_port_DA);
+    instance->io_port_DA.instance = instance;
+    instance->io_port_DA.read = _read_kanji_DA;
+    instance->io_port_DA.write = _write_kanji_DA;
+    ms_iomap_attach_ioport(iomap, 0xda, &instance->io_port_DA);
 
-	instance->io_port_DB.instance = instance;
-	instance->io_port_DB.read = _read_kanji_DB;
-	instance->io_port_DB.write = _write_kanji_DB;
-	ms_iomap_attach_ioport(iomap, 0xdb, &instance->io_port_DB);
+    instance->io_port_DB.instance = instance;
+    instance->io_port_DB.read = _read_kanji_DB;
+    instance->io_port_DB.write = _write_kanji_DB;
+    ms_iomap_attach_ioport(iomap, 0xdb, &instance->io_port_DB);
 }
 
 void ms_kanjirom12_deinit(ms_kanjirom12_t* instance, ms_iomap_t* iomap) {
-	if (instance->rom_data != NULL) {
-		new_free(instance->rom_data);
-	}
-	ms_iomap_detach_ioport(iomap, 0xd8);
-	ms_iomap_detach_ioport(iomap, 0xd9);
-	ms_iomap_detach_ioport(iomap, 0xda);
-	ms_iomap_detach_ioport(iomap, 0xdb);
+    if (instance->rom_data != NULL) {
+        new_free(instance->rom_data);
+    }
+    ms_iomap_detach_ioport(iomap, 0xd8);
+    ms_iomap_detach_ioport(iomap, 0xd9);
+    ms_iomap_detach_ioport(iomap, 0xda);
+    ms_iomap_detach_ioport(iomap, 0xdb);
 }
-
 
 // I/O port
 
-
 /*
- * MSX‚ÌŠ¿šROM‚Í‘å‚«‚­A‘æˆê…€‚Æ‘æ“ñ…€‚É•ª‚©‚ê‚Ä‚¢‚Ü‚·B
- * ‘æˆê…€‚Íƒ|[ƒg0xD8,D9‚ÅƒAƒNƒZƒX‚µA‘æ“ñ…€‚Íƒ|[ƒg0xDA,DB‚ÅƒAƒNƒZƒX‚µ‚Ü‚·B
- * ‚±‚Ì‚Ég—p‚·‚éƒAƒhƒŒƒX‚ÍAuŠ¿š”Ô†v‚ÆŒÄ‚Î‚ê‚é‚à‚Ì‚ÅAˆÈ‰º‚ÌŒvZ®‚Å‹‚ß‚ç‚ê‚Ü‚·B
- * 
- * # Š¿š”Ô†
- * Š¿šROM‚ÌŠ¿š”Ô†‚ÍAJIS‚Ì‹å“_ƒR[ƒh‚»‚Ì‚à‚Ì‚Å‚Í‚È‚¢‚½‚ßA•ÏŠ·‚ª•K—v‚Å‚·B
- * MSX Datapack Volume 1 P.306‚Ì•ÏŠ·®‚ğˆø—p‚µ‚Ü‚·B
- * * ‘æˆê…€: 1‹æ-15‹æ‚Ü‚Å (”ñŠ¿š—ÌˆæBÀÛ‚Í10‹æˆÈ~‚Í‘æˆê…€‚ÌŠ¿š”Ô†‚Æ”í‚é‚Ì‚ÅA8‹æ‚Ü‚Å‚µ‚©û˜^‚³‚ê‚Ä‚¢‚È‚¢‚Æv‚í‚ê‚é)
- * 		* ‹æ”Ô† * 96 + “_”Ô†
- * * ‘æˆê…€: 16‹æ-47‹æ‚Ü‚Å (Š¿š—Ìˆæ)
- * 		* ‹æ”Ô† * 96 + “_”Ô† - 512
- * * ‘æ“ñ…€: 48‹æ-84‹æ‚Ü‚Å
- * 		* (‹æ”Ô† - 48) * 96 + “_”Ô†
- * ‚±‚ê‚É‚æ‚Á‚Äo‚Ä‚«‚½Š¿š”Ô†‚ğuãˆÊ6bitvu‰ºˆÊ6bitv‚É•ª‚¯‚ÄAƒ|[ƒg‚É‘‚«‚Ş‚±‚Æ‚Å
- * Š¿šROM‚©‚çŠ¿š‚ğ“Ç‚İo‚·‚±‚Æ‚ª‚Å‚«‚Ü‚·B
- * 
- * # ROMƒTƒCƒY
- * ‘æˆê…€‚ÌROM‚ÍA47‹æ94“_‚ªÅŒã‚Å‚·B‚±‚ÌŠ¿š‚ÌŠ¿š”Ô†‚ÍA47*96 + 94 - 512 = 4094‚Å‚·B
- * Š¿š1•¶š‚É32ƒoƒCƒg‚ª•K—v‚È‚Ì‚ÅA4094 * 32 + 32 = 131040ƒoƒCƒg = 0x1ffe0ƒoƒCƒg‚Å‚·B
- * 
- * ‘æ“ñ…€‚Í 0x20000ƒoƒCƒg‚©‚çn‚Ü‚è‚Ü‚·B84‹æ94“_‚ªÅŒã‚ÅAŠ¿š”Ô†‚ÍA(84-48) * 96 + 94 = 3550‚Å‚·B
- * Š¿š1•¶š‚É32ƒoƒCƒg‚ª•K—v‚È‚Ì‚ÅA3550 * 32 + 32 = 113632ƒoƒCƒg = 0x1bfe0ƒoƒCƒg‚Å‚·B
- * 
- * ‚±‚Ì‚æ‚¤‚ÉA‚»‚ê‚¼‚ê128KBA‡Œv‚Å256KB‚ÌROM‚ª•K—v‚Å‚·B
- * 
- * # ƒpƒ^[ƒ“‚ÌŠi”[‡
- * MSX‚ÌŠ¿šROM‚ÍA1•¶š‚ª16x16ƒhƒbƒg‚ÅA1•¶š‚ ‚½‚è32ƒoƒCƒg‚Å‚·B
- * 1•¶š‚ÍA¶8bit‚Æ‰E8bit‚É•ª‚©‚ê‚ÄŠi”[‚³‚ê‚Ä‚¢‚ÄA•À‚Ñ‡‚ÍA
- * * ¶ã
- * * ‰Eã
- * * ¶‰º
- * * ‰E‰º
- * ‚Ì‡‚ÉŠi”[‚³‚ê‚Ä‚¢‚Ü‚·B
+ * MSXã®æ¼¢å­—ROMã¯å¤§ããã€ç¬¬ä¸€æ°´æº–ã¨ç¬¬äºŒæ°´æº–ã«åˆ†ã‹ã‚Œã¦ã„ã¾ã™ã€‚
+ * ç¬¬ä¸€æ°´æº–ã¯ãƒãƒ¼ãƒˆ0xD8,D9ã§ã‚¢ã‚¯ã‚»ã‚¹ã—ã€ç¬¬äºŒæ°´æº–ã¯ãƒãƒ¼ãƒˆ0xDA,DBã§ã‚¢ã‚¯ã‚»ã‚¹ã—ã¾ã™ã€‚
+ * ã“ã®æ™‚ã«ä½¿ç”¨ã™ã‚‹ã‚¢ãƒ‰ãƒ¬ã‚¹ã¯ã€ã€Œæ¼¢å­—ç•ªå·ã€ã¨å‘¼ã°ã‚Œã‚‹ã‚‚ã®ã§ã€ä»¥ä¸‹ã®è¨ˆç®—å¼ã§æ±‚ã‚ã‚‰ã‚Œã¾ã™ã€‚
+ *
+ * # æ¼¢å­—ç•ªå·
+ * æ¼¢å­—ROMã®æ¼¢å­—ç•ªå·ã¯ã€JISã®å¥ç‚¹ã‚³ãƒ¼ãƒ‰ãã®ã‚‚ã®ã§ã¯ãªã„ãŸã‚ã€å¤‰æ›ãŒå¿…è¦ã§ã™ã€‚
+ * MSX Datapack Volume 1 P.306ã®å¤‰æ›å¼ã‚’å¼•ç”¨ã—ã¾ã™ã€‚
+ * * ç¬¬ä¸€æ°´æº–: 1åŒº-15åŒºã¾ã§ (éæ¼¢å­—é ˜åŸŸã€‚å®Ÿéš›ã¯10åŒºä»¥é™ã¯ç¬¬ä¸€æ°´æº–ã®æ¼¢å­—ç•ªå·ã¨è¢«ã‚‹ã®ã§ã€8åŒºã¾ã§ã—ã‹åéŒ²ã•ã‚Œã¦ã„ãªã„ã¨æ€ã‚ã‚Œã‚‹)
+ * 		* åŒºç•ªå· * 96 + ç‚¹ç•ªå·
+ * * ç¬¬ä¸€æ°´æº–: 16åŒº-47åŒºã¾ã§ (æ¼¢å­—é ˜åŸŸ)
+ * 		* åŒºç•ªå· * 96 + ç‚¹ç•ªå· - 512
+ * * ç¬¬äºŒæ°´æº–: 48åŒº-84åŒºã¾ã§
+ * 		* (åŒºç•ªå· - 48) * 96 + ç‚¹ç•ªå·
+ * ã“ã‚Œã«ã‚ˆã£ã¦å‡ºã¦ããŸæ¼¢å­—ç•ªå·ã‚’ã€Œä¸Šä½6bitã€ã€Œä¸‹ä½6bitã€ã«åˆ†ã‘ã¦ã€ãƒãƒ¼ãƒˆã«æ›¸ãè¾¼ã‚€ã“ã¨ã§
+ * æ¼¢å­—ROMã‹ã‚‰æ¼¢å­—ã‚’èª­ã¿å‡ºã™ã“ã¨ãŒã§ãã¾ã™ã€‚
+ *
+ * # ROMã‚µã‚¤ã‚º
+ * ç¬¬ä¸€æ°´æº–ã®ROMã¯ã€47åŒº94ç‚¹ãŒæœ€å¾Œã§ã™ã€‚ã“ã®æ¼¢å­—ã®æ¼¢å­—ç•ªå·ã¯ã€47*96 + 94 - 512 = 4094ã§ã™ã€‚
+ * æ¼¢å­—1æ–‡å­—ã«32ãƒã‚¤ãƒˆãŒå¿…è¦ãªã®ã§ã€4094 * 32 + 32 = 131040ãƒã‚¤ãƒˆ = 0x1ffe0ãƒã‚¤ãƒˆã§ã™ã€‚
+ *
+ * ç¬¬äºŒæ°´æº–ã¯ 0x20000ãƒã‚¤ãƒˆã‹ã‚‰å§‹ã¾ã‚Šã¾ã™ã€‚84åŒº94ç‚¹ãŒæœ€å¾Œã§ã€æ¼¢å­—ç•ªå·ã¯ã€(84-48) * 96 + 94 = 3550ã§ã™ã€‚
+ * æ¼¢å­—1æ–‡å­—ã«32ãƒã‚¤ãƒˆãŒå¿…è¦ãªã®ã§ã€3550 * 32 + 32 = 113632ãƒã‚¤ãƒˆ = 0x1bfe0ãƒã‚¤ãƒˆã§ã™ã€‚
+ *
+ * ã“ã®ã‚ˆã†ã«ã€ãã‚Œãã‚Œ128KBã€åˆè¨ˆã§256KBã®ROMãŒå¿…è¦ã§ã™ã€‚
+ *
+ * # ãƒ‘ã‚¿ãƒ¼ãƒ³ã®æ ¼ç´é †
+ * MSXã®æ¼¢å­—ROMã¯ã€1æ–‡å­—ãŒ16x16ãƒ‰ãƒƒãƒˆã§ã€1æ–‡å­—ã‚ãŸã‚Š32ãƒã‚¤ãƒˆã§ã™ã€‚
+ * 1æ–‡å­—ã¯ã€å·¦8bitã¨å³8bitã«åˆ†ã‹ã‚Œã¦æ ¼ç´ã•ã‚Œã¦ã„ã¦ã€ä¸¦ã³é †ã¯ã€
+ * * å·¦ä¸Š
+ * * å³ä¸Š
+ * * å·¦ä¸‹
+ * * å³ä¸‹
+ * ã®é †ã«æ ¼ç´ã•ã‚Œã¦ã„ã¾ã™ã€‚
  */
 
-
-// ‘æˆê…€
+// ç¬¬ä¸€æ°´æº–
 
 /**
- * @brief ‘æˆê…€ROM‚ÌŠ¿š”Ô†(‘Oq)‚Ì‰ºˆÊƒAƒhƒŒƒX6bit (addr1‚Ìbit10-bit5) ‚ğƒZƒbƒg‚µ‚Ü‚·B
- * Š¿šƒƒ€‚Í1•¶š‚ª16x16ƒhƒbƒg‚ÅA1•¶š‚ ‚½‚è32ƒoƒCƒg‚Å‚·B
- * ‚»‚Ì‚½‚ßAaddr1‚Ì‰ºˆÊ6bit‚Í0x20‚²‚Æ‚ÉØ‚è‘Ö‚í‚è‚Ü‚·B
- * 
- * @param data 
+ * @brief ç¬¬ä¸€æ°´æº–ROMã®æ¼¢å­—ç•ªå·(å‰è¿°)ã®ä¸‹ä½ã‚¢ãƒ‰ãƒ¬ã‚¹6bit (addr1ã®bit10-bit5) ã‚’ã‚»ãƒƒãƒˆã—ã¾ã™ã€‚
+ * æ¼¢å­—ãƒ­ãƒ ã¯1æ–‡å­—ãŒ16x16ãƒ‰ãƒƒãƒˆã§ã€1æ–‡å­—ã‚ãŸã‚Š32ãƒã‚¤ãƒˆã§ã™ã€‚
+ * ãã®ãŸã‚ã€addr1ã®ä¸‹ä½6bitã¯0x20ã”ã¨ã«åˆ‡ã‚Šæ›¿ã‚ã‚Šã¾ã™ã€‚
+ *
+ * @param data
  */
 static void _write_kanji_D8(ms_ioport_t* ioport, uint8_t port, uint8_t data) {
-	THIS* instance = (THIS*)ioport->instance;
-	instance->addr1 = (instance->addr1 & 0x1f800) | (((uint32_t)data & 0x3f) << 5);
+    THIS* instance = (THIS*)ioport->instance;
+    instance->addr1 = (instance->addr1 & 0x1f800) | (((uint32_t)data & 0x3f) << 5);
 }
 
 /**
- * @brief ‘æˆê…€ROM‚ÌŠ¿š”Ô†(‘Oq)‚ÌãˆÊƒAƒhƒŒƒX6bit (addr1‚Ìbit16-bit11) ‚ğƒZƒbƒg‚µ‚Ü‚·B
- * 
- * @param data 
+ * @brief ç¬¬ä¸€æ°´æº–ROMã®æ¼¢å­—ç•ªå·(å‰è¿°)ã®ä¸Šä½ã‚¢ãƒ‰ãƒ¬ã‚¹6bit (addr1ã®bit16-bit11) ã‚’ã‚»ãƒƒãƒˆã—ã¾ã™ã€‚
+ *
+ * @param data
  */
 static void _write_kanji_D9(ms_ioport_t* ioport, uint8_t port, uint8_t data) {
-	THIS* instance = (THIS*)ioport->instance;
-	instance->addr1 = (instance->addr1 & 0x007e0) | (((uint32_t)data & 0x3f) << 11);
+    THIS* instance = (THIS*)ioport->instance;
+    instance->addr1 = (instance->addr1 & 0x007e0) | (((uint32_t)data & 0x3f) << 11);
 }
 
 static uint8_t _read_kanji_D8(ms_ioport_t* ioport, uint8_t port) {
-	return 0xff;
+    return 0xff;
 }
 
 static uint8_t _read_kanji_D9(ms_ioport_t* ioport, uint8_t port) {
-	THIS* instance = (THIS*)ioport->instance;
-	if(instance->addr1 >= instance->rom_size) {
-		return 0xff;
-	}
-	uint8_t ret = instance->rom_data[instance->addr1];
-	// ãˆÊ‰ºˆÊƒAƒhƒŒƒX‚ÍƒCƒ“ƒNƒŠƒƒ“ƒg‚¹‚¸A32ƒoƒCƒg“à‚ÅƒCƒ“ƒNƒŠƒƒ“ƒg‚·‚é
-	instance->addr1 = (instance->addr1 & 0x1ffe0) | ((instance->addr1 + 1) & 0x1f);
-	return ret;
+    THIS* instance = (THIS*)ioport->instance;
+    if (instance->addr1 >= instance->rom_size) {
+        return 0xff;
+    }
+    uint8_t ret = instance->rom_data[instance->addr1];
+    // ä¸Šä½ä¸‹ä½ã‚¢ãƒ‰ãƒ¬ã‚¹ã¯ã‚¤ãƒ³ã‚¯ãƒªãƒ¡ãƒ³ãƒˆã›ãšã€32ãƒã‚¤ãƒˆå†…ã§ã‚¤ãƒ³ã‚¯ãƒªãƒ¡ãƒ³ãƒˆã™ã‚‹
+    instance->addr1 = (instance->addr1 & 0x1ffe0) | ((instance->addr1 + 1) & 0x1f);
+    return ret;
 }
 
-
-// ‘æ“ñ…€
+// ç¬¬äºŒæ°´æº–
 static void _write_kanji_DA(ms_ioport_t* ioport, uint8_t port, uint8_t data) {
-	THIS* instance = (THIS*)ioport->instance;
-	instance->addr2 = (instance->addr2 & 0x3f800) | (((uint32_t)data & 0x3f) << 5);
+    THIS* instance = (THIS*)ioport->instance;
+    instance->addr2 = (instance->addr2 & 0x3f800) | (((uint32_t)data & 0x3f) << 5);
 }
 
 static void _write_kanji_DB(ms_ioport_t* ioport, uint8_t port, uint8_t data) {
-	THIS* instance = (THIS*)ioport->instance;
-	instance->addr2 = (instance->addr2 & 0x007e0) | (((uint32_t)data & 0x3f) << 11);
+    THIS* instance = (THIS*)ioport->instance;
+    instance->addr2 = (instance->addr2 & 0x007e0) | (((uint32_t)data & 0x3f) << 11);
 }
 
 static uint8_t _read_kanji_DA(ms_ioport_t* ioport, uint8_t port) {
-	return 0xff;
+    return 0xff;
 }
 
 static uint8_t _read_kanji_DB(ms_ioport_t* ioport, uint8_t port) {
-	THIS* instance = (THIS*)ioport->instance;
-	if(instance->addr2 >= instance->rom_size) {
-		return 0xff;
-	}
-	uint8_t ret = instance->rom_data[instance->addr2];
-	// ãˆÊ‰ºˆÊƒAƒhƒŒƒX‚ÍƒCƒ“ƒNƒŠƒƒ“ƒg‚¹‚¸A32ƒoƒCƒg“à‚ÅƒCƒ“ƒNƒŠƒƒ“ƒg‚·‚é
-	instance->addr2 = (instance->addr2 & 0x3ffe0) | ((instance->addr2 + 1) & 0x1f);
-	return ret;
+    THIS* instance = (THIS*)ioport->instance;
+    if (instance->addr2 >= instance->rom_size) {
+        return 0xff;
+    }
+    uint8_t ret = instance->rom_data[instance->addr2];
+    // ä¸Šä½ä¸‹ä½ã‚¢ãƒ‰ãƒ¬ã‚¹ã¯ã‚¤ãƒ³ã‚¯ãƒªãƒ¡ãƒ³ãƒˆã›ãšã€32ãƒã‚¤ãƒˆå†…ã§ã‚¤ãƒ³ã‚¯ãƒªãƒ¡ãƒ³ãƒˆã™ã‚‹
+    instance->addr2 = (instance->addr2 & 0x3ffe0) | ((instance->addr2 + 1) & 0x1f);
+    return ret;
 }

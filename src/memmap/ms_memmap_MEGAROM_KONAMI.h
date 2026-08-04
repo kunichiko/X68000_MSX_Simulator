@@ -4,15 +4,15 @@
 #include "ms_memmap.h"
 #include "ms_memmap_driver.h"
 
-#define MEGAROM_KONAMI_SIZE (128*1024)
+#define MEGAROM_KONAMI_SIZE (128 * 1024)
 
 /*
-*/
+ */
 typedef struct ms_memmap_driver_MEGAROM_KONAMI {
-	ms_memmap_driver_t base;
-	// extended properties
-	int num_segments;
-	int selected_segment[4];	// Page0-3‚Ì‚»‚ê‚¼‚ê‚ÌƒZƒOƒƒ“ƒg‘I‘ğó‘Ô
+    ms_memmap_driver_t base;
+    // extended properties
+    int num_segments;
+    int selected_segment[4];  // Page0-3ã®ãã‚Œãã‚Œã®ã‚»ã‚°ãƒ¡ãƒ³ãƒˆé¸æŠçŠ¶æ…‹
 } ms_memmap_driver_MEGAROM_KONAMI_t;
 
 ms_memmap_driver_MEGAROM_KONAMI_t* ms_memmap_MEGAROM_KONAMI_alloc();

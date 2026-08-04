@@ -1,19 +1,19 @@
 /*
-	X68000‚ÌCGROM‚ÌŠ¿š‚ğg—p‚µ‚ÄMSX‚ÌŠ¿šROM‚ğƒGƒ~ƒ…ƒŒ[ƒg‚·‚é‚à‚Ì‚Å‚·
+        X68000ã®CGROMã®æ¼¢å­—ã‚’ä½¿ç”¨ã—ã¦MSXã®æ¼¢å­—ROMã‚’ã‚¨ãƒŸãƒ¥ãƒ¬ãƒ¼ãƒˆã™ã‚‹ã‚‚ã®ã§ã™
  */
+#include "ms_kanjirom_alt.h"
+
+#include <fcntl.h>
+#include <stddef.h>
+#include <stdint.h>
 #include <stdio.h>
 #include <stdlib.h>
-#include <stdint.h>
-#include <stddef.h>
-#include <fcntl.h>
-
-#include "ms_kanjirom_alt.h"
 
 #define THIS ms_kanjirom_alt_t
 
-#define CGROM_KANJI_KIGO	((uint16_t*)0xf00000)
-#define CGROM_KANJI_LEVEL1	((uint16_t*)0xf05e00)
-#define CGROM_KANJI_LEVEL2	((uint16_t*)0xf1d600)
+#define CGROM_KANJI_KIGO ((uint16_t*)0xf00000)
+#define CGROM_KANJI_LEVEL1 ((uint16_t*)0xf05e00)
+#define CGROM_KANJI_LEVEL2 ((uint16_t*)0xf1d600)
 
 static void _write_kanji_D8(ms_ioport_t* ioport, uint8_t port, uint8_t data);
 static uint8_t _read_kanji_D8(ms_ioport_t* ioport, uint8_t port);
@@ -25,112 +25,111 @@ static void _write_kanji_DB(ms_ioport_t* ioport, uint8_t port, uint8_t data);
 static uint8_t _read_kanji_DB(ms_ioport_t* ioport, uint8_t port);
 
 THIS* ms_kanjirom_alt_alloc() {
-	THIS* instance = NULL;
-	if( (instance = (ms_kanjirom_alt_t*)new_malloc(sizeof(ms_kanjirom_alt_t))) == NULL) {
-		printf("ƒƒ‚ƒŠ‚ªŠm•Û‚Å‚«‚Ü‚¹‚ñ\n");
-		return NULL;
-	}
-	return instance;
+    THIS* instance = NULL;
+    if ((instance = (ms_kanjirom_alt_t*)new_malloc(sizeof(ms_kanjirom_alt_t))) == NULL) {
+        printf("ãƒ¡ãƒ¢ãƒªãŒç¢ºä¿ã§ãã¾ã›ã‚“\n");
+        return NULL;
+    }
+    return instance;
 }
 
 void ms_kanjirom_alt_init(ms_kanjirom_alt_t* instance, ms_iomap_t* iomap) {
-	if (instance == NULL) {
-		return;
-	}
+    if (instance == NULL) {
+        return;
+    }
 
-	// ‘æˆê…€ƒAƒhƒŒƒX
-	instance->k1_num = 0;
-	instance->k1_line = 0;
-	// ‘æ“ñ…€ƒAƒhƒŒƒX
-	instance->k2_num = 0;
-	instance->k2_line = 0;
+    // ç¬¬ä¸€æ°´æº–ã‚¢ãƒ‰ãƒ¬ã‚¹
+    instance->k1_num = 0;
+    instance->k1_line = 0;
+    // ç¬¬äºŒæ°´æº–ã‚¢ãƒ‰ãƒ¬ã‚¹
+    instance->k2_num = 0;
+    instance->k2_line = 0;
 
-	// I/O port ƒAƒNƒZƒX‚ğ’ñ‹Ÿ
-	instance->io_port_D8.instance = instance;
-	instance->io_port_D8.read = _read_kanji_D8;
-	instance->io_port_D8.write = _write_kanji_D8;
-	ms_iomap_attach_ioport(iomap, 0xd8, &instance->io_port_D8);
+    // I/O port ã‚¢ã‚¯ã‚»ã‚¹ã‚’æä¾›
+    instance->io_port_D8.instance = instance;
+    instance->io_port_D8.read = _read_kanji_D8;
+    instance->io_port_D8.write = _write_kanji_D8;
+    ms_iomap_attach_ioport(iomap, 0xd8, &instance->io_port_D8);
 
-	instance->io_port_D9.instance = instance;
-	instance->io_port_D9.read = _read_kanji_D9;
-	instance->io_port_D9.write = _write_kanji_D9;
-	ms_iomap_attach_ioport(iomap, 0xd9, &instance->io_port_D9);
+    instance->io_port_D9.instance = instance;
+    instance->io_port_D9.read = _read_kanji_D9;
+    instance->io_port_D9.write = _write_kanji_D9;
+    ms_iomap_attach_ioport(iomap, 0xd9, &instance->io_port_D9);
 
-	instance->io_port_DA.instance = instance;
-	instance->io_port_DA.read = _read_kanji_DA;
-	instance->io_port_DA.write = _write_kanji_DA;
-	ms_iomap_attach_ioport(iomap, 0xda, &instance->io_port_DA);
+    instance->io_port_DA.instance = instance;
+    instance->io_port_DA.read = _read_kanji_DA;
+    instance->io_port_DA.write = _write_kanji_DA;
+    ms_iomap_attach_ioport(iomap, 0xda, &instance->io_port_DA);
 
-	instance->io_port_DB.instance = instance;
-	instance->io_port_DB.read = _read_kanji_DB;
-	instance->io_port_DB.write = _write_kanji_DB;
-	ms_iomap_attach_ioport(iomap, 0xdb, &instance->io_port_DB);
+    instance->io_port_DB.instance = instance;
+    instance->io_port_DB.read = _read_kanji_DB;
+    instance->io_port_DB.write = _write_kanji_DB;
+    ms_iomap_attach_ioport(iomap, 0xdb, &instance->io_port_DB);
 }
 
 void ms_kanjirom_alt_deinit(ms_kanjirom_alt_t* instance, ms_iomap_t* iomap) {
-	ms_iomap_detach_ioport(iomap, 0xd8);
-	ms_iomap_detach_ioport(iomap, 0xd9);
-	ms_iomap_detach_ioport(iomap, 0xda);
-	ms_iomap_detach_ioport(iomap, 0xdb);
+    ms_iomap_detach_ioport(iomap, 0xd8);
+    ms_iomap_detach_ioport(iomap, 0xd9);
+    ms_iomap_detach_ioport(iomap, 0xda);
+    ms_iomap_detach_ioport(iomap, 0xdb);
 }
-
 
 // I/O port
 
 /*
- * MSX‚ÌŠ¿šROM‚Í‘å‚«‚­A‘æˆê…€‚Æ‘æ“ñ…€‚É•ª‚©‚ê‚Ä‚¢‚Ü‚·B
- * ‘æˆê…€‚Íƒ|[ƒg0xD8,D9‚ÅƒAƒNƒZƒX‚µA‘æ“ñ…€‚Íƒ|[ƒg0xDA,DB‚ÅƒAƒNƒZƒX‚µ‚Ü‚·B
- * ‚±‚Ì‚Ég—p‚·‚éƒAƒhƒŒƒX‚ÍAuŠ¿š”Ô†v‚ÆŒÄ‚Î‚ê‚é‚à‚Ì‚ÅAˆÈ‰º‚ÌŒvZ®‚Å‹‚ß‚ç‚ê‚Ü‚·B
- * 
- * # Š¿š”Ô†
- * Š¿šROM‚ÌŠ¿š”Ô†‚ÍAJIS‚Ì‹å“_ƒR[ƒh‚»‚Ì‚à‚Ì‚Å‚Í‚È‚¢‚½‚ßA•ÏŠ·‚ª•K—v‚Å‚·B
- * MSX Datapack Volume 1 P.306‚Ì•ÏŠ·®‚ğˆø—p‚µ‚Ü‚·B
- * * ‘æˆê…€: 1‹æ-15‹æ‚Ü‚Å (”ñŠ¿š—ÌˆæBÀÛ‚Í10‹æˆÈ~‚Í‘æˆê…€‚ÌŠ¿š”Ô†‚Æ”í‚é‚Ì‚ÅA8‹æ‚Ü‚Å‚µ‚©û˜^‚³‚ê‚Ä‚¢‚È‚¢‚Æv‚í‚ê‚é)
- * 		* ‹æ”Ô† * 96 + “_”Ô†
- * * ‘æˆê…€: 16‹æ-47‹æ‚Ü‚Å (Š¿š—Ìˆæ)
- * 		* ‹æ”Ô† * 96 + “_”Ô† - 512
- * * ‘æ“ñ…€: 48‹æ-84‹æ‚Ü‚Å
- * 		* (‹æ”Ô† - 48) * 96 + “_”Ô†
- * ‚±‚ê‚É‚æ‚Á‚Äo‚Ä‚«‚½Š¿š”Ô†‚ğuãˆÊ6bitvu‰ºˆÊ6bitv‚É•ª‚¯‚ÄAƒ|[ƒg‚É‘‚«‚Ş‚±‚Æ‚Å
- * Š¿šROM‚©‚çŠ¿š‚ğ“Ç‚İo‚·‚±‚Æ‚ª‚Å‚«‚Ü‚·B
- * 
- * # ROMƒTƒCƒY
- * ‘æˆê…€‚ÌROM‚ÍA47‹æ94“_‚ªÅŒã‚Å‚·B‚±‚ÌŠ¿š‚ÌŠ¿š”Ô†‚ÍA47*96 + 94 - 512 = 4094‚Å‚·B
- * Š¿š1•¶š‚É32ƒoƒCƒg‚ª•K—v‚È‚Ì‚ÅA4094 * 32 + 32 = 131040ƒoƒCƒg = 0x1ffe0ƒoƒCƒg‚Å‚·B
- * 
- * ‘æ“ñ…€‚Í 0x20000ƒoƒCƒg‚©‚çn‚Ü‚è‚Ü‚·B84‹æ94“_‚ªÅŒã‚ÅAŠ¿š”Ô†‚ÍA(84-48) * 96 + 94 = 3550‚Å‚·B
- * Š¿š1•¶š‚É32ƒoƒCƒg‚ª•K—v‚È‚Ì‚ÅA3550 * 32 + 32 = 113632ƒoƒCƒg = 0x1bfe0ƒoƒCƒg‚Å‚·B
- * 
- * ‚±‚Ì‚æ‚¤‚ÉA‚»‚ê‚¼‚ê128KBA‡Œv‚Å256KB‚ÌROM‚ª•K—v‚Å‚·B
- * 
- * # ƒpƒ^[ƒ“‚ÌŠi”[‡
- * MSX‚ÌŠ¿šROM‚ÍA1•¶š‚ª16x16ƒhƒbƒg‚ÅA1•¶š‚ ‚½‚è32ƒoƒCƒg‚Å‚·B
- * 1•¶š‚ÍA¶8bit‚Æ‰E8bit‚É•ª‚©‚ê‚ÄŠi”[‚³‚ê‚Ä‚¢‚ÄA•À‚Ñ‡‚ÍA
- * * ¶ã
- * * ‰Eã
- * * ¶‰º
- * * ‰E‰º
- * ‚Ì‡‚ÉŠi”[‚³‚ê‚Ä‚¢‚Ü‚·B
- * 
- * # X68000‚ÌCGROM‚©‚ç‚Ì•ÏŠ·
- * X68000‚ÌCGROM‚É‚ÍAˆÈ‰º‚Ì‚æ‚¤‚É3‚Â‚Ì—Ìˆæ‚É•ª‚©‚ê‚ÄƒtƒHƒ“ƒgƒf[ƒ^‚ªŠi”[‚³‚ê‚Ä‚¢‚Ü‚·B
- * Inside X68000 P.219‚Ì•\‚ğQl‚É‚µ‚Ü‚·B
- * 
- * * 0xf00000-0xf05dff: ‘æˆê…€-”ñŠ¿š—Ìˆæ	(1‹æ-8‹æ)
- * 		* JISƒR[ƒhãˆÊ: $21-$28 (1‹æ-8‹æ)
- * 		* JISƒR[ƒh‰ºˆÊ: $21-$7e (1“_-94“_)
- * * 0xf05e00-0xf1d5ff: ‘æˆê…€-Š¿š—Ìˆæ 	(16‹æ-47‹æ)
- * 		* JISƒR[ƒhãˆÊ: $30-$4f (16‹æ-47‹æ)
- * 		* JISƒR[ƒh‰ºˆÊ: $21-$7e
- * * 0xf1d600-0xf388bf: ‘æ“ñ…€-Š¿š—Ìˆæ	(48‹æ-84‹æ)
- * 		* JISƒR[ƒhãˆÊ: $50-$74 (48‹æ-84‹æ)
- * 		* JISƒR[ƒh‰ºˆÊ: $21-$7e
- * 
- * # MSX‚ÌŠ¿šROM‚Ìƒ`ƒFƒbƒNƒTƒ€
- * MSX‚ÌŠ¿šROM‚ÍA³‚µ‚¢Š¿šROM‚©‚Ç‚¤‚©‚ğƒ`ƒFƒbƒN‚·‚é‚½‚ß‚ÉAˆÈ‰º‚Ìƒ`ƒFƒbƒNƒTƒ€‚ğg‚¢‚Ü‚·B
- * * ‘æˆê…€
- *  ‘æˆê…€‚ÌROM‚Í JISƒR[ƒh 2140H (1‹æ32“_)‚Ì¶ã‚Ì8x8—Ìˆæ‚ªAˆÈ‰º‚Ìƒpƒ^[ƒ“‚É‚È‚Á‚Ä‚¢‚é‚©‚ğƒ`ƒFƒbƒN‚µ‚Ü‚·B
- * 
+ * MSXã®æ¼¢å­—ROMã¯å¤§ããã€ç¬¬ä¸€æ°´æº–ã¨ç¬¬äºŒæ°´æº–ã«åˆ†ã‹ã‚Œã¦ã„ã¾ã™ã€‚
+ * ç¬¬ä¸€æ°´æº–ã¯ãƒãƒ¼ãƒˆ0xD8,D9ã§ã‚¢ã‚¯ã‚»ã‚¹ã—ã€ç¬¬äºŒæ°´æº–ã¯ãƒãƒ¼ãƒˆ0xDA,DBã§ã‚¢ã‚¯ã‚»ã‚¹ã—ã¾ã™ã€‚
+ * ã“ã®æ™‚ã«ä½¿ç”¨ã™ã‚‹ã‚¢ãƒ‰ãƒ¬ã‚¹ã¯ã€ã€Œæ¼¢å­—ç•ªå·ã€ã¨å‘¼ã°ã‚Œã‚‹ã‚‚ã®ã§ã€ä»¥ä¸‹ã®è¨ˆç®—å¼ã§æ±‚ã‚ã‚‰ã‚Œã¾ã™ã€‚
+ *
+ * # æ¼¢å­—ç•ªå·
+ * æ¼¢å­—ROMã®æ¼¢å­—ç•ªå·ã¯ã€JISã®å¥ç‚¹ã‚³ãƒ¼ãƒ‰ãã®ã‚‚ã®ã§ã¯ãªã„ãŸã‚ã€å¤‰æ›ãŒå¿…è¦ã§ã™ã€‚
+ * MSX Datapack Volume 1 P.306ã®å¤‰æ›å¼ã‚’å¼•ç”¨ã—ã¾ã™ã€‚
+ * * ç¬¬ä¸€æ°´æº–: 1åŒº-15åŒºã¾ã§ (éæ¼¢å­—é ˜åŸŸã€‚å®Ÿéš›ã¯10åŒºä»¥é™ã¯ç¬¬ä¸€æ°´æº–ã®æ¼¢å­—ç•ªå·ã¨è¢«ã‚‹ã®ã§ã€8åŒºã¾ã§ã—ã‹åéŒ²ã•ã‚Œã¦ã„ãªã„ã¨æ€ã‚ã‚Œã‚‹)
+ * 		* åŒºç•ªå· * 96 + ç‚¹ç•ªå·
+ * * ç¬¬ä¸€æ°´æº–: 16åŒº-47åŒºã¾ã§ (æ¼¢å­—é ˜åŸŸ)
+ * 		* åŒºç•ªå· * 96 + ç‚¹ç•ªå· - 512
+ * * ç¬¬äºŒæ°´æº–: 48åŒº-84åŒºã¾ã§
+ * 		* (åŒºç•ªå· - 48) * 96 + ç‚¹ç•ªå·
+ * ã“ã‚Œã«ã‚ˆã£ã¦å‡ºã¦ããŸæ¼¢å­—ç•ªå·ã‚’ã€Œä¸Šä½6bitã€ã€Œä¸‹ä½6bitã€ã«åˆ†ã‘ã¦ã€ãƒãƒ¼ãƒˆã«æ›¸ãè¾¼ã‚€ã“ã¨ã§
+ * æ¼¢å­—ROMã‹ã‚‰æ¼¢å­—ã‚’èª­ã¿å‡ºã™ã“ã¨ãŒã§ãã¾ã™ã€‚
+ *
+ * # ROMã‚µã‚¤ã‚º
+ * ç¬¬ä¸€æ°´æº–ã®ROMã¯ã€47åŒº94ç‚¹ãŒæœ€å¾Œã§ã™ã€‚ã“ã®æ¼¢å­—ã®æ¼¢å­—ç•ªå·ã¯ã€47*96 + 94 - 512 = 4094ã§ã™ã€‚
+ * æ¼¢å­—1æ–‡å­—ã«32ãƒã‚¤ãƒˆãŒå¿…è¦ãªã®ã§ã€4094 * 32 + 32 = 131040ãƒã‚¤ãƒˆ = 0x1ffe0ãƒã‚¤ãƒˆã§ã™ã€‚
+ *
+ * ç¬¬äºŒæ°´æº–ã¯ 0x20000ãƒã‚¤ãƒˆã‹ã‚‰å§‹ã¾ã‚Šã¾ã™ã€‚84åŒº94ç‚¹ãŒæœ€å¾Œã§ã€æ¼¢å­—ç•ªå·ã¯ã€(84-48) * 96 + 94 = 3550ã§ã™ã€‚
+ * æ¼¢å­—1æ–‡å­—ã«32ãƒã‚¤ãƒˆãŒå¿…è¦ãªã®ã§ã€3550 * 32 + 32 = 113632ãƒã‚¤ãƒˆ = 0x1bfe0ãƒã‚¤ãƒˆã§ã™ã€‚
+ *
+ * ã“ã®ã‚ˆã†ã«ã€ãã‚Œãã‚Œ128KBã€åˆè¨ˆã§256KBã®ROMãŒå¿…è¦ã§ã™ã€‚
+ *
+ * # ãƒ‘ã‚¿ãƒ¼ãƒ³ã®æ ¼ç´é †
+ * MSXã®æ¼¢å­—ROMã¯ã€1æ–‡å­—ãŒ16x16ãƒ‰ãƒƒãƒˆã§ã€1æ–‡å­—ã‚ãŸã‚Š32ãƒã‚¤ãƒˆã§ã™ã€‚
+ * 1æ–‡å­—ã¯ã€å·¦8bitã¨å³8bitã«åˆ†ã‹ã‚Œã¦æ ¼ç´ã•ã‚Œã¦ã„ã¦ã€ä¸¦ã³é †ã¯ã€
+ * * å·¦ä¸Š
+ * * å³ä¸Š
+ * * å·¦ä¸‹
+ * * å³ä¸‹
+ * ã®é †ã«æ ¼ç´ã•ã‚Œã¦ã„ã¾ã™ã€‚
+ *
+ * # X68000ã®CGROMã‹ã‚‰ã®å¤‰æ›
+ * X68000ã®CGROMã«ã¯ã€ä»¥ä¸‹ã®ã‚ˆã†ã«3ã¤ã®é ˜åŸŸã«åˆ†ã‹ã‚Œã¦ãƒ•ã‚©ãƒ³ãƒˆãƒ‡ãƒ¼ã‚¿ãŒæ ¼ç´ã•ã‚Œã¦ã„ã¾ã™ã€‚
+ * Inside X68000 P.219ã®è¡¨ã‚’å‚è€ƒã«ã—ã¾ã™ã€‚
+ *
+ * * 0xf00000-0xf05dff: ç¬¬ä¸€æ°´æº–-éæ¼¢å­—é ˜åŸŸ	(1åŒº-8åŒº)
+ * 		* JISã‚³ãƒ¼ãƒ‰ä¸Šä½: $21-$28 (1åŒº-8åŒº)
+ * 		* JISã‚³ãƒ¼ãƒ‰ä¸‹ä½: $21-$7e (1ç‚¹-94ç‚¹)
+ * * 0xf05e00-0xf1d5ff: ç¬¬ä¸€æ°´æº–-æ¼¢å­—é ˜åŸŸ 	(16åŒº-47åŒº)
+ * 		* JISã‚³ãƒ¼ãƒ‰ä¸Šä½: $30-$4f (16åŒº-47åŒº)
+ * 		* JISã‚³ãƒ¼ãƒ‰ä¸‹ä½: $21-$7e
+ * * 0xf1d600-0xf388bf: ç¬¬äºŒæ°´æº–-æ¼¢å­—é ˜åŸŸ	(48åŒº-84åŒº)
+ * 		* JISã‚³ãƒ¼ãƒ‰ä¸Šä½: $50-$74 (48åŒº-84åŒº)
+ * 		* JISã‚³ãƒ¼ãƒ‰ä¸‹ä½: $21-$7e
+ *
+ * # MSXã®æ¼¢å­—ROMã®ãƒã‚§ãƒƒã‚¯ã‚µãƒ 
+ * MSXã®æ¼¢å­—ROMã¯ã€æ­£ã—ã„æ¼¢å­—ROMã‹ã©ã†ã‹ã‚’ãƒã‚§ãƒƒã‚¯ã™ã‚‹ãŸã‚ã«ã€ä»¥ä¸‹ã®ãƒã‚§ãƒƒã‚¯ã‚µãƒ ã‚’ä½¿ã„ã¾ã™ã€‚
+ * * ç¬¬ä¸€æ°´æº–
+ *  ç¬¬ä¸€æ°´æº–ã®ROMã¯ JISã‚³ãƒ¼ãƒ‰ 2140H (1åŒº32ç‚¹)ã®å·¦ä¸Šã®8x8é ˜åŸŸãŒã€ä»¥ä¸‹ã®ãƒ‘ã‚¿ãƒ¼ãƒ³ã«ãªã£ã¦ã„ã‚‹ã‹ã‚’ãƒã‚§ãƒƒã‚¯ã—ã¾ã™ã€‚
+ *
  *	00000000
  *	01000000
  *	00100000
@@ -140,131 +139,116 @@ void ms_kanjirom_alt_deinit(ms_kanjirom_alt_t* instance, ms_iomap_t* iomap) {
  *	00000010
  *	00000001
  *
- * * ‘æ“ñ…€
- * ‘æ“ñ…€‚ÌROM‚Í JISƒR[ƒh 737EH (83‹æ94“_)‚Ì¶ã‚Ì8x8—Ìˆæ‚Ìƒ`ƒFƒNƒTƒ€‚ª 95H ‚É‚È‚Á‚Ä‚¢‚é‚©‚ğƒ`ƒFƒbƒN‚µ‚Ü‚·B
- * —á:
+ * * ç¬¬äºŒæ°´æº–
+ * ç¬¬äºŒæ°´æº–ã®ROMã¯ JISã‚³ãƒ¼ãƒ‰ 737EH (83åŒº94ç‚¹)ã®å·¦ä¸Šã®8x8é ˜åŸŸã®ãƒã‚§ã‚¯ã‚µãƒ ãŒ 95H ã«ãªã£ã¦ã„ã‚‹ã‹ã‚’ãƒã‚§ãƒƒã‚¯ã—ã¾ã™ã€‚
+ * ä¾‹:
  *  01 02 0c 37 c0 3b 2a 2a
- * 
+ *
  */
 
-// ‘æˆê…€
+// ç¬¬ä¸€æ°´æº–
 
 /**
- * @brief ‘æˆê…€ROM‚ÌŠ¿š”Ô†(‘Oq)‚Ì‰ºˆÊƒAƒhƒŒƒX6bit (addr1‚Ìbit10-bit5) ‚ğƒZƒbƒg‚µ‚Ü‚·B
- * Š¿šƒƒ€‚Í1•¶š‚ª16x16ƒhƒbƒg‚ÅA1•¶š‚ ‚½‚è32ƒoƒCƒg‚Å‚·B
- * ‚»‚Ì‚½‚ßAaddr1‚Ì‰ºˆÊ6bit‚Í0x20‚²‚Æ‚ÉØ‚è‘Ö‚í‚è‚Ü‚·B
- * 
- * @param data 
+ * @brief ç¬¬ä¸€æ°´æº–ROMã®æ¼¢å­—ç•ªå·(å‰è¿°)ã®ä¸‹ä½ã‚¢ãƒ‰ãƒ¬ã‚¹6bit (addr1ã®bit10-bit5) ã‚’ã‚»ãƒƒãƒˆã—ã¾ã™ã€‚
+ * æ¼¢å­—ãƒ­ãƒ ã¯1æ–‡å­—ãŒ16x16ãƒ‰ãƒƒãƒˆã§ã€1æ–‡å­—ã‚ãŸã‚Š32ãƒã‚¤ãƒˆã§ã™ã€‚
+ * ãã®ãŸã‚ã€addr1ã®ä¸‹ä½6bitã¯0x20ã”ã¨ã«åˆ‡ã‚Šæ›¿ã‚ã‚Šã¾ã™ã€‚
+ *
+ * @param data
  */
 static void _write_kanji_D8(ms_ioport_t* ioport, uint8_t port, uint8_t data) {
-	THIS* instance = (THIS*)ioport->instance;
-	instance->k1_num = (instance->k1_num & 0xffc0) | (data & 0x3f);	// ‰ºˆÊ6bit‚ğXV
-	instance->k1_line = 0;
+    THIS* instance = (THIS*)ioport->instance;
+    instance->k1_num = (instance->k1_num & 0xffc0) | (data & 0x3f);  // ä¸‹ä½6bitã‚’æ›´æ–°
+    instance->k1_line = 0;
 }
 
 /**
- * @brief ‘æˆê…€ROM‚ÌŠ¿š”Ô†(‘Oq)‚ÌãˆÊƒAƒhƒŒƒX6bit (addr1‚Ìbit16-bit11) ‚ğƒZƒbƒg‚µ‚Ü‚·B
- * 
- * @param data 
+ * @brief ç¬¬ä¸€æ°´æº–ROMã®æ¼¢å­—ç•ªå·(å‰è¿°)ã®ä¸Šä½ã‚¢ãƒ‰ãƒ¬ã‚¹6bit (addr1ã®bit16-bit11) ã‚’ã‚»ãƒƒãƒˆã—ã¾ã™ã€‚
+ *
+ * @param data
  */
 static void _write_kanji_D9(ms_ioport_t* ioport, uint8_t port, uint8_t data) {
-	THIS* instance = (THIS*)ioport->instance;
-	instance->k1_num =  (((uint16_t)data & 0x3f) << 6) | (instance->k1_num & 0x003f);	// ãˆÊ6bit‚ğXV
-	instance->k1_line = 0;
+    THIS* instance = (THIS*)ioport->instance;
+    instance->k1_num = (((uint16_t)data & 0x3f) << 6) | (instance->k1_num & 0x003f);  // ä¸Šä½6bitã‚’æ›´æ–°
+    instance->k1_line = 0;
 }
 
 static uint8_t _read_kanji_D8(ms_ioport_t* ioport, uint8_t port) {
-	return 0xff;
+    return 0xff;
 }
 
 static uint8_t _read_kanji_D9(ms_ioport_t* ioport, uint8_t port) {
-	THIS* instance = (THIS*)ioport->instance;
-	int knum = instance->k1_num;
-	int line = instance->k1_line;
-	int ku;
-	int ten;
-	uint16_t pattern;
-	if( knum < 16*96-512 ) {
-		// ”ñŠ¿š—Ìˆæ
-		ku = knum / 96 - 1;
-		ten = knum % 96 - 1;
-		pattern = CGROM_KANJI_KIGO[(ku * 94 + ten)*16+(line%8)+(line/16)*8];
-		if ( ku = 0 && ten == 31 && (line < 8)) {
-			// 1‹æ32“_‚Ì¶ã‚Ì8x8—Ìˆæ
-			uint8_t check[8] = {
-				0b00000000,
-				0b01000000,
-				0b00100000,
-				0b00010000,
-				0b00001000,
-				0b00000100,
-				0b00000010,
-				0b00000001
-			};
-			pattern = (check[line] << 8) | (pattern & 0xff);
-		}
-	} else {
-		// Š¿š—Ìˆæ
-		knum += 512;
-		ku = knum / 96 - 16;
-		ten = knum % 96 - 1;
-		pattern = CGROM_KANJI_LEVEL1[(ku * 94 + ten)*16+(line%8)+(line/16)*8];
-	}
-	uint8_t ret = ((line & 8) == 0) ? (pattern >> 8) & 0xff : (pattern >> 0) & 0xff;
-	// ƒ‰ƒCƒ“”Ô†‚ğƒCƒ“ƒNƒŠƒƒ“ƒg
-	instance->k1_line = (line + 1) % 32;
-	return ret;
+    THIS* instance = (THIS*)ioport->instance;
+    int knum = instance->k1_num;
+    int line = instance->k1_line;
+    int ku;
+    int ten;
+    uint16_t pattern;
+    if (knum < 16 * 96 - 512) {
+        // éæ¼¢å­—é ˜åŸŸ
+        ku = knum / 96 - 1;
+        ten = knum % 96 - 1;
+        pattern = CGROM_KANJI_KIGO[(ku * 94 + ten) * 16 + (line % 8) + (line / 16) * 8];
+        if (ku = 0 && ten == 31 && (line < 8)) {
+            // 1åŒº32ç‚¹ã®å·¦ä¸Šã®8x8é ˜åŸŸ
+            uint8_t check[8] = {0b00000000, 0b01000000, 0b00100000, 0b00010000, 0b00001000, 0b00000100, 0b00000010, 0b00000001};
+            pattern = (check[line] << 8) | (pattern & 0xff);
+        }
+    } else {
+        // æ¼¢å­—é ˜åŸŸ
+        knum += 512;
+        ku = knum / 96 - 16;
+        ten = knum % 96 - 1;
+        pattern = CGROM_KANJI_LEVEL1[(ku * 94 + ten) * 16 + (line % 8) + (line / 16) * 8];
+    }
+    uint8_t ret = ((line & 8) == 0) ? (pattern >> 8) & 0xff : (pattern >> 0) & 0xff;
+    // ãƒ©ã‚¤ãƒ³ç•ªå·ã‚’ã‚¤ãƒ³ã‚¯ãƒªãƒ¡ãƒ³ãƒˆ
+    instance->k1_line = (line + 1) % 32;
+    return ret;
 }
 
-
-// ‘æ“ñ…€
+// ç¬¬äºŒæ°´æº–
 static void _write_kanji_DA(ms_ioport_t* ioport, uint8_t port, uint8_t data) {
-	THIS* instance = (THIS*)ioport->instance;
-	instance->k2_num = (instance->k2_num & 0xffc0) | (data & 0x3f);	// ‰ºˆÊ6bit‚ğXV
-	instance->k2_line = 0;
+    THIS* instance = (THIS*)ioport->instance;
+    instance->k2_num = (instance->k2_num & 0xffc0) | (data & 0x3f);  // ä¸‹ä½6bitã‚’æ›´æ–°
+    instance->k2_line = 0;
 }
 
 static void _write_kanji_DB(ms_ioport_t* ioport, uint8_t port, uint8_t data) {
-	THIS* instance = (THIS*)ioport->instance;
-	instance->k2_num =  ((uint16_t)data & 0x3f) << 6 | (instance->k2_num & 0x003f);	// ãˆÊ6bit‚ğXV
-	instance->k2_line = 0;
+    THIS* instance = (THIS*)ioport->instance;
+    instance->k2_num = ((uint16_t)data & 0x3f) << 6 | (instance->k2_num & 0x003f);  // ä¸Šä½6bitã‚’æ›´æ–°
+    instance->k2_line = 0;
 }
 
 static uint8_t _read_kanji_DA(ms_ioport_t* ioport, uint8_t port) {
-	return 0xff;
+    return 0xff;
 }
-
 
 static uint8_t _read_kanji_DB(ms_ioport_t* ioport, uint8_t port) {
-	THIS* instance = (THIS*)ioport->instance;
-	int knum = instance->k2_num;
-	int line = instance->k2_line;
-	int ku;
-	int ten;
-	uint16_t pattern;
+    THIS* instance = (THIS*)ioport->instance;
+    int knum = instance->k2_num;
+    int line = instance->k2_line;
+    int ku;
+    int ten;
+    uint16_t pattern;
 
-	ku = knum / 96;
-	ten = knum % 96 - 1;
-	pattern = CGROM_KANJI_LEVEL2[(ku * 94 + ten)*16+(line%8)+(line/16)*8];
-	if ( (ku == 35) && (ten == 93) && (line < 8)) {
-		// 83‹æ94“_‚Ì¶ã‚Ì8x8—Ìˆæ
-		// ‹æ = 83-48 = 35
-		// “_ = 0x7e - 0x20 = 0x5e = 94
-		// Š¿š”Ô† = 35 * 96 + 94 = 3454 = 0xd7e
-		//   ãˆÊ6bit = 0x35
-		//   ‰ºˆÊ6bit = 0x3e
-		//
-		// ku  = 3454 / 96 - 48 = 35
-		// ten = 3454 % 96 -  1 = 93
-		uint8_t check[8] = {
-			0x01, 0x02, 0x0c, 0x37, 0xc0, 0x3b, 0x2a, 0x2a
-		};
-		pattern = (check[line] << 8) | (pattern & 0xff);
-	}
-	uint8_t ret = ((line & 8) == 0) ? (pattern >> 8) & 0xff : (pattern >> 0) & 0xff;
-	// ƒ‰ƒCƒ“”Ô†‚ğƒCƒ“ƒNƒŠƒƒ“ƒg
-	instance->k2_line = (line + 1) % 32;
-	return ret;
+    ku = knum / 96;
+    ten = knum % 96 - 1;
+    pattern = CGROM_KANJI_LEVEL2[(ku * 94 + ten) * 16 + (line % 8) + (line / 16) * 8];
+    if ((ku == 35) && (ten == 93) && (line < 8)) {
+        // 83åŒº94ç‚¹ã®å·¦ä¸Šã®8x8é ˜åŸŸ
+        // åŒº = 83-48 = 35
+        // ç‚¹ = 0x7e - 0x20 = 0x5e = 94
+        // æ¼¢å­—ç•ªå· = 35 * 96 + 94 = 3454 = 0xd7e
+        //   ä¸Šä½6bit = 0x35
+        //   ä¸‹ä½6bit = 0x3e
+        //
+        // ku  = 3454 / 96 - 48 = 35
+        // ten = 3454 % 96 -  1 = 93
+        uint8_t check[8] = {0x01, 0x02, 0x0c, 0x37, 0xc0, 0x3b, 0x2a, 0x2a};
+        pattern = (check[line] << 8) | (pattern & 0xff);
+    }
+    uint8_t ret = ((line & 8) == 0) ? (pattern >> 8) & 0xff : (pattern >> 0) & 0xff;
+    // ãƒ©ã‚¤ãƒ³ç•ªå·ã‚’ã‚¤ãƒ³ã‚¯ãƒªãƒ¡ãƒ³ãƒˆ
+    instance->k2_line = (line + 1) % 32;
+    return ret;
 }
-
-

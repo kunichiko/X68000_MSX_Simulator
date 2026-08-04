@@ -1,6 +1,7 @@
+#include <stdint.h>
 #include <stdio.h>
 #include <stdlib.h>
-#include <stdint.h>
+
 #include "ms_vdp.h"
 
 int init_DEFAULT(ms_vdp_t* vdp);
@@ -15,237 +16,234 @@ char* get_mode_name_DEFAULT(ms_vdp_t* vdp);
 void update_resolution_DEFAULT(ms_vdp_t* vdp);
 void vsync_draw_DEFAULT(ms_vdp_t* vdp);
 
-
 ms_vdp_mode_t ms_vdp_DEFAULT = {
-	// int init_DEFAULT(ms_vdp_t* vdp);
-	init_DEFAULT,
-	// uint8_t read_vram_DEFAULT(ms_vdp_t* vdp);
-	read_vram_DEFAULT,
-	// void write_vram_DEFAULT(ms_vdp_t* vdp, uint8_t data);
-	write_vram_DEFAULT,
-	// void (*update_palette)(ms_vdp_t* vdp);
-	update_palette_DEFAULT,
-	// void update_pnametbl_baddr_DEFAULT(ms_vdp_t* vdp);
-	update_pnametbl_baddr_DEFAULT,
-	// void update_colortbl_baddr_DEFAULT(ms_vdp_t* vdp);
-	update_colortbl_baddr_DEFAULT,
-	// void update_pgentbl_baddr_DEFAULT(ms_vdp_t* vdp);
-	update_pgentbl_baddr_DEFAULT,
-	// void update_sprattrtbl_baddr_MODE1(ms_vdp_t* vdp);
-	update_sprattrtbl_baddr_MODE1,
-	// void update_sprpgentbl_baddr_MODE1(ms_vdp_t* vdp);
-	update_sprpgentbl_baddr_MODE1,
-	// void update_r7_color_DEFAULT(ms_vdp_t* vdp, uint8_t data);
-	update_r7_color_DEFAULT,
-	// char* get_mode_name_DEFAULT(ms_vdp_t* vdp);
-	get_mode_name_DEFAULT,
-	// void vdp_command_exec_DEFAULT(ms_vdp_t* vdp, uint8_t cmd);
-	vdp_command_exec_NONE,
-	// uint8_t vdp_command_read_DEFAULT(ms_vdp_t* vdp);
-	vdp_command_read_NONE,
-	// void vdp_command_write_DEFAULT(ms_vdp_t* vdp, uint8_t cmd);
-	vdp_command_write_NONE,
-	// void (*update_resolution)(ms_vdp_t* vdp);
-	update_resolution_DEFAULT,
-	// void vsync_draw(ms_vdp_t* vdp);
-	vsync_draw_NONE,
-	// sprite mode
-	0
-};
-
+    // int init_DEFAULT(ms_vdp_t* vdp);
+    init_DEFAULT,
+    // uint8_t read_vram_DEFAULT(ms_vdp_t* vdp);
+    read_vram_DEFAULT,
+    // void write_vram_DEFAULT(ms_vdp_t* vdp, uint8_t data);
+    write_vram_DEFAULT,
+    // void (*update_palette)(ms_vdp_t* vdp);
+    update_palette_DEFAULT,
+    // void update_pnametbl_baddr_DEFAULT(ms_vdp_t* vdp);
+    update_pnametbl_baddr_DEFAULT,
+    // void update_colortbl_baddr_DEFAULT(ms_vdp_t* vdp);
+    update_colortbl_baddr_DEFAULT,
+    // void update_pgentbl_baddr_DEFAULT(ms_vdp_t* vdp);
+    update_pgentbl_baddr_DEFAULT,
+    // void update_sprattrtbl_baddr_MODE1(ms_vdp_t* vdp);
+    update_sprattrtbl_baddr_MODE1,
+    // void update_sprpgentbl_baddr_MODE1(ms_vdp_t* vdp);
+    update_sprpgentbl_baddr_MODE1,
+    // void update_r7_color_DEFAULT(ms_vdp_t* vdp, uint8_t data);
+    update_r7_color_DEFAULT,
+    // char* get_mode_name_DEFAULT(ms_vdp_t* vdp);
+    get_mode_name_DEFAULT,
+    // void vdp_command_exec_DEFAULT(ms_vdp_t* vdp, uint8_t cmd);
+    vdp_command_exec_NONE,
+    // uint8_t vdp_command_read_DEFAULT(ms_vdp_t* vdp);
+    vdp_command_read_NONE,
+    // void vdp_command_write_DEFAULT(ms_vdp_t* vdp, uint8_t cmd);
+    vdp_command_write_NONE,
+    // void (*update_resolution)(ms_vdp_t* vdp);
+    update_resolution_DEFAULT,
+    // void vsync_draw(ms_vdp_t* vdp);
+    vsync_draw_NONE,
+    // sprite mode
+    0};
 
 int init_DEFAULT(ms_vdp_t* vdp) {
 }
 
 uint8_t read_vram_DEFAULT(ms_vdp_t* vdp) {
-	uint8_t ret = vdp->vram[vdp->vram_addr];
-	vdp->vram_addr = (vdp->vram_addr + 1) & 0x1ffff;
-	return ret;
+    uint8_t ret = vdp->vram[vdp->vram_addr];
+    vdp->vram_addr = (vdp->vram_addr + 1) & 0x1ffff;
+    return ret;
 }
 
 void write_vram_DEFAULT(ms_vdp_t* vdp, uint8_t data) {
-	vdp->vram[vdp->vram_addr] = data;
-	vdp->vram_addr = (vdp->vram_addr + 1) & 0x1ffff;
+    vdp->vram[vdp->vram_addr] = data;
+    vdp->vram_addr = (vdp->vram_addr + 1) & 0x1ffff;
 }
 
 /*
 *
-*	ƒpƒŒƒbƒg‚O‚ÍƒoƒbƒNƒhƒƒbƒv‚Ég—p‚³‚ê‚½‚Ì‚İ—LŒøB|„‚a‚f‚ÌƒpƒŒƒbƒg‚P‚ÉƒZƒbƒg‚·‚éB
-*	¨TODO ƒoƒbƒNƒhƒƒbƒv‚ÉBG‚ğg‚¤‚Ì‚ğ‚â‚ß‚½‚Ì‚Ål‚¦’¼‚·
+*	ãƒ‘ãƒ¬ãƒƒãƒˆï¼ã¯ãƒãƒƒã‚¯ãƒ‰ãƒ­ãƒƒãƒ—ã«ä½¿ç”¨ã•ã‚ŒãŸæ™‚ã®ã¿æœ‰åŠ¹ã€‚ï¼ï¼ï¼¢ï¼§ã®ãƒ‘ãƒ¬ãƒƒãƒˆï¼‘ã«ã‚»ãƒƒãƒˆã™ã‚‹ã€‚
+*	â†’TODO ãƒãƒƒã‚¯ãƒ‰ãƒ­ãƒƒãƒ—ã«BGã‚’ä½¿ã†ã®ã‚’ã‚„ã‚ãŸã®ã§è€ƒãˆç›´ã™
 *
 
-	lea.l	P_0,a0
-	lea.l	$E82220+2,a1			* ‚a‚f—p‚ÌƒpƒŒƒbƒg
+        lea.l	P_0,a0
+        lea.l	$E82220+2,a1			* ï¼¢ï¼§ç”¨ã®ãƒ‘ãƒ¬ãƒƒãƒˆ
 
-	move.w	back_color,d0
-	add.w	d0,d0
-	move.w	0(a0,d0.w),(a1)			* a0 ‚Í P_0 ‚ÌƒAƒhƒŒƒX‚ª“ü‚Á‚Ä‚¢‚é
+        move.w	back_color,d0
+        add.w	d0,d0
+        move.w	0(a0,d0.w),(a1)			* a0 ã¯ P_0 ã®ã‚¢ãƒ‰ãƒ¬ã‚¹ãŒå…¥ã£ã¦ã„ã‚‹
 
-	lea.l	2(a0),a0
-	move.w	#15-1,d0
-	lea.l	g_palette+2,a1			* ƒOƒ‰ƒtƒBƒbƒN—p‚ÌƒpƒŒƒbƒg
-	lea.l	t_palette+32+2,a2		* ƒXƒvƒ‰ƒCƒg—p‚ÌƒpƒŒƒbƒg(0x10?0x1f‚ğg—p)
+        lea.l	2(a0),a0
+        move.w	#15-1,d0
+        lea.l	g_palette+2,a1			* ã‚°ãƒ©ãƒ•ã‚£ãƒƒã‚¯ç”¨ã®ãƒ‘ãƒ¬ãƒƒãƒˆ
+        lea.l	t_palette+32+2,a2		* ã‚¹ãƒ—ãƒ©ã‚¤ãƒˆç”¨ã®ãƒ‘ãƒ¬ãƒƒãƒˆ(0x10?0x1fã‚’ä½¿ç”¨)
 @@:	move.w	(a0),(a1)+
-	move.w	(a0)+,(a2)+
-	dbra	d0,@b
+        move.w	(a0)+,(a2)+
+        dbra	d0,@b
 
-	rts*/
+        rts*/
 inline uint16_t diff_color(uint16_t color1, uint16_t color2) {
-	uint16_t diff = 0;
-	uint16_t r1,g1,b1;
-	uint16_t r2,g2,b2;
-	uint16_t r_diff,g_diff,b_diff;
-	g1 = (color1 & 0b1111100000000000) >> 11;
-	r1 = (color1 & 0b0000011111000000) >> 6;
-	b1 = (color1 & 0b0000000000111110) >> 1;
-	g2 = (color2 & 0b1111100000000000) >> 11;
-	r2 = (color2 & 0b0000011111000000) >> 6;
-	b2 = (color2 & 0b0000000000111110) >> 1;
-	g_diff = g1 > g2 ? g1 - g2 : g2 - g1;
-	r_diff = r1 > r2 ? r1 - r2 : r2 - r1;
-	b_diff = b1 > b2 ? b1 - b2 : b2 - b1;
-	return g_diff + r_diff + b_diff;
+    uint16_t diff = 0;
+    uint16_t r1, g1, b1;
+    uint16_t r2, g2, b2;
+    uint16_t r_diff, g_diff, b_diff;
+    g1 = (color1 & 0b1111100000000000) >> 11;
+    r1 = (color1 & 0b0000011111000000) >> 6;
+    b1 = (color1 & 0b0000000000111110) >> 1;
+    g2 = (color2 & 0b1111100000000000) >> 11;
+    r2 = (color2 & 0b0000011111000000) >> 6;
+    b2 = (color2 & 0b0000000000111110) >> 1;
+    g_diff = g1 > g2 ? g1 - g2 : g2 - g1;
+    r_diff = r1 > r2 ? r1 - r2 : r2 - r1;
+    b_diff = b1 > b2 ? b1 - b2 : b2 - b1;
+    return g_diff + r_diff + b_diff;
 }
 
 void update_palette_DEFAULT(ms_vdp_t* vdp) {
-	int i;
-	uint16_t back_palette = vdp->palette[vdp->back_color & 0xf];
-	int alt_color = 1;
-	uint16_t alt_color_diff = diff_color(back_palette, vdp->palette[alt_color]);
-	uint16_t color;
+    int i;
+    uint16_t back_palette = vdp->palette[vdp->back_color & 0xf];
+    int alt_color = 1;
+    uint16_t alt_color_diff = diff_color(back_palette, vdp->palette[alt_color]);
+    uint16_t color;
 
-	// “§–¾F‚Í”wŒiF‚ª“§‚¯‚ÄŒ©‚¦‚é‚æ‚¤‚É‚·‚é
-	if (vdp->tx_active) {
-		// ‹P“x‚ğ”¼•ª‚É—‚Æ‚·
-		color = back_palette & 0b1111011110111100;
-		color >>= 1;
-	} else {
-		color = back_palette;
-	}
-	X68_GR_PAL[0] = color;
+    // é€æ˜è‰²ã¯èƒŒæ™¯è‰²ãŒé€ã‘ã¦è¦‹ãˆã‚‹ã‚ˆã†ã«ã™ã‚‹
+    if (vdp->tx_active) {
+        // è¼åº¦ã‚’åŠåˆ†ã«è½ã¨ã™
+        color = back_palette & 0b1111011110111100;
+        color >>= 1;
+    } else {
+        color = back_palette;
+    }
+    X68_GR_PAL[0] = color;
 
-	// ƒJƒ‰[ƒR[ƒh0‚ÉƒpƒŒƒbƒg0‚ÌF‚ğ“–‚Ä‚Í‚ß‚éê‡A
-	// X68000‚ÌƒXƒvƒ‰ƒCƒg‚ÍƒJƒ‰[ƒR[ƒh0‚ğ•`‰æ‚Å‚«‚È‚¢‚Ì‚ÅÀ¿15F‚µ‚©ˆµ‚¦‚È‚¢–â‘è‚ª‚ ‚é
-	// ‚»‚Ì–â‘è‚É‘Î‰‚·‚é‚½‚ß‚ÉA”wŒiF‚Æ‚Ì·‚ªÅ‚à¬‚³‚¢F‚ğ”wŒiF‚Ì‘ã‘ÖF‚Æ‚µ‚Ä‘I‚Ô
-	for(i =1; i < 16; i++) {
-		color = vdp->palette[i];
-		uint16_t diff = diff_color(back_palette, color);
-		if (diff < alt_color_diff) {
-			alt_color = i;
-			alt_color_diff = diff;
-		}
-		if (vdp->tx_active) {
-			// ‹P“x‚ğ”¼•ª‚É—‚Æ‚·
-			color &= 0b1111011110111100;
-			color >>= 1;
-		}
-		X68_GR_PAL[i] = color;
-		X68_SP_PAL_B1[i] = color;
-	}
-	vdp->alt_color_zero = alt_color;
+    // ã‚«ãƒ©ãƒ¼ã‚³ãƒ¼ãƒ‰0ã«ãƒ‘ãƒ¬ãƒƒãƒˆ0ã®è‰²ã‚’å½“ã¦ã¯ã‚ã‚‹å ´åˆã€
+    // X68000ã®ã‚¹ãƒ—ãƒ©ã‚¤ãƒˆã¯ã‚«ãƒ©ãƒ¼ã‚³ãƒ¼ãƒ‰0ã‚’æç”»ã§ããªã„ã®ã§å®Ÿè³ª15è‰²ã—ã‹æ‰±ãˆãªã„å•é¡ŒãŒã‚ã‚‹
+    // ãã®å•é¡Œã«å¯¾å¿œã™ã‚‹ãŸã‚ã«ã€èƒŒæ™¯è‰²ã¨ã®å·®ãŒæœ€ã‚‚å°ã•ã„è‰²ã‚’èƒŒæ™¯è‰²ã®ä»£æ›¿è‰²ã¨ã—ã¦é¸ã¶
+    for (i = 1; i < 16; i++) {
+        color = vdp->palette[i];
+        uint16_t diff = diff_color(back_palette, color);
+        if (diff < alt_color_diff) {
+            alt_color = i;
+            alt_color_diff = diff;
+        }
+        if (vdp->tx_active) {
+            // è¼åº¦ã‚’åŠåˆ†ã«è½ã¨ã™
+            color &= 0b1111011110111100;
+            color >>= 1;
+        }
+        X68_GR_PAL[i] = color;
+        X68_SP_PAL_B1[i] = color;
+    }
+    vdp->alt_color_zero = alt_color;
 }
 
 void update_pnametbl_baddr_DEFAULT(ms_vdp_t* vdp) {
-	// R02 ‚É b17-b10‚ª“ü‚Á‚Ä‚¢‚é‚Ì‚ÅƒVƒtƒg‚·‚é
-	vdp->pnametbl_baddr = (vdp->_r02 << 10) & 0x1ffff;
+    // R02 ã« b17-b10ãŒå…¥ã£ã¦ã„ã‚‹ã®ã§ã‚·ãƒ•ãƒˆã™ã‚‹
+    vdp->pnametbl_baddr = (vdp->_r02 << 10) & 0x1ffff;
 }
 
 void update_colortbl_baddr_DEFAULT(ms_vdp_t* vdp) {
-	// R03 ‚É b13-b6
-	// R10 ‚É b16-b14
-	vdp->colortbl_baddr = ((vdp->_r10 << 14) | (vdp->_r03 << 6)) & 0x1ffff;
+    // R03 ã« b13-b6
+    // R10 ã« b16-b14
+    vdp->colortbl_baddr = ((vdp->_r10 << 14) | (vdp->_r03 << 6)) & 0x1ffff;
 }
 
 void update_pgentbl_baddr_DEFAULT(ms_vdp_t* vdp) {
-	// R04 ‚É b16-b11
-	vdp->pgentbl_baddr = (vdp->_r04 << 11) & 0x1ffff;
+    // R04 ã« b16-b11
+    vdp->pgentbl_baddr = (vdp->_r04 << 11) & 0x1ffff;
 }
 
 void update_sprattrtbl_baddr_MODE1(ms_vdp_t* vdp) {
-	// R05 ‚É b14-b7
-	// R11 ‚É b16-b15
-	// MODE1‚Å‚ÍAb7‚Ü‚Åg‚í‚êAb6-b0‚Í0‚Æ‚µ‚Äˆµ‚í‚ê‚é
-	uint32_t addr = ((vdp->_r11 << 15) | (vdp->_r05 << 7)) & 0x1ff80;
-	if (vdp->sprattrtbl_baddr != addr) {
-		// XV‚³‚ê‚½‚çA‘S‚Ä‚ÌƒXƒvƒ‰ƒCƒg‚ÌƒAƒgƒŠƒrƒ…[ƒg‚ğÄ¶¬‚·‚é
-		vdp->sprattrtbl_baddr = addr;
-		vdp->sprite_refresh_flag |= SPRITE_REFRESH_FLAG_ATTR;
-	}
+    // R05 ã« b14-b7
+    // R11 ã« b16-b15
+    // MODE1ã§ã¯ã€b7ã¾ã§ä½¿ã‚ã‚Œã€b6-b0ã¯0ã¨ã—ã¦æ‰±ã‚ã‚Œã‚‹
+    uint32_t addr = ((vdp->_r11 << 15) | (vdp->_r05 << 7)) & 0x1ff80;
+    if (vdp->sprattrtbl_baddr != addr) {
+        // æ›´æ–°ã•ã‚ŒãŸã‚‰ã€å…¨ã¦ã®ã‚¹ãƒ—ãƒ©ã‚¤ãƒˆã®ã‚¢ãƒˆãƒªãƒ“ãƒ¥ãƒ¼ãƒˆã‚’å†ç”Ÿæˆã™ã‚‹
+        vdp->sprattrtbl_baddr = addr;
+        vdp->sprite_refresh_flag |= SPRITE_REFRESH_FLAG_ATTR;
+    }
 }
 
 void update_sprattrtbl_baddr_MODE2(ms_vdp_t* vdp) {
-	// R05 ‚É b14-b7
-	// R11 ‚É b16-b15
+    // R05 ã« b14-b7
+    // R11 ã« b16-b15
 
-	// TODO: MODE2‚Ìb9-b7‚Ìˆµ‚¢‚ğ‰ü‚ß‚Ä’²‚×‚é•K—v‚ª‚ ‚é
-	// ese-vdp‚Å‚ÍˆÈ‰º‚Ì‚æ‚¤‚É‚µ‚Ä‚¢‚½
-	// ƒAƒgƒŠƒrƒ…[ƒgƒe[ƒuƒ‹: b9‚Í‘‚«‚Ü‚ê‚½’l‚ğ‚»‚Ì‚Ü‚Üg‚¤Ab8-b7‚Í0‚Æ‚µ‚Äˆµ‚¤
-	// ƒJƒ‰[ƒe[ƒuƒ‹		: b9‚ÍƒAƒgƒŠƒrƒ…[ƒgƒe[ƒuƒ‹‚Ì”½“]Ab8-b7‚Í0‚Æ‚µ‚Äˆµ‚¤	
-	uint32_t addr = ((vdp->_r11 << 15) | (vdp->_r05 << 7)) & 0x1fe00;
-	if (vdp->sprattrtbl_baddr != addr) {
-		// XV‚³‚ê‚½‚çA‘S‚Ä‚ÌƒXƒvƒ‰ƒCƒg‚ÌƒAƒgƒŠƒrƒ…[ƒg‚ğÄ¶¬‚·‚é
-		vdp->sprattrtbl_baddr = addr;
-		vdp->sprcolrtbl_baddr = addr ^ 0x200;
-		ms_vdp_update_sprite_area(vdp);
-		vdp->sprite_refresh_flag |= SPRITE_REFRESH_FLAG_CC;
-	}
+    // TODO: MODE2ã®b9-b7ã®æ‰±ã„ã‚’æ”¹ã‚ã¦èª¿ã¹ã‚‹å¿…è¦ãŒã‚ã‚‹
+    // ese-vdpã§ã¯ä»¥ä¸‹ã®ã‚ˆã†ã«ã—ã¦ã„ãŸ
+    // ã‚¢ãƒˆãƒªãƒ“ãƒ¥ãƒ¼ãƒˆãƒ†ãƒ¼ãƒ–ãƒ«: b9ã¯æ›¸ãè¾¼ã¾ã‚ŒãŸå€¤ã‚’ãã®ã¾ã¾ä½¿ã†ã€b8-b7ã¯0ã¨ã—ã¦æ‰±ã†
+    // ã‚«ãƒ©ãƒ¼ãƒ†ãƒ¼ãƒ–ãƒ«		: b9ã¯ã‚¢ãƒˆãƒªãƒ“ãƒ¥ãƒ¼ãƒˆãƒ†ãƒ¼ãƒ–ãƒ«ã®åè»¢ã€b8-b7ã¯0ã¨ã—ã¦æ‰±ã†
+    uint32_t addr = ((vdp->_r11 << 15) | (vdp->_r05 << 7)) & 0x1fe00;
+    if (vdp->sprattrtbl_baddr != addr) {
+        // æ›´æ–°ã•ã‚ŒãŸã‚‰ã€å…¨ã¦ã®ã‚¹ãƒ—ãƒ©ã‚¤ãƒˆã®ã‚¢ãƒˆãƒªãƒ“ãƒ¥ãƒ¼ãƒˆã‚’å†ç”Ÿæˆã™ã‚‹
+        vdp->sprattrtbl_baddr = addr;
+        vdp->sprcolrtbl_baddr = addr ^ 0x200;
+        ms_vdp_update_sprite_area(vdp);
+        vdp->sprite_refresh_flag |= SPRITE_REFRESH_FLAG_CC;
+    }
 }
 
 void update_sprpgentbl_baddr_MODE1(ms_vdp_t* vdp) {
-	// R06 ‚É b16-b11
-	uint32_t addr = (vdp->_r06 << 11) & 0x1ffff;
-	if( vdp->sprpgentbl_baddr != addr ) {
-		// XV‚³‚ê‚½‚çA‘S‚Ä‚ÌƒXƒvƒ‰ƒCƒg‚Ìƒpƒ^[ƒ“‚ğÄ¶¬‚·‚é
-		vdp->sprpgentbl_baddr = addr;
-		vdp->sprite_refresh_flag |= SPRITE_REFRESH_FLAG_PGEN;
-	}
+    // R06 ã« b16-b11
+    uint32_t addr = (vdp->_r06 << 11) & 0x1ffff;
+    if (vdp->sprpgentbl_baddr != addr) {
+        // æ›´æ–°ã•ã‚ŒãŸã‚‰ã€å…¨ã¦ã®ã‚¹ãƒ—ãƒ©ã‚¤ãƒˆã®ãƒ‘ã‚¿ãƒ¼ãƒ³ã‚’å†ç”Ÿæˆã™ã‚‹
+        vdp->sprpgentbl_baddr = addr;
+        vdp->sprite_refresh_flag |= SPRITE_REFRESH_FLAG_PGEN;
+    }
 }
 
 void update_sprpgentbl_baddr_MODE2(ms_vdp_t* vdp) {
-	// R06 ‚É b16-b11
-	uint32_t addr = (vdp->_r06 << 11) & 0x1ffff;
-	if( vdp->sprpgentbl_baddr != addr ) {
-		// XV‚³‚ê‚½‚çA‘S‚Ä‚ÌƒXƒvƒ‰ƒCƒg‚Ìƒpƒ^[ƒ“‚ğÄ¶¬‚·‚é
-		vdp->sprpgentbl_baddr = addr;
-		vdp->sprite_refresh_flag |= SPRITE_REFRESH_FLAG_PGEN;
-		ms_vdp_update_sprite_area(vdp);
-	}
+    // R06 ã« b16-b11
+    uint32_t addr = (vdp->_r06 << 11) & 0x1ffff;
+    if (vdp->sprpgentbl_baddr != addr) {
+        // æ›´æ–°ã•ã‚ŒãŸã‚‰ã€å…¨ã¦ã®ã‚¹ãƒ—ãƒ©ã‚¤ãƒˆã®ãƒ‘ã‚¿ãƒ¼ãƒ³ã‚’å†ç”Ÿæˆã™ã‚‹
+        vdp->sprpgentbl_baddr = addr;
+        vdp->sprite_refresh_flag |= SPRITE_REFRESH_FLAG_PGEN;
+        ms_vdp_update_sprite_area(vdp);
+    }
 }
 
 /**
- * @brief VDPƒŒƒWƒXƒ^ R#7 ‚ÌFİ’è
- * 
- * @param vdp 
+ * @brief VDPãƒ¬ã‚¸ã‚¹ã‚¿ R#7 ã®è‰²è¨­å®š
+ *
+ * @param vdp
  */
 void update_r7_color_DEFAULT(ms_vdp_t* vdp, uint8_t data) {
-	vdp->text_color = data >> 4;
-	vdp->back_color = data & 0x0f;
+    vdp->text_color = data >> 4;
+    vdp->back_color = data & 0x0f;
 
-	X68_GR_PAL[0] = vdp->palette[vdp->back_color & 0xf];
+    X68_GR_PAL[0] = vdp->palette[vdp->back_color & 0xf];
 }
 
 char* get_mode_name_DEFAULT(ms_vdp_t* vdp) {
-	return "DEFAULT";
+    return "DEFAULT";
 }
 
 void vdp_command_exec_DEFAULT(ms_vdp_t* vdp, uint8_t cmd) {
-	MS_LOG(MS_LOG_INFO,"%s‚ÌVDPƒRƒ}ƒ“ƒh0x%02x‚Í‚Ü‚¾–¢À‘•‚Å‚·B\n", vdp->ms_vdp_current_mode->get_mode_name(vdp), cmd);
-	// ”O‚Ìˆ×CEƒrƒbƒg‚ğƒNƒŠƒA
-	vdp->s02 &= 0xfe;
+    MS_LOG(MS_LOG_INFO, "%sã®VDPã‚³ãƒãƒ³ãƒ‰0x%02xã¯ã¾ã æœªå®Ÿè£…ã§ã™ã€‚\n", vdp->ms_vdp_current_mode->get_mode_name(vdp), cmd);
+    // å¿µã®ç‚ºCEãƒ“ãƒƒãƒˆã‚’ã‚¯ãƒªã‚¢
+    vdp->s02 &= 0xfe;
 }
 
 void vdp_command_exec_NONE(ms_vdp_t* vdp, uint8_t cmd) {
 }
 
 uint8_t vdp_command_read_NONE(ms_vdp_t* vdp) {
-	return 0;
+    return 0;
 }
 
 void vdp_command_write_NONE(ms_vdp_t* vdp, uint8_t cmd) {
 }
 
 void update_resolution_DEFAULT(ms_vdp_t* vdp) {
-	ms_vdp_update_resolution_COMMON(vdp, 1, 0, 0); // 512, 16F, BG•sg—p
+    ms_vdp_update_resolution_COMMON(vdp, 1, 0, 0);  // 512, 16è‰², BGä¸ä½¿ç”¨
 }
 
 void vsync_draw_NONE(ms_vdp_t* vdp) {

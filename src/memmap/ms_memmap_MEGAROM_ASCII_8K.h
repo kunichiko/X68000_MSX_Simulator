@@ -4,22 +4,22 @@
 #include "ms_memmap.h"
 #include "ms_memmap_driver.h"
 
-#define MEGAROM_ASCII_8K_SIZE (128*1024)
+#define MEGAROM_ASCII_8K_SIZE (128 * 1024)
 
 /*
-*/
+ */
 typedef struct ms_memmap_driver_MEGAROM_ASCII_8K {
-	ms_memmap_driver_t base;
-	// extended properties
-	int num_segments;
+    ms_memmap_driver_t base;
+    // extended properties
+    int num_segments;
 
-	// region 0-3‚Ì‚»‚ê‚¼‚ê‚ÌƒZƒOƒƒ“ƒg‘I‘ğó‘Ô
-	// region ‚ÍˆÈ‰º‚Ì‚æ‚¤‚ÉŠ„‚èU‚Á‚Ä‚¢‚ÄAƒIƒtƒZƒbƒg‚ª‚Â‚¢‚Ä‚¢‚é‚Ì‚Å’ˆÓ
-	// 0 : 0x4000-0x5FFF (0xc000-0xdFFF‚É‚àƒ~ƒ‰[)
-	// 1 : 0x6000-0x7FFF (0xE000-0xFFFF‚É‚àƒ~ƒ‰[)
-	// 2 : 0x8000-0x9FFF (0x0000-0x1FFF‚É‚àƒ~ƒ‰[)
-	// 3 : 0xA000-0xBFFF (0x2000-0x3FFF‚É‚àƒ~ƒ‰[)
-	int selected_segment[4];
+    // region 0-3ã®ãã‚Œãã‚Œã®ã‚»ã‚°ãƒ¡ãƒ³ãƒˆé¸æŠçŠ¶æ…‹
+    // region ã¯ä»¥ä¸‹ã®ã‚ˆã†ã«å‰²ã‚ŠæŒ¯ã£ã¦ã„ã¦ã€ã‚ªãƒ•ã‚»ãƒƒãƒˆãŒã¤ã„ã¦ã„ã‚‹ã®ã§æ³¨æ„
+    // 0 : 0x4000-0x5FFF (0xc000-0xdFFFã«ã‚‚ãƒŸãƒ©ãƒ¼)
+    // 1 : 0x6000-0x7FFF (0xE000-0xFFFFã«ã‚‚ãƒŸãƒ©ãƒ¼)
+    // 2 : 0x8000-0x9FFF (0x0000-0x1FFFã«ã‚‚ãƒŸãƒ©ãƒ¼)
+    // 3 : 0xA000-0xBFFF (0x2000-0x3FFFã«ã‚‚ãƒŸãƒ©ãƒ¼)
+    int selected_segment[4];
 } ms_memmap_driver_MEGAROM_ASCII_8K_t;
 
 ms_memmap_driver_MEGAROM_ASCII_8K_t* ms_memmap_MEGAROM_ASCII_8K_alloc();

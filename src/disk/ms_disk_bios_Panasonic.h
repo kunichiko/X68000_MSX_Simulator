@@ -4,26 +4,27 @@
 #include "../memmap/ms_memmap.h"
 #include "../memmap/ms_memmap_driver.h"
 #include "ms_disk.h"
-#include "ms_disk_controller_TC8566AF.h"
 #include "ms_disk_container.h"
+#include "ms_disk_controller_TC8566AF.h"
 
-#define DISKBIOS_PANASONIC_SIZE (16*1024)
+#define DISKBIOS_PANASONIC_SIZE (16 * 1024)
 
 /**
- * @brief TC8566AF‚ğg—p‚·‚é Panasonic‚Ì DISK BIOS ROM‚Ìƒhƒ‰ƒCƒo
- * 
- * ƒƒ‚ƒŠƒ}ƒbƒvƒhI/O‚ğ‚¿A‚»‚ÌI^O‚ğ’Ê‚¶‚Ä TC8566AFƒRƒ“ƒgƒ[ƒ‰[‚ğ‘€ì‚µ‚Ü‚·
+ * @brief TC8566AFã‚’ä½¿ç”¨ã™ã‚‹ Panasonicã® DISK BIOS ROMã®ãƒ‰ãƒ©ã‚¤ãƒ
+ *
+ * ãƒ¡ãƒ¢ãƒªãƒãƒƒãƒ—ãƒ‰I/Oã‚’æŒã¡ã€ãã®Iï¼Oã‚’é€šã˜ã¦ TC8566AFã‚³ãƒ³ãƒˆãƒ­ãƒ¼ãƒ©ãƒ¼ã‚’æ“ä½œã—ã¾ã™
  */
 typedef struct ms_memmap_driver_DISKBIOS_PANASONIC {
-	ms_memmap_driver_t base;
-	// properties
-	uint8_t* zero_buffer;
-	// fdc
-	ms_disk_controller_TC8566AF_t fdc;
+    ms_memmap_driver_t base;
+    // properties
+    uint8_t* zero_buffer;
+    // fdc
+    ms_disk_controller_TC8566AF_t fdc;
 } ms_memmap_driver_DISKBIOS_PANASONIC_t;
 
 ms_memmap_driver_DISKBIOS_PANASONIC_t* ms_disk_bios_Panasonic_alloc();
-void ms_disk_bios_Panasonic_init(ms_memmap_driver_DISKBIOS_PANASONIC_t* instance, ms_memmap_t* memmap, uint8_t* buffer, ms_disk_container_t* container);
+void ms_disk_bios_Panasonic_init(ms_memmap_driver_DISKBIOS_PANASONIC_t* instance, ms_memmap_t* memmap, uint8_t* buffer,
+                                 ms_disk_container_t* container);
 
 void ms_memmap_deinit_DISKBIOS_PANASONIC(ms_memmap_driver_t* driver);
 void ms_memmap_did_attach_DISKBIOS_PANASONIC(ms_memmap_driver_t* driver);

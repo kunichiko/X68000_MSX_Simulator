@@ -2,26 +2,27 @@
 #define MS_KANJIROM_ALT_H
 
 #include <stdint.h>
+
 #include "../ms_iomap.h"
 
 typedef struct ms_kanjirom_alt {
-	char* rom_path;
+    char* rom_path;
 
-	// ‘æˆê…€Š¿š”Ô†
-	uint16_t k1_num;
-	// ‘æˆê…€ s”Ô†(¶ãA‰EãA¶‰ºA‰E‰º‚Ì‡‚É0-31)
-	uint8_t k1_line;
+    // ç¬¬ä¸€æ°´æº–æ¼¢å­—ç•ªå·
+    uint16_t k1_num;
+    // ç¬¬ä¸€æ°´æº– è¡Œç•ªå·(å·¦ä¸Šã€å³ä¸Šã€å·¦ä¸‹ã€å³ä¸‹ã®é †ã«0-31)
+    uint8_t k1_line;
 
-	// ‘æ“ñ…€Š¿š”Ô†
-	uint16_t k2_num;
-	// ‘æˆê…€ s”Ô†(¶ãA‰EãA¶‰ºA‰E‰º‚Ì‡‚É0-31)
-	uint8_t k2_line;
+    // ç¬¬äºŒæ°´æº–æ¼¢å­—ç•ªå·
+    uint16_t k2_num;
+    // ç¬¬ä¸€æ°´æº– è¡Œç•ªå·(å·¦ä¸Šã€å³ä¸Šã€å·¦ä¸‹ã€å³ä¸‹ã®é †ã«0-31)
+    uint8_t k2_line;
 
-	// I/O port ƒAƒNƒZƒX‚ğ’ñ‹Ÿ
-	ms_ioport_t io_port_D8;
-	ms_ioport_t io_port_D9;
-	ms_ioport_t io_port_DA;
-	ms_ioport_t io_port_DB;
+    // I/O port ã‚¢ã‚¯ã‚»ã‚¹ã‚’æä¾›
+    ms_ioport_t io_port_D8;
+    ms_ioport_t io_port_D9;
+    ms_ioport_t io_port_DA;
+    ms_ioport_t io_port_DB;
 } ms_kanjirom_alt_t;
 
 ms_kanjirom_alt_t* ms_kanjirom_alt_alloc();

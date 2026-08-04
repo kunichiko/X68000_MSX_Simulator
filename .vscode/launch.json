@@ -1,31 +1,30 @@
 {
-    // IntelliSense を使用して利用可能な属性を学べます。
-    // 既存の属性の説明をホバーして表示します。
-    // 詳細情報は次を確認してください: https://go.microsoft.com/fwlink/?linkid=830387
-    "version": "0.2.0",
-    "configurations": [
-
-        {
-            "name": "Remote debug",
-            "type": "cppdbg",
-            "request": "launch",
+	// IntelliSense を使用して利用可能な属性を学べます。
+	// 既存の属性の説明をホバーして表示します。
+	// 詳細情報は次を確認してください: https://go.microsoft.com/fwlink/?linkid=830387
+	"version": "0.2.0",
+	"configurations": [
+		{
+			"name": "X68000 Remote debug",
+			"type": "cppdbg",
+			"request": "launch",
 			"preLaunchTask": "debug-build",
-            "program": "${workspaceFolder}/build/ms_debug.x.elf",
-            "stopAtEntry": false,
-            "cwd": "${workspaceFolder}",
-            "environment": [],
-            "externalConsole": false,
-            "MIMode": "gdb",
-            "miDebuggerPath": "/opt/homebrew/Cellar/m68k-gdb/14.2/bin/m68k-elf-gdb",
-            "miDebuggerServerAddress": "/tmp/ttyV1",
-            "miDebuggerArgs": "",
-            "setupCommands": [
-                {
-                    "description": "gdb の再フォーマットを有効にする",
-                    "text": "-enable-pretty-printing",
-                    "ignoreFailures": true
-                },
-            ]
-        }
-    ]
+			"program": "${workspaceFolder}/build/ms_debug.x.elf",
+			"stopAtEntry": false,
+			"cwd": "${workspaceFolder}",
+			"environment": [],
+			"externalConsole": false,
+			"MIMode": "gdb",
+			"miDebuggerPath": "m68k-elf-gdb",
+			"miDebuggerServerAddress": ":54321",
+			"miDebuggerArgs": "",
+			"setupCommands": [
+				{
+					"description": "gdb の再フォーマットを有効にする",
+					"text": "-enable-pretty-printing",
+					"ignoreFailures": true
+				},
+			]
+		}
+	]
 }

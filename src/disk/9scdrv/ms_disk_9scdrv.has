@@ -1,0 +1,265 @@
+	.include	iocscall.mac
+	.include	doscall.mac
+	.include	src/disk/9scdrv/9SCCALL.MAC
+
+;===< _X_KPCHK >=======================================================
+; 機能	常駐している 9SCDRV.X のバージョンを得ます。
+; 引数	A0.L	起動したプロセスのメモリブロック先頭アドレス（プログラ
+; 		ム開始直後の A0.L の値）
+; 返り値	D0.L	常駐している 9SCDRV.X のバージョンコード（アスキーコー
+; 		ドで 'v' + ３桁の数字）。常駐していない時は -1 。
+; 	D1.L	常駐している 9SCDRV.X のリビジョンコード（アスキーコー
+; 		ドで 'r' + ３桁の数字）。
+; 	A1.L	9SCCALL エントリテーブル先頭アドレス。テーブル構造につ
+; 		きましては ｢_X_VECTOR｣ の項目をご覧下さい。
+; <例>		.include	9SCCALL.MAC
+; 		.xref		_X_KPCHK
+; 		bsr		_X_KPCHK
+; 		tst.l		d0
+; 		bmi		error
+; 			   :
+; 			   :
+	.xref   _X_KPCHK
+	.xref	_A0_BUFF
+	.xref	HEX
+
+	.xdef	ms_disk_9scdrv_init
+	.xdef	ms_disk_9scdrv_media
+	.xdef	ms_disk_9scdrv_read
+
+
+; 9SCドライバの常駐確認
+ms_disk_9scdrv_init:
+	link	a6,#0
+	movem.l	d3-d7/a0-a5,-(sp)
+
+	movea.l	8(a6), a2
+	move.l	a2,d0
+	beq	@f		; NULLチェック
+
+		PEA.L		CHK_ERROR
+		MOVE.W		#6,-(SP)
+		DOS		__INTVCS
+		ADDQ.L		#6,SP
+		MOVE.L		D0,CHK_ORIG
+
+	movea.l	_A0_BUFF, a0
+	bsr	_X_KPCHK
+
+	; 結果を構造体に保存
+	move.L	d0, _version
+	move.L	d1, _revision
+	move.L	a1, _entry_table
+	; 返り値をセット
+	move.L	d0, 0(a2)	; version
+	move.L	d1, 4(a2)	; revision
+	move.L	a1, 8(a2)	; entry_table
+@@:
+	movem.l	(sp)+,d3-d7/a0-a5
+	unlk	a6
+	rts
+
+EXIT1:		DOS		__PRINT
+		ADDQ.L		#4,SP
+		BSR		PRIM
+		BSR		DOWN
+		BSR		CHK_RESET
+		DOS		__EXIT
+
+CHK_RESET:	MOVE.L		CHK_ORIG,-(SP)
+		MOVE.W		#6,-(SP)
+		DOS		__INTVCS
+		ADDQ.L		#6,SP
+		RTS
+
+PRIM:		PEA.L		PRIMES
+		DOS		__PRINT
+		ADDQ.L		#4,SP
+		RTS
+
+UP:		PEA.L		UPMES
+		DOS		__PRINT
+		ADDQ.L		#4,SP
+		RTS
+
+DOWN:		PEA.L		DWMES
+		DOS		__PRINT
+		ADDQ.L		#4,SP
+		RTS
+
+CHK_ERROR:	PEA		PARAERRMES
+		BRA		EXIT1
+
+;
+; 9SCドライバのメディア情報取得
+;
+ms_disk_9scdrv_media:
+	link	a6,#0
+	movem.l	d3-d7/a0-a5,-(sp)
+
+	tst.L	_version
+	beq	@f		; version が 0 の場合は未初期化/9SCDRV非常駐
+
+	move.l  8(a6), d0	; pda
+	move.l  12(a6), d1	; media
+	lsl.w   #8, D0
+	move.b	d1,d0
+	move.w	d0,d1
+	IOCS9SC	_X_MEDIA
+	move.l	d2,d0		; 戻り値
+
+@@:	movem.l	(sp)+,d3-d7/a0-a5
+	unlk	a6
+	rts
+
+
+;
+;
+; 9SCドライバのセクタ読み込み
+; ms_disk_9scdrv_read_result_t ms_disk_9scdrv_read(ms_disk_9scdrv_drive_t drivenum, uint8_t mode, uint32_t position, uint32_t size,
+;                                                 ms_disk_9scdrv_media_byte_t media_byte, uint8_t* buffer);
+ms_disk_9scdrv_read:
+	link	a6,#0
+	movem.l	d3-d7/a0-a5,-(sp)
+	clr.l	d0
+	tst.L	_version
+	beq	@f		; version が 0 の場合は未初期化/9SCDRV非常駐
+
+	move.l  16(a6), -(sp)	; val
+	PEA.L	POSVAL
+	PEA.L	POSMES
+	BSR	_print_hex_long
+	ADD.L	#12,SP
+
+	move.l  8(a6), d0	; drive number. PDAに変換するためには 0x90 を加える
+	add.l	#0x90,d0
+	move.l  12(a6), d1	; mode
+	move.l  16(a6), d2	; position
+	move.l  20(a6), d3	; size
+	move.l  24(a6), d4	; media_byte
+	move.l  28(a6), a1	; buffer
+	lsl.w   #8, D0
+	move.b	d1,d0
+	move.w	d0,d1
+;引数	D1.W	上位８ビット PDA/下位８ビット MODE
+;        D2.L	目的読み込み位置
+;        D3.L	読み込みバイト数
+;        D4.B	メディアバイト
+;        A1.L	読み込みデータ先頭アドレス
+	IOCS9SC	_X_READ
+;返り値	D0.L	FDC からのステータス
+;                    bit 0～7	コマンド終了時のトラックナンバー
+;                    bit 8～$F	ステータスレジスタ２
+;                    bit $10～$17	ステータスレジスタ１
+;                    bit $18～$1F	ステータスレジスタ０
+;        D2.L	最後に読み込んだセクタの位置
+;        D3.L	０になる
+;        A1.L	読み込みデータの次のデータアドレス
+	lea	ms_disk_9scdrv_read_result_t,a5
+	move.l	d0,0(a5)		; ステータス
+	move.l	d2,4(a5)		; セクタ位置
+	move.l	d3,8(a5)		; 戻り値3(0になる)
+	move.l	a1,12(a5)		; 読み込みデータの次のデータアドレス
+
+	move.l  d2, -(sp)	; val
+	PEA.L	RESVAL
+	PEA.L	RESMES
+	BSR	_print_hex_long
+	ADD.L	#12,SP
+
+	move.l	a5,d0	; 戻り値構造体のアドレス
+@@:	movem.l	(sp)+,d3-d7/a0-a5
+	unlk	a6
+	rts
+
+;
+; 16進数表示ルーチン（32ビット）
+; 引数	sp+4    表示したい文字列の先頭アドレス
+;       sp+8	書き込みたい文字列データの格納先アドレス
+;       sp+12	表示したい32ビットデータ
+_print_hex_long:
+	rts
+
+	link	a6,#0
+	movem.l	d1/a1,-(sp)
+	lea     HEX,a1
+	move.l  12(a6), a0	; buffer
+	move.l  16(a6), d0	; value
+
+	rol.l   #4,d0
+	move.l  d0,d1
+	and.l   #0xf,d1	
+	move.B	(a1,d1), (a0)+
+	rol.l   #4,d0
+	move.l  d0,d1
+	and.l   #0xf,d1	
+	move.B	(a1,d1), (a0)+
+	rol.l   #4,d0
+	move.l  d0,d1
+	and.l   #0xf,d1	
+	move.B	(a1,d1), (a0)+
+	rol.l   #4,d0
+	move.l  d0,d1
+	and.l   #0xf,d1	
+	move.B	(a1,d1), (a0)+
+	rol.l   #4,d0
+	move.l  d0,d1
+	and.l   #0xf,d1	
+	move.B	(a1,d1), (a0)+
+	rol.l   #4,d0
+	move.l  d0,d1
+	and.l   #0xf,d1	
+	move.B	(a1,d1), (a0)+
+	rol.l   #4,d0
+	move.l  d0,d1
+	and.l   #0xf,d1	
+	move.B	(a1,d1), (a0)+
+	rol.l   #4,d0
+	move.l  d0,d1
+	and.l   #0xf,d1	
+	move.B	(a1,d1), (a0)+
+	move.l  8(a6),-(sp)	; mes
+	DOS	__PRINT
+	ADDQ.L	#4,SP
+
+	movem.l	(sp)+,d1/a1
+	unlk	a6
+	rts
+
+	.data
+	.even 
+_version:
+	.DC.L		0
+_revision:
+	.DC.L		0
+_entry_table:
+	.DC.L		0
+
+CHK_ORIG:	.DC.L		0
+
+TEST_MES:
+	.dc.b 'test',13,10,0
+
+PDAMES:	.DC.B	'PDA=0x'
+PDAVAL: .dc.b   '00000000',13,10,0
+
+POSMES:	.DC.B	'POS=0x'
+POSVAL: .dc.b   '00000000',13,10,0
+
+RESMES:	.DC.B	'RES=0x'
+RESVAL: .dc.b   '00000000',13,10,0
+
+UPMES:
+DWMES:
+PRIMES:		.DC.B		13,10,0
+PARAERRMES:	.DC.B		'パラメータが異常です',13,10,0
+
+	.even
+ms_disk_9scdrv_read_result_t:
+	.DC.L		0	; ステータス
+	.DC.L		0	; 最後に読み込んだセクタの位置
+	.DC.L		0	; ０になる
+	.DC.L		0	; 読み込みデータの次のデータアドレス
+
+	.text
+	.even

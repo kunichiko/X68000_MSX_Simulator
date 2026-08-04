@@ -2,51 +2,52 @@
 #define MS_DISK_DRIVE_FLOPPY_H
 
 #include <stdint.h>
+
 #include "ms_disk.h"
-#include "ms_disk_drive.h"
 #include "ms_disk_container.h"
+#include "ms_disk_drive.h"
 
 typedef struct ms_disk_drive_floppy ms_disk_drive_floppy_t;
 
 typedef struct ms_disk_drive_floppy {
-	ms_disk_drive_t base;
+    ms_disk_drive_t base;
 
-	// methods
-	void (*set_motor)(ms_disk_drive_floppy_t* d, uint8_t motoron);
-	void (*set_side)(ms_disk_drive_floppy_t* d, uint8_t side);
-	void (*seek)(ms_disk_drive_floppy_t* d, uint32_t track_no);
-	uint8_t (*is_disk_inserted)(ms_disk_drive_floppy_t* d);
+    // methods
+    void (*set_motor)(ms_disk_drive_floppy_t* d, uint8_t motoron);
+    void (*set_side)(ms_disk_drive_floppy_t* d, uint8_t side);
+    void (*seek)(ms_disk_drive_floppy_t* d, uint32_t track_no);
+    uint8_t (*is_disk_inserted)(ms_disk_drive_floppy_t* d);
 
-	/**
-	 * @brief Œ»İ‚ÌƒwƒbƒhˆÊ’u‚©‚çAŸ‚ÌƒZƒNƒ^‚ğæ“¾‚µ‚Ü‚·
-	 * 
-	 * ‚¿‚á‚ñ‚Æ•¨—“I‚Èƒtƒƒbƒs[ƒfƒBƒXƒNƒhƒ‰ƒCƒu‚ğƒGƒ~ƒ…ƒŒ[ƒVƒ‡ƒ“‚·‚éê‡‚ÍAŒo‰ßŠÔ(CPUŠÔ)‚©‚ç
-	 * ƒfƒBƒXƒN‚Ì‰ñ“]ˆÊ’u‚ğŒvZ‚µ‚ÄA¡ƒwƒbƒh‚ªh‚µ‚Ä‚¢‚éˆÊ’u‚ÌƒZƒNƒ^‚ğæ“¾‚·‚é•K—v‚ª‚ ‚è‚Ü‚·‚ªA
-	 * ‚Ğ‚Æ‚Ü‚¸ŠÈˆÕ“I‚ÉAƒV[ƒN‚³‚ê‚½ƒgƒ‰ƒbƒN‚Ìæ“ª‚©‚ç‡‚ÉƒZƒNƒ^‚ğæ“¾‚·‚é‚æ‚¤‚É‚µ‚Ü‚·B
-	 */
-	uint8_t (*get_next_sector)(ms_disk_drive_floppy_t* d, ms_disk_sector_t* sector_buffer);
+    /**
+     * @brief ç¾åœ¨ã®ãƒ˜ãƒƒãƒ‰ä½ç½®ã‹ã‚‰ã€æ¬¡ã®ã‚»ã‚¯ã‚¿ã‚’å–å¾—ã—ã¾ã™
+     *
+     * ã¡ã‚ƒã‚“ã¨ç‰©ç†çš„ãªãƒ•ãƒ­ãƒƒãƒ”ãƒ¼ãƒ‡ã‚£ã‚¹ã‚¯ãƒ‰ãƒ©ã‚¤ãƒ–ã‚’ã‚¨ãƒŸãƒ¥ãƒ¬ãƒ¼ã‚·ãƒ§ãƒ³ã™ã‚‹å ´åˆã¯ã€çµŒéæ™‚é–“(CPUæ™‚é–“)ã‹ã‚‰
+     * ãƒ‡ã‚£ã‚¹ã‚¯ã®å›è»¢ä½ç½®ã‚’è¨ˆç®—ã—ã¦ã€ä»Šãƒ˜ãƒƒãƒ‰ãŒåˆºã—ã¦ã„ã‚‹ä½ç½®ã®ã‚»ã‚¯ã‚¿ã‚’å–å¾—ã™ã‚‹å¿…è¦ãŒã‚ã‚Šã¾ã™ãŒã€
+     * ã²ã¨ã¾ãšç°¡æ˜“çš„ã«ã€ã‚·ãƒ¼ã‚¯ã•ã‚ŒãŸãƒˆãƒ©ãƒƒã‚¯ã®å…ˆé ­ã‹ã‚‰é †ã«ã‚»ã‚¯ã‚¿ã‚’å–å¾—ã™ã‚‹ã‚ˆã†ã«ã—ã¾ã™ã€‚
+     */
+    uint8_t (*get_next_sector)(ms_disk_drive_floppy_t* d, ms_disk_sector_t* sector_buffer);
 
-	/**
-	 * @brief Œ»İ‚ÌƒwƒbƒhˆÊ’u‚Ìƒgƒ‰ƒbƒN‚ÉƒZƒNƒ^‚ğ‘‚«‚İ‚Ü‚·
-	 * 
-	 */
-	uint8_t (*write_sector)(ms_disk_drive_floppy_t* d, ms_disk_sector_t* sector_buffer);
+    /**
+     * @brief ç¾åœ¨ã®ãƒ˜ãƒƒãƒ‰ä½ç½®ã®ãƒˆãƒ©ãƒƒã‚¯ã«ã‚»ã‚¯ã‚¿ã‚’æ›¸ãè¾¼ã¿ã¾ã™
+     *
+     */
+    uint8_t (*write_sector)(ms_disk_drive_floppy_t* d, ms_disk_sector_t* sector_buffer);
 
-	// properties
+    // properties
 
-	/* ƒfƒBƒXƒNƒRƒ“ƒeƒiB null‚É‚·‚é‚Æƒ_ƒ~[ƒhƒ‰ƒCƒu(‹@”\‚µ‚È‚¢ƒhƒ‰ƒCƒu)‚Æ‚µ‚ÄU‚é•‘‚¤ */
-	ms_disk_container_t* container;
+    /* ãƒ‡ã‚£ã‚¹ã‚¯ã‚³ãƒ³ãƒ†ãƒŠã€‚ nullã«ã™ã‚‹ã¨ãƒ€ãƒŸãƒ¼ãƒ‰ãƒ©ã‚¤ãƒ–(æ©Ÿèƒ½ã—ãªã„ãƒ‰ãƒ©ã‚¤ãƒ–)ã¨ã—ã¦æŒ¯ã‚‹èˆã† */
+    ms_disk_container_t* container;
 
-	uint8_t is_track00;
-	uint8_t is_double_sided;
-	uint8_t is_write_protected;
+    uint8_t is_track00;
+    uint8_t is_double_sided;
+    uint8_t is_write_protected;
 
-	// private properties
-	uint8_t _present_cylinder_number;	//PCN
-	uint8_t _present_side_number;
-	uint8_t _present_sector_number;
-	uint8_t	_track_buffer_ready;
-	ms_disk_raw_track_t _track_buffer;
+    // private properties
+    uint8_t _present_cylinder_number;  // PCN
+    uint8_t _present_side_number;
+    uint8_t _present_sector_number;
+    uint8_t _track_buffer_ready;
+    ms_disk_raw_track_t _track_buffer;
 
 } ms_disk_drive_floppy_t;
 

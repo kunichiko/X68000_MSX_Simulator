@@ -1,22 +1,24 @@
 /**
-	TC8566AF‚ÌI/O
+        TC8566AFã®I/O
 
-	Address	R/W	Feature
-	0x3FF8	W	ƒŒƒWƒXƒ^2 ‚ğXV (write only)
-	0x3FF9	W	ƒŒƒWƒXƒ^3 ‚ğXV (write only)
-	0x3FFA	R/W	ƒŒƒWƒXƒ^4 ‚ğQÆEXV
-	0x3FFB	R/W	ƒŒƒWƒXƒ^5 ‚ğQÆEXV
+        Address	R/W	Feature
+        0x3FF8	W	ãƒ¬ã‚¸ã‚¹ã‚¿2 ã‚’æ›´æ–° (write only)
+        0x3FF9	W	ãƒ¬ã‚¸ã‚¹ã‚¿3 ã‚’æ›´æ–° (write only)
+        0x3FFA	R/W	ãƒ¬ã‚¸ã‚¹ã‚¿4 ã‚’å‚ç…§ãƒ»æ›´æ–°
+        0x3FFB	R/W	ãƒ¬ã‚¸ã‚¹ã‚¿5 ã‚’å‚ç…§ãƒ»æ›´æ–°
 
 */
 
+#include "ms_disk_controller_TC8566AF.h"
+
+#include <fcntl.h>
+#include <stddef.h>
+#include <stdint.h>
 #include <stdio.h>
 #include <stdlib.h>
-#include <stdint.h>
-#include <stddef.h>
-#include <fcntl.h>
-#include "../ms.h"
-#include "ms_disk_controller_TC8566AF.h"
+
 #include "../memmap/ms_memmap.h"
+#include "../ms.h"
 
 #define THIS ms_disk_controller_TC8566AF_t
 
@@ -33,11 +35,11 @@ typedef void (*trans_write_func_t)(THIS* d, uint8_t data, uint8_t* finished);
 typedef uint8_t (*result_func_t)(THIS* d, uint8_t* finished);
 
 THIS* ms_disk_controller_TC8566AF_alloc() {
-	return (THIS*)new_malloc(sizeof(ms_disk_controller_TC8566AF_t));
+    return (THIS*)new_malloc(sizeof(ms_disk_controller_TC8566AF_t));
 }
 
 static void read_data_exec(THIS* d);
-static uint8_t read_data_transfer(THIS* d, uint8_t* finished); 
+static uint8_t read_data_transfer(THIS* d, uint8_t* finished);
 static void write_data_exec(THIS* d);
 static void write_data_transfer(THIS* d, uint8_t data, uint8_t* finished);
 static void read_deleted_data_exec(THIS* d);
@@ -72,255 +74,262 @@ void end_command(THIS* d);
 void execute(THIS* d);
 void to_result_phase(THIS* d);
 
-static TC8566AF_command_t Command(uint8_t* name, uint8_t command_byte_count, exec_func_t execution_phase, trans_read_func_t read_func, trans_write_func_t write_func, result_func_t result_phase) {
-	TC8566AF_command_t ret;
-	ret.name = name;
-	ret.command_byte_count = command_byte_count;
-	ret.execution_phase = execution_phase;
-	ret.trans_read = read_func;
-	ret.trans_write = write_func;
-	ret.result_phase = result_phase;
-	return ret;
+static TC8566AF_command_t Command(uint8_t* name, uint8_t command_byte_count, exec_func_t execution_phase, trans_read_func_t read_func,
+                                  trans_write_func_t write_func, result_func_t result_phase) {
+    TC8566AF_command_t ret;
+    ret.name = name;
+    ret.command_byte_count = command_byte_count;
+    ret.execution_phase = execution_phase;
+    ret.trans_read = read_func;
+    ret.trans_write = write_func;
+    ret.result_phase = result_phase;
+    return ret;
 }
 
 void ms_disk_controller_TC8566A_init(THIS* instance, ms_disk_container_t* container) {
-	if (instance == NULL) {
-		return;
-	}
-	instance->write_reg2 = _TC8556AF_reg2_write;
-	instance->write_reg3 = _TC8556AF_reg3_write;
-	instance->read_reg4 = _TC8556AF_reg4_read;
-	instance->write_reg4 = _TC8556AF_reg4_write;
-	instance->read_reg5 = _TC8556AF_reg5_read;
-	instance->write_reg5 = _TC8556AF_reg5_write;
+    if (instance == NULL) {
+        return;
+    }
+    instance->write_reg2 = _TC8556AF_reg2_write;
+    instance->write_reg3 = _TC8556AF_reg3_write;
+    instance->read_reg4 = _TC8556AF_reg4_read;
+    instance->write_reg4 = _TC8556AF_reg4_write;
+    instance->read_reg5 = _TC8556AF_reg5_read;
+    instance->write_reg5 = _TC8556AF_reg5_write;
 
-	int i = 0;
-	ms_disk_drive_floppy_init(&instance->drive[i], container);
-	for(i=1; i<4; i++) {
-		ms_disk_drive_floppy_init(&instance->drive[i], NULL);
-	}
+    int i = 0;
+    ms_disk_drive_floppy_init(&instance->drive[i], container);
+    for (i = 1; i < 4; i++) {
+        ms_disk_drive_floppy_init(&instance->drive[i], NULL);
+    }
 
-	instance->phase = TC8566AF_PHASE_IDLE;
-	for(i=0; i< 32; i++) {
-		instance->commands[i] = 						  Command("INVALID", 			1, invalid_exec,						NULL, NULL,				st0_result);
-	}
-	instance->commands[TC8566AF_CMD_READ_DATA] 			= Command("READ DATA", 			9, read_data_exec,			read_data_transfer, NULL,			chrn_result);
-	instance->commands[TC8566AF_CMD_WRITE_DATA]			= Command("WRITE DATA",			9, write_data_exec, 		NULL, write_data_transfer,			chrn_result);
-	instance->commands[TC8566AF_CMD_READ_DELETED_DATA]	= Command("READ DELETED DATA",	9, read_deleted_data_exec,	read_deleted_data_transfer, NULL,	chrn_result);
-	instance->commands[TC8566AF_CMD_WRITE_DELETED_DATA]	= Command("WRITE DELETED DATA", 9, write_deleted_data_exec, NULL, write_deleted_data_transfer,	chrn_result);
-	instance->commands[TC8566AF_CMD_READ_DIAGNOSTIC]	= Command("READ DIAGNOSTIC",	9, read_diagnostic_exec,	read_diagnostic_transfer, NULL,		chrn_result);
-	instance->commands[TC8566AF_CMD_READ_ID]			= Command("READ ID",			2, read_id_exec,			read_id_transfer, NULL,				chrn_result);
-	instance->commands[TC8566AF_CMD_FORMAT]				= Command("FORMAT",				6, format_exec,				NULL, format_transfer,				chrn_result);
-	instance->commands[TC8566AF_CMD_SCAN_EQUAL]			= Command("SCAN EQUAL",			9, scan_equal_exec,			NULL, scan_equal_transfer,			chrn_result);
-	instance->commands[TC8566AF_CMD_SCAN_LOW_OR_EQUAL]	= Command("SCAN LOW OR EQUAL",	9, scan_low_or_equal_exec,	NULL, scan_low_or_equal_transfer,	chrn_result);
-	instance->commands[TC8566AF_CMD_SCAN_HIGH_OR_EQUAL]	= Command("SCAN HIGH OR EQUAL",	9, scan_high_or_equal_exec,	NULL, scan_high_or_equal_transfer,	chrn_result);
-	instance->commands[TC8566AF_CMD_SEEK]				= Command("SEEK",				3, seek_exec, 							NULL, NULL,				NULL);
-	instance->commands[TC8566AF_CMD_RECALIBRATE]		= Command("RECALIBRATE",		2, recalibrate_exec, 					NULL, NULL,				NULL);
-	instance->commands[TC8566AF_CMD_SENSE_INTERRUPT_STATUS]	= Command("SENSE INTERRUPT STATUS", 1, sense_interrupt_status_exec, NULL, NULL,				sense_interrupt_status_result);
-	instance->commands[TC8566AF_CMD_SPECIFY]			= Command("SPECIFY",			3, specify_exec, 						NULL, NULL,				NULL);
-	instance->commands[TC8566AF_CMD_SENSE_DEVICE_STATUS]	= Command("SENSE DEVICE STATUS", 2, sense_device_status_exec, 		NULL, NULL,				sense_device_status_result);
+    instance->phase = TC8566AF_PHASE_IDLE;
+    for (i = 0; i < 32; i++) {
+        instance->commands[i] = Command("INVALID", 1, invalid_exec, NULL, NULL, st0_result);
+    }
+    instance->commands[TC8566AF_CMD_READ_DATA] = Command("READ DATA", 9, read_data_exec, read_data_transfer, NULL, chrn_result);
+    instance->commands[TC8566AF_CMD_WRITE_DATA] = Command("WRITE DATA", 9, write_data_exec, NULL, write_data_transfer, chrn_result);
+    instance->commands[TC8566AF_CMD_READ_DELETED_DATA] =
+        Command("READ DELETED DATA", 9, read_deleted_data_exec, read_deleted_data_transfer, NULL, chrn_result);
+    instance->commands[TC8566AF_CMD_WRITE_DELETED_DATA] =
+        Command("WRITE DELETED DATA", 9, write_deleted_data_exec, NULL, write_deleted_data_transfer, chrn_result);
+    instance->commands[TC8566AF_CMD_READ_DIAGNOSTIC] =
+        Command("READ DIAGNOSTIC", 9, read_diagnostic_exec, read_diagnostic_transfer, NULL, chrn_result);
+    instance->commands[TC8566AF_CMD_READ_ID] = Command("READ ID", 2, read_id_exec, read_id_transfer, NULL, chrn_result);
+    instance->commands[TC8566AF_CMD_FORMAT] = Command("FORMAT", 6, format_exec, NULL, format_transfer, chrn_result);
+    instance->commands[TC8566AF_CMD_SCAN_EQUAL] = Command("SCAN EQUAL", 9, scan_equal_exec, NULL, scan_equal_transfer, chrn_result);
+    instance->commands[TC8566AF_CMD_SCAN_LOW_OR_EQUAL] =
+        Command("SCAN LOW OR EQUAL", 9, scan_low_or_equal_exec, NULL, scan_low_or_equal_transfer, chrn_result);
+    instance->commands[TC8566AF_CMD_SCAN_HIGH_OR_EQUAL] =
+        Command("SCAN HIGH OR EQUAL", 9, scan_high_or_equal_exec, NULL, scan_high_or_equal_transfer, chrn_result);
+    instance->commands[TC8566AF_CMD_SEEK] = Command("SEEK", 3, seek_exec, NULL, NULL, NULL);
+    instance->commands[TC8566AF_CMD_RECALIBRATE] = Command("RECALIBRATE", 2, recalibrate_exec, NULL, NULL, NULL);
+    instance->commands[TC8566AF_CMD_SENSE_INTERRUPT_STATUS] =
+        Command("SENSE INTERRUPT STATUS", 1, sense_interrupt_status_exec, NULL, NULL, sense_interrupt_status_result);
+    instance->commands[TC8566AF_CMD_SPECIFY] = Command("SPECIFY", 3, specify_exec, NULL, NULL, NULL);
+    instance->commands[TC8566AF_CMD_SENSE_DEVICE_STATUS] =
+        Command("SENSE DEVICE STATUS", 2, sense_device_status_exec, NULL, NULL, sense_device_status_result);
 
-	instance->status0 = 0;
-	instance->status1 = 0;
-	instance->status2 = 0;
+    instance->status0 = 0;
+    instance->status1 = 0;
+    instance->status2 = 0;
 
-	instance->request_for_master = 1;
-	instance->non_dma_mode = 1; // MSX‚ÍDMA‚ğg‚í‚È‚¢
+    instance->request_for_master = 1;
+    instance->non_dma_mode = 1;  // MSXã¯DMAã‚’ä½¿ã‚ãªã„
 
-	instance->_rqm_delay_count = 0;
+    instance->_rqm_delay_count = 0;
 }
 
 void ms_disk_controller_TC8566A_deinit(THIS* instance) {
-
 }
 
 /**
- * @brief 
- * 
- * 0x3FF8 - ƒŒƒWƒXƒ^2 (ƒRƒ“ƒgƒ[ƒ‹ƒŒƒWƒXƒ^0) - ƒhƒ‰ƒCƒu‘I‘ğ (Write Only)
+ * @brief
+ *
+ * 0x3FF8 - ãƒ¬ã‚¸ã‚¹ã‚¿2 (ã‚³ãƒ³ãƒˆãƒ­ãƒ¼ãƒ«ãƒ¬ã‚¸ã‚¹ã‚¿0) - ãƒ‰ãƒ©ã‚¤ãƒ–é¸æŠ (Write Only)
  * Bit-7	Bit-6	Bit-5	Bit-4	Bit-3	Bit-2	Bita-1	Bit-0
  * LED4		LED3	LED2	LED1	ENID	RST		DriveId	DriveId
- * 
- * * LED4-1 - 1‚É‚·‚é‚Æƒ‚[ƒ^[‚ª‰ñ“]‚µLED‚ª“_“”
- * * ENID - 1‚É‚·‚é‚ÆAINT/DRQ‚ªƒAƒT[ƒg‚³‚ê‚é (g‚Á‚Ä‚¢‚È‚¢)
- * * RST - 0 ‚É‚·‚é‚ÆAFDC‚ªƒŠƒZƒbƒg‚³‚ê‚é (g‚Á‚Ä‚¢‚È‚¢)
- * * DriveId - ƒhƒ‰ƒCƒu”Ô† (0-3)
- * 
- * @param d 
- * @param data 
+ *
+ * * LED4-1 - 1ã«ã™ã‚‹ã¨ãƒ¢ãƒ¼ã‚¿ãƒ¼ãŒå›è»¢ã—LEDãŒç‚¹ç¯
+ * * ENID - 1ã«ã™ã‚‹ã¨ã€INT/DRQãŒã‚¢ã‚µãƒ¼ãƒˆã•ã‚Œã‚‹ (ä½¿ã£ã¦ã„ãªã„)
+ * * RST - 0 ã«ã™ã‚‹ã¨ã€FDCãŒãƒªã‚»ãƒƒãƒˆã•ã‚Œã‚‹ (ä½¿ã£ã¦ã„ãªã„)
+ * * DriveId - ãƒ‰ãƒ©ã‚¤ãƒ–ç•ªå· (0-3)
+ *
+ * @param d
+ * @param data
  */
 static void _TC8556AF_reg2_write(THIS* d, uint8_t data) {
-	d->drive[3].set_motor(&d->drive[3], (data >> 7) & 0x01);
-	d->drive[2].set_motor(&d->drive[2], (data >> 6) & 0x01);
-	d->drive[1].set_motor(&d->drive[1], (data >> 5) & 0x01);
-	d->drive[0].set_motor(&d->drive[0], (data >> 4) & 0x01);
+    d->drive[3].set_motor(&d->drive[3], (data >> 7) & 0x01);
+    d->drive[2].set_motor(&d->drive[2], (data >> 6) & 0x01);
+    d->drive[1].set_motor(&d->drive[1], (data >> 5) & 0x01);
+    d->drive[0].set_motor(&d->drive[0], (data >> 4) & 0x01);
 
-	ms_fdd_led_2 = (data >> 5) & 0x01;
-	ms_fdd_led_1 = (data >> 4) & 0x01;
+    ms_fdd_led_2 = (data >> 5) & 0x01;
+    ms_fdd_led_1 = (data >> 4) & 0x01;
 
-	d->driveId = data & 0x03;
-	MS_LOG(MS_LOG_TRACE, "FDC Wr#2: %02x\n", data);
+    d->driveId = data & 0x03;
+    MS_LOG(MS_LOG_TRACE, "FDC Wr#2: %02x\n", data);
 }
 
 /**
- * @brief TC8566AF‚ÌƒŒƒWƒXƒ^3‚É‘‚«‚Ş
- * 
- * 0x3FF9 - ƒŒƒWƒXƒ^3 (ƒRƒ“ƒgƒ[ƒ‹ƒŒƒWƒXƒ^1)
- * ƒXƒe[ƒ^ƒXƒŒƒWƒXƒ^
+ * @brief TC8566AFã®ãƒ¬ã‚¸ã‚¹ã‚¿3ã«æ›¸ãè¾¼ã‚€
+ *
+ * 0x3FF9 - ãƒ¬ã‚¸ã‚¹ã‚¿3 (ã‚³ãƒ³ãƒˆãƒ­ãƒ¼ãƒ«ãƒ¬ã‚¸ã‚¹ã‚¿1)
+ * ã‚¹ãƒ†ãƒ¼ã‚¿ã‚¹ãƒ¬ã‚¸ã‚¹ã‚¿
  * Bit-7	Bit-6	Bit-5	Bit-4	Bit-3	Bit-2	Bit-1	Bit-0
  * ENB6		C6		ENB4	C4		ENB2	SBM		ENB0	FDCTC
- * 
+ *
  * * ENB6: ENABLE C6
- * 		* 1‚É‚·‚é‚ÆAC6‚Ì’l‚Í D6 ‚É‚È‚é
- * 		* 0‚É‚·‚é‚ÆAC6‚Ì’l‚Í C6(bit6) ‚É‚È‚é(?)
+ * 		* 1ã«ã™ã‚‹ã¨ã€C6ã®å€¤ã¯ D6 ã«ãªã‚‹
+ * 		* 0ã«ã™ã‚‹ã¨ã€C6ã®å€¤ã¯ C6(bit6) ã«ãªã‚‹(?)
  * * ENB4: ENABLE C4
- * 		* 1‚É‚·‚é‚ÆAC4‚Ì’l‚Í D4 ‚É‚È‚é
- * 		* 0‚É‚·‚é‚ÆAC4‚Ì’l‚Í C4(bit4) ‚É‚È‚é(?)
+ * 		* 1ã«ã™ã‚‹ã¨ã€C4ã®å€¤ã¯ D4 ã«ãªã‚‹
+ * 		* 0ã«ã™ã‚‹ã¨ã€C4ã®å€¤ã¯ C4(bit4) ã«ãªã‚‹(?)
  * * ENB2: ENABLE C2
- * 		* 1‚É‚·‚é‚ÆAC2‚Ì’l‚Í D2 ‚É‚È‚é(?)
+ * 		* 1ã«ã™ã‚‹ã¨ã€C2ã®å€¤ã¯ D2 ã«ãªã‚‹(?)
  * * SBM: STANDBY MODE
- * 		* 1‚É‚·‚é‚ÆAFDC‚ÍƒXƒ^ƒ“ƒoƒCƒ‚[ƒh‚É‚È‚é(?)
+ * 		* 1ã«ã™ã‚‹ã¨ã€FDCã¯ã‚¹ã‚¿ãƒ³ãƒã‚¤ãƒ¢ãƒ¼ãƒ‰ã«ãªã‚‹(?)
  * * ENB0: ENABLE C0
- * 		* 1‚É‚·‚é‚ÆAC0‚Ì’l‚Í D0 ‚É‚È‚é(?)
+ * 		* 1ã«ã™ã‚‹ã¨ã€C0ã®å€¤ã¯ D0 ã«ãªã‚‹(?)
  * * FDCTC: FDC Terminal Count
- * 		* Non-DMAƒ‚[ƒh‚Å1‚ğƒZƒbƒg‚·‚é‚ÆAƒf[ƒ^“]‘—‚ª’†’f‚·‚é
- * @param d 
- * @param data 
+ * 		* Non-DMAãƒ¢ãƒ¼ãƒ‰ã§1ã‚’ã‚»ãƒƒãƒˆã™ã‚‹ã¨ã€ãƒ‡ãƒ¼ã‚¿è»¢é€ãŒä¸­æ–­ã™ã‚‹
+ * @param d
+ * @param data
  */
 static void _TC8556AF_reg3_write(THIS* d, uint8_t data) {
-	MS_LOG(MS_LOG_TRACE, "FDC: write reg3(control#1): %02x\n", data);
-	if (data & 0x01) {
-		// FDCTC‚ª1‚É‚È‚Á‚½‚ç“]‘—‚ğ’†’f‚·‚é
-		if(d->phase == TC8566AF_PHASE_DATA_TRANSFER) {
-			to_result_phase(d);
-		}
-	}
+    MS_LOG(MS_LOG_TRACE, "FDC: write reg3(control#1): %02x\n", data);
+    if (data & 0x01) {
+        // FDCTCãŒ1ã«ãªã£ãŸã‚‰è»¢é€ã‚’ä¸­æ–­ã™ã‚‹
+        if (d->phase == TC8566AF_PHASE_DATA_TRANSFER) {
+            to_result_phase(d);
+        }
+    }
 }
 
 /**
- * @brief TC8566AF‚ÌƒŒƒWƒXƒ^4 (ƒXƒe[ƒ^ƒXƒŒƒWƒXƒ^) ‚ğ“Ç‚Ş
- * 
- * ƒXƒe[ƒ^ƒXƒŒƒWƒXƒ^
+ * @brief TC8566AFã®ãƒ¬ã‚¸ã‚¹ã‚¿4 (ã‚¹ãƒ†ãƒ¼ã‚¿ã‚¹ãƒ¬ã‚¸ã‚¹ã‚¿) ã‚’èª­ã‚€
+ *
+ * ã‚¹ãƒ†ãƒ¼ã‚¿ã‚¹ãƒ¬ã‚¸ã‚¹ã‚¿
  * Bit-7	Bit-6	Bit-5	Bit-4	Bit-3	Bit-2	Bit-1	Bit-0
  * RQM		DIO		NDM		CB		D3B		D2B		D1B		D0B
- * 
+ *
  * RQM; Request for Master
- *	1: FDC‚ªƒf[ƒ^ó‚¯•t‚¯’†A‚Ü‚½‚Íƒf[ƒ^‘—M€”õŠ®—¹
- *	0: FDC‚ªƒf[ƒ^ó‚¯æ‚è•s‰ÂA‚Ü‚½‚Íƒf[ƒ^‘—M€”õ–¢Š®—¹
+ *	1: FDCãŒãƒ‡ãƒ¼ã‚¿å—ã‘ä»˜ã‘ä¸­ã€ã¾ãŸã¯ãƒ‡ãƒ¼ã‚¿é€ä¿¡æº–å‚™å®Œäº†
+ *	0: FDCãŒãƒ‡ãƒ¼ã‚¿å—ã‘å–ã‚Šä¸å¯ã€ã¾ãŸã¯ãƒ‡ãƒ¼ã‚¿é€ä¿¡æº–å‚™æœªå®Œäº†
  * DIO; Data Input/Output
- *	1: FDC¨ƒzƒXƒg•ûŒü“]‘—
- *	0: ƒzƒXƒg¨FDC•ûŒü“]‘—
+ *	1: FDCâ†’ãƒ›ã‚¹ãƒˆæ–¹å‘è»¢é€
+ *	0: ãƒ›ã‚¹ãƒˆâ†’FDCæ–¹å‘è»¢é€
  * NDM; NonDMA Mode
- *	1: FDC‚ªNonDMAƒ‚[ƒh‚Åƒf[ƒ^“]‘—’†‚ÅƒT[ƒrƒX‚ğ—v‹‚µ‚Ä‚¢‚é
- *	0: FDC‚ÌƒT[ƒrƒX—v‹‚È‚µ
+ *	1: FDCãŒNonDMAãƒ¢ãƒ¼ãƒ‰ã§ãƒ‡ãƒ¼ã‚¿è»¢é€ä¸­ã§ã‚µãƒ¼ãƒ“ã‚¹ã‚’è¦æ±‚ã—ã¦ã„ã‚‹
+ *	0: FDCã®ã‚µãƒ¼ãƒ“ã‚¹è¦æ±‚ãªã—
  * CB; FDC Busy
- *	1: FDC‚ªƒRƒ}ƒ“ƒh‚ğÀs’†
- *	0: FDC‚ÍƒRƒ}ƒ“ƒh‚ğó‚¯•t‚¯‰Â”\
+ *	1: FDCãŒã‚³ãƒãƒ³ãƒ‰ã‚’å®Ÿè¡Œä¸­
+ *	0: FDCã¯ã‚³ãƒãƒ³ãƒ‰ã‚’å—ã‘ä»˜ã‘å¯èƒ½
  * D3B?D0B; FDD 3~0 Busy
- *	1: FDD 0?3 ‚ªƒV[ƒN’†
- * 	0: FDD 0?3 ‚ªƒV[ƒN’†‚Å‚Í‚È‚¢
- * @param d 
- * @return uint8_t 
+ *	1: FDD 0?3 ãŒã‚·ãƒ¼ã‚¯ä¸­
+ * 	0: FDD 0?3 ãŒã‚·ãƒ¼ã‚¯ä¸­ã§ã¯ãªã„
+ * @param d
+ * @return uint8_t
  */
 static uint8_t _TC8556AF_reg4_read(THIS* d) {
-	// bit5‚Ì NDM‚ÍADMA‚ğg‚í‚È‚¢ê‡‚ÉAƒf[ƒ^“]‘—ƒtƒF[ƒY‚Ìƒnƒ“ƒhƒVƒFƒCƒN‚Ì‚½‚ß‚Ég‚í‚ê‚éƒtƒ‰ƒO‚Å‚·
-	// ‹ï‘Ì“I‚É‚ÍAƒf[ƒ^“]‘—ƒtƒF[ƒY‚ÌÅ‰‚É1‚ÉƒZƒbƒg‚³‚êAƒf[ƒ^“]‘—‚ªI‚í‚é‚Æ0‚ÉƒŠƒZƒbƒg‚³‚ê‚Ü‚·
-	uint8_t ndm_req = ( (d->non_dma_mode == 1) && (d->phase == TC8566AF_PHASE_DATA_TRANSFER)) ? 1 : 0;
-	uint8_t ret = (d->request_for_master << 7) | //
-				(d->data_input_output << 6) | //
-				(ndm_req << 5) | //
-				(d->fdc_busy << 4) | //
-				(d->fdd_busy & 0x3);
+    // bit5ã® NDMã¯ã€DMAã‚’ä½¿ã‚ãªã„å ´åˆã«ã€ãƒ‡ãƒ¼ã‚¿è»¢é€ãƒ•ã‚§ãƒ¼ã‚ºã®ãƒãƒ³ãƒ‰ã‚·ã‚§ã‚¤ã‚¯ã®ãŸã‚ã«ä½¿ã‚ã‚Œã‚‹ãƒ•ãƒ©ã‚°ã§ã™
+    // å…·ä½“çš„ã«ã¯ã€ãƒ‡ãƒ¼ã‚¿è»¢é€ãƒ•ã‚§ãƒ¼ã‚ºã®æœ€åˆã«1ã«ã‚»ãƒƒãƒˆã•ã‚Œã€ãƒ‡ãƒ¼ã‚¿è»¢é€ãŒçµ‚ã‚ã‚‹ã¨0ã«ãƒªã‚»ãƒƒãƒˆã•ã‚Œã¾ã™
+    uint8_t ndm_req = ((d->non_dma_mode == 1) && (d->phase == TC8566AF_PHASE_DATA_TRANSFER)) ? 1 : 0;
+    uint8_t ret = (d->request_for_master << 7) |  //
+                  (d->data_input_output << 6) |   //
+                  (ndm_req << 5) |                //
+                  (d->fdc_busy << 4) |            //
+                  (d->fdd_busy & 0x3);
 
-	// RQM(FDX‚Ìƒoƒbƒtƒ@‚ªg‚¦‚é‚©‚Ç‚¤‚©)‚É 0 ‚ğ•Ô‹p‚µ‚½‚Æ‚µ‚Ä‚àAŸ‚É“Ç‚ñ‚¾‚ç1‚É‚È‚é‚æ‚¤‚É‚·‚é
-	if( d->_rqm_delay_count > 0 ) {
-		d->_rqm_delay_count--;
-	} else {
-		d->request_for_master = 1;	// RQM
-	}
+    // RQM(FDXã®ãƒãƒƒãƒ•ã‚¡ãŒä½¿ãˆã‚‹ã‹ã©ã†ã‹)ã« 0 ã‚’è¿”å´ã—ãŸã¨ã—ã¦ã‚‚ã€æ¬¡ã«èª­ã‚“ã ã‚‰1ã«ãªã‚‹ã‚ˆã†ã«ã™ã‚‹
+    if (d->_rqm_delay_count > 0) {
+        d->_rqm_delay_count--;
+    } else {
+        d->request_for_master = 1;  // RQM
+    }
 
-	MS_LOG(MS_LOG_TRACE, "FDC Rd#4: %02x\n", ret);
-	return ret;
+    MS_LOG(MS_LOG_TRACE, "FDC Rd#4: %02x\n", ret);
+    return ret;
 }
 
 /**
- * @brief TC8566AF‚ÌƒŒƒWƒXƒ^4(ƒXƒe[ƒ^ƒXƒŒƒWƒXƒ^)‚É‘‚«‚Ş
- * 
- * ‰½‚à‹N‚±‚ç‚È‚¢
- * 
- * @param d 
- * @param data 
+ * @brief TC8566AFã®ãƒ¬ã‚¸ã‚¹ã‚¿4(ã‚¹ãƒ†ãƒ¼ã‚¿ã‚¹ãƒ¬ã‚¸ã‚¹ã‚¿)ã«æ›¸ãè¾¼ã‚€
+ *
+ * ä½•ã‚‚èµ·ã“ã‚‰ãªã„
+ *
+ * @param d
+ * @param data
  */
 static void _TC8556AF_reg4_write(THIS* d, uint8_t data) {
 }
 
 /**
- * @brief TC8566AF‚ÌƒŒƒWƒXƒ^5(ƒf[ƒ^ƒŒƒWƒXƒ^)‚ğ“Ç‚Ş
- * 
- * ƒf[ƒ^ƒŒƒWƒXƒ^‚Å‚·
- * 
- * @param d 
- * @return uint8_t 
+ * @brief TC8566AFã®ãƒ¬ã‚¸ã‚¹ã‚¿5(ãƒ‡ãƒ¼ã‚¿ãƒ¬ã‚¸ã‚¹ã‚¿)ã‚’èª­ã‚€
+ *
+ * ãƒ‡ãƒ¼ã‚¿ãƒ¬ã‚¸ã‚¹ã‚¿ã§ã™
+ *
+ * @param d
+ * @return uint8_t
  */
 static uint8_t _TC8556AF_reg5_read(THIS* d) {
-	uint8_t ret = 0;
-	uint8_t phase = d->phase;
-	TC8566AF_command_t* command = &d->commands[d->command];
-	switch(phase) {
-	case TC8566AF_PHASE_IDLE:
-		MS_LOG(MS_LOG_TRACE, "FDC(Idle): Rd#5:\n");
-		break;
-	case TC8566AF_PHASE_COMMAND:
-		MS_LOG(MS_LOG_TRACE, "FDC(Comm): CMD:\n %s Rd#5:\n", command->name);
-		break;
-	case TC8566AF_PHASE_DATA_TRANSFER:
-		MS_LOG(MS_LOG_TRACE, "FDC(Trns): CMD: rest=%d\n %s Rd#5:\n", d->transfer_datas_rest, command->name);
-		trans_read_func_t read = command->trans_read;
-		if (read == NULL) {
-			MS_LOG(MS_LOG_FINE, "invalid read. igonre\n");
-			ret = 0xff;
-		} else {
-			uint8_t finished = 0;
-			ret = read(d, &finished);
-			if( finished ) {
-				if( command->result_phase != NULL) {
-					to_result_phase(d);
-				} else {
-					end_command(d);
-				}
-			}
-		}
-		MS_LOG(MS_LOG_TRACE, "  -> ret: %02x\n", ret);
-		break;
-	case TC8566AF_PHASE_RESULT:
-		MS_LOG(MS_LOG_FINE, "FDC(Resl): CMD:\n %s Rd#5:\n", command->name);
-		result_func_t result = command->result_phase;
-		if (result == NULL) {
-			MS_LOG(MS_LOG_ERROR, "***Result not implemented\n");
-			end_command(d);
-		} else {
-			uint8_t finished = 0;
-			ret = result(d, &finished);
-			d->result_byte_index++;
-			if (finished) {
-				end_command(d);
-			}
-		}
-		MS_LOG(MS_LOG_FINE, "  -> ret: %02x\n", ret);
-		d->request_for_master = 0;	// RQM‚ğˆê“x0‚É‚·‚é‚ªAƒXƒe[ƒ^ƒX‚ğ“Ç‚Ş‚Æ1‚É–ß‚é‚æ‚¤‚É‚È‚Á‚Ä‚¢‚é
-		break;	
-	}
-	return ret;
+    uint8_t ret = 0;
+    uint8_t phase = d->phase;
+    TC8566AF_command_t* command = &d->commands[d->command];
+    switch (phase) {
+    case TC8566AF_PHASE_IDLE:
+        MS_LOG(MS_LOG_TRACE, "FDC(Idle): Rd#5:\n");
+        break;
+    case TC8566AF_PHASE_COMMAND:
+        MS_LOG(MS_LOG_TRACE, "FDC(Comm): CMD:\n %s Rd#5:\n", command->name);
+        break;
+    case TC8566AF_PHASE_DATA_TRANSFER:
+        MS_LOG(MS_LOG_TRACE, "FDC(Trns): CMD: rest=%d\n %s Rd#5:\n", d->transfer_datas_rest, command->name);
+        trans_read_func_t read = command->trans_read;
+        if (read == NULL) {
+            MS_LOG(MS_LOG_FINE, "invalid read. igonre\n");
+            ret = 0xff;
+        } else {
+            uint8_t finished = 0;
+            ret = read(d, &finished);
+            if (finished) {
+                if (command->result_phase != NULL) {
+                    to_result_phase(d);
+                } else {
+                    end_command(d);
+                }
+            }
+        }
+        MS_LOG(MS_LOG_TRACE, "  -> ret: %02x\n", ret);
+        break;
+    case TC8566AF_PHASE_RESULT:
+        MS_LOG(MS_LOG_FINE, "FDC(Resl): CMD:\n %s Rd#5:\n", command->name);
+        result_func_t result = command->result_phase;
+        if (result == NULL) {
+            MS_LOG(MS_LOG_ERROR, "***Result not implemented\n");
+            end_command(d);
+        } else {
+            uint8_t finished = 0;
+            ret = result(d, &finished);
+            d->result_byte_index++;
+            if (finished) {
+                end_command(d);
+            }
+        }
+        MS_LOG(MS_LOG_FINE, "  -> ret: %02x\n", ret);
+        d->request_for_master = 0;  // RQMã‚’ä¸€åº¦0ã«ã™ã‚‹ãŒã€ã‚¹ãƒ†ãƒ¼ã‚¿ã‚¹ã‚’èª­ã‚€ã¨1ã«æˆ»ã‚‹ã‚ˆã†ã«ãªã£ã¦ã„ã‚‹
+        break;
+    }
+    return ret;
 }
 
 /**
- * @brief TC8566AF‚ÌƒŒƒWƒXƒ^5(ƒf[ƒ^ƒŒƒWƒXƒ^)‚É‘‚«‚Ş
- * 
- * ƒf[ƒ^ƒŒƒWƒXƒ^‚Å‚·BTC8566AF‚ÌƒXƒe[ƒg(Phase)‚É‚æ‚Á‚Ä“®ì‚ªˆÙ‚È‚è‚Ü‚·B
- * 
+ * @brief TC8566AFã®ãƒ¬ã‚¸ã‚¹ã‚¿5(ãƒ‡ãƒ¼ã‚¿ãƒ¬ã‚¸ã‚¹ã‚¿)ã«æ›¸ãè¾¼ã‚€
+ *
+ * ãƒ‡ãƒ¼ã‚¿ãƒ¬ã‚¸ã‚¹ã‚¿ã§ã™ã€‚TC8566AFã®ã‚¹ãƒ†ãƒ¼ãƒˆ(Phase)ã«ã‚ˆã£ã¦å‹•ä½œãŒç•°ãªã‚Šã¾ã™ã€‚
+ *
  * ## 1. Idle Phase
- * ƒAƒCƒhƒ‹ƒtƒF[ƒY‚Å‚ÍÀs‚·‚éƒRƒ}ƒ“ƒh‚Ìí—Ş‚ğ‘‚«‚İ‚Ü‚·B
- * 
+ * ã‚¢ã‚¤ãƒ‰ãƒ«ãƒ•ã‚§ãƒ¼ã‚ºã§ã¯å®Ÿè¡Œã™ã‚‹ã‚³ãƒãƒ³ãƒ‰ã®ç¨®é¡ã‚’æ›¸ãè¾¼ã¿ã¾ã™ã€‚
+ *
  * if ((value & 0x1f) == 0x06) d->command = CMD_READ_DATA;
  * if ((value & 0x3f) == 0x05) d->command = CMD_WRITE_DATA;
  * if ((value & 0x3f) == 0x09) d->command = CMD_WRITE_DELETED_DATA;
@@ -338,842 +347,839 @@ static uint8_t _TC8556AF_reg5_read(THIS* d) {
  * if ((value & 0xff) == 0x04) d->command = CMD_SENSE_DEVICE_STATUS;
  *
  * ## 2. Command Phase
- * ƒRƒ}ƒ“ƒhƒtƒF[ƒY‚Å‚ÍAƒRƒ}ƒ“ƒh‚É•K—v‚Èƒpƒ‰ƒ[ƒ^‚ğ‘‚«‚İ‚Ü‚·BƒRƒ}ƒ“ƒh‚Ìí—Ş‚É‚æ‚Á‚Ä‰½‰ñ‚©ŒJ‚è•Ô‚µwritej
- * 
+ * ã‚³ãƒãƒ³ãƒ‰ãƒ•ã‚§ãƒ¼ã‚ºã§ã¯ã€ã‚³ãƒãƒ³ãƒ‰ã«å¿…è¦ãªãƒ‘ãƒ©ãƒ¡ãƒ¼ã‚¿ã‚’æ›¸ãè¾¼ã¿ã¾ã™ã€‚ã‚³ãƒãƒ³ãƒ‰ã®ç¨®é¡ã«ã‚ˆã£ã¦ä½•å›ã‹ç¹°ã‚Šè¿”ã—writeï¼‰
+ *
  * ## 3. Data Transfer Phase
- * ƒf[ƒ^“Ç‚İ‚İ or ‘‚«‚İ‚ğs‚¤ƒtƒF[ƒY‚Å‚·
+ * ãƒ‡ãƒ¼ã‚¿èª­ã¿è¾¼ã¿ or æ›¸ãè¾¼ã¿ã‚’è¡Œã†ãƒ•ã‚§ãƒ¼ã‚ºã§ã™
  *
  * ## 4. Result Phase
- * Œ‹‰Ê‚ğƒzƒXƒg‘¤‚É•Ô‹p‚·‚éƒtƒF[ƒY‚Å‚·
- * 
- * 
- * @param d 
- * @param data 
+ * çµæœã‚’ãƒ›ã‚¹ãƒˆå´ã«è¿”å´ã™ã‚‹ãƒ•ã‚§ãƒ¼ã‚ºã§ã™
+ *
+ *
+ * @param d
+ * @param data
  */
 void _TC8556AF_reg5_write(THIS* d, uint8_t value) {
-	TC8566AF_command_t* command;
+    TC8566AF_command_t* command;
 
-	switch(d->phase) {
-	case TC8566AF_PHASE_IDLE:
-		uint8_t cmd = 0;
-		if ((value & 0x1f) == 0x06) {
-			cmd = TC8566AF_CMD_READ_DATA;
-		} else if ((value & 0x3f) == 0x05) {
-			cmd = TC8566AF_CMD_WRITE_DATA;
-		} else if ((value & 0x3f) == 0x09) {
-			cmd = TC8566AF_CMD_WRITE_DELETED_DATA;
-		} else if ((value & 0x1f) == 0x0c) {
-			cmd = TC8566AF_CMD_READ_DELETED_DATA;
-		} else if ((value & 0xbf) == 0x02) {
-			cmd = TC8566AF_CMD_READ_DIAGNOSTIC;
-		} else if ((value & 0xbf) == 0x0a) {
-			cmd = TC8566AF_CMD_READ_ID;
-		} else if ((value & 0xbf) == 0x0d) {
-			cmd = TC8566AF_CMD_FORMAT;
-		} else if ((value & 0x1f) == 0x11) {
-			cmd = TC8566AF_CMD_SCAN_EQUAL;
-		} else if ((value & 0x1f) == 0x19) {
-			cmd = TC8566AF_CMD_SCAN_LOW_OR_EQUAL;
-		} else if ((value & 0x1f) == 0x1d) {
-			cmd = TC8566AF_CMD_SCAN_HIGH_OR_EQUAL;
-		} else if ((value & 0xff) == 0x0f) {
-			cmd = TC8566AF_CMD_SEEK;
-		} else if ((value & 0xff) == 0x07) {
-			cmd = TC8566AF_CMD_RECALIBRATE;
-		} else if ((value & 0xff) == 0x08) {
-			cmd = TC8566AF_CMD_SENSE_INTERRUPT_STATUS;
-		} else if ((value & 0xff) == 0x03) {
-			cmd = TC8566AF_CMD_SPECIFY;
-		} else if ((value & 0xff) == 0x04) {
-			cmd = TC8566AF_CMD_SENSE_DEVICE_STATUS;
-		}
-		d->fdc_busy = 1;
-		d->command = cmd;
-		d->command_byte_value[0] = cmd;
-		d->command_byte_index = 1;
+    switch (d->phase) {
+    case TC8566AF_PHASE_IDLE:
+        uint8_t cmd = 0;
+        if ((value & 0x1f) == 0x06) {
+            cmd = TC8566AF_CMD_READ_DATA;
+        } else if ((value & 0x3f) == 0x05) {
+            cmd = TC8566AF_CMD_WRITE_DATA;
+        } else if ((value & 0x3f) == 0x09) {
+            cmd = TC8566AF_CMD_WRITE_DELETED_DATA;
+        } else if ((value & 0x1f) == 0x0c) {
+            cmd = TC8566AF_CMD_READ_DELETED_DATA;
+        } else if ((value & 0xbf) == 0x02) {
+            cmd = TC8566AF_CMD_READ_DIAGNOSTIC;
+        } else if ((value & 0xbf) == 0x0a) {
+            cmd = TC8566AF_CMD_READ_ID;
+        } else if ((value & 0xbf) == 0x0d) {
+            cmd = TC8566AF_CMD_FORMAT;
+        } else if ((value & 0x1f) == 0x11) {
+            cmd = TC8566AF_CMD_SCAN_EQUAL;
+        } else if ((value & 0x1f) == 0x19) {
+            cmd = TC8566AF_CMD_SCAN_LOW_OR_EQUAL;
+        } else if ((value & 0x1f) == 0x1d) {
+            cmd = TC8566AF_CMD_SCAN_HIGH_OR_EQUAL;
+        } else if ((value & 0xff) == 0x0f) {
+            cmd = TC8566AF_CMD_SEEK;
+        } else if ((value & 0xff) == 0x07) {
+            cmd = TC8566AF_CMD_RECALIBRATE;
+        } else if ((value & 0xff) == 0x08) {
+            cmd = TC8566AF_CMD_SENSE_INTERRUPT_STATUS;
+        } else if ((value & 0xff) == 0x03) {
+            cmd = TC8566AF_CMD_SPECIFY;
+        } else if ((value & 0xff) == 0x04) {
+            cmd = TC8566AF_CMD_SENSE_DEVICE_STATUS;
+        }
+        d->fdc_busy = 1;
+        d->command = cmd;
+        d->command_byte_value[0] = cmd;
+        d->command_byte_index = 1;
 
-		command = &d->commands[cmd]; // cmd = 0 ‚È‚ç INVALID ‚ª“ü‚é
-		MS_LOG(MS_LOG_FINE, "FDC(Idle): Accept\n %s Wr#5: %02x\n", command->name, value);
-		if( command->command_byte_count == 1) {
-			d->request_for_master = 0;
-			execute(d);
-		} else {
-			d->phase = TC8566AF_PHASE_COMMAND;
-		}
-		break;
-	case TC8566AF_PHASE_COMMAND:
-		command = &d->commands[d->command];
-		MS_LOG(MS_LOG_FINE, "FDC(Comm): Wr#5:\n %s[%d] = %02x\n", command->name, d->command_byte_index, value);
-		d->command_byte_value[d->command_byte_index++] = value;
-		if (d->command_byte_index == command->command_byte_count) {
-			execute(d);
-		}
-		break;
-	case TC8566AF_PHASE_DATA_TRANSFER:
-		command = &d->commands[d->command];
-		MS_LOG(MS_LOG_FINE, "FDC(Trns): %s Wr#5: %02x\n", command->name, value);
-		if( command->trans_write == NULL) {
-			MS_LOG(MS_LOG_FINE, "invalid write. igonre\n");
-		} else {
-			uint8_t finished = 0;
-			command->trans_write(d, value, &finished);
-			if( finished) {
-				if( command->result_phase != NULL) {
-					to_result_phase(d);
-				} else {
-					end_command(d);
-				}
-			}
-		}
-		break;
-	case TC8566AF_PHASE_RESULT:
-		command = &d->commands[d->command];
-		MS_LOG(MS_LOG_ERROR, "FDC(Rslt): %s Wr#5: %02x\n", command->name, value);
-		MS_LOG(MS_LOG_ERROR, "invalid result. ignore\n");  // result phase ‚Í read only
-		break;		
-	}
+        command = &d->commands[cmd];  // cmd = 0 ãªã‚‰ INVALID ãŒå…¥ã‚‹
+        MS_LOG(MS_LOG_FINE, "FDC(Idle): Accept\n %s Wr#5: %02x\n", command->name, value);
+        if (command->command_byte_count == 1) {
+            d->request_for_master = 0;
+            execute(d);
+        } else {
+            d->phase = TC8566AF_PHASE_COMMAND;
+        }
+        break;
+    case TC8566AF_PHASE_COMMAND:
+        command = &d->commands[d->command];
+        MS_LOG(MS_LOG_FINE, "FDC(Comm): Wr#5:\n %s[%d] = %02x\n", command->name, d->command_byte_index, value);
+        d->command_byte_value[d->command_byte_index++] = value;
+        if (d->command_byte_index == command->command_byte_count) {
+            execute(d);
+        }
+        break;
+    case TC8566AF_PHASE_DATA_TRANSFER:
+        command = &d->commands[d->command];
+        MS_LOG(MS_LOG_FINE, "FDC(Trns): %s Wr#5: %02x\n", command->name, value);
+        if (command->trans_write == NULL) {
+            MS_LOG(MS_LOG_FINE, "invalid write. igonre\n");
+        } else {
+            uint8_t finished = 0;
+            command->trans_write(d, value, &finished);
+            if (finished) {
+                if (command->result_phase != NULL) {
+                    to_result_phase(d);
+                } else {
+                    end_command(d);
+                }
+            }
+        }
+        break;
+    case TC8566AF_PHASE_RESULT:
+        command = &d->commands[d->command];
+        MS_LOG(MS_LOG_ERROR, "FDC(Rslt): %s Wr#5: %02x\n", command->name, value);
+        MS_LOG(MS_LOG_ERROR, "invalid result. ignore\n");  // result phase ã¯ read only
+        break;
+    }
 }
 
 void end_command(THIS* d) {
-	d->fdc_busy = 0;			// CB
-	d->data_input_output = 0;	// DIO
-	d->request_for_master = 1;	// RQM
-	d->phase = TC8566AF_PHASE_IDLE;
+    d->fdc_busy = 0;            // CB
+    d->data_input_output = 0;   // DIO
+    d->request_for_master = 1;  // RQM
+    d->phase = TC8566AF_PHASE_IDLE;
 }
 
 void execute(THIS* d) {
-	TC8566AF_command_t* command = &d->commands[d->command];
-	exec_func_t exec = command->execution_phase;
-	exec(d);	// Às
+    TC8566AF_command_t* command = &d->commands[d->command];
+    exec_func_t exec = command->execution_phase;
+    exec(d);  // å®Ÿè¡Œ
 
-	if( command->trans_read != NULL) {
-		d->phase = TC8566AF_PHASE_DATA_TRANSFER;
-		d->data_input_output = 1;  // FDC -> Host
-	} else if (command->trans_write != NULL) {
-		d->phase = TC8566AF_PHASE_DATA_TRANSFER;
-		d->data_input_output = 0;  // Host -> FDC
-	} else if (command->result_phase != NULL) {
-		to_result_phase(d);
-	} else {
-		end_command(d);
-	}
+    if (command->trans_read != NULL) {
+        d->phase = TC8566AF_PHASE_DATA_TRANSFER;
+        d->data_input_output = 1;  // FDC -> Host
+    } else if (command->trans_write != NULL) {
+        d->phase = TC8566AF_PHASE_DATA_TRANSFER;
+        d->data_input_output = 0;  // Host -> FDC
+    } else if (command->result_phase != NULL) {
+        to_result_phase(d);
+    } else {
+        end_command(d);
+    }
 }
 
-
 void decode_cmd_chrn(THIS* d) {
-	d->value_HS = (d->command_byte_value[1] & 0x04) >> 2;
-	d->value_DS = (d->command_byte_value[1] & 0x03);
-	d->value_C = d->command_byte_value[2];
-	d->value_H = d->command_byte_value[3];
-	d->value_R = d->command_byte_value[4];
-	d->value_N = d->command_byte_value[5];
-	d->value_EOT = d->command_byte_value[6];
-	d->value_GSL_GPL = d->command_byte_value[7];
-	d->value_DTL_STP = d->command_byte_value[8];
+    d->value_HS = (d->command_byte_value[1] & 0x04) >> 2;
+    d->value_DS = (d->command_byte_value[1] & 0x03);
+    d->value_C = d->command_byte_value[2];
+    d->value_H = d->command_byte_value[3];
+    d->value_R = d->command_byte_value[4];
+    d->value_N = d->command_byte_value[5];
+    d->value_EOT = d->command_byte_value[6];
+    d->value_GSL_GPL = d->command_byte_value[7];
+    d->value_DTL_STP = d->command_byte_value[8];
 
-	// status 0‚ğXV
-	d->status0 &= 0b00111100; // Interrupt code (b7-6)‚Æ Drive select (b1-0) ‚ğƒNƒŠƒA
-	d->status0 |= (d->value_DS);
-	ms_disk_drive_floppy_t* drive = &d->drive[d->driveId];
-	if (drive->container == NULL) {
-		// ƒhƒ‰ƒCƒu‚ª‘¶İ‚µ‚È‚¢
-		d->status0 |= 0b10000000; // b7-6 = 10 (Invalid command)
-	}
+    // status 0ã‚’æ›´æ–°
+    d->status0 &= 0b00111100;  // Interrupt code (b7-6)ã¨ Drive select (b1-0) ã‚’ã‚¯ãƒªã‚¢
+    d->status0 |= (d->value_DS);
+    ms_disk_drive_floppy_t* drive = &d->drive[d->driveId];
+    if (drive->container == NULL) {
+        // ãƒ‰ãƒ©ã‚¤ãƒ–ãŒå­˜åœ¨ã—ãªã„
+        d->status0 |= 0b10000000;  // b7-6 = 10 (Invalid command)
+    }
 
-	// status 3‚ğXV
-	uint8_t is_disk_inserted = drive->is_disk_inserted(drive);
-	d->status3 = //
-		(0 * 0x80); // Fault
-		(drive->is_write_protected * 0x40) | // Write Protect
-		(is_disk_inserted * 0x20) | // Ready
-		(drive->is_track00 * 0x10) | // Track 0
-		(drive->is_double_sided * 0x08) | // Two side
-		(d->value_HS * 0x04) | // Head select
-		(d->value_DS); // Drive select
+    // status 3ã‚’æ›´æ–°
+    uint8_t is_disk_inserted = drive->is_disk_inserted(drive);
+    d->status3 =                           //
+        (0 * 0x80);                        // Fault
+    (drive->is_write_protected * 0x40) |   // Write Protect
+        (is_disk_inserted * 0x20) |        // Ready
+        (drive->is_track00 * 0x10) |       // Track 0
+        (drive->is_double_sided * 0x08) |  // Two side
+        (d->value_HS * 0x04) |             // Head select
+        (d->value_DS);                     // Drive select
 
-	// ƒhƒ‰ƒCƒu‚Ìƒwƒbƒh(ƒTƒCƒh)‚ğ‘I‘ğ
-	drive->set_side(drive, d->value_HS);
+    // ãƒ‰ãƒ©ã‚¤ãƒ–ã®ãƒ˜ãƒƒãƒ‰(ã‚µã‚¤ãƒ‰)ã‚’é¸æŠ
+    drive->set_side(drive, d->value_HS);
 }
 
 /* *********************************************************
 
-	READ DATA
+        READ DATA
 
-	READ DATA ƒRƒ}ƒ“ƒh‚ÍA9ƒoƒCƒg‚©‚ç‚È‚èAˆÈ‰º‚Ìî•ñ‚ª—^‚¦‚ç‚ê‚Ü‚·B
+        READ DATA ã‚³ãƒãƒ³ãƒ‰ã¯ã€9ãƒã‚¤ãƒˆã‹ã‚‰ãªã‚Šã€ä»¥ä¸‹ã®æƒ…å ±ãŒä¸ãˆã‚‰ã‚Œã¾ã™ã€‚
 
-	* 0ƒoƒCƒg–Ú: b7:MT, b6:MFM, b5:SKAb4-0:ƒRƒ}ƒ“ƒh(0x06)
-		* MT: Multi-TrackA•¡”ƒgƒ‰ƒbƒN‚ğ“Ç‚Ş‚©‚Ç‚¤‚©
-		* MFM: MFMAMFM‚Åƒf[ƒ^‚ğ“Ç‚Ş‚©‚Ç‚¤‚©
-		* SK: SkipADDAM(Deleted Data Address Mark)‚Ì‚ ‚éƒZƒNƒ^(íœ‚³‚ê‚½ƒZƒNƒ^)‚ğƒXƒLƒbƒv‚·‚é‚©‚Ç‚¤‚©
-	* 1ƒoƒCƒg–Ú: HS, DS1, DS0
-		* HS: ƒwƒbƒhƒZƒŒƒNƒgAFD‚Ì— •\‚Ì‚Ç‚¿‚ç‚ÌƒTƒCƒh‚©‚ğw’è‚µ‚Ü‚·
-		* DS: 2ƒrƒbƒg‚Åƒhƒ‰ƒCƒu”Ô†‚ğw’è‚µ‚Ü‚·
-	* 2ƒoƒCƒg–Ú: Cylinder
-	* 3ƒoƒCƒg–Ú: Head
-	* 4ƒoƒCƒg–Ú: Record (ƒwƒbƒh‚È‚¢‚ÌƒZƒNƒ^”Ô†)
-	* 5ƒoƒCƒg–Ú: N (ƒZƒNƒ^ƒTƒCƒY‚Ìw’èA‰º‹L•\QÆ)
-		* N=0: 128ƒoƒCƒg
-		* N=1: 256ƒoƒCƒg
-		* N=2: 512ƒoƒCƒg
-		* N=3: 1024ƒoƒCƒg
-	* 6ƒoƒCƒg–Ú: EOT (End of Track)Aƒgƒ‰ƒbƒN“à‚Ì‚Ç‚ÌƒZƒNƒ^‚Ü‚Å“Ç‚Ş‚©
-	* 7ƒoƒCƒg–Ú: GPL (Gap Length)
-	* 8ƒoƒCƒg–Ú: DTL (Data Length)
+        * 0ãƒã‚¤ãƒˆç›®: b7:MT, b6:MFM, b5:SKã€b4-0:ã‚³ãƒãƒ³ãƒ‰(0x06)
+                * MT: Multi-Trackã€è¤‡æ•°ãƒˆãƒ©ãƒƒã‚¯ã‚’èª­ã‚€ã‹ã©ã†ã‹
+                * MFM: MFMã€MFMã§ãƒ‡ãƒ¼ã‚¿ã‚’èª­ã‚€ã‹ã©ã†ã‹
+                * SK: Skipã€DDAM(Deleted Data Address Mark)ã®ã‚ã‚‹ã‚»ã‚¯ã‚¿(å‰Šé™¤ã•ã‚ŒãŸã‚»ã‚¯ã‚¿)ã‚’ã‚¹ã‚­ãƒƒãƒ—ã™ã‚‹ã‹ã©ã†ã‹
+        * 1ãƒã‚¤ãƒˆç›®: HS, DS1, DS0
+                * HS: ãƒ˜ãƒƒãƒ‰ã‚»ãƒ¬ã‚¯ãƒˆã€FDã®è£è¡¨ã®ã©ã¡ã‚‰ã®ã‚µã‚¤ãƒ‰ã‹ã‚’æŒ‡å®šã—ã¾ã™
+                * DS: 2ãƒ“ãƒƒãƒˆã§ãƒ‰ãƒ©ã‚¤ãƒ–ç•ªå·ã‚’æŒ‡å®šã—ã¾ã™
+        * 2ãƒã‚¤ãƒˆç›®: Cylinder
+        * 3ãƒã‚¤ãƒˆç›®: Head
+        * 4ãƒã‚¤ãƒˆç›®: Record (ãƒ˜ãƒƒãƒ‰ãªã„ã®ã‚»ã‚¯ã‚¿ç•ªå·)
+        * 5ãƒã‚¤ãƒˆç›®: N (ã‚»ã‚¯ã‚¿ã‚µã‚¤ã‚ºã®æŒ‡å®šã€ä¸‹è¨˜è¡¨å‚ç…§)
+                * N=0: 128ãƒã‚¤ãƒˆ
+                * N=1: 256ãƒã‚¤ãƒˆ
+                * N=2: 512ãƒã‚¤ãƒˆ
+                * N=3: 1024ãƒã‚¤ãƒˆ
+        * 6ãƒã‚¤ãƒˆç›®: EOT (End of Track)ã€ãƒˆãƒ©ãƒƒã‚¯å†…ã®ã©ã®ã‚»ã‚¯ã‚¿ã¾ã§èª­ã‚€ã‹
+        * 7ãƒã‚¤ãƒˆç›®: GPL (Gap Length)
+        * 8ãƒã‚¤ãƒˆç›®: DTL (Data Length)
 
-  MT, MFM SK‚Í–³‹‚µ‚Ä‚¢‚Ü‚· (MT=1)
+  MT, MFM SKã¯ç„¡è¦–ã—ã¦ã„ã¾ã™ (MT=1)
 
- READ DATA ƒRƒ}ƒ“ƒh‚ÌÀs‚ÍAˆÈ‰º‚Ìè‡‚Ås‚¢‚Ü‚·B
- * Step1: ƒwƒbƒh‚Ìƒ[ƒh
-	* ƒwƒbƒh‚ªƒ[ƒh‚³‚ê‚Ä‚¢‚È‚¢ê‡‚Íƒ[ƒh‚µ‚Ü‚·
- * Step2: ID Address Mark‚Æ ID field ‚Ì“Ç‚İ‚İ
- 	* ID Address Mark‚Æ‚¢‚¤‚Ì‚ÍAIDƒtƒB[ƒ‹ƒh‚ªn‚Ü‚é‚±‚Æ‚ğ¦‚·“Áê‚Èƒf[ƒ^(0xa1a1a1fe) ‚Å‚·
-	* ID field‚Æ‚¢‚¤‚Ì‚Í CHRN ‚Ìî•ñ‚ğŠÜ‚Şƒf[ƒ^‚Ì‚±‚Æ‚Å‚·
- * Step3: ƒf[ƒ^‚Ì“Ç‚İ‚İ(“]‘—)
- 	* ƒRƒ}ƒ“ƒh‚Éw’è‚³‚ê‚½ CHRN‚ÆAID field‚ÌCHRN‚ªˆê’v‚·‚éƒZƒNƒ^‚ªŒ»‚ê‚é‚Ü‚Å‘Ò‚¿A”­Œ©‚³‚ê‚½‚çƒf[ƒ^‚ğ“Ç‚İ‚İA“]‘—‚µ‚Ü‚·
-	* ‚à‚µƒwƒbƒh‚Ì‚ ‚éˆÊ’u‚ÆˆÙ‚È‚éCHRN‚ğw’è‚µ‚Ä READ DATAƒRƒ}ƒ“ƒh‚ğ”­s‚µ‚½ê‡‚ÍAƒf[ƒ^‚ªŒ©‚Â‚©‚ç‚È‚¢‚Ì‚ÅANot Found ƒGƒ‰[‚ğ•Ô‚µ‚Ü‚·(‚¨‚»‚ç‚­)
- * Step4: ƒf[ƒ^‚Ì“]‘—I—¹ğŒ¬—§‚Ü‚ÅŒJ‚è•Ô‚·
- 	* 1‚ÂƒZƒNƒ^[‚ğ“Ç‚ñ‚¾‚çAƒZƒNƒ^[”Ô†(R)‚ğƒCƒ“ƒNƒŠƒƒ“ƒg‚µ‚ÄŸ‚ÌƒZƒNƒ^[‚ğ“Ç‚İ‚İ‚Ü‚·
-	* ‚±‚ê‚ğ Multi-sector Read Operation ‚Æ‚¢‚¢‚Ü‚·
-	* MT=1‚Ìê‡‚Í— –Ê‚Ü‚Å“Ç‚İ‚És‚«‚Ü‚·‚ªAMT=0‚Ìê‡‚Í“¯ˆêƒgƒ‰ƒbƒN“à‚Ì‚İ‚µ‚©“Ç‚İ‚Ü‚¹‚ñ
-	* EOT‚Åw’è‚³‚ê‚½ƒZƒNƒ^”Ô†‚É’B‚·‚é‚©AÅ‘åÅIƒZƒNƒ^‚É’B‚µ‚½‚ç“]‘—‚ğI—¹‚µ‚Ü‚·
-	* ‚ ‚é‚¢‚ÍAreg3 (ƒRƒ“ƒgƒ[ƒ‹ƒŒƒWƒXƒ^1)‚Ì Bit0 (FDCTC) ‚É1‚ªƒZƒbƒg‚³‚ê‘¼ê‡‚à‚»‚±‚Å“]‘—‚ğI—¹‚µ‚Ü‚·B
-	* Å‘åÅIƒZƒNƒ^‚ÍAMT=0‚Ìê‡‚Í“¯ˆêƒgƒ‰ƒbƒN“à‚ÌÅ‘åƒZƒNƒ^AMT=1‚Ìê‡‚Í— –Ê‚ÌÅ‘åƒZƒNƒ^‚ÅAˆÈ‰º‚Ì‚æ‚¤‚É‚È‚è‚Ü‚·
-		* MT=0‚ÅƒTƒCƒh0‚ğ“Ç‚ñ‚¾ê‡‚ÌÅ‘åÅIƒZƒNƒ^	= ƒTƒCƒh0, ƒZƒNƒ^ 9, Å‘å“]‘—ƒZƒNƒ^”=9	
-		* MT=0‚ÅƒTƒCƒh1‚ğ“Ç‚ñ‚¾ê‡‚ÌÅ‘åÅIƒZƒNƒ^	= ƒTƒCƒh1, ƒZƒNƒ^ 9, Å‘å“]‘—ƒZƒNƒ^”=9
-		* MT=1‚Å‚ğ“Ç‚ñ‚¾ê‡‚ÌÅ‘åÅIƒZƒNƒ^		= ƒTƒCƒh1, ƒZƒNƒ^ 9, Å‘å“]‘—ƒZƒNƒ^”=18
-* Step5: “]‘—‚ªI‚í‚Á‚½‚çƒŠƒUƒ‹ƒgƒtƒF[ƒY‚ÅŒ‹‰Ê‚ğ•Ô‚µ‚Ü‚·
+ READ DATA ã‚³ãƒãƒ³ãƒ‰ã®å®Ÿè¡Œã¯ã€ä»¥ä¸‹ã®æ‰‹é †ã§è¡Œã„ã¾ã™ã€‚
+ * Step1: ãƒ˜ãƒƒãƒ‰ã®ãƒ­ãƒ¼ãƒ‰
+        * ãƒ˜ãƒƒãƒ‰ãŒãƒ­ãƒ¼ãƒ‰ã•ã‚Œã¦ã„ãªã„å ´åˆã¯ãƒ­ãƒ¼ãƒ‰ã—ã¾ã™
+ * Step2: ID Address Markã¨ ID field ã®èª­ã¿è¾¼ã¿
+        * ID Address Markã¨ã„ã†ã®ã¯ã€IDãƒ•ã‚£ãƒ¼ãƒ«ãƒ‰ãŒå§‹ã¾ã‚‹ã“ã¨ã‚’ç¤ºã™ç‰¹æ®Šãªãƒ‡ãƒ¼ã‚¿(0xa1a1a1fe) ã§ã™
+        * ID fieldã¨ã„ã†ã®ã¯ CHRN ã®æƒ…å ±ã‚’å«ã‚€ãƒ‡ãƒ¼ã‚¿ã®ã“ã¨ã§ã™
+ * Step3: ãƒ‡ãƒ¼ã‚¿ã®èª­ã¿è¾¼ã¿(è»¢é€)
+        * ã‚³ãƒãƒ³ãƒ‰ã«æŒ‡å®šã•ã‚ŒãŸ CHRNã¨ã€ID fieldã®CHRNãŒä¸€è‡´ã™ã‚‹ã‚»ã‚¯ã‚¿ãŒç¾ã‚Œã‚‹ã¾ã§å¾…ã¡ã€ç™ºè¦‹ã•ã‚ŒãŸã‚‰ãƒ‡ãƒ¼ã‚¿ã‚’èª­ã¿è¾¼ã¿ã€è»¢é€ã—ã¾ã™
+        * ã‚‚ã—ãƒ˜ãƒƒãƒ‰ã®ã‚ã‚‹ä½ç½®ã¨ç•°ãªã‚‹CHRNã‚’æŒ‡å®šã—ã¦ READ DATAã‚³ãƒãƒ³ãƒ‰ã‚’ç™ºè¡Œã—ãŸå ´åˆã¯ã€ãƒ‡ãƒ¼ã‚¿ãŒè¦‹ã¤ã‹ã‚‰ãªã„ã®ã§ã€Not Found
+ã‚¨ãƒ©ãƒ¼ã‚’è¿”ã—ã¾ã™(ãŠãã‚‰ã)
+ * Step4: ãƒ‡ãƒ¼ã‚¿ã®è»¢é€çµ‚äº†æ¡ä»¶æˆç«‹ã¾ã§ç¹°ã‚Šè¿”ã™
+        * 1ã¤ã‚»ã‚¯ã‚¿ãƒ¼ã‚’èª­ã‚“ã ã‚‰ã€ã‚»ã‚¯ã‚¿ãƒ¼ç•ªå·(R)ã‚’ã‚¤ãƒ³ã‚¯ãƒªãƒ¡ãƒ³ãƒˆã—ã¦æ¬¡ã®ã‚»ã‚¯ã‚¿ãƒ¼ã‚’èª­ã¿è¾¼ã¿ã¾ã™
+        * ã“ã‚Œã‚’ Multi-sector Read Operation ã¨ã„ã„ã¾ã™
+        * MT=1ã®å ´åˆã¯è£é¢ã¾ã§èª­ã¿ã«è¡Œãã¾ã™ãŒã€MT=0ã®å ´åˆã¯åŒä¸€ãƒˆãƒ©ãƒƒã‚¯å†…ã®ã¿ã—ã‹èª­ã¿ã¾ã›ã‚“
+        * EOTã§æŒ‡å®šã•ã‚ŒãŸã‚»ã‚¯ã‚¿ç•ªå·ã«é”ã™ã‚‹ã‹ã€æœ€å¤§æœ€çµ‚ã‚»ã‚¯ã‚¿ã«é”ã—ãŸã‚‰è»¢é€ã‚’çµ‚äº†ã—ã¾ã™
+        * ã‚ã‚‹ã„ã¯ã€reg3 (ã‚³ãƒ³ãƒˆãƒ­ãƒ¼ãƒ«ãƒ¬ã‚¸ã‚¹ã‚¿1)ã® Bit0 (FDCTC) ã«1ãŒã‚»ãƒƒãƒˆã•ã‚Œä»–å ´åˆã‚‚ãã“ã§è»¢é€ã‚’çµ‚äº†ã—ã¾ã™ã€‚
+        * æœ€å¤§æœ€çµ‚ã‚»ã‚¯ã‚¿ã¯ã€MT=0ã®å ´åˆã¯åŒä¸€ãƒˆãƒ©ãƒƒã‚¯å†…ã®æœ€å¤§ã‚»ã‚¯ã‚¿ã€MT=1ã®å ´åˆã¯è£é¢ã®æœ€å¤§ã‚»ã‚¯ã‚¿ã§ã€ä»¥ä¸‹ã®ã‚ˆã†ã«ãªã‚Šã¾ã™
+                * MT=0ã§ã‚µã‚¤ãƒ‰0ã‚’èª­ã‚“ã å ´åˆã®æœ€å¤§æœ€çµ‚ã‚»ã‚¯ã‚¿	= ã‚µã‚¤ãƒ‰0, ã‚»ã‚¯ã‚¿ 9, æœ€å¤§è»¢é€ã‚»ã‚¯ã‚¿æ•°=9
+                * MT=0ã§ã‚µã‚¤ãƒ‰1ã‚’èª­ã‚“ã å ´åˆã®æœ€å¤§æœ€çµ‚ã‚»ã‚¯ã‚¿	= ã‚µã‚¤ãƒ‰1, ã‚»ã‚¯ã‚¿ 9, æœ€å¤§è»¢é€ã‚»ã‚¯ã‚¿æ•°=9
+                * MT=1ã§ã‚’èª­ã‚“ã å ´åˆã®æœ€å¤§æœ€çµ‚ã‚»ã‚¯ã‚¿		= ã‚µã‚¤ãƒ‰1, ã‚»ã‚¯ã‚¿ 9, æœ€å¤§è»¢é€ã‚»ã‚¯ã‚¿æ•°=18
+* Step5: è»¢é€ãŒçµ‚ã‚ã£ãŸã‚‰ãƒªã‚¶ãƒ«ãƒˆãƒ•ã‚§ãƒ¼ã‚ºã§çµæœã‚’è¿”ã—ã¾ã™
 
-“Ç‚İ‚İ’†‚ÉCRCƒGƒ‰[‚ª”­¶‚µ‚½ê‡‚È‚Ç‚ÍAresult status0,1,2‚ÉˆÈ‰º‚Ìƒrƒbƒg‚ğ—§‚Ä‚Ü‚·
- * status0: 0b01000000 : IC(Interrupt Code) = 01 = ƒRƒ}ƒ“ƒhˆÙíI—¹
+èª­ã¿è¾¼ã¿ä¸­ã«CRCã‚¨ãƒ©ãƒ¼ãŒç™ºç”Ÿã—ãŸå ´åˆãªã©ã¯ã€result status0,1,2ã«ä»¥ä¸‹ã®ãƒ“ãƒƒãƒˆã‚’ç«‹ã¦ã¾ã™
+ * status0: 0b01000000 : IC(Interrupt Code) = 01 = ã‚³ãƒãƒ³ãƒ‰ç•°å¸¸çµ‚äº†
  * status1: 0b00100000 : DE(Data Error)
  * status2: 0b00100000 : DD(Data Error in Data Field)
- 
+
 ********************************************************* */
 
 static uint8_t read_data_setup(THIS* d);
 
 static void read_data_exec(THIS* d) {
-	MS_LOG(MS_LOG_FINE, "FDC READ DATA\n");
-	decode_cmd_chrn(d);
-	ms_disk_drive_floppy_t* drive = &d->drive[d->driveId];
+    MS_LOG(MS_LOG_FINE, "FDC READ DATA\n");
+    decode_cmd_chrn(d);
+    ms_disk_drive_floppy_t* drive = &d->drive[d->driveId];
 
-	if ( d->value_R > d->value_EOT) {
-		// w’è‚³‚ê‚½ƒZƒNƒ^”Ô†‚ªEOT‚ğ’´‚¦‚Ä‚¢‚éê‡A0ƒoƒCƒg
-		d->transfer_datas_rest = 0;
-		return;
-	}
-	// ÀÛ‚ÌFDC‚Ì“®ì‚Æ‚µ‚Ä‚ÍAƒwƒbƒh‚ğƒ[ƒh‚µA‰ñ“]‚·‚éƒfƒBƒXƒN‚Ì’†‚©‚ç
-	// CHRN‚É‡’v‚·‚éƒZƒNƒ^‚ğŒ©‚Â‚¯A‚»‚Ìƒgƒ‰ƒbƒN‚Ìƒf[ƒ^‚ğÅŒã‚Ü‚Å“Ç‚İ‚İ‚Ü‚·
-	// ƒvƒƒeƒNƒg‚ÌÄŒ»‚ğ‚·‚éê‡‚Í‚»‚Ìƒ^ƒCƒ~ƒ“ƒO‚È‚Ç‚à‡‚í‚¹‚é•K—v‚ª‚ ‚è‚Ü‚·‚ªA
-	// ‚±‚±‚Å‚Í’P‚Éƒf[ƒ^‚ğ“Ç‚İ‚Ş‚¾‚¯‚Æ‚µ‚Ü‚·
+    if (d->value_R > d->value_EOT) {
+        // æŒ‡å®šã•ã‚ŒãŸã‚»ã‚¯ã‚¿ç•ªå·ãŒEOTã‚’è¶…ãˆã¦ã„ã‚‹å ´åˆã€0ãƒã‚¤ãƒˆ
+        d->transfer_datas_rest = 0;
+        return;
+    }
+    // å®Ÿéš›ã®FDCã®å‹•ä½œã¨ã—ã¦ã¯ã€ãƒ˜ãƒƒãƒ‰ã‚’ãƒ­ãƒ¼ãƒ‰ã—ã€å›è»¢ã™ã‚‹ãƒ‡ã‚£ã‚¹ã‚¯ã®ä¸­ã‹ã‚‰
+    // CHRNã«åˆè‡´ã™ã‚‹ã‚»ã‚¯ã‚¿ã‚’è¦‹ã¤ã‘ã€ãã®ãƒˆãƒ©ãƒƒã‚¯ã®ãƒ‡ãƒ¼ã‚¿ã‚’æœ€å¾Œã¾ã§èª­ã¿è¾¼ã¿ã¾ã™
+    // ãƒ—ãƒ­ãƒ†ã‚¯ãƒˆã®å†ç¾ã‚’ã™ã‚‹å ´åˆã¯ãã®ã‚¿ã‚¤ãƒŸãƒ³ã‚°ãªã©ã‚‚åˆã‚ã›ã‚‹å¿…è¦ãŒã‚ã‚Šã¾ã™ãŒã€
+    // ã“ã“ã§ã¯å˜ã«ãƒ‡ãƒ¼ã‚¿ã‚’èª­ã¿è¾¼ã‚€ã ã‘ã¨ã—ã¾ã™
 
-	// ƒfƒBƒXƒN‚ğÅ‘å2ü‚³‚¹AŠY“–‚ÌƒZƒNƒ^‚ğ’T‚µƒoƒbƒtƒ@‚·‚é
-	d->sector_buffer_ready = 0;
-	d->sector_buffer_serach_count = 0;
+    // ãƒ‡ã‚£ã‚¹ã‚¯ã‚’æœ€å¤§2å‘¨ã•ã›ã€è©²å½“ã®ã‚»ã‚¯ã‚¿ã‚’æ¢ã—ãƒãƒƒãƒ•ã‚¡ã™ã‚‹
+    d->sector_buffer_ready = 0;
+    d->sector_buffer_serach_count = 0;
 
-	if(!read_data_setup(d)) {
-		// “Ç‚İ‚İ¸”s
-		d->transfer_datas_rest = 0;
-		to_result_phase(d);
-	} else {
-		d->transfer_datas_rest = (128 << d->value_N);
-		MS_LOG(MS_LOG_FINE, "FDC: READ DATA Trns rest=%d\n", d->transfer_datas_rest);
-	}
+    if (!read_data_setup(d)) {
+        // èª­ã¿è¾¼ã¿å¤±æ•—
+        d->transfer_datas_rest = 0;
+        to_result_phase(d);
+    } else {
+        d->transfer_datas_rest = (128 << d->value_N);
+        MS_LOG(MS_LOG_FINE, "FDC: READ DATA Trns rest=%d\n", d->transfer_datas_rest);
+    }
 }
 
 static uint8_t read_data_setup(THIS* d) {
-	ms_disk_drive_floppy_t* drive = &d->drive[d->driveId];
-	for(;d->sector_buffer_serach_count<9*2; d->sector_buffer_serach_count++) {
-		if( !drive->get_next_sector(drive, &d->sector_buffer) ) {
-			// “Ç‚İ‚İ¸”s
-			return 0;
-		}
-		if (d->sector_buffer.track == d->value_C && d->sector_buffer.head == d->value_H && d->sector_buffer.sector == d->value_R) {
-			// ”­Œ©
-			d->sector_buffer_ready = 1;
-			d->sector_buffer_byte_offset = 0;
-			return 1;
-			// // ÅŒã‚Ü‚Å’B‚µ‚½‚©H
-			// if( d->value_R > d->value_EOT) {
-			// 	return 1;
-			// }
-		} else {
-			// ˆÙ‚È‚éê‡‚ÍƒXƒLƒbƒv
-			MS_LOG(MS_LOG_FINE, "Skip: %d %d %d (expect: %d %d %d)\n", //
-			 d->sector_buffer.track, d->sector_buffer.head, d->sector_buffer.sector, //
-			 d->value_C, d->value_H, d->value_R);
-		}
-	}
-	return 0;
+    ms_disk_drive_floppy_t* drive = &d->drive[d->driveId];
+    for (; d->sector_buffer_serach_count < 9 * 2; d->sector_buffer_serach_count++) {
+        if (!drive->get_next_sector(drive, &d->sector_buffer)) {
+            // èª­ã¿è¾¼ã¿å¤±æ•—
+            return 0;
+        }
+        if (d->sector_buffer.track == d->value_C && d->sector_buffer.head == d->value_H && d->sector_buffer.sector == d->value_R) {
+            // ç™ºè¦‹
+            d->sector_buffer_ready = 1;
+            d->sector_buffer_byte_offset = 0;
+            return 1;
+            // // æœ€å¾Œã¾ã§é”ã—ãŸã‹ï¼Ÿ
+            // if( d->value_R > d->value_EOT) {
+            // 	return 1;
+            // }
+        } else {
+            // ç•°ãªã‚‹å ´åˆã¯ã‚¹ã‚­ãƒƒãƒ—
+            MS_LOG(MS_LOG_FINE, "Skip: %d %d %d (expect: %d %d %d)\n",                      //
+                   d->sector_buffer.track, d->sector_buffer.head, d->sector_buffer.sector,  //
+                   d->value_C, d->value_H, d->value_R);
+        }
+    }
+    return 0;
 }
 
 static uint8_t read_data_transfer(THIS* d, uint8_t* finished) {
-	if(d->sector_buffer_byte_offset == 0) {
-		MS_LOG( MS_LOG_FINE, "FDC READ: C:%d H:%d R:%d\n", d->sector_buffer.track, d->sector_buffer.head, d->sector_buffer.sector);
-	}
+    if (d->sector_buffer_byte_offset == 0) {
+        MS_LOG(MS_LOG_FINE, "FDC READ: C:%d H:%d R:%d\n", d->sector_buffer.track, d->sector_buffer.head, d->sector_buffer.sector);
+    }
 
-	uint8_t ret = 0;
-	d->transfer_datas_rest -= 1;
-	if( d->transfer_datas_rest < 0) {
-		MS_LOG(MS_LOG_FINE, "FDC: READ DATA invalid transfer rest\n");
-		to_result_phase(d);
-		*finished = 1;
-		return 0xff;
-	}
-	// read data from disk
-	ret = d->sector_buffer.data[d->sector_buffer_byte_offset++];
-	if ( d->sector_buffer_byte_offset == 512 ) {
-		// 1ƒZƒNƒ^•ª“Ç‚İ‚İI‚í‚Á‚½‚Ì‚ÅŸ‚ÌƒZƒNƒ^‚ğ’T‚·
-		d->value_R++;
-		if( d->value_R > d->value_EOT) {
-			// ÅŒã‚Ü‚Å’B‚µ‚½‚©H
-			*finished = 1;
-		} else if( !read_data_setup(d)) {
-			// “Ç‚İ‚İ¸”s or ÅŒã‚Ü‚Å’B‚µ‚½
-			d->transfer_datas_rest = 0;
-			to_result_phase(d);
-		}
-		d->sector_buffer_byte_offset = 0;
-		d->_rqm_delay_count = 10;	// RQM‚ª—§‚Â‚Ü‚Å‚Ì’x‰„‚ğ’·‚ß‚Éİ’è
-	} else {
-		d->_rqm_delay_count = 1;	// RQM‚ª—§‚Â‚Ü‚Å‚Ì’x‰„‚ğİ’è
-	}
-	d->request_for_master = 0;	// RQM‚ğˆê“x0‚É‚·‚é‚ªAƒXƒe[ƒ^ƒX‚ğ“Ç‚Ş‚Æ1‚É–ß‚é‚æ‚¤‚É‚È‚Á‚Ä‚¢‚é
-	return ret;
+    uint8_t ret = 0;
+    d->transfer_datas_rest -= 1;
+    if (d->transfer_datas_rest < 0) {
+        MS_LOG(MS_LOG_FINE, "FDC: READ DATA invalid transfer rest\n");
+        to_result_phase(d);
+        *finished = 1;
+        return 0xff;
+    }
+    // read data from disk
+    ret = d->sector_buffer.data[d->sector_buffer_byte_offset++];
+    if (d->sector_buffer_byte_offset == 512) {
+        // 1ã‚»ã‚¯ã‚¿åˆ†èª­ã¿è¾¼ã¿çµ‚ã‚ã£ãŸã®ã§æ¬¡ã®ã‚»ã‚¯ã‚¿ã‚’æ¢ã™
+        d->value_R++;
+        if (d->value_R > d->value_EOT) {
+            // æœ€å¾Œã¾ã§é”ã—ãŸã‹ï¼Ÿ
+            *finished = 1;
+        } else if (!read_data_setup(d)) {
+            // èª­ã¿è¾¼ã¿å¤±æ•— or æœ€å¾Œã¾ã§é”ã—ãŸ
+            d->transfer_datas_rest = 0;
+            to_result_phase(d);
+        }
+        d->sector_buffer_byte_offset = 0;
+        d->_rqm_delay_count = 10;  // RQMãŒç«‹ã¤ã¾ã§ã®é…å»¶ã‚’é•·ã‚ã«è¨­å®š
+    } else {
+        d->_rqm_delay_count = 1;  // RQMãŒç«‹ã¤ã¾ã§ã®é…å»¶ã‚’è¨­å®š
+    }
+    d->request_for_master = 0;  // RQMã‚’ä¸€åº¦0ã«ã™ã‚‹ãŒã€ã‚¹ãƒ†ãƒ¼ã‚¿ã‚¹ã‚’èª­ã‚€ã¨1ã«æˆ»ã‚‹ã‚ˆã†ã«ãªã£ã¦ã„ã‚‹
+    return ret;
 }
 
 void to_result_phase(THIS* d) {
-	d->data_input_output = 1;  // FDC -> Host
-	d->request_for_master = 1; // RQM
-	d->result_byte_index = 0;
-	d->phase = TC8566AF_PHASE_RESULT;
+    d->data_input_output = 1;   // FDC -> Host
+    d->request_for_master = 1;  // RQM
+    d->result_byte_index = 0;
+    d->phase = TC8566AF_PHASE_RESULT;
 }
 
 /* *********************************************************
 
-	WRITE DATA
+        WRITE DATA
 
 ********************************************************* */
 static void write_data_setup(THIS* d);
 
 static void write_data_exec(THIS* d) {
-	MS_LOG(MS_LOG_DEBUG, "FDC WRITE DATA\n");
-	decode_cmd_chrn(d);
-	ms_disk_drive_floppy_t* drive = &d->drive[d->driveId];
+    MS_LOG(MS_LOG_DEBUG, "FDC WRITE DATA\n");
+    decode_cmd_chrn(d);
+    ms_disk_drive_floppy_t* drive = &d->drive[d->driveId];
 
-	if ( d->value_R > d->value_EOT) {
-		// w’è‚³‚ê‚½ƒZƒNƒ^”Ô†‚ªEOT‚ğ’´‚¦‚Ä‚¢‚éê‡A0ƒoƒCƒg
-		d->transfer_datas_rest = 0;
-		return;
-	}
+    if (d->value_R > d->value_EOT) {
+        // æŒ‡å®šã•ã‚ŒãŸã‚»ã‚¯ã‚¿ç•ªå·ãŒEOTã‚’è¶…ãˆã¦ã„ã‚‹å ´åˆã€0ãƒã‚¤ãƒˆ
+        d->transfer_datas_rest = 0;
+        return;
+    }
 
-	// 1ƒZƒNƒ^‚¸‚Â‘‚«‚Ş
-	d->sector_buffer_ready = 0;
-	write_data_setup(d);
-	d->transfer_datas_rest = (128 << d->value_N);
-	MS_LOG(MS_LOG_DEBUG, "FDC: WRITE DATA Trns rest=%d\n", d->transfer_datas_rest);
-	MS_LOG(MS_LOG_DEBUG, "  C:%d H:%d R:%d\n", d->value_C, d->value_H, d->value_R);
+    // 1ã‚»ã‚¯ã‚¿ãšã¤æ›¸ãè¾¼ã‚€
+    d->sector_buffer_ready = 0;
+    write_data_setup(d);
+    d->transfer_datas_rest = (128 << d->value_N);
+    MS_LOG(MS_LOG_DEBUG, "FDC: WRITE DATA Trns rest=%d\n", d->transfer_datas_rest);
+    MS_LOG(MS_LOG_DEBUG, "  C:%d H:%d R:%d\n", d->value_C, d->value_H, d->value_R);
 }
 
 static void write_data_setup(THIS* d) {
-	int i;
-	ms_disk_drive_floppy_t* drive = &d->drive[d->driveId];
-	if(d->sector_buffer_ready) {
-		MS_LOG(MS_LOG_INFO, "Flush : C:%d H:%d R:%d\n", d->value_C, d->value_H, d->value_R);
-		// ƒZƒNƒ^ƒoƒbƒtƒ@‚ğ‘‚«o‚·
-		drive->write_sector(drive, &d->sector_buffer);
-	}
-	// ‘‚«o‚µ‚½‚Ì‚Åƒoƒbƒtƒ@‚ğƒNƒŠƒA
-	for(i=0;i<512;i++) {
-		d->sector_buffer.data[i] = 0;
-	}
-	d->sector_buffer_ready = 0;
-	d->sector_buffer_byte_offset = 0;
+    int i;
+    ms_disk_drive_floppy_t* drive = &d->drive[d->driveId];
+    if (d->sector_buffer_ready) {
+        MS_LOG(MS_LOG_INFO, "Flush : C:%d H:%d R:%d\n", d->value_C, d->value_H, d->value_R);
+        // ã‚»ã‚¯ã‚¿ãƒãƒƒãƒ•ã‚¡ã‚’æ›¸ãå‡ºã™
+        drive->write_sector(drive, &d->sector_buffer);
+    }
+    // æ›¸ãå‡ºã—ãŸã®ã§ãƒãƒƒãƒ•ã‚¡ã‚’ã‚¯ãƒªã‚¢
+    for (i = 0; i < 512; i++) {
+        d->sector_buffer.data[i] = 0;
+    }
+    d->sector_buffer_ready = 0;
+    d->sector_buffer_byte_offset = 0;
 }
 
 static void write_data_transfer(THIS* d, uint8_t data, uint8_t* finished) {
-	uint8_t ret = 0;
-	d->transfer_datas_rest -= 1;
-	if( d->transfer_datas_rest < 0) {
-		MS_LOG(MS_LOG_FINE, "FDC: WRITE DATA invalid transfer rest\n");
-		to_result_phase(d);
-		*finished = 1;
-		return;
-	}
-	// write data from disk
-	d->sector_buffer.data[d->sector_buffer_byte_offset++] = data;
-	if ( d->sector_buffer_byte_offset == 512 ) {
-		// 1ƒZƒNƒ^•ª‘‚«‚İI‚í‚Á‚½‚Ì‚Å‘‚«o‚µ‚ÄŸ‚ÌƒZƒNƒ^‚Ö
-		d->sector_buffer_ready = 1;
-		d->sector_buffer.track = d->value_C;
-		d->sector_buffer.head = d->value_H;
-		d->sector_buffer.sector = d->value_R;
-		MS_LOG( MS_LOG_DEBUG, "FDC WRITE: C:%d H:%d R:%d\n", d->sector_buffer.track, d->sector_buffer.head, d->sector_buffer.sector);
-		write_data_setup(d);
-		d->value_R++;
-		if (d->value_R > d->value_EOT) {
-			// ÅŒã‚Ü‚Å’B‚µ‚½‚©H
-			*finished = 1;
-		}
-		d->_rqm_delay_count = 10;	// RQM‚ª—§‚Â‚Ü‚Å‚Ì’x‰„‚ğ’·‚ß‚Éİ’è
-	} else {
-		d->_rqm_delay_count = 1;	// RQM‚ª—§‚Â‚Ü‚Å‚Ì’x‰„‚ğİ’è
-	}
-	d->request_for_master = 0;	// RQM‚ğˆê“x0‚É‚·‚é‚ªAƒXƒe[ƒ^ƒX‚ğ“Ç‚Ş‚Æ1‚É–ß‚é‚æ‚¤‚É‚È‚Á‚Ä‚¢‚é
+    uint8_t ret = 0;
+    d->transfer_datas_rest -= 1;
+    if (d->transfer_datas_rest < 0) {
+        MS_LOG(MS_LOG_FINE, "FDC: WRITE DATA invalid transfer rest\n");
+        to_result_phase(d);
+        *finished = 1;
+        return;
+    }
+    // write data from disk
+    d->sector_buffer.data[d->sector_buffer_byte_offset++] = data;
+    if (d->sector_buffer_byte_offset == 512) {
+        // 1ã‚»ã‚¯ã‚¿åˆ†æ›¸ãè¾¼ã¿çµ‚ã‚ã£ãŸã®ã§æ›¸ãå‡ºã—ã¦æ¬¡ã®ã‚»ã‚¯ã‚¿ã¸
+        d->sector_buffer_ready = 1;
+        d->sector_buffer.track = d->value_C;
+        d->sector_buffer.head = d->value_H;
+        d->sector_buffer.sector = d->value_R;
+        MS_LOG(MS_LOG_DEBUG, "FDC WRITE: C:%d H:%d R:%d\n", d->sector_buffer.track, d->sector_buffer.head, d->sector_buffer.sector);
+        write_data_setup(d);
+        d->value_R++;
+        if (d->value_R > d->value_EOT) {
+            // æœ€å¾Œã¾ã§é”ã—ãŸã‹ï¼Ÿ
+            *finished = 1;
+        }
+        d->_rqm_delay_count = 10;  // RQMãŒç«‹ã¤ã¾ã§ã®é…å»¶ã‚’é•·ã‚ã«è¨­å®š
+    } else {
+        d->_rqm_delay_count = 1;  // RQMãŒç«‹ã¤ã¾ã§ã®é…å»¶ã‚’è¨­å®š
+    }
+    d->request_for_master = 0;  // RQMã‚’ä¸€åº¦0ã«ã™ã‚‹ãŒã€ã‚¹ãƒ†ãƒ¼ã‚¿ã‚¹ã‚’èª­ã‚€ã¨1ã«æˆ»ã‚‹ã‚ˆã†ã«ãªã£ã¦ã„ã‚‹
 }
 
 /* *********************************************************
 
-	READ DELETED DATA
+        READ DELETED DATA
 
 ********************************************************* */
 static void read_deleted_data_exec(THIS* d) {
-	MS_LOG(MS_LOG_ERROR, "read_deleted_data_exec not implemented\n");
+    MS_LOG(MS_LOG_ERROR, "read_deleted_data_exec not implemented\n");
 }
 
 static uint8_t read_deleted_data_transfer(THIS* d, uint8_t* finished) {
-	to_result_phase(d);
+    to_result_phase(d);
 }
 
 /*********************************************************
 
-	WRITE DELETED DATA
+        WRITE DELETED DATA
 
 ********************************************************* */
 static void write_deleted_data_exec(THIS* d) {
-	MS_LOG(MS_LOG_ERROR, "write_deleted_data_exec not implemented\n");
+    MS_LOG(MS_LOG_ERROR, "write_deleted_data_exec not implemented\n");
 }
 
 static void write_deleted_data_transfer(THIS* d, uint8_t data, uint8_t* finished) {
-	to_result_phase(d);
+    to_result_phase(d);
 }
 
 /*********************************************************
 
-	READ DIAGNOSTIC
+        READ DIAGNOSTIC
 
 ********************************************************* */
 static void read_diagnostic_exec(THIS* d) {
-	MS_LOG(MS_LOG_ERROR, "read_diagnostic_exec not implemented\n");
+    MS_LOG(MS_LOG_ERROR, "read_diagnostic_exec not implemented\n");
 }
 
 static uint8_t read_diagnostic_transfer(THIS* d, uint8_t* finished) {
-	to_result_phase(d);
+    to_result_phase(d);
 }
 
 /*********************************************************
 
-	READ ID
+        READ ID
 
 ********************************************************* */
 static void read_id_exec(THIS* d) {
-	MS_LOG(MS_LOG_ERROR, "read_id_exec not implemented\n");
+    MS_LOG(MS_LOG_ERROR, "read_id_exec not implemented\n");
 }
 
 static uint8_t read_id_transfer(THIS* d, uint8_t* finished) {
-	to_result_phase(d);
+    to_result_phase(d);
 }
 
 /*********************************************************
 
-	FORMAT
+        FORMAT
 
-	FORMAT ƒRƒ}ƒ“ƒh‚ÍA6ƒoƒCƒg‚©‚ç‚È‚èAˆÈ‰º‚Ìî•ñ‚ª—^‚¦‚ç‚ê‚Ü‚·B
+        FORMAT ã‚³ãƒãƒ³ãƒ‰ã¯ã€6ãƒã‚¤ãƒˆã‹ã‚‰ãªã‚Šã€ä»¥ä¸‹ã®æƒ…å ±ãŒä¸ãˆã‚‰ã‚Œã¾ã™ã€‚
 
-	* 0ƒoƒCƒg–Ú: b7:0, b6:MFM, b5:0Ab4-0:ƒRƒ}ƒ“ƒh(0x0d)
-		* MFM: MFMAMFM‚Åƒf[ƒ^‚ğƒtƒH[ƒ}ƒbƒg‚·‚é‚©‚Ç‚¤‚©
-	* 1ƒoƒCƒg–Ú: HS, DS1, DS0
-		* HS: ƒwƒbƒhƒZƒŒƒNƒgAFD‚Ì— •\‚Ì‚Ç‚¿‚ç‚ÌƒTƒCƒh‚©‚ğw’è‚µ‚Ü‚·
-		* DS: 2ƒrƒbƒg‚Åƒhƒ‰ƒCƒu”Ô†‚ğw’è‚µ‚Ü‚·
-	* 2ƒoƒCƒg–Ú: N (ƒZƒNƒ^ƒTƒCƒY‚Ìw’èA‰º‹L•\QÆ)
-		* N=0: 128ƒoƒCƒg
-		* N=1: 256ƒoƒCƒg
-		* N=2: 512ƒoƒCƒg
-		* N=3: 1024ƒoƒCƒg
-	* 3ƒoƒCƒg–Ú: SC (ƒZƒNƒ^”)
-	* 4ƒoƒCƒg–Ú: GSL (Gap Length)
-	* 5ƒoƒCƒg–Ú: D (ƒf[ƒ^)
+        * 0ãƒã‚¤ãƒˆç›®: b7:0, b6:MFM, b5:0ã€b4-0:ã‚³ãƒãƒ³ãƒ‰(0x0d)
+                * MFM: MFMã€MFMã§ãƒ‡ãƒ¼ã‚¿ã‚’ãƒ•ã‚©ãƒ¼ãƒãƒƒãƒˆã™ã‚‹ã‹ã©ã†ã‹
+        * 1ãƒã‚¤ãƒˆç›®: HS, DS1, DS0
+                * HS: ãƒ˜ãƒƒãƒ‰ã‚»ãƒ¬ã‚¯ãƒˆã€FDã®è£è¡¨ã®ã©ã¡ã‚‰ã®ã‚µã‚¤ãƒ‰ã‹ã‚’æŒ‡å®šã—ã¾ã™
+                * DS: 2ãƒ“ãƒƒãƒˆã§ãƒ‰ãƒ©ã‚¤ãƒ–ç•ªå·ã‚’æŒ‡å®šã—ã¾ã™
+        * 2ãƒã‚¤ãƒˆç›®: N (ã‚»ã‚¯ã‚¿ã‚µã‚¤ã‚ºã®æŒ‡å®šã€ä¸‹è¨˜è¡¨å‚ç…§)
+                * N=0: 128ãƒã‚¤ãƒˆ
+                * N=1: 256ãƒã‚¤ãƒˆ
+                * N=2: 512ãƒã‚¤ãƒˆ
+                * N=3: 1024ãƒã‚¤ãƒˆ
+        * 3ãƒã‚¤ãƒˆç›®: SC (ã‚»ã‚¯ã‚¿æ•°)
+        * 4ãƒã‚¤ãƒˆç›®: GSL (Gap Length)
+        * 5ãƒã‚¤ãƒˆç›®: D (ãƒ‡ãƒ¼ã‚¿)
 
-	FORMATƒRƒ}ƒ“ƒh‚Í WRITE IDƒRƒ}ƒ“ƒh‚Æ‚àŒÄ‚Î‚ê‚Ü‚·BƒfƒBƒXƒN‚Ìƒgƒ‰ƒbƒN‚ğ
-	ƒZƒNƒ^‚Å‹æØ‚èAŠeƒZƒNƒ^‚ÌIDƒtƒB[ƒ‹ƒh‚ğ‘‚«‚Ş‚±‚Æ‚ÅAƒfƒBƒXƒN‚ğ‰Šú‰»‚µ‚Ü‚·B
+        FORMATã‚³ãƒãƒ³ãƒ‰ã¯ WRITE IDã‚³ãƒãƒ³ãƒ‰ã¨ã‚‚å‘¼ã°ã‚Œã¾ã™ã€‚ãƒ‡ã‚£ã‚¹ã‚¯ã®ãƒˆãƒ©ãƒƒã‚¯ã‚’
+        ã‚»ã‚¯ã‚¿ã§åŒºåˆ‡ã‚Šã€å„ã‚»ã‚¯ã‚¿ã®IDãƒ•ã‚£ãƒ¼ãƒ«ãƒ‰ã‚’æ›¸ãè¾¼ã‚€ã“ã¨ã§ã€ãƒ‡ã‚£ã‚¹ã‚¯ã‚’åˆæœŸåŒ–ã—ã¾ã™ã€‚
 
-	* 1‰ñ‚ÌƒRƒ}ƒ“ƒh‚Å1ƒgƒ‰ƒbƒN‘S‘Ì‚ğƒtƒH[ƒ}ƒbƒg‚µ‚Ü‚·
-	* 1‰ñ(1ƒgƒ‰ƒbƒN)‚ÌƒRƒ}ƒ“ƒh‚Å SCŒÂ‚ÌƒZƒNƒ^‚ğƒtƒH[ƒ}ƒbƒg‚µ‚Ü‚·
-	* 1ƒZƒNƒ^‚²‚Æ‚ÉACPU‘¤‚©‚çAC,H,R,N‚Ì4ƒoƒCƒg‚ğó‚¯æ‚èA‚»‚ê‚ğŒ³‚ÉƒtƒH[ƒ}ƒbƒg‚µ‚Ü‚·
-	* ƒf[ƒ^•”•ª(512ƒoƒCƒg)‚É‚Í FORMATƒRƒ}ƒ“ƒh‚Ì 5ƒoƒCƒg–Ú‚Ì D‚Å“n‚³‚ê‚½’l‚ª‘‚«‚Ü‚ê‚Ü‚·
-	* 1ƒZƒNƒ^‚ÌƒtƒH[ƒ}ƒbƒg‚ªI‚í‚é‚ÆAŸ‚ÌƒZƒNƒ^‚ÌC,H,R,N‚ğó‚¯æ‚èAŸ‚ÌƒZƒNƒ^‚ğƒtƒH[ƒ}ƒbƒg‚µ‚Ü‚·
-	* SCŒÂ‚ÌƒZƒNƒ^‚ğƒtƒH[ƒ}ƒbƒg‚µ‚½‚çAƒtƒH[ƒ}ƒbƒgI—¹‚Æ‚È‚è‚Ü‚·
+        * 1å›ã®ã‚³ãƒãƒ³ãƒ‰ã§1ãƒˆãƒ©ãƒƒã‚¯å…¨ä½“ã‚’ãƒ•ã‚©ãƒ¼ãƒãƒƒãƒˆã—ã¾ã™
+        * 1å›(1ãƒˆãƒ©ãƒƒã‚¯)ã®ã‚³ãƒãƒ³ãƒ‰ã§ SCå€‹ã®ã‚»ã‚¯ã‚¿ã‚’ãƒ•ã‚©ãƒ¼ãƒãƒƒãƒˆã—ã¾ã™
+        * 1ã‚»ã‚¯ã‚¿ã”ã¨ã«ã€CPUå´ã‹ã‚‰ã€C,H,R,Nã®4ãƒã‚¤ãƒˆã‚’å—ã‘å–ã‚Šã€ãã‚Œã‚’å…ƒã«ãƒ•ã‚©ãƒ¼ãƒãƒƒãƒˆã—ã¾ã™
+        * ãƒ‡ãƒ¼ã‚¿éƒ¨åˆ†(512ãƒã‚¤ãƒˆ)ã«ã¯ FORMATã‚³ãƒãƒ³ãƒ‰ã® 5ãƒã‚¤ãƒˆç›®ã® Dã§æ¸¡ã•ã‚ŒãŸå€¤ãŒæ›¸ãè¾¼ã¾ã‚Œã¾ã™
+        * 1ã‚»ã‚¯ã‚¿ã®ãƒ•ã‚©ãƒ¼ãƒãƒƒãƒˆãŒçµ‚ã‚ã‚‹ã¨ã€æ¬¡ã®ã‚»ã‚¯ã‚¿ã®C,H,R,Nã‚’å—ã‘å–ã‚Šã€æ¬¡ã®ã‚»ã‚¯ã‚¿ã‚’ãƒ•ã‚©ãƒ¼ãƒãƒƒãƒˆã—ã¾ã™
+        * SCå€‹ã®ã‚»ã‚¯ã‚¿ã‚’ãƒ•ã‚©ãƒ¼ãƒãƒƒãƒˆã—ãŸã‚‰ã€ãƒ•ã‚©ãƒ¼ãƒãƒƒãƒˆçµ‚äº†ã¨ãªã‚Šã¾ã™
 
-	’Êí‚ÍƒZƒNƒ^”Ô†‚ª1‚©‚ç‡‚É‘‚¦‚é‚æ‚¤‚ÉƒtƒH[ƒ}ƒbƒg‚µ‚Ü‚·‚ªAƒRƒ}ƒ“ƒh‚Ì—^‚¦•û‚ğ•ÏX‚·‚ê‚ÎA
-	ƒZƒNƒ^”Ô†(CHRN)‚ª•s˜A‘±‚ÈƒtƒH[ƒ}ƒbƒg‚ğ‚·‚é‚±‚Æ‚à‚Å‚«‚Ü‚·B
+        é€šå¸¸ã¯ã‚»ã‚¯ã‚¿ç•ªå·ãŒ1ã‹ã‚‰é †ã«å¢—ãˆã‚‹ã‚ˆã†ã«ãƒ•ã‚©ãƒ¼ãƒãƒƒãƒˆã—ã¾ã™ãŒã€ã‚³ãƒãƒ³ãƒ‰ã®ä¸ãˆæ–¹ã‚’å¤‰æ›´ã™ã‚Œã°ã€
+        ã‚»ã‚¯ã‚¿ç•ªå·(CHRN)ãŒä¸é€£ç¶šãªãƒ•ã‚©ãƒ¼ãƒãƒƒãƒˆã‚’ã™ã‚‹ã“ã¨ã‚‚ã§ãã¾ã™ã€‚
 
-	‚Å‚·‚ªAMS.X‚Ìê‡A.DSKƒCƒ[ƒW‚µ‚©‚Ü‚¾‘Î‰‚µ‚Ä‚¢‚È‚¢‚Ì‚ÅA‚Ç‚Ì‚æ‚¤‚ÈƒtƒH[ƒ}ƒbƒg‚ğ‚©‚¯‚Ä‚àA
-	•s˜A‘±‚ÈƒtƒH[ƒ}ƒbƒg‚ªì‚ç‚ê‚é‚±‚Æ‚Í‚ ‚è‚Ü‚¹‚ñB
+        ã§ã™ãŒã€MS.Xã®å ´åˆã€.DSKã‚¤ãƒ¡ãƒ¼ã‚¸ã—ã‹ã¾ã å¯¾å¿œã—ã¦ã„ãªã„ã®ã§ã€ã©ã®ã‚ˆã†ãªãƒ•ã‚©ãƒ¼ãƒãƒƒãƒˆã‚’ã‹ã‘ã¦ã‚‚ã€
+        ä¸é€£ç¶šãªãƒ•ã‚©ãƒ¼ãƒãƒƒãƒˆãŒä½œã‚‰ã‚Œã‚‹ã“ã¨ã¯ã‚ã‚Šã¾ã›ã‚“ã€‚
 
 ********************************************************* */
 static void format_exec(THIS* d) {
-	MS_LOG(MS_LOG_DEBUG, "format_exec\n");
-	d->value_HS = (d->command_byte_value[1] & 0x04) >> 2;
-	d->value_DS = (d->command_byte_value[1] & 0x03);
-	d->value_N = d->command_byte_value[2];
-	d->value_SC = d->command_byte_value[3];
-	d->value_GSL_GPL = d->command_byte_value[4];
-	d->value_D = d->command_byte_value[5];
+    MS_LOG(MS_LOG_DEBUG, "format_exec\n");
+    d->value_HS = (d->command_byte_value[1] & 0x04) >> 2;
+    d->value_DS = (d->command_byte_value[1] & 0x03);
+    d->value_N = d->command_byte_value[2];
+    d->value_SC = d->command_byte_value[3];
+    d->value_GSL_GPL = d->command_byte_value[4];
+    d->value_D = d->command_byte_value[5];
 
-	// status 0‚ğXV
-	d->status0 &= 0b00111100; // Interrupt code (b7-6)‚Æ Drive select (b1-0) ‚ğƒNƒŠƒA
-	d->status0 |= (d->value_DS);
-	ms_disk_drive_floppy_t* drive = &d->drive[d->driveId];
-	if (drive->container == NULL) {
-		// ƒhƒ‰ƒCƒu‚ª‘¶İ‚µ‚È‚¢
-		d->status0 |= 0b10000000; // b7-6 = 10 (Invalid command)
-	}
+    // status 0ã‚’æ›´æ–°
+    d->status0 &= 0b00111100;  // Interrupt code (b7-6)ã¨ Drive select (b1-0) ã‚’ã‚¯ãƒªã‚¢
+    d->status0 |= (d->value_DS);
+    ms_disk_drive_floppy_t* drive = &d->drive[d->driveId];
+    if (drive->container == NULL) {
+        // ãƒ‰ãƒ©ã‚¤ãƒ–ãŒå­˜åœ¨ã—ãªã„
+        d->status0 |= 0b10000000;  // b7-6 = 10 (Invalid command)
+    }
 
-	// status 3‚ğXV
-	uint8_t is_disk_inserted = drive->is_disk_inserted(drive);
-	d->status3 = //
-		(0 * 0x80); // Fault
-		(drive->is_write_protected * 0x40) | // Write Protect
-		(is_disk_inserted * 0x20) | // Ready
-		(drive->is_track00 * 0x10) | // Track 0
-		(drive->is_double_sided * 0x08) | // Two side
-		(d->value_HS * 0x04) | // Head select
-		(d->value_DS); // Drive select
+    // status 3ã‚’æ›´æ–°
+    uint8_t is_disk_inserted = drive->is_disk_inserted(drive);
+    d->status3 =                           //
+        (0 * 0x80);                        // Fault
+    (drive->is_write_protected * 0x40) |   // Write Protect
+        (is_disk_inserted * 0x20) |        // Ready
+        (drive->is_track00 * 0x10) |       // Track 0
+        (drive->is_double_sided * 0x08) |  // Two side
+        (d->value_HS * 0x04) |             // Head select
+        (d->value_DS);                     // Drive select
 
-	// ƒhƒ‰ƒCƒu‚Ìƒwƒbƒh(ƒTƒCƒh)‚ğ‘I‘ğ
-	drive->set_side(drive, d->value_HS);
+    // ãƒ‰ãƒ©ã‚¤ãƒ–ã®ãƒ˜ãƒƒãƒ‰(ã‚µã‚¤ãƒ‰)ã‚’é¸æŠ
+    drive->set_side(drive, d->value_HS);
 
-	// transfer phase‚Å‚ÍACHRN‚Ì4ƒoƒCƒg‚ğó‚¯æ‚é‚½‚Ñ‚ÉA1ƒZƒNƒ^‚ğƒtƒH[ƒ}ƒbƒg‚·‚é‚Ì‚ÅA
-	// ‡Œv‚ÅA4ƒoƒCƒg x sector/cylinder “]‘—‚·‚é
-	d->transfer_datas_rest = d->value_SC * 4;
+    // transfer phaseã§ã¯ã€CHRNã®4ãƒã‚¤ãƒˆã‚’å—ã‘å–ã‚‹ãŸã³ã«ã€1ã‚»ã‚¯ã‚¿ã‚’ãƒ•ã‚©ãƒ¼ãƒãƒƒãƒˆã™ã‚‹ã®ã§ã€
+    // åˆè¨ˆã§ã€4ãƒã‚¤ãƒˆ x sector/cylinder è»¢é€ã™ã‚‹
+    d->transfer_datas_rest = d->value_SC * 4;
 }
 
 static void format_transfer(THIS* d, uint8_t data, uint8_t* finished) {
-	MS_LOG(MS_LOG_FINE, "format_trans(rest:%d): %02x\n", d->transfer_datas_rest, data);
-	d->transfer_datas_rest--;
-	switch((d->transfer_datas_rest % 4)) {
-	case 3:
-		d->value_C = data;
-		break;
-	case 2:
-		d->value_H = data;
-		break;
-	case 1:
-		d->value_R = data;
-		break;
-	case 0:
-		d->value_N = data;
-		// 1ƒZƒNƒ^ƒtƒH[ƒ}ƒbƒg‚©‚¯‚é
-		MS_LOG(MS_LOG_INFO, "Format: C:%d H:%d R:%d N:%d\n", d->value_C, d->value_H, d->value_R, d->value_N);
-		d->sector_buffer_ready = 1;
-		d->sector_buffer.track = d->value_C;
-		d->sector_buffer.head = d->value_H;
-		d->sector_buffer.sector = d->value_R;
-		int i;
-		for(i=0;i<512;i++) {
-			d->sector_buffer.data[i] = d->value_D;
-		}
-		write_data_setup(d);
-		d->value_R++;
-		d->_rqm_delay_count = 10;	// RQM‚ª—§‚Â‚Ü‚Å‚Ì’x‰„‚ğ’·‚ß‚Éİ’è
-		break;
-	}
-	if( d->transfer_datas_rest == 0) {
-		// ƒtƒH[ƒ}ƒbƒgI—¹
-		to_result_phase(d);
-	}
-	d->request_for_master = 0;	// RQM‚ğˆê“x0‚É‚·‚é‚ªAƒXƒe[ƒ^ƒX‚ğ“Ç‚Ş‚Æ1‚É–ß‚é‚æ‚¤‚É‚È‚Á‚Ä‚¢‚é
+    MS_LOG(MS_LOG_FINE, "format_trans(rest:%d): %02x\n", d->transfer_datas_rest, data);
+    d->transfer_datas_rest--;
+    switch ((d->transfer_datas_rest % 4)) {
+    case 3:
+        d->value_C = data;
+        break;
+    case 2:
+        d->value_H = data;
+        break;
+    case 1:
+        d->value_R = data;
+        break;
+    case 0:
+        d->value_N = data;
+        // 1ã‚»ã‚¯ã‚¿ãƒ•ã‚©ãƒ¼ãƒãƒƒãƒˆã‹ã‘ã‚‹
+        MS_LOG(MS_LOG_INFO, "Format: C:%d H:%d R:%d N:%d\n", d->value_C, d->value_H, d->value_R, d->value_N);
+        d->sector_buffer_ready = 1;
+        d->sector_buffer.track = d->value_C;
+        d->sector_buffer.head = d->value_H;
+        d->sector_buffer.sector = d->value_R;
+        int i;
+        for (i = 0; i < 512; i++) {
+            d->sector_buffer.data[i] = d->value_D;
+        }
+        write_data_setup(d);
+        d->value_R++;
+        d->_rqm_delay_count = 10;  // RQMãŒç«‹ã¤ã¾ã§ã®é…å»¶ã‚’é•·ã‚ã«è¨­å®š
+        break;
+    }
+    if (d->transfer_datas_rest == 0) {
+        // ãƒ•ã‚©ãƒ¼ãƒãƒƒãƒˆçµ‚äº†
+        to_result_phase(d);
+    }
+    d->request_for_master = 0;  // RQMã‚’ä¸€åº¦0ã«ã™ã‚‹ãŒã€ã‚¹ãƒ†ãƒ¼ã‚¿ã‚¹ã‚’èª­ã‚€ã¨1ã«æˆ»ã‚‹ã‚ˆã†ã«ãªã£ã¦ã„ã‚‹
 }
-
 
 /*********************************************************
 
-	SCAN EQUAL
+        SCAN EQUAL
 
 ********************************************************* */
 static void scan_equal_exec(THIS* d) {
-	MS_LOG(MS_LOG_ERROR, "scan_equal_exec not implemented\n");
+    MS_LOG(MS_LOG_ERROR, "scan_equal_exec not implemented\n");
 }
 
 static void scan_equal_transfer(THIS* d, uint8_t data, uint8_t* finished) {
-	to_result_phase(d);
+    to_result_phase(d);
 }
 
 /*********************************************************
 
-	SCAN LOW OR EQUAL
+        SCAN LOW OR EQUAL
 
 ********************************************************* */
 static void scan_low_or_equal_exec(THIS* d) {
-	MS_LOG(MS_LOG_ERROR, "scan_low_or_equal_exec not implemented\n");
+    MS_LOG(MS_LOG_ERROR, "scan_low_or_equal_exec not implemented\n");
 }
 
 static void scan_low_or_equal_transfer(THIS* d, uint8_t data, uint8_t* finished) {
-	to_result_phase(d);
+    to_result_phase(d);
 }
 
 /*********************************************************
 
-	SCAN HIGH OR EQUAL
+        SCAN HIGH OR EQUAL
 
 ********************************************************* */
 static void scan_high_or_equal_exec(THIS* d) {
-	MS_LOG(MS_LOG_ERROR, "scan_high_or_equal_exec not implemented\n");
+    MS_LOG(MS_LOG_ERROR, "scan_high_or_equal_exec not implemented\n");
 }
 
 static void scan_high_or_equal_transfer(THIS* d, uint8_t data, uint8_t* finished) {
-	to_result_phase(d);
+    to_result_phase(d);
 }
 
 /*********************************************************
 
-	SEEK
- 			 Bit-7	Bit-6	Bit-5	Bit-4	Bit-3	Bit-2	Bita-1	Bit-0
-  	CMD[0]	0		0		0		0		1		1		1		1
-  	CMD[1]	X		X		X		X		X		X		US1		US0
-	CMD[2]	NCN7	NCN6	NCN5	NCN4	NCN3	NCN2	NCN1	NCN0
+        SEEK
+                         Bit-7	Bit-6	Bit-5	Bit-4	Bit-3	Bit-2	Bita-1	Bit-0
+        CMD[0]	0		0		0		0		1		1		1		1
+        CMD[1]	X		X		X		X		X		X		US1		US0
+        CMD[2]	NCN7	NCN6	NCN5	NCN4	NCN3	NCN2	NCN1	NCN0
 
-	* US1, US0: ƒ†ƒjƒbƒg‘I‘ğ
-	* NCN7-0: ƒV[ƒNæ‚ÌƒVƒŠƒ“ƒ_”Ô†
+        * US1, US0: ãƒ¦ãƒ‹ãƒƒãƒˆé¸æŠ
+        * NCN7-0: ã‚·ãƒ¼ã‚¯å…ˆã®ã‚·ãƒªãƒ³ãƒ€ç•ªå·
 
 ********************************************************* */
 static void seek_exec(THIS* d) {
-	// status 0
-	// b7-6	: IC(Interrupt Code) = 00 = ³íI—¹
-	// b5	: Seek End
-	// b4	: EC (Equipment Check)
-	// b3	: Not Ready
-	// b2	: Head Address
-	// b1-0	: Drive select
-	d->status0 = 0;
+    // status 0
+    // b7-6	: IC(Interrupt Code) = 00 = æ­£å¸¸çµ‚äº†
+    // b5	: Seek End
+    // b4	: EC (Equipment Check)
+    // b3	: Not Ready
+    // b2	: Head Address
+    // b1-0	: Drive select
+    d->status0 = 0;
 
-	uint8_t HS = (d->command_byte_value[1] & 0x04) >> 2;
-	uint8_t DS = d->command_byte_value[1] & 0x03;
-	uint8_t ncn = d->command_byte_value[2];
+    uint8_t HS = (d->command_byte_value[1] & 0x04) >> 2;
+    uint8_t DS = d->command_byte_value[1] & 0x03;
+    uint8_t ncn = d->command_byte_value[2];
 
-	ms_disk_drive_floppy_t* drive = &d->drive[DS];
-	if (drive->container == NULL) {
-		// ƒhƒ‰ƒCƒu‚ª‘¶İ‚µ‚È‚¢
-		d->status0 |= 0b10000000; // b7-6 = 10 (Invalid command)
-	} else {
-		// ƒV[ƒNÀs
-		drive->seek(drive, ncn);
-	}
+    ms_disk_drive_floppy_t* drive = &d->drive[DS];
+    if (drive->container == NULL) {
+        // ãƒ‰ãƒ©ã‚¤ãƒ–ãŒå­˜åœ¨ã—ãªã„
+        d->status0 |= 0b10000000;  // b7-6 = 10 (Invalid command)
+    } else {
+        // ã‚·ãƒ¼ã‚¯å®Ÿè¡Œ
+        drive->seek(drive, ncn);
+    }
 
-	// result
-	d->status0 |= 0x20; 		// Seek End
-	d->status0 |= HS << 2;		// Head Address
-	d->status0 |= DS;		// ¡‰ñƒV[ƒN‚µ‚½ƒhƒ‰ƒCƒu‚ğƒZƒbƒg
+    // result
+    d->status0 |= 0x20;     // Seek End
+    d->status0 |= HS << 2;  // Head Address
+    d->status0 |= DS;       // ä»Šå›ã‚·ãƒ¼ã‚¯ã—ãŸãƒ‰ãƒ©ã‚¤ãƒ–ã‚’ã‚»ãƒƒãƒˆ
 
-	uint8_t is_disk_inserted = drive->is_disk_inserted(drive);
-	d->status3 = //
-		(0 * 0x80) | // Fault
-		(drive->is_write_protected * 0x40) | // Write Protect
-		(is_disk_inserted * 0x20) | // Ready
-		(drive->is_track00 * 0x10) | // Track 0
-		(drive->is_double_sided * 0x08) | // Two side
-		(HS * 0x04) |	 // Head select
-		(DS);			 // ¡‰ñƒV[ƒN‚µ‚½ƒhƒ‰ƒCƒu‚ğƒZƒbƒg
+    uint8_t is_disk_inserted = drive->is_disk_inserted(drive);
+    d->status3 =                              //
+        (0 * 0x80) |                          // Fault
+        (drive->is_write_protected * 0x40) |  // Write Protect
+        (is_disk_inserted * 0x20) |           // Ready
+        (drive->is_track00 * 0x10) |          // Track 0
+        (drive->is_double_sided * 0x08) |     // Two side
+        (HS * 0x04) |                         // Head select
+        (DS);                                 // ä»Šå›ã‚·ãƒ¼ã‚¯ã—ãŸãƒ‰ãƒ©ã‚¤ãƒ–ã‚’ã‚»ãƒƒãƒˆ
 }
 
 /*********************************************************
 
-	RECALIBRATE
+        RECALIBRATE
 
- 			 Bit-7	Bit-6	Bit-5	Bit-4	Bit-3	Bit-2	Bita-1	Bit-0
-  	CMD[0]	0		0		0		0		0		1		1		1
-  	CMD[1]	X		X		X		X		X		X		US1		US0
+                         Bit-7	Bit-6	Bit-5	Bit-4	Bit-3	Bit-2	Bita-1	Bit-0
+        CMD[0]	0		0		0		0		0		1		1		1
+        CMD[1]	X		X		X		X		X		X		US1		US0
 
 ********************************************************* */
 static void recalibrate_exec(THIS* d) {
-	// status 0
-	// b7-6	: IC(Interrupt Code) = 00 = ³íI—¹
-	// b5	: Seek End
-	// b4	: EC (Equipment Check)
-	// b3	: Not Ready
-	// b2	: Head Address
-	// b1-0	: Drive select
-	d->status0 = 0;
+    // status 0
+    // b7-6	: IC(Interrupt Code) = 00 = æ­£å¸¸çµ‚äº†
+    // b5	: Seek End
+    // b4	: EC (Equipment Check)
+    // b3	: Not Ready
+    // b2	: Head Address
+    // b1-0	: Drive select
+    d->status0 = 0;
 
-	uint8_t HS = (d->command_byte_value[1] & 0x04) >> 2;
-	uint8_t DS = d->command_byte_value[1] & 0x03;
+    uint8_t HS = (d->command_byte_value[1] & 0x04) >> 2;
+    uint8_t DS = d->command_byte_value[1] & 0x03;
 
-	ms_disk_drive_floppy_t* drive = &d->drive[DS];
-	if (drive->container == NULL) {
-		// ƒhƒ‰ƒCƒu‚ª‘¶İ‚µ‚È‚¢
-		d->status0 |= 0b10000000; // b7-6 = 10 (Invalid command)
-	} else {
-		// Track0‚Ü‚ÅƒV[ƒNÀs
-		drive->seek(drive, 0);
-	}
+    ms_disk_drive_floppy_t* drive = &d->drive[DS];
+    if (drive->container == NULL) {
+        // ãƒ‰ãƒ©ã‚¤ãƒ–ãŒå­˜åœ¨ã—ãªã„
+        d->status0 |= 0b10000000;  // b7-6 = 10 (Invalid command)
+    } else {
+        // Track0ã¾ã§ã‚·ãƒ¼ã‚¯å®Ÿè¡Œ
+        drive->seek(drive, 0);
+    }
 
-	// result
-	d->status0 |= 0x20; 		// Seek End
-	d->status0 |= HS << 2;		// Head Address
-	d->status0 |= DS;		// ¡‰ñƒV[ƒN‚µ‚½ƒhƒ‰ƒCƒu‚ğƒZƒbƒg
+    // result
+    d->status0 |= 0x20;     // Seek End
+    d->status0 |= HS << 2;  // Head Address
+    d->status0 |= DS;       // ä»Šå›ã‚·ãƒ¼ã‚¯ã—ãŸãƒ‰ãƒ©ã‚¤ãƒ–ã‚’ã‚»ãƒƒãƒˆ
 
-	uint8_t is_disk_inserted = drive->is_disk_inserted(drive);
-	d->status3 = //
-		(0 * 0x80) | // Fault
-		(drive->is_write_protected * 0x40) | // Write Protect
-		(is_disk_inserted * 0x20) | // Ready
-		(drive->is_track00 * 0x10) | // Track 0
-		(drive->is_double_sided * 0x08) | // Two side
-		(HS * 0x04) |	 // Head select
-		(DS);			 // ¡‰ñƒV[ƒN‚µ‚½ƒhƒ‰ƒCƒu‚ğƒZƒbƒg
+    uint8_t is_disk_inserted = drive->is_disk_inserted(drive);
+    d->status3 =                              //
+        (0 * 0x80) |                          // Fault
+        (drive->is_write_protected * 0x40) |  // Write Protect
+        (is_disk_inserted * 0x20) |           // Ready
+        (drive->is_track00 * 0x10) |          // Track 0
+        (drive->is_double_sided * 0x08) |     // Two side
+        (HS * 0x04) |                         // Head select
+        (DS);                                 // ä»Šå›ã‚·ãƒ¼ã‚¯ã—ãŸãƒ‰ãƒ©ã‚¤ãƒ–ã‚’ã‚»ãƒƒãƒˆ
 }
 
 /*********************************************************
 
-	SENSE INTERRUPT STATUS
+        SENSE INTERRUPT STATUS
 
 ********************************************************* */
 static void sense_interrupt_status_exec(THIS* d) {
-	// ‰½‚à‚·‚é‚±‚Æ‚Í‚È‚¢‚Ì‚Å‹ó‚ÅOK
-	MS_LOG( MS_LOG_FINE, "FDC: SENSE INTERRUPT STATUS\n");
+    // ä½•ã‚‚ã™ã‚‹ã“ã¨ã¯ãªã„ã®ã§ç©ºã§OK
+    MS_LOG(MS_LOG_FINE, "FDC: SENSE INTERRUPT STATUS\n");
 }
 
 /*********************************************************
 
-	SPECIFY
+        SPECIFY
 
 ********************************************************* */
 static void specify_exec(THIS* d) {
-	// ‰½‚à‚·‚é‚±‚Æ‚Í‚È‚¢‚Ì‚Å‹ó‚ÅOK
-	uint8_t SRT = (d->command_byte_value[1] & 0xf0) >> 4;
-	uint8_t HUT = (d->command_byte_value[1] & 0x0f);
-	uint8_t HLT = (d->command_byte_value[2] & 0xfe) >> 1;
-	uint8_t ND = (d->command_byte_value[2] & 0x01);
-	MS_LOG( MS_LOG_FINE, "FDC: SPECIFY\n SRT=%d, HUT=%d, HLT=%d, ND=%d\n", SRT, HUT, HLT, ND);
+    // ä½•ã‚‚ã™ã‚‹ã“ã¨ã¯ãªã„ã®ã§ç©ºã§OK
+    uint8_t SRT = (d->command_byte_value[1] & 0xf0) >> 4;
+    uint8_t HUT = (d->command_byte_value[1] & 0x0f);
+    uint8_t HLT = (d->command_byte_value[2] & 0xfe) >> 1;
+    uint8_t ND = (d->command_byte_value[2] & 0x01);
+    MS_LOG(MS_LOG_FINE, "FDC: SPECIFY\n SRT=%d, HUT=%d, HLT=%d, ND=%d\n", SRT, HUT, HLT, ND);
 }
 
 /*********************************************************
 
-	SENSE DEVICE STATUS
+        SENSE DEVICE STATUS
 
 ********************************************************* */
 static void sense_device_status_exec(THIS* d) {
-	ms_disk_drive_floppy_t* drive = &d->drive[d->driveId];
-	if (drive->container == NULL) {
-		// ƒhƒ‰ƒCƒu‚ª‘¶İ‚µ‚È‚¢
-		d->status0 |= 0b10000000; // b7-6 = 10 (Invalid command)
-	}
+    ms_disk_drive_floppy_t* drive = &d->drive[d->driveId];
+    if (drive->container == NULL) {
+        // ãƒ‰ãƒ©ã‚¤ãƒ–ãŒå­˜åœ¨ã—ãªã„
+        d->status0 |= 0b10000000;  // b7-6 = 10 (Invalid command)
+    }
 
-	uint8_t is_disk_inserted = drive->is_disk_inserted(drive);
-	d->status3 = //
-		(0 * 0x80) | // Fault
-		(drive->is_write_protected * 0x40) | // Write Protect
-		(is_disk_inserted * 0x20) | // Ready
-		(drive->is_track00 * 0x10) | // Track 0
-		(drive->is_double_sided * 0x08) | // Two side
-		(d->value_HS * 0x04) | // Head select
-		(d->value_DS); // Drive select
+    uint8_t is_disk_inserted = drive->is_disk_inserted(drive);
+    d->status3 =                              //
+        (0 * 0x80) |                          // Fault
+        (drive->is_write_protected * 0x40) |  // Write Protect
+        (is_disk_inserted * 0x20) |           // Ready
+        (drive->is_track00 * 0x10) |          // Track 0
+        (drive->is_double_sided * 0x08) |     // Two side
+        (d->value_HS * 0x04) |                // Head select
+        (d->value_DS);                        // Drive select
 }
 
 /*********************************************************
 
-	INVALID
+        INVALID
 
 ********************************************************* */
 static void invalid_exec(THIS* d) {
-	MS_LOG(MS_LOG_ERROR, "invalid command\n");
+    MS_LOG(MS_LOG_ERROR, "invalid command\n");
 }
-
 
 /* *********************************************************
 
-	RESULT
+        RESULT
 
 ********************************************************* */
 
 /**
- * @brief CHRN‚ÌŒ‹‰Ê‚ğ•Ô‚·result phase‚Å‚·
- * 
- * @param d 
- * @param finished 
- * @return uint8_t 
+ * @brief CHRNã®çµæœã‚’è¿”ã™result phaseã§ã™
+ *
+ * @param d
+ * @param finished
+ * @return uint8_t
  */
 static uint8_t chrn_result(THIS* d, uint8_t* finished) {
-
-	uint8_t ret = 0;
-	switch(d->result_byte_index) {
-	case 0:
-		TC8566AF_command_t* command = &d->commands[d->command];
-		MS_LOG (MS_LOG_FINE, "CHRN result: C:%d H:%d R:%d N:%d (%s)\n", d->value_C, d->value_H, d->value_R, d->value_N, command->name);
-		ret = d->status0;
-		break;
-	case 1:
-		ret = d->status1;
-		break;
-	case 2:
-		ret = d->status2;
-		break;
-	case 3:
-		ret = d->value_C;
-		break;
-	case 4:
-		ret = d->value_H;
-		break;
-	case 5:
-		ret = d->value_R;
-		break;
-	case 6:
-		ret = d->value_N;
-		*finished = 1;
-		break;
-	default:
-		MS_LOG (MS_LOG_INFO, "invalid result index: %d\n", d->result_byte_index);
-		*finished = 1;
-		break;
-	}
-	return ret;
+    uint8_t ret = 0;
+    switch (d->result_byte_index) {
+    case 0:
+        TC8566AF_command_t* command = &d->commands[d->command];
+        MS_LOG(MS_LOG_FINE, "CHRN result: C:%d H:%d R:%d N:%d (%s)\n", d->value_C, d->value_H, d->value_R, d->value_N, command->name);
+        ret = d->status0;
+        break;
+    case 1:
+        ret = d->status1;
+        break;
+    case 2:
+        ret = d->status2;
+        break;
+    case 3:
+        ret = d->value_C;
+        break;
+    case 4:
+        ret = d->value_H;
+        break;
+    case 5:
+        ret = d->value_R;
+        break;
+    case 6:
+        ret = d->value_N;
+        *finished = 1;
+        break;
+    default:
+        MS_LOG(MS_LOG_INFO, "invalid result index: %d\n", d->result_byte_index);
+        *finished = 1;
+        break;
+    }
+    return ret;
 }
 
 static uint8_t sense_interrupt_status_result(THIS* d, uint8_t* finished) {
-	uint8_t ret = 0;
-	switch(d->result_byte_index) {
-	case 0:
-		ret = d->status0;
-		d->status0 = 0;
-		break;
-	case 1:
-		ret = 0; // TODO
-		*finished = 1;
-		break;
-	default:
-		MS_LOG(MS_LOG_INFO, "invalid result index: %d\n", d->result_byte_index);
-		*finished = 1;
-		break;
-	}
-	return ret;
+    uint8_t ret = 0;
+    switch (d->result_byte_index) {
+    case 0:
+        ret = d->status0;
+        d->status0 = 0;
+        break;
+    case 1:
+        ret = 0;  // TODO
+        *finished = 1;
+        break;
+    default:
+        MS_LOG(MS_LOG_INFO, "invalid result index: %d\n", d->result_byte_index);
+        *finished = 1;
+        break;
+    }
+    return ret;
 }
 
 static uint8_t sense_device_status_result(THIS* d, uint8_t* finished) {
-	uint8_t ret = 0;
-	switch(d->result_byte_index) {
-	case 0:
-		ret = d->status3;
-		*finished = 1;
-		break;
-	default:
-		MS_LOG(MS_LOG_INFO, "invalid result index: %d\n", d->result_byte_index);
-		*finished = 1;
-		break;
-	}
-	return ret;		
+    uint8_t ret = 0;
+    switch (d->result_byte_index) {
+    case 0:
+        ret = d->status3;
+        *finished = 1;
+        break;
+    default:
+        MS_LOG(MS_LOG_INFO, "invalid result index: %d\n", d->result_byte_index);
+        *finished = 1;
+        break;
+    }
+    return ret;
 }
 
 static uint8_t st0_result(THIS* d, uint8_t* finished) {
-	uint8_t ret = 0;
-	switch(d->result_byte_index) {
-	case 0:
-		ret = d->status0;
-		*finished = 1;
-		break;
-	default:
-		MS_LOG(MS_LOG_INFO, "invalid result index: %d\n", d->result_byte_index);
-		*finished = 1;
-		break;
-	}
-	return ret;
+    uint8_t ret = 0;
+    switch (d->result_byte_index) {
+    case 0:
+        ret = d->status0;
+        *finished = 1;
+        break;
+    default:
+        MS_LOG(MS_LOG_INFO, "invalid result index: %d\n", d->result_byte_index);
+        *finished = 1;
+        break;
+    }
+    return ret;
 }

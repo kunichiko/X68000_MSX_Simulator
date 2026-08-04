@@ -6,21 +6,30 @@
 #include "../ms_iomap.h"
 
 typedef struct ms_psg {
-	// PSG‚Ì•ªüƒpƒ‰ƒ[ƒ^n‚©‚çOPM‚Ìoct,note,kf‚É•ÏŠ·‚·‚éƒe[ƒuƒ‹
-	uint8_t psg2octnote[4096];
-	uint8_t psg2kf[4096];
+    // PSGã®åˆ†å‘¨ãƒ‘ãƒ©ãƒ¡ãƒ¼ã‚¿nã‹ã‚‰OPMã®oct,note,kfã«å¤‰æ›ã™ã‚‹ãƒ†ãƒ¼ãƒ–ãƒ«
+    uint8_t psg2octnote[4096];
+    uint8_t psg2kf[4096];
 
-	// I/O port ƒAƒNƒZƒX‚ğ’ñ‹Ÿ
-	ms_ioport_t io_port_A0;
-	ms_ioport_t io_port_A1;
-	ms_ioport_t io_port_A2;
+    // I/O port ã‚¢ã‚¯ã‚»ã‚¹ã‚’æä¾›
+    ms_ioport_t io_port_A0;
+    ms_ioport_t io_port_A1;
+    ms_ioport_t io_port_A2;
+
+    // registers
+    // r00-r14ã¯ ms_psg.has ã®ã‚¢ã‚»ãƒ³ãƒ–ãƒ©ã‚³ãƒ¼ãƒ‰å†…ã«å®šç¾©ã•ã‚Œã¦ã„ã‚‹
+    uint8_t r15;
+
+    // ã‚ªãƒ—ã‚·ãƒ§ãƒ³
+    bool use_iocs;
+    bool swap_AB;
 } ms_psg_t;
 
 // singleton instance
 ms_psg_t* ms_psg_shared_instance();
+void ms_psg_shared_init(ms_iomap_t* iomap, ms_init_params_t* init_param);
 void ms_psg_shared_deinit(ms_iomap_t* iomap);
 
-void w_PSG_ch_enable(int32_t enable);
-int32_t r_PSG_ch_enable();
+void ms_psg_set_ch_enable(int32_t enable);
+int32_t ms_psg_get_ch_enable();
 
 #endif

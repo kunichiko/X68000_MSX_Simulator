@@ -1,384 +1,447 @@
+#include <fcntl.h>
+#include <stddef.h>
+#include <stdint.h>
 #include <stdio.h>
 #include <stdlib.h>
-#include <stdint.h>
-#include <stddef.h>
-#include <fcntl.h>
+
+#include "../disk/ms_disk_bios_Panasonic.h"
+#include "../disk/ms_disk_bios_Sony.h"
 #include "ms_memmap.h"
-#include "ms_memmap_driver.h"
-#include "ms_memmap_NOTHING.h"
-#include "ms_memmap_NORMALROM.h"
-#include "ms_memmap_MIRROREDROM.h"
-#include "ms_memmap_MAINRAM.h"
-#include "ms_memmap_MEGAROM_GENERIC_8K.h"
-#include "ms_memmap_MEGAROM_ASCII_8K.h"
-#include "ms_memmap_MEGAROM_KONAMI.h"
-#include "ms_memmap_MEGAROM_KONAMI_SCC.h"
-#include "ms_memmap_PAC.h"
 #include "ms_memmap_ESE_RAM.h"
 #include "ms_memmap_ESE_SCC.h"
-#include "../disk/ms_disk_bios_Panasonic.h"
+#include "ms_memmap_MAINRAM.h"
+#include "ms_memmap_MEGAROM_ASCII_8K.h"
+#include "ms_memmap_MEGAROM_GENERIC_8K.h"
+#include "ms_memmap_MEGAROM_KONAMI.h"
+#include "ms_memmap_MEGAROM_KONAMI_SCC.h"
+#include "ms_memmap_MIRROREDROM.h"
+#include "ms_memmap_NORMALROM.h"
+#include "ms_memmap_NOTHING.h"
+#include "ms_memmap_PAC.h"
+#include "ms_memmap_driver.h"
 
 int detect_rom_type(uint8_t* buffer, int length);
 
 int filelength(int fh) {
-	struct stat st;
-	if( fstat(fh, &st) == -1) {
-		return -1;
-	}
-	return st.st_size;
+    struct stat st;
+    if (fstat(fh, &st) == -1) {
+        return -1;
+    }
+    return st.st_size;
 }
 
 /**
- * @brief 
- * 
- * @param romFileName 
- * @param slot_base 
- * @param kind ROMƒ^ƒCƒv‚Ìw’èB-1 ‚ğw’è‚·‚é‚Æ©“®”»’è‚µ‚Ü‚·
+ * @brief
+ *
+ * @param romFileName
+ * @param slot_base
+ * @param kind ROMã‚¿ã‚¤ãƒ—ã®æŒ‡å®šã€‚-1 ã‚’æŒ‡å®šã™ã‚‹ã¨è‡ªå‹•åˆ¤å®šã—ã¾ã™
  */
-void allocateAndSetCartridge(const char *romFileName, int slot_base, int kind) {
-	int crt_fh;
-	int crt_length;
-	int buf_length;
-	uint8_t *crt_buff;
-	int i;
+void allocateAndSetCartridge(const char* romFileName, int slot_base, int kind) {
+    int crt_fh;
+    int crt_length;
+    int buf_length;
+    uint8_t* crt_buff;
+    int i;
 
-	crt_fh = open( romFileName, O_RDONLY | O_BINARY);
-	if (crt_fh == -1) {
-		printf("ƒtƒ@ƒCƒ‹‚ªŠJ‚¯‚Ü‚¹‚ñ. %s\n", romFileName);
-		ms_exit();
-		return;
-	}
-	crt_length = filelength(crt_fh);
-	if(crt_length == -1) {
-		printf("ƒtƒ@ƒCƒ‹‚Ì’·‚³‚ªæ“¾‚Å‚«‚Ü‚¹‚ñB\n");
-		close(crt_fh);
-		ms_exit();
-		return;
-	}
-	// length ‚ª 8K‚Ì‹«ŠE‚É‚È‚¢ê‡‚Í8K‚ÉØ‚èã‚°
-	if(crt_length % 0x2000 != 0) {
-		buf_length = (crt_length + 0x1fff) & 0xffffe000;
-	} else {
-		buf_length = crt_length;
-	}
+    crt_fh = open(romFileName, O_RDONLY | O_BINARY);
+    if (crt_fh == -1) {
+        printf("ãƒ•ã‚¡ã‚¤ãƒ«ãŒé–‹ã‘ã¾ã›ã‚“. %s\n", romFileName);
+        ms_exit_failure();
+        return;
+    }
+    crt_length = filelength(crt_fh);
+    if (crt_length == -1) {
+        printf("ãƒ•ã‚¡ã‚¤ãƒ«ã®é•·ã•ãŒå–å¾—ã§ãã¾ã›ã‚“ã€‚\n");
+        close(crt_fh);
+        ms_exit_failure();
+        return;
+    }
+    // length ãŒ 8Kã®å¢ƒç•Œã«ãªã„å ´åˆã¯8Kã«åˆ‡ã‚Šä¸Šã’
+    if (crt_length % 0x2000 != 0) {
+        buf_length = (crt_length + 0x1fff) & 0xffffe000;
+    } else {
+        buf_length = crt_length;
+    }
 
-	// ROMƒf[ƒ^‚ğƒ[ƒh‚µ‚ÄAROM‚Ìí—Ş‚ğ”»’è
-	crt_buff =  (uint8_t*)new_malloc(buf_length);
-	if(crt_buff == NULL) {
-		printf("ƒƒ‚ƒŠ‚ªŠm•Û‚Å‚«‚Ü‚¹‚ñB\n");
-		return;
-	}
-	read( crt_fh, crt_buff, crt_length);
-	close(crt_fh);
+    // ROMãƒ‡ãƒ¼ã‚¿ã‚’ãƒ­ãƒ¼ãƒ‰ã—ã¦ã€ROMã®ç¨®é¡ã‚’åˆ¤å®š
+    crt_buff = (uint8_t*)new_malloc(buf_length);
+    if (crt_buff == NULL) {
+        printf("ãƒ¡ãƒ¢ãƒªãŒç¢ºä¿ã§ãã¾ã›ã‚“ã€‚\n");
+        ms_exit_failure();
+        return;
+    }
+    read(crt_fh, crt_buff, crt_length);
+    close(crt_fh);
 
-	if(0) {
-		int x,y;
-		for(y=0;y<2;y++) {
-			printf("%04x: ", y*16);
-			for(x=0;x<16;x++) {
-				printf("%02x ", crt_buff[y*16 + x]);
-			}
-			printf("\n");
-		}
-	}
+    if (0) {
+        int x, y;
+        for (y = 0; y < 2; y++) {
+            printf("%04x: ", y * 16);
+            for (x = 0; x < 16; x++) {
+                printf("%02x ", crt_buff[y * 16 + x]);
+            }
+            printf("\n");
+        }
+    }
 
-	ms_memmap_driver_t* driver = NULL;
-	if (kind == -1) {
-		kind = detect_rom_type(crt_buff, crt_length);
-	}
-	switch(kind) {
-		case ROM_TYPE_MIRRORED_ROM:
-			ms_memmap_driver_MIRROREDROM_t* mir = ms_memmap_MIRROREDROM_alloc();
-			driver = (ms_memmap_driver_t*)mir;
-			if( driver == NULL) {
-				printf("MIRROREDROM‚Ì‰Šú‰»‚É¸”s‚µ‚Ü‚µ‚½\n");
-				return;
-			}
-			ms_memmap_MIRROREDROM_init(mir, ms_memmap_shared_instance(), crt_buff, buf_length);
-			break;
-		case ROM_TYPE_MEGAROM_GENERIC_8K:
-			// GENERIC 8K ƒƒKƒƒ€
-			ms_memmap_driver_MEGAROM_GENERIC_8K_t* g8k = ms_memmap_MEGAROM_GENERIC_8K_alloc();
-			driver = (ms_memmap_driver_t*)g8k;
-			if( driver == NULL) {
-				printf("MEGAROM GENERIC 8K‚Ì‰Šú‰»‚É¸”s‚µ‚Ü‚µ‚½\n");
-				return;
-			}
-			ms_memmap_MEGAROM_GENERIC_8K_init(g8k, ms_memmap_shared_instance(), crt_buff, buf_length);
-			break;
-		case ROM_TYPE_MEGAROM_ASCII_8K:
-			// ASCII 8K ƒƒKƒƒ€
-			ms_memmap_driver_MEGAROM_ASCII_8K_t* a8k = ms_memmap_MEGAROM_ASCII_8K_alloc();
-			driver = (ms_memmap_driver_t*)a8k;
-			if( driver == NULL) {
-				printf("MEGAROM 8K‚Ì‰Šú‰»‚É¸”s‚µ‚Ü‚µ‚½\n");
-				return;
-			}
-			ms_memmap_MEGAROM_ASCII_8K_init(a8k, ms_memmap_shared_instance(), crt_buff, buf_length);
-			break;
-		case ROM_TYPE_MEGAROM_KONAMI:
-			// MEGAROM KONAMI‚Æ‚µ‚Äƒ[ƒh‚·‚é
-			ms_memmap_driver_MEGAROM_KONAMI_t* kon = ms_memmap_MEGAROM_KONAMI_alloc();
-			driver = (ms_memmap_driver_t*)kon;
-			if( driver == NULL) {
-				printf("MEGAROM KONAMI‚Ì‰Šú‰»‚É¸”s‚µ‚Ü‚µ‚½\n");
-				return;
-			}
-			ms_memmap_MEGAROM_KONAMI_init(kon, ms_memmap_shared_instance(), crt_buff, buf_length);
-			break;
-		case ROM_TYPE_MEGAROM_KONAMI_SCC:
-			// MEGAROM KONAMI SCC‚Æ‚µ‚Äƒ[ƒh‚·‚é
-			ms_memmap_driver_MEGAROM_KONAMI_SCC_t* scc = ms_memmap_MEGAROM_KONAMI_SCC_alloc();
-			driver = (ms_memmap_driver_t*)scc;
-			if( driver == NULL) {
-				printf("MEGAROM KONAMI SCC‚Ì‰Šú‰»‚É¸”s‚µ‚Ü‚µ‚½\n");
-				return;
-			}
-			ms_memmap_MEGAROM_KONAMI_SCC_init(scc, ms_memmap_shared_instance(), crt_buff, buf_length);
-			break;
-		case ROM_TYPE_PAC:
-			// PAC‚Æ‚µ‚Äƒ[ƒh‚·‚é
-			ms_memmap_driver_PAC_t* pac = ms_memmap_PAC_alloc();
-			driver = (ms_memmap_driver_t*)pac;
-			if( driver == NULL) {
-				printf("PAC‚Ì‰Šú‰»‚É¸”s‚µ‚Ü‚µ‚½\n");
-				return;
-			}
-			ms_memmap_PAC_init(pac, ms_memmap_shared_instance(), crt_buff, buf_length, crt_length, (uint8_t*)romFileName);
-			break;
-		case ROM_TYPE_ESE_RAM:
-			// ESE_RAM‚Æ‚µ‚Äƒ[ƒh‚·‚é
-			ms_memmap_driver_ESE_RAM_t* eram = ms_memmap_ESE_RAM_alloc();
-			driver = (ms_memmap_driver_t*)eram;
-			if( driver == NULL) {
-				printf("ESE-RAM‚Ì‰Šú‰»‚É¸”s‚µ‚Ü‚µ‚½\n");
-				return;
-			}
-			ms_memmap_ESE_RAM_init(eram, ms_memmap_shared_instance(), crt_buff, buf_length, (uint8_t*)romFileName);
-			break;
-		case ROM_TYPE_ESE_SCC:
-			// ESE_SCC‚Æ‚µ‚Äƒ[ƒh‚·‚é
-			ms_memmap_driver_ESE_SCC_t* escc = ms_memmap_ESE_SCC_alloc();
-			driver = (ms_memmap_driver_t*)escc;
-			if( driver == NULL) {
-				printf("ESE-SCC‚Ì‰Šú‰»‚É¸”s‚µ‚Ü‚µ‚½\n");
-				return;
-			}
-			ms_memmap_ESE_SCC_init(escc, ms_memmap_shared_instance(), crt_buff, buf_length, (uint8_t*)romFileName);
-			break;
-		default:
-			break;
-	}
-	if(driver != NULL) {
-		if ( ms_memmap_attach_driver(ms_memmap_shared_instance(), driver, slot_base, -1) != 0) {
-			printf("ƒhƒ‰ƒCƒo‚ÌƒAƒ^ƒbƒ`‚É¸”s‚µ‚Ü‚µ‚½\n");
-			driver->deinit(driver);
-			new_free(driver);
-			return;
-		}
-		printf(" Loaded %s\n", driver->name);
-	}
+    ms_memmap_driver_t* driver = NULL;
+    if (kind == -1) {
+        kind = detect_rom_type(crt_buff, crt_length);
+    }
+    switch (kind) {
+    case ROM_TYPE_MIRRORED_ROM:
+        ms_memmap_driver_MIRROREDROM_t* mir = ms_memmap_MIRROREDROM_alloc();
+        driver = (ms_memmap_driver_t*)mir;
+        if (driver == NULL) {
+            printf("MIRROREDROMã®åˆæœŸåŒ–ã«å¤±æ•—ã—ã¾ã—ãŸ\n");
+            ms_exit_failure();
+            return;
+        }
+        ms_memmap_MIRROREDROM_init(mir, ms_memmap_shared_instance(), crt_buff, buf_length);
+        break;
+    case ROM_TYPE_MEGAROM_GENERIC_8K:
+        // GENERIC 8K ãƒ¡ã‚¬ãƒ­ãƒ 
+        ms_memmap_driver_MEGAROM_GENERIC_8K_t* g8k = ms_memmap_MEGAROM_GENERIC_8K_alloc();
+        driver = (ms_memmap_driver_t*)g8k;
+        if (driver == NULL) {
+            printf("MEGAROM GENERIC 8Kã®åˆæœŸåŒ–ã«å¤±æ•—ã—ã¾ã—ãŸ\n");
+            ms_exit_failure();
+            return;
+        }
+        ms_memmap_MEGAROM_GENERIC_8K_init(g8k, ms_memmap_shared_instance(), crt_buff, buf_length);
+        break;
+    case ROM_TYPE_MEGAROM_ASCII_8K:
+        // ASCII 8K ãƒ¡ã‚¬ãƒ­ãƒ 
+        ms_memmap_driver_MEGAROM_ASCII_8K_t* a8k = ms_memmap_MEGAROM_ASCII_8K_alloc();
+        driver = (ms_memmap_driver_t*)a8k;
+        if (driver == NULL) {
+            printf("MEGAROM 8Kã®åˆæœŸåŒ–ã«å¤±æ•—ã—ã¾ã—ãŸ\n");
+            ms_exit_failure();
+            return;
+        }
+        ms_memmap_MEGAROM_ASCII_8K_init(a8k, ms_memmap_shared_instance(), crt_buff, buf_length);
+        break;
+    case ROM_TYPE_MEGAROM_KONAMI:
+        // MEGAROM KONAMIã¨ã—ã¦ãƒ­ãƒ¼ãƒ‰ã™ã‚‹
+        ms_memmap_driver_MEGAROM_KONAMI_t* kon = ms_memmap_MEGAROM_KONAMI_alloc();
+        driver = (ms_memmap_driver_t*)kon;
+        if (driver == NULL) {
+            printf("MEGAROM KONAMIã®åˆæœŸåŒ–ã«å¤±æ•—ã—ã¾ã—ãŸ\n");
+            ms_exit_failure();
+            return;
+        }
+        ms_memmap_MEGAROM_KONAMI_init(kon, ms_memmap_shared_instance(), crt_buff, buf_length);
+        break;
+    case ROM_TYPE_MEGAROM_KONAMI_SCC:
+        // MEGAROM KONAMI SCCã¨ã—ã¦ãƒ­ãƒ¼ãƒ‰ã™ã‚‹
+        ms_memmap_driver_MEGAROM_KONAMI_SCC_t* scc = ms_memmap_MEGAROM_KONAMI_SCC_alloc();
+        driver = (ms_memmap_driver_t*)scc;
+        if (driver == NULL) {
+            printf("MEGAROM KONAMI SCCã®åˆæœŸåŒ–ã«å¤±æ•—ã—ã¾ã—ãŸ\n");
+            ms_exit_failure();
+            return;
+        }
+        ms_memmap_MEGAROM_KONAMI_SCC_init(scc, ms_memmap_shared_instance(), crt_buff, buf_length);
+        break;
+    case ROM_TYPE_PAC:
+        // PACã¨ã—ã¦ãƒ­ãƒ¼ãƒ‰ã™ã‚‹
+        ms_memmap_driver_PAC_t* pac = ms_memmap_PAC_alloc();
+        driver = (ms_memmap_driver_t*)pac;
+        if (driver == NULL) {
+            printf("PACã®åˆæœŸåŒ–ã«å¤±æ•—ã—ã¾ã—ãŸ\n");
+            ms_exit_failure();
+            return;
+        }
+        ms_memmap_PAC_init(pac, ms_memmap_shared_instance(), crt_buff, buf_length, crt_length, (uint8_t*)romFileName);
+        break;
+    case ROM_TYPE_ESE_RAM:
+        // ESE_RAMã¨ã—ã¦ãƒ­ãƒ¼ãƒ‰ã™ã‚‹
+        ms_memmap_driver_ESE_RAM_t* eram = ms_memmap_ESE_RAM_alloc();
+        driver = (ms_memmap_driver_t*)eram;
+        if (driver == NULL) {
+            printf("ESE-RAMã®åˆæœŸåŒ–ã«å¤±æ•—ã—ã¾ã—ãŸ\n");
+            ms_exit_failure();
+            return;
+        }
+        ms_memmap_ESE_RAM_init(eram, ms_memmap_shared_instance(), crt_buff, buf_length, (uint8_t*)romFileName);
+        break;
+    case ROM_TYPE_ESE_SCC:
+        // ESE_SCCã¨ã—ã¦ãƒ­ãƒ¼ãƒ‰ã™ã‚‹
+        ms_memmap_driver_ESE_SCC_t* escc = ms_memmap_ESE_SCC_alloc();
+        driver = (ms_memmap_driver_t*)escc;
+        if (driver == NULL) {
+            printf("ESE-SCCã®åˆæœŸåŒ–ã«å¤±æ•—ã—ã¾ã—ãŸ\n");
+            ms_exit_failure();
+            return;
+        }
+        ms_memmap_ESE_SCC_init(escc, ms_memmap_shared_instance(), crt_buff, buf_length, (uint8_t*)romFileName);
+        break;
+    default:
+        break;
+    }
+    if (driver != NULL) {
+        if (ms_memmap_attach_driver(ms_memmap_shared_instance(), driver, slot_base, -1) != 0) {
+            printf("ãƒ‰ãƒ©ã‚¤ãƒã®ã‚¢ã‚¿ãƒƒãƒã«å¤±æ•—ã—ã¾ã—ãŸ\n");
+            driver->deinit(driver);
+            new_free(driver);
+            ms_exit_failure();
+            return;
+        }
+        printf(" Loaded %s\n", driver->name);
+    }
 }
 
 /*
-	OpenMSX‚ÌÀ‘•‚ğQl‚ÉAˆÈ‰º‚Ì•û–@‚Å“Ç‚İ‚ñ‚¾ROM‚Ìí—Ş‚ğ”»’è‚µ‚Ü‚·B
-	ƒƒKƒƒ€‚ÍZ80‚Ì LD (nn),a –½—ß‚ğg‚Á‚Äƒƒ‚ƒŠ‚Ö‚Ì‘‚«‚İ‚ğs‚È‚Á‚Äƒoƒ“ƒNØ‚è‘Ö‚¦‚ğs‚Á‚Ä‚¢‚Ü‚·B
-	‚»‚ê‚ğ—˜—p‚µAROM‚Ì‘S—Ìˆæ‚©‚çã‹L–½—ß (0x32, 0xLL, 0xHH) ‚ÌoŒ»‰ñ”‚ğƒJƒEƒ“ƒg‚µA
-	‚»‚Ìƒ‰ƒ“ƒLƒ“ƒO‚ğŒ³‚ÉROM‚Ìí—Ş‚ğ”»’è‚µ‚Ü‚·B
+        OpenMSXã®å®Ÿè£…ã‚’å‚è€ƒã«ã€ä»¥ä¸‹ã®æ–¹æ³•ã§èª­ã¿è¾¼ã‚“ã ROMã®ç¨®é¡ã‚’åˆ¤å®šã—ã¾ã™ã€‚
+        ãƒ¡ã‚¬ãƒ­ãƒ ã¯Z80ã® LD (nn),a å‘½ä»¤ã‚’ä½¿ã£ã¦ãƒ¡ãƒ¢ãƒªã¸ã®æ›¸ãè¾¼ã¿ã‚’è¡Œãªã£ã¦ãƒãƒ³ã‚¯åˆ‡ã‚Šæ›¿ãˆã‚’è¡Œã£ã¦ã„ã¾ã™ã€‚
+        ãã‚Œã‚’åˆ©ç”¨ã—ã€ROMã®å…¨é ˜åŸŸã‹ã‚‰ä¸Šè¨˜å‘½ä»¤ (0x32, 0xLL, 0xHH) ã®å‡ºç¾å›æ•°ã‚’ã‚«ã‚¦ãƒ³ãƒˆã—ã€
+        ãã®ãƒ©ãƒ³ã‚­ãƒ³ã‚°ã‚’å…ƒã«ROMã®ç¨®é¡ã‚’åˆ¤å®šã—ã¾ã™ã€‚
 
-	nn‚Ì’l‚É‰‚¶‚ÄAˆÈ‰º‚Ì‚æ‚¤‚ÉROM‚Ìí—Ş‚É•ª—Ş‚µ‚Ü‚·B
+        nnã®å€¤ã«å¿œã˜ã¦ã€ä»¥ä¸‹ã®ã‚ˆã†ã«ROMã®ç¨®é¡ã«åˆ†é¡ã—ã¾ã™ã€‚
 
-	0x5000, 0x9000, 0xb000	: ƒRƒiƒ~SCC•t‚«
-	0x4000, 0x8000, 0xa000	: ƒRƒiƒ~SCC‚È‚µ
-	0x6800, 0x7800			: ASCII8K
-	0x6000					: ƒRƒiƒ~SCC‚È‚µ or ASCII8K or ASCII16K
-	0x7000					: ƒRƒiƒ~SCC•t‚« or ASCII8K or ASCII16K
-	0x77ff					: ASCII16K
+        0x5000, 0x9000, 0xb000	: ã‚³ãƒŠãƒŸSCCä»˜ã
+        0x4000, 0x8000, 0xa000	: ã‚³ãƒŠãƒŸSCCãªã—
+        0x6800, 0x7800			: ASCII8K
+        0x6000					: ã‚³ãƒŠãƒŸSCCãªã— or ASCII8K or ASCII16K
+        0x7000					: ã‚³ãƒŠãƒŸSCCä»˜ã or ASCII8K or ASCII16K
+        0x77ff					: ASCII16K
 
-	‡Œv‚ğæ‚èAÅ‚à‘½‚¢‚à‚Ì‚ğÌ—p‚µ‚Ü‚·B
+        åˆè¨ˆã‚’å–ã‚Šã€æœ€ã‚‚å¤šã„ã‚‚ã®ã‚’æ¡ç”¨ã—ã¾ã™ã€‚
 */
 int detect_rom_type(uint8_t* buffer, int length) {
-	int konami_scc_with = 0;
-	int konami_scc_without = 0;
-	int ascii8k = 0;
-	int ascii16k = 0;
-	int i;
+    int konami_scc_with = 0;
+    int konami_scc_without = 0;
+    int ascii8k = 0;
+    int ascii16k = 0;
+    int i;
 
-	// 8206 = 16 + 8192 - 2
-	if ( (length == 8206) && (memcmp(buffer, "PAC2 BACKUP DATA", 16UL) == 0)) {
-		printf("PAC‚Æ„’è‚µ‚Ü‚µ‚½B\n");
-		return ROM_TYPE_PAC;
-	}
+    // 8206 = 16 + 8192 - 2
+    if ((length == 8206) && (memcmp(buffer, "PAC2 BACKUP DATA", 16UL) == 0)) {
+        printf("PACã¨æ¨å®šã—ã¾ã—ãŸã€‚\n");
+        return ROM_TYPE_PAC;
+    }
 
-	// ‚±‚êˆÈ~‚Í8KƒoƒCƒg’PˆÊ‚Ì‚à‚Ì‚µ‚©‚È‚¢‚Ì‚Å‚±‚±‚ÅƒuƒƒbƒN
-	if( (length & 0x1fff) != 0 ) {
-		printf("•s–¾‚ÈROM‚Å‚·B\n");
-		return ROM_TYPE_NOTHING;
-	}
+    // ã“ã‚Œä»¥é™ã¯8Kãƒã‚¤ãƒˆå˜ä½ã®ã‚‚ã®ã—ã‹ãªã„ã®ã§ã“ã“ã§ãƒ–ãƒ­ãƒƒã‚¯
+    if ((length & 0x1fff) != 0) {
+        printf("ä¸æ˜ãªROMã§ã™ã€‚\n");
+        return ROM_TYPE_NOTHING;
+    }
 
-	if (length <= 32 * 1024) {
-		printf("’Êí‚Ìƒ~ƒ‰[ƒƒ€‚Æ„’è‚µ‚Ü‚µ‚½B\n");
-		return ROM_TYPE_MIRRORED_ROM;
-	}
+    if (length <= 32 * 1024) {
+        printf("é€šå¸¸ã®ãƒŸãƒ©ãƒ¼ãƒ­ãƒ ã¨æ¨å®šã—ã¾ã—ãŸã€‚\n");
+        return ROM_TYPE_MIRRORED_ROM;
+    }
 
-	for (i = 0; i < length - 3; i++) {
-		if (buffer[i] == 0x32) {
-			uint16_t value = ((uint16_t)buffer[i + 1]) + (((uint16_t)buffer[i + 2]) << 8);
-			switch (value) {
-				case 0x5000:
-				case 0x9000:
-				case 0xb000:
-					konami_scc_with++;
-					break;
-				case 0x4000:
-				case 0x8000:
-				case 0xa000:
-					konami_scc_without++;
-					break;
-				case 0x6800:
-				case 0x7800:
-					ascii8k++;
-					break;
-				case 0x6000:
-					konami_scc_without++;
-					ascii8k++;
-					ascii16k++;
-					break;
-				case 0x7000:
-					konami_scc_with++;
-					ascii8k++;
-					ascii16k++;
-					break;
-				case 0x77ff:
-					ascii16k++;
-					break;
-			}
-		}
-	}
+    for (i = 0; i < length - 3; i++) {
+        if (buffer[i] == 0x32) {
+            uint16_t value = ((uint16_t)buffer[i + 1]) + (((uint16_t)buffer[i + 2]) << 8);
+            switch (value) {
+            case 0x5000:
+            case 0x9000:
+            case 0xb000:
+                konami_scc_with++;
+                break;
+            case 0x4000:
+            case 0x8000:
+            case 0xa000:
+                konami_scc_without++;
+                break;
+            case 0x6800:
+            case 0x7800:
+                ascii8k++;
+                break;
+            case 0x6000:
+                konami_scc_without++;
+                ascii8k++;
+                ascii16k++;
+                break;
+            case 0x7000:
+                konami_scc_with++;
+                ascii8k++;
+                ascii16k++;
+                break;
+            case 0x77ff:
+                ascii16k++;
+                break;
+            }
+        }
+    }
 
-	printf("ƒRƒiƒ~ SCC •t‚«: %d\n", konami_scc_with);
-	printf("ƒRƒiƒ~ SCC –³‚µ: %d\n", konami_scc_without);
-	printf("ASCII 8K: %d\n", ascii8k);
-	printf("ASCII 16K: %d\n", ascii16k);
+    printf("ã‚³ãƒŠãƒŸ SCC ä»˜ã: %d\n", konami_scc_with);
+    printf("ã‚³ãƒŠãƒŸ SCC ç„¡ã—: %d\n", konami_scc_without);
+    printf("ASCII 8K: %d\n", ascii8k);
+    printf("ASCII 16K: %d\n", ascii16k);
 
-	if (ascii8k > 0 ) {
-		ascii8k--; // —Dæ‡ˆÊ’²®
-	}
-	if (konami_scc_with == 0 && konami_scc_without == 0 && ascii8k == 0 && ascii16k == 0) {
-		printf("GENERIC 8KƒƒKƒƒ€‚Æ„’è‚µ‚Ü‚µ‚½B\n");
-		return ROM_TYPE_MEGAROM_GENERIC_8K;
-	}
-	if (konami_scc_with >= konami_scc_without && konami_scc_with >= ascii8k && konami_scc_with >= ascii16k) {
-		printf("ƒRƒiƒ~ SCC •t‚«ƒƒKƒƒ€‚Æ„’è‚µ‚Ü‚µ‚½B\n");
-		return ROM_TYPE_MEGAROM_KONAMI_SCC;
-	} else if (konami_scc_without >= konami_scc_with && konami_scc_without >= ascii8k && konami_scc_without >= ascii16k) {
-		printf("ƒRƒiƒ~ SCC –³‚µƒƒKƒƒ€‚Æ„’è‚µ‚Ü‚µ‚½B\n");
-		return ROM_TYPE_MEGAROM_KONAMI;
-	} else if (ascii8k >= konami_scc_with && ascii8k >= konami_scc_without && ascii8k >= ascii16k) {
-		printf("ASCII 8K ƒƒKƒƒ€‚Æ„’è‚µ‚Ü‚µ‚½B\n");
-		return ROM_TYPE_MEGAROM_ASCII_8K;
-	} else if (ascii16k >= konami_scc_with && ascii16k >= konami_scc_without && ascii16k >= ascii8k) {
-		printf("ASCII 16K ƒƒKƒƒ€‚Æ„’è‚µ‚Ü‚µ‚½B\n");
-		return ROM_TYPE_MEGAROM_ASCII_16K;
-	}
-	// ‚±‚±‚É‚Í—ˆ‚È‚¢‚Í‚¸
-	printf("GENERIC 8KƒƒKƒƒ€‚Æ„’è‚µ‚Ü‚µ‚½B\n");
-	return ROM_TYPE_MEGAROM_GENERIC_8K;
+    if (ascii8k > 0) {
+        ascii8k--;  // å„ªå…ˆé †ä½èª¿æ•´
+    }
+    if (konami_scc_with == 0 && konami_scc_without == 0 && ascii8k == 0 && ascii16k == 0) {
+        printf("GENERIC 8Kãƒ¡ã‚¬ãƒ­ãƒ ã¨æ¨å®šã—ã¾ã—ãŸã€‚\n");
+        return ROM_TYPE_MEGAROM_GENERIC_8K;
+    }
+    if (konami_scc_with >= konami_scc_without && konami_scc_with >= ascii8k && konami_scc_with >= ascii16k) {
+        printf("ã‚³ãƒŠãƒŸ SCC ä»˜ããƒ¡ã‚¬ãƒ­ãƒ ã¨æ¨å®šã—ã¾ã—ãŸã€‚\n");
+        return ROM_TYPE_MEGAROM_KONAMI_SCC;
+    } else if (konami_scc_without >= konami_scc_with && konami_scc_without >= ascii8k && konami_scc_without >= ascii16k) {
+        printf("ã‚³ãƒŠãƒŸ SCC ç„¡ã—ãƒ¡ã‚¬ãƒ­ãƒ ã¨æ¨å®šã—ã¾ã—ãŸã€‚\n");
+        return ROM_TYPE_MEGAROM_KONAMI;
+    } else if (ascii8k >= konami_scc_with && ascii8k >= konami_scc_without && ascii8k >= ascii16k) {
+        printf("ASCII 8K ãƒ¡ã‚¬ãƒ­ãƒ ã¨æ¨å®šã—ã¾ã—ãŸã€‚\n");
+        return ROM_TYPE_MEGAROM_ASCII_8K;
+    } else if (ascii16k >= konami_scc_with && ascii16k >= konami_scc_without && ascii16k >= ascii8k) {
+        printf("ASCII 16K ãƒ¡ã‚¬ãƒ­ãƒ ã¨æ¨å®šã—ã¾ã—ãŸã€‚\n");
+        return ROM_TYPE_MEGAROM_ASCII_16K;
+    }
+    // ã“ã“ã«ã¯æ¥ãªã„ã¯ãš
+    printf("GENERIC 8Kãƒ¡ã‚¬ãƒ­ãƒ ã¨æ¨å®šã—ã¾ã—ãŸã€‚\n");
+    return ROM_TYPE_MEGAROM_GENERIC_8K;
 }
 
 int allocateAndSetNORMALROM(int crt_fh, int kind, int slot_base, int slot_ex, int page) {
-	int crt_length;
-	uint8_t *crt_buff;
-	int i;
+    int crt_length;
+    uint8_t* crt_buff;
+    int i;
 
-	crt_length = filelength(crt_fh);
-	if(crt_length == -1) {
-		printf("ƒtƒ@ƒCƒ‹‚Ì’·‚³‚ªæ“¾‚Å‚«‚Ü‚¹‚ñB\n");
-		ms_exit();
-		return 0;
-	}
+    crt_length = filelength(crt_fh);
+    if (crt_length == -1) {
+        printf("ãƒ•ã‚¡ã‚¤ãƒ«ã®é•·ã•ãŒå–å¾—ã§ãã¾ã›ã‚“ã€‚\n");
+        ms_exit_failure();
+        return 0;
+    }
 
-	// 16KƒoƒCƒg‚¸‚Â“Ç‚İ‚ñ‚ÅROM‚ÉƒZƒbƒg
-	if( crt_length <= 32 * 1024 ) {
-		for(i = 0; i < 2; i++) {
-			if(crt_length < 16 * 1024) {
-				break;
-			}
-			if( ( crt_buff = (uint8_t*)new_malloc( 16 * 1024) ) == NULL) {
-				printf("ƒƒ‚ƒŠ‚ªŠm•Û‚Å‚«‚Ü‚¹‚ñB\n");
-				ms_exit();
-				return 0;
-			}
-			read( crt_fh, crt_buff, 16 * 1024);
+    // 16Kãƒã‚¤ãƒˆãšã¤èª­ã¿è¾¼ã‚“ã§ROMã«ã‚»ãƒƒãƒˆ
+    if (crt_length <= 32 * 1024) {
+        for (i = 0; i < 2; i++) {
+            if (crt_length < 16 * 1024) {
+                break;
+            }
+            if ((crt_buff = (uint8_t*)new_malloc(16 * 1024)) == NULL) {
+                printf("ãƒ¡ãƒ¢ãƒªãŒç¢ºä¿ã§ãã¾ã›ã‚“ã€‚\n");
+                ms_exit_failure();
+                return 0;
+            }
+            read(crt_fh, crt_buff, 16 * 1024);
 
-			ms_memmap_driver_NORMALROM_t* driver = ms_memmap_NORMALROM_alloc();
-			if (driver == NULL) {
-				printf("ƒƒ‚ƒŠ‚ªŠm•Û‚Å‚«‚Ü‚¹‚ñB\n");
-				ms_exit();
-				return 0;
-			}
-			ms_memmap_NORMALROM_init(driver, ms_memmap_shared_instance(), crt_buff, page + i);
-		
-			if (ms_memmap_attach_driver(ms_memmap_shared_instance(), (ms_memmap_driver_t*)driver, slot_base, slot_ex) != 0) {
-				printf("ƒƒ‚ƒŠƒ}ƒbƒsƒ“ƒO‚É¸”s‚µ‚Ü‚µ‚½B\n");
-				ms_exit();
-				return 0;
-			}
-			crt_length -= 16 * 1024;
-		}
-	} else {
-		printf("ƒtƒ@ƒCƒ‹‚ª”F¯‚Å‚«‚Ü‚¹‚ñ‚Å‚µ‚½\n");
-		return 0;
-	}
- 	close( crt_fh);
-	return 1;
+            ms_memmap_driver_NORMALROM_t* driver = ms_memmap_NORMALROM_alloc();
+            if (driver == NULL) {
+                printf("ãƒ¡ãƒ¢ãƒªãŒç¢ºä¿ã§ãã¾ã›ã‚“ã€‚\n");
+                ms_exit_failure();
+                return 0;
+            }
+            ms_memmap_NORMALROM_init(driver, ms_memmap_shared_instance(), crt_buff, page + i);
+
+            if (ms_memmap_attach_driver(ms_memmap_shared_instance(), (ms_memmap_driver_t*)driver, slot_base, slot_ex) != 0) {
+                printf("ãƒ¡ãƒ¢ãƒªãƒãƒƒãƒ”ãƒ³ã‚°ã«å¤±æ•—ã—ã¾ã—ãŸã€‚\n");
+                ms_exit_failure();
+                return 0;
+            }
+            crt_length -= 16 * 1024;
+        }
+    } else {
+        printf("ãƒ•ã‚¡ã‚¤ãƒ«ãŒèªè­˜ã§ãã¾ã›ã‚“ã§ã—ãŸ\n");
+        ms_exit_failure();
+        return 0;
+    }
+    close(crt_fh);
+    return 1;
 }
 
-void allocateAndSetDISKBIOSROM(const char *romFileName, ms_disk_container_t* disk_container) {
-	int crt_fh;
-	int crt_length;
-	uint8_t *crt_buff;
-	int i;
+void allocateAndSetDISKBIOSROM(const char* romFileName, ms_disk_container_t* disk_container) {
+    int crt_fh;
+    int crt_length;
+    uint8_t* crt_buff;
+    int i;
 
-	crt_fh = open( romFileName, O_RDONLY | O_BINARY);
-	if (crt_fh == -1) {
-		printf("ƒtƒ@ƒCƒ‹‚ªŠJ‚¯‚Ü‚¹‚ñ. %s\n", romFileName);
-		ms_exit();
-		return;
-	}
-	crt_length = filelength(crt_fh);
-	if(crt_length == -1) {
-		printf("ƒtƒ@ƒCƒ‹‚Ì’·‚³‚ªæ“¾‚Å‚«‚Ü‚¹‚ñB\n");
-		ms_exit();
-		return;
-	}
-	if(crt_length != 16*1024) {
-		printf("ƒtƒ@ƒCƒ‹ƒTƒCƒY‚ª•s³‚Å‚·B\n");
-		ms_exit();
-		return;
-	}
+    crt_fh = ms_system_file_open(romFileName, O_RDONLY | O_BINARY);
+    if (crt_fh == -1) {
+        printf("ãƒ•ã‚¡ã‚¤ãƒ«ãŒé–‹ã‘ã¾ã›ã‚“. %s\n", romFileName);
+        ms_exit_failure();
+        return;
+    }
+    crt_length = filelength(crt_fh);
+    if (crt_length == -1) {
+        printf("ãƒ•ã‚¡ã‚¤ãƒ«ã®é•·ã•ãŒå–å¾—ã§ãã¾ã›ã‚“ã€‚\n");
+        ms_exit_failure();
+        return;
+    }
+    if (crt_length != 16 * 1024) {
+        printf("ãƒ•ã‚¡ã‚¤ãƒ«ã‚µã‚¤ã‚ºãŒä¸æ­£ã§ã™ã€‚\n");
+        ms_exit_failure();
+        return;
+    }
 
-	// 16KƒoƒCƒg“Ç‚İ‚ñ‚ÅROM‚ÉƒZƒbƒg
-	if( ( crt_buff = (uint8_t*)new_malloc( 16 * 1024) ) == NULL) {
-		printf("ƒƒ‚ƒŠ‚ªŠm•Û‚Å‚«‚Ü‚¹‚ñB\n");
-		ms_exit();
-		return;
-	}
-	read( crt_fh, crt_buff, 16 * 1024);
+    // 16Kãƒã‚¤ãƒˆèª­ã¿è¾¼ã‚“ã§ROMã«ã‚»ãƒƒãƒˆ
+    if ((crt_buff = (uint8_t*)new_malloc(16 * 1024)) == NULL) {
+        printf("ãƒ¡ãƒ¢ãƒªãŒç¢ºä¿ã§ãã¾ã›ã‚“ã€‚\n");
+        ms_exit_failure();
+        return;
+    }
+    read(crt_fh, crt_buff, 16 * 1024);
 
-	ms_memmap_driver_DISKBIOS_PANASONIC_t* driver = ms_disk_bios_Panasonic_alloc();
-	if (driver == NULL) {
-		printf("ƒƒ‚ƒŠ‚ªŠm•Û‚Å‚«‚Ü‚¹‚ñB\n");
-		ms_exit();
-		return;
-	}
-	ms_disk_bios_Panasonic_init(driver, ms_memmap_shared_instance(), crt_buff, disk_container);
-	
-	// ƒXƒƒbƒg3-2‚ÉƒAƒ^ƒbƒ`
-	if (ms_memmap_attach_driver(ms_memmap_shared_instance(), (ms_memmap_driver_t*)driver, 3, 2) != 0) {
-		printf("ƒƒ‚ƒŠƒ}ƒbƒsƒ“ƒO‚É¸”s‚µ‚Ü‚µ‚½B\n");
-		ms_exit();
-		return;
-	}
- 	close( crt_fh);
+    ms_memmap_driver_DISKBIOS_PANASONIC_t* driver = ms_disk_bios_Panasonic_alloc();
+    if (driver == NULL) {
+        printf("ãƒ¡ãƒ¢ãƒªãŒç¢ºä¿ã§ãã¾ã›ã‚“ã€‚\n");
+        ms_exit_failure();
+        return;
+    }
+    ms_disk_bios_Panasonic_init(driver, ms_memmap_shared_instance(), crt_buff, disk_container);
+
+    // ã‚¹ãƒ­ãƒƒãƒˆ3-2ã«ã‚¢ã‚¿ãƒƒãƒ
+    if (ms_memmap_attach_driver(ms_memmap_shared_instance(), (ms_memmap_driver_t*)driver, 3, 2) != 0) {
+        printf("ãƒ¡ãƒ¢ãƒªãƒãƒƒãƒ”ãƒ³ã‚°ã«å¤±æ•—ã—ã¾ã—ãŸã€‚\n");
+        ms_exit_failure();
+        return;
+    }
+    close(crt_fh);
+}
+
+// SONY / Philips style DISK BIOS ROM (WD2793). Same slot/page placement as the
+// Panasonic (TC8566AF) variant; only the FDC register interface differs.
+void allocateAndSetDISKBIOSROM_Sony(const char* romFileName, ms_disk_container_t* disk_container) {
+    int crt_fh;
+    int crt_length;
+    uint8_t* crt_buff;
+
+    crt_fh = ms_system_file_open(romFileName, O_RDONLY | O_BINARY);
+    if (crt_fh == -1) {
+        printf("ãƒ•ã‚¡ã‚¤ãƒ«ãŒé–‹ã‘ã¾ã›ã‚“. %s\n", romFileName);
+        ms_exit_failure();
+        return;
+    }
+    crt_length = filelength(crt_fh);
+    if (crt_length == -1) {
+        printf("ãƒ•ã‚¡ã‚¤ãƒ«ã®é•·ã•ãŒå–å¾—ã§ãã¾ã›ã‚“ã€‚\n");
+        ms_exit_failure();
+        return;
+    }
+    if (crt_length != 16 * 1024) {
+        printf("ãƒ•ã‚¡ã‚¤ãƒ«ã‚µã‚¤ã‚ºãŒä¸æ­£ã§ã™ã€‚\n");
+        ms_exit_failure();
+        return;
+    }
+
+    // 16Kãƒã‚¤ãƒˆèª­ã¿è¾¼ã‚“ã§ROMã«ã‚»ãƒƒãƒˆ
+    if ((crt_buff = (uint8_t*)new_malloc(16 * 1024)) == NULL) {
+        printf("ãƒ¡ãƒ¢ãƒªãŒç¢ºä¿ã§ãã¾ã›ã‚“ã€‚\n");
+        ms_exit_failure();
+        return;
+    }
+    read(crt_fh, crt_buff, 16 * 1024);
+
+    ms_memmap_driver_DISKBIOS_SONY_t* driver = ms_disk_bios_Sony_alloc();
+    if (driver == NULL) {
+        printf("ãƒ¡ãƒ¢ãƒªãŒç¢ºä¿ã§ãã¾ã›ã‚“ã€‚\n");
+        ms_exit_failure();
+        return;
+    }
+    ms_disk_bios_Sony_init(driver, ms_memmap_shared_instance(), crt_buff, disk_container);
+
+    // ã‚¹ãƒ­ãƒƒãƒˆ3-2ã«ã‚¢ã‚¿ãƒƒãƒ
+    if (ms_memmap_attach_driver(ms_memmap_shared_instance(), (ms_memmap_driver_t*)driver, 3, 2) != 0) {
+        printf("ãƒ¡ãƒ¢ãƒªãƒãƒƒãƒ”ãƒ³ã‚°ã«å¤±æ•—ã—ã¾ã—ãŸã€‚\n");
+        ms_exit_failure();
+        return;
+    }
+    close(crt_fh);
 }

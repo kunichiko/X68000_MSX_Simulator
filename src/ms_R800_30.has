@@ -5552,10 +5552,9 @@ RETN:	move.w	sp_(a3),d0
 RETI:	move.w	sp_(a3),d0
 	jsr	ms_read_mem_16
 	addq.w	#2,sp_(a3)
-	cmp.w	interrupt_return,d0	* 割り込み発生時にセットした戻り先アドレスに戻ったか？
-	bne	@f
+	; RETI 命令が来たら無条件で割り込みが終わったと判断する (framecon=autoの対応)
 	move.w	#0,interrupt_return
-@@:	move.w	d0,d7
+	move.w	d0,d7
 	PC_page_set
 	rts
 

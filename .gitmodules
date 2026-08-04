@@ -4,3 +4,6 @@
 [submodule "src/submodules/uthash"]
 	path = src/submodules/uthash
 	url = https://github.com/troydhanson/uthash.git
+[submodule "test/z80test/raxoft-z80test"]
+	path = test/z80test/raxoft-z80test
+	url = https://github.com/kunichiko/z80test-msx.git

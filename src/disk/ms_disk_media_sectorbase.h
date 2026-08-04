@@ -2,37 +2,36 @@
 #define MS_DISK_MEDIA_SECTORBASE_H
 
 #include <stdint.h>
+
 #include "ms_disk.h"
 #include "ms_disk_media.h"
 
 typedef struct ms_disk_media_sectorbase ms_disk_media_sectorbase_t;
 
-// 512ƒoƒCƒg‚Ì”z—ñ‚ğ ms_sector_t ‚Æ‚µ‚Ä’è‹` (C‚Ì’è‹`‚Ì‘‚«•û‚ª“Áê‚È‚Ì‚Å’ˆÓ)
+// 512ãƒã‚¤ãƒˆã®é…åˆ—ã‚’ ms_sector_t ã¨ã—ã¦å®šç¾© (Cã®å®šç¾©ã®æ›¸ãæ–¹ãŒç‰¹æ®Šãªã®ã§æ³¨æ„)
 typedef uint8_t ms_sector_t[512];
 
 /**
- * @brief ‰~”Õã‚ÌƒƒfƒBƒA(Disk Media)‚ğƒZƒNƒ^[ƒx[ƒX‚ÅÀŒ»‚·‚é\‘¢‘Ì‚Å‚·B
- * 
- * ƒgƒ‰ƒbƒN‚ÌƒMƒƒƒbƒvî•ñ‚âCRCƒGƒ‰[‚È‚Ç‚Ì¶‚Ìî•ñ‚ğˆµ‚í‚¸‚ÉAƒZƒNƒ^[ƒf[ƒ^‚Ì‚İ‚ÅƒƒfƒBƒA‚ğˆµ‚¤ê‡‚Ég—p‚µ‚Ü‚·B
- * .DSKƒtƒH[ƒ}ƒbƒg‚ÌƒCƒ[ƒW‚ğˆµ‚¤‚½‚ß‚ÌƒTƒu\‘¢‘Ì(ms_disk_media_dskformat_t) ‚È‚Ç‚ª‚»‚Ì‘ã•\—á‚Å‚·B
- * 
+ * @brief å††ç›¤ä¸Šã®ãƒ¡ãƒ‡ã‚£ã‚¢(Disk Media)ã‚’ã‚»ã‚¯ã‚¿ãƒ¼ãƒ™ãƒ¼ã‚¹ã§å®Ÿç¾ã™ã‚‹æ§‹é€ ä½“ã§ã™ã€‚
+ *
+ * ãƒˆãƒ©ãƒƒã‚¯ã®ã‚®ãƒ£ãƒƒãƒ—æƒ…å ±ã‚„CRCã‚¨ãƒ©ãƒ¼ãªã©ã®ç”Ÿã®æƒ…å ±ã‚’æ‰±ã‚ãšã«ã€ã‚»ã‚¯ã‚¿ãƒ¼ãƒ‡ãƒ¼ã‚¿ã®ã¿ã§ãƒ¡ãƒ‡ã‚£ã‚¢ã‚’æ‰±ã†å ´åˆã«ä½¿ç”¨ã—ã¾ã™ã€‚
+ * .DSKãƒ•ã‚©ãƒ¼ãƒãƒƒãƒˆã®ã‚¤ãƒ¡ãƒ¼ã‚¸ã‚’æ‰±ã†ãŸã‚ã®ã‚µãƒ–æ§‹é€ ä½“(ms_disk_media_dskformat_t) ãªã©ãŒãã®ä»£è¡¨ä¾‹ã§ã™ã€‚
+ *
  */
 typedef struct ms_disk_media_sectorbase {
-	ms_disk_media_t base;
-	// virtual methods
-	void (*read_sector)(ms_disk_media_t* instance, uint32_t sector_id, ms_sector_t* sector);
-	void (*write_sector)(ms_disk_media_t* instance, uint32_t sector_id, ms_sector_t* sector);
-	// properties
-	uint16_t sectors_per_track;
-	uint16_t heads;
-	uint16_t tracks;
+    ms_disk_media_t base;
+    // virtual methods
+    void (*read_sector)(ms_disk_media_t* instance, uint32_t sector_id, ms_sector_t* sector);
+    void (*write_sector)(ms_disk_media_t* instance, uint32_t sector_id, ms_sector_t* sector);
+    // properties
+    uint16_t sectors_per_track;
+    uint16_t heads;
+    uint16_t tracks;
 } ms_disk_media_sectorbase_t;
-
 
 ms_disk_media_sectorbase_t* ms_disk_media_sectorbase_alloc();
 void ms_disk_media_sectorbase_init(ms_disk_media_sectorbase_t* instance, char* name);
 void ms_disk_media_sectorbase_deinit(ms_disk_media_sectorbase_t* instance);
-
 
 void ms_disk_media_sectorbase_read_track(ms_disk_media_t* media, uint32_t track_no, uint8_t side, ms_disk_raw_track_t* raw_track);
 void ms_disk_media_sectorbase_write_track(ms_disk_media_t* media, uint32_t track_no, uint8_t side, ms_disk_raw_track_t* raw_track);

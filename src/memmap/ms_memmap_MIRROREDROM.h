@@ -5,11 +5,11 @@
 #include "ms_memmap_driver.h"
 
 /*
-*/
+ */
 typedef struct ms_memmap_driver_MIRROREDROM {
-	ms_memmap_driver_t base;
+    ms_memmap_driver_t base;
 
-	int buffer_length;
+    int buffer_length;
 } ms_memmap_driver_MIRROREDROM_t;
 
 ms_memmap_driver_MIRROREDROM_t* ms_memmap_MIRROREDROM_alloc();
