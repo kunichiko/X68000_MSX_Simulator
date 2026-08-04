@@ -59,11 +59,16 @@ extern uint8_t ms_peripherals_led_kana;
 extern uint8_t ms_fdd_led_1;
 extern uint8_t ms_fdd_led_2;
 
+// FDC (floppy disk controller) type selected for the DISK BIOS
+#define MS_DISKIF_TC8566AF 0  // Panasonic style (default)
+#define MS_DISKIF_SONY 1      // SONY / Philips style (WD2793)
+
 typedef struct ms_init_params {
     uint8_t* buf;
     uint8_t* mainrom;
     uint8_t* subrom;
     uint8_t* diskrom;
+    int diskif;
     uint8_t* kanjibasic;
     uint8_t* kanjirom;
     // CARTRIDGE

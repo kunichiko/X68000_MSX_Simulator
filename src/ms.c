@@ -158,6 +158,8 @@ void printHelpAndExit(char* progname) {
     fprintf(stderr, "    swap joystick A/B button.\n");
     fprintf(stderr, " --9scdrv\n");
     fprintf(stderr, "    use 9scdrv for disk access. 0-3: drive number, -1: disable\n");
+    fprintf(stderr, " -rd DISKBIOS[,TYPE]\n");
+    fprintf(stderr, "    FDC type for the DISK BIOS. panasonic/tc8566af (default) or sony/philips/wd2793.\n");
     fprintf(stderr, " --safe\n");
     fprintf(stderr, "    safe mode. disable reading MS.INI.\n");
     exit(EXIT_FAILURE);
@@ -198,6 +200,35 @@ char* separate_rom_kind(char* path, int* kind) {
         }
     } else {
         *kind = -1;
+    }
+    return path;
+}
+
+/*
+        DISK ROM のパスから ",種類" のサフィックスを取り出し、FDCの種類を判定します。
+        (メガロムの種類指定 separate_rom_kind() と同じ方式)
+
+        例: "sony_disk.rom,sony"  -> パスは "sony_disk.rom"、diskif は MS_DISKIF_SONY
+
+        種類を省略した場合は Panasonic(TC8566AF) として扱います。
+        既知の種類以外が指定された場合はエラー終了します。
+*/
+char* separate_diskif(char* path, int* diskif) {
+    char* p = strchr(path, ',');
+    if (p != NULL) {
+        *p = '\0';
+        p++;
+        if (strcasecmp(p, "sony") == 0 || strcasecmp(p, "philips") == 0 || strcasecmp(p, "wd2793") == 0) {
+            *diskif = MS_DISKIF_SONY;
+        } else if (strcasecmp(p, "panasonic") == 0 || strcasecmp(p, "tc8566af") == 0) {
+            *diskif = MS_DISKIF_TC8566AF;
+        } else {
+            printf("不明なFDCの種類です: %s\n", p);
+            printf("  指定できる種類: panasonic / tc8566af / sony / philips / wd2793\n");
+            ms_exit_failure();
+        }
+    } else {
+        *diskif = MS_DISKIF_TC8566AF;  // 省略時は Panasonic(TC8566AF)
     }
     return path;
 }
@@ -266,6 +297,7 @@ int main(int argc, char* argv[]) {
     // デフォルトの初期化
     default_param.buf = NULL;
     default_param.diskrom = NULL;
+    default_param.diskif = MS_DISKIF_TC8566AF;
     default_param.kanjibasic = NULL;
     default_param.kanjirom = NULL;
     for (i = 0; i < 4; i++) {
@@ -361,9 +393,9 @@ int main(int argc, char* argv[]) {
                     }
                     break;
                 case 'd':
-                    // ディスクBIOSの指定
+                    // ディスクBIOSの指定 (",種類" でFDCの種類を指定可能)
                     if (argv[optind] != NULL) {
-                        init_param.diskrom = argv[optind++];
+                        init_param.diskrom = separate_diskif(argv[optind++], &init_param.diskif);
                     } else {
                         printf("ROMファイル名が指定されていません\n");
                         ms_exit_failure();
@@ -1369,7 +1401,20 @@ void set_system_roms() {
         }
         ms_disk_container_init(disk_container, init_param.diskcount, init_param.diskimages, init_param.drive_for_9scdrv);
 
-        allocateAndSetDISKBIOSROM(init_param.diskrom, disk_container);
+        switch (init_param.diskif) {
+        case MS_DISKIF_SONY:
+            printf("   FDC TYPE: SONY/Philips (WD2793)\n");
+            allocateAndSetDISKBIOSROM_Sony(init_param.diskrom, disk_container);
+            break;
+        case MS_DISKIF_TC8566AF:
+            printf("   FDC TYPE: Panasonic (TC8566AF)\n");
+            allocateAndSetDISKBIOSROM(init_param.diskrom, disk_container);
+            break;
+        default:
+            printf("不明なFDCの種類です: %d\n", init_param.diskif);
+            ms_exit_failure();
+            break;
+        }
     }
 
     // 漢字BASICの指定があれば読み込む
@@ -1461,9 +1506,9 @@ uint8_t load_user_param() {
         else if (strcmp(param, "subrom") == 0) {
             user_param.subrom = value;
         }
-        // Check if the parameter is "diskrom"
+        // Check if the parameter is "diskrom" (",種類" でFDCの種類を指定可能)
         else if (strcmp(param, "diskrom") == 0) {
-            user_param.diskrom = value;
+            user_param.diskrom = separate_diskif(value, &user_param.diskif);
         }
         // Check if the parameter is "kanjirom"
         else if (strcmp(param, "kanjirom") == 0) {

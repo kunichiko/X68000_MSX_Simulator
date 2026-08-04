@@ -5,6 +5,7 @@
 #include <stdlib.h>
 
 #include "../disk/ms_disk_bios_Panasonic.h"
+#include "../disk/ms_disk_bios_Sony.h"
 #include "ms_memmap.h"
 #include "ms_memmap_ESE_RAM.h"
 #include "ms_memmap_ESE_SCC.h"
@@ -385,6 +386,56 @@ void allocateAndSetDISKBIOSROM(const char* romFileName, ms_disk_container_t* dis
         return;
     }
     ms_disk_bios_Panasonic_init(driver, ms_memmap_shared_instance(), crt_buff, disk_container);
+
+    // スロット3-2にアタッチ
+    if (ms_memmap_attach_driver(ms_memmap_shared_instance(), (ms_memmap_driver_t*)driver, 3, 2) != 0) {
+        printf("メモリマッピングに失敗しました。\n");
+        ms_exit_failure();
+        return;
+    }
+    close(crt_fh);
+}
+
+// SONY / Philips style DISK BIOS ROM (WD2793). Same slot/page placement as the
+// Panasonic (TC8566AF) variant; only the FDC register interface differs.
+void allocateAndSetDISKBIOSROM_Sony(const char* romFileName, ms_disk_container_t* disk_container) {
+    int crt_fh;
+    int crt_length;
+    uint8_t* crt_buff;
+
+    crt_fh = ms_system_file_open(romFileName, O_RDONLY | O_BINARY);
+    if (crt_fh == -1) {
+        printf("ファイルが開けません. %s\n", romFileName);
+        ms_exit_failure();
+        return;
+    }
+    crt_length = filelength(crt_fh);
+    if (crt_length == -1) {
+        printf("ファイルの長さが取得できません。\n");
+        ms_exit_failure();
+        return;
+    }
+    if (crt_length != 16 * 1024) {
+        printf("ファイルサイズが不正です。\n");
+        ms_exit_failure();
+        return;
+    }
+
+    // 16Kバイト読み込んでROMにセット
+    if ((crt_buff = (uint8_t*)new_malloc(16 * 1024)) == NULL) {
+        printf("メモリが確保できません。\n");
+        ms_exit_failure();
+        return;
+    }
+    read(crt_fh, crt_buff, 16 * 1024);
+
+    ms_memmap_driver_DISKBIOS_SONY_t* driver = ms_disk_bios_Sony_alloc();
+    if (driver == NULL) {
+        printf("メモリが確保できません。\n");
+        ms_exit_failure();
+        return;
+    }
+    ms_disk_bios_Sony_init(driver, ms_memmap_shared_instance(), crt_buff, disk_container);
 
     // スロット3-2にアタッチ
     if (ms_memmap_attach_driver(ms_memmap_shared_instance(), (ms_memmap_driver_t*)driver, 3, 2) != 0) {

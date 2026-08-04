@@ -102,6 +102,7 @@ int ms_memmap_did_pause(ms_memmap_t* memmap);
 
 int allocateAndSetNORMALROM(int fh, int kind, int slot_base, int slot_ex, int page);
 void allocateAndSetDISKBIOSROM(const char* romFileName, ms_disk_container_t* disk_container);
+void allocateAndSetDISKBIOSROM_Sony(const char* romFileName, ms_disk_container_t* disk_container);
 void allocateAndSetCartridge(const char* romFileName, int slot_base, int kind);
 
 uint8_t ms_memmap_read8(uint16_t addr);

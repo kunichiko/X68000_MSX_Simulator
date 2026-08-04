@@ -186,11 +186,14 @@ MS.Xでは、漢字ROMの指定がない場合でも、自動的にX68000の16x1
 
 ## フロッピーディスクのサポート
 
-MS.Xは TC8566AF というフロッピーディスクコントローラーIC(FDC)をエミュレーションして、ディスクイメージファイル(*.2DD)もしくは9scdrvを使って実3.5インチドライブにアクセスすることができます。
+MS.Xは フロッピーディスクコントローラーIC(FDC)をエミュレーションして、ディスクイメージファイル(*.2DD)もしくは9scdrvを使って実3.5インチドライブにアクセスすることができます。現在、以下の2種類のFDCに対応しています。
 
-しかし、MSXでフロッピーディスクを使用するためにはFDCに対応したDISK BIOSが必要です (C-BIOSでは対応できません)。
+* **TC8566AF** (東芝) — 主に Panasonic系のMSXで使用 (デフォルト)
+* **WD2793** (Western Digital) — SONY / Philips系のMSXで使用
 
-このFDCは主に Panasonic系のMSXで使用されていますので、それらの該当実機のDISK BIOSを抽出し、 `-rd` オプションで指定してください。例えば、FS-A1FのBIOSを使いたい場合は、以下のように指定します。
+しかし、MSXでフロッピーディスクを使用するためにはFDCに対応したDISK BIOSが必要です (C-BIOSでは対応できません)。使用するDISK BIOS ROMを吸い出した実機のFDCに合わせて、`diskif` オプション(後述)でFDCの種類を指定してください。
+
+まずは Panasonic系(TC8566AF)の例です。それらの該当実機のDISK BIOSを抽出し、 `-rd` オプションで指定してください。例えば、FS-A1FのBIOSを使いたい場合は、以下のように指定します。
 
 ```
 > ms.x -rm fs-a1f_basic-bios2.rom -rs fs-a1f_msx2sub.rom -rd fs-a1f_disk.rom DISKIMAGE1.DSK DISKIMAGE2.DSK
@@ -213,6 +216,37 @@ subrom=fs-a1f_msx2sub.rom
 diskrom=fs-a1f_disk.rom
 diskimage=DISKIMAGE1.DSK
 ```
+
+### FDCの種類の指定
+
+SONY(またはPhilips)系のMSXのDISK BIOS ROMを使う場合は、FDCが WD2793 になるため、
+DISK ROM のファイル名の後ろに `,種類` を付けてFDCの種類を指定してください
+(メガロムの種類指定と同じ方式です)。省略した場合は従来どおり TC8566AF (Panasonic系)
+として動作します。
+
+指定できる種類は以下のとおりです。これら以外の値を指定するとエラーになります。
+
+* `panasonic` (または `tc8566af`) … TC8566AF (デフォルト。省略時もこれ)
+* `sony` (または `philips` / `wd2793`) … WD2793
+
+起動オプションでは以下のように `,sony` を付けて指定します。
+
+```
+> ms.x -rm sony_basic.rom -rs sony_sub.rom -rd sony_disk.rom,sony DISKIMAGE1.DSK
+```
+
+`ms.ini` でも同様に `diskrom` の値に `,sony` を付けます。
+
+```
+mainrom=sony_basic.rom
+subrom=sony_sub.rom
+diskrom=sony_disk.rom,sony
+diskimage=DISKIMAGE1.DSK
+```
+
+> WD2793対応では、セクタ単位のREAD/WRITE(通常のディスクアクセス)とシークを優先して実装しています。
+> フォーマット(Write Track)はベストエフォート対応です。また .DSK 形式はギャップ情報を保持しないため、
+> プロテクトの再現はできません(これはTC8566AFと同じ制約です)。
 
 9scdrvを使う場合は `--9scdrv` オプションか、 `ms.ini` の `9scdrv` パラメータでドライブID(0-3)を指定しておく必要があります。
 

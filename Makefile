@@ -13,7 +13,7 @@ EXE_DIR = exe
 CROSS = m68k-xelf-
 CC = $(CROSS)gcc
 #AS = $(CROSS)as
-AS = run68 /Users/ohnaka/work/XEiJ/HFS/HAS/HAS060.X
+AS = run68 /Users/ohnaka/work/XEiJ/HFS/prog/HAS/HAS060.X
 LD = $(CROSS)gcc
 
 CFLAGS = -g -std=gnu90 -c -m68000 -O3 -finput-charset=CP932 -I${UTHASH_DIR}
@@ -30,7 +30,7 @@ LDFLAGS = src/disk/9scdrv/_X_KPCHK_elf.o -lm -lbas -liocs -ldos -Wl,-e,msboot_st
 ASFLAGS = -i $(SRC_DIR) -i $(ASMINC_DIR) -i $(VDP_DIR) -i $(MEMMAP_DIR) -i ${DISK_DIR} -i ${PERIPHERAL_DIR} -w0
 ASFLAGS_DEBUG = -d -s DEBUG $(ASFLAGS)
 
-# ÉIÉuÉWÉFÉNÉgÉtÉ@ÉCÉãÇÃÉäÉXÉgÇïœêîÇ…Ç‹Ç∆ÇﬂÇÈ
+# ÔøΩIÔøΩuÔøΩWÔøΩFÔøΩNÔøΩgÔøΩtÔøΩ@ÔøΩCÔøΩÔøΩÔøΩÃÉÔøΩÔøΩXÔøΩgÔøΩÔøΩœêÔøΩÔøΩ…Ç‹Ç∆ÇﬂÇÔøΩ
 OBJS =	$(BUILD_DIR)/msboot_mac.o \
 		$(BUILD_DIR)/ms.o \
 		$(BUILD_DIR)/ms_R800_30_mac.o \
@@ -88,6 +88,8 @@ OBJS =	$(BUILD_DIR)/msboot_mac.o \
 		$(BUILD_DIR)/ms_disk_drive_floppy.o \
 		$(BUILD_DIR)/ms_disk_controller_TC8566AF.o \
 		$(BUILD_DIR)/ms_disk_bios_Panasonic.o \
+		$(BUILD_DIR)/ms_disk_controller_WD2793.o \
+		$(BUILD_DIR)/ms_disk_bios_Sony.o \
 		$(BUILD_DIR)/ms_disk_9scdrv.o \
 		$(BUILD_DIR)/ms_disk_9scdrv_mac.o
 
@@ -148,6 +150,8 @@ OBJS_DEBUG = $(BUILD_DIR)/msboot_mac.o \
 		$(BUILD_DIR)/ms_disk_drive_floppy_d.o \
 		$(BUILD_DIR)/ms_disk_controller_TC8566AF_d.o \
 		$(BUILD_DIR)/ms_disk_bios_Panasonic_d.o \
+		$(BUILD_DIR)/ms_disk_controller_WD2793_d.o \
+		$(BUILD_DIR)/ms_disk_bios_Sony_d.o \
 		$(BUILD_DIR)/ms_disk_9scdrv_d.o \
 		$(BUILD_DIR)/ms_disk_9scdrv_mac_d.o
 
