@@ -1,7 +1,7 @@
 *
-*	�l���� �r����������������
+*	Ｍｓｘ Ｓｉｍｕｌａｔｅｒ
 *
-*		[[[ �u�c�o �r���������������� ]]]		
+*		[[[ ＶＤＰ Ｓｉｍｕｌａｔｅｒ ]]]		
 *
 *				1995.9.24		by Kuni.
 *
@@ -82,12 +82,12 @@
 	.xdef	framerate_count_his
 
 
-V_MFP_GPIP_6	equ	$000138		* �������荞�݂̃x�N�^�A�h���X
-V_MFP_GPIP_7	equ	$00013C		* H-SYNC���荞��(�S���X�^���荞��)
+V_MFP_GPIP_6	equ	$000138		* 水平割り込みのベクタアドレス
+V_MFP_GPIP_7	equ	$00013C		* H-SYNC割り込み(全ラスタ割り込み)
 
 gram		equ	$c00000
 
-CRTR_00		equ	$e80000		* �b�q�s�b���W�X�^�O
+CRTR_00		equ	$e80000		* ＣＲＴＣレジスタ０
 CRTR_01		equ	$e80002
 CRTR_02		equ	$e80004
 CRTR_03		equ	$e80006
@@ -97,41 +97,41 @@ CRTR_06		equ	$e8000c
 CRTR_07		equ	$e8000e
 CRTR_08		equ	$e80010
 
-CRTR_09		equ	$e80012		* �b�q�s�b���W�X�^�X (���X�^���荞�݂������郉�X�^�ԍ�)
+CRTR_09		equ	$e80012		* ＣＲＴＣレジスタ９ (ラスタ割り込みをかけるラスタ番号)
 
-CRTR_10		equ	$e80014		* �b�q�s�b���W�X�^10 (�e�L�X�g�X�N���[��X)
-CRTR_11		equ	$e80016		* �b�q�s�b���W�X�^11 (�e�L�X�g�X�N���[��Y)
-CRTR_12		equ	$e80018		* �b�q�s�b���W�X�^12 GR0 �̃X�N���[��X
-CRTR_13		equ	$e8001A		* �b�q�s�b���W�X�^13 GR0 �̃X�N���[��Y
-CRTR_14		equ	$e8001C		* �b�q�s�b���W�X�^14 GR1 �̃X�N���[��X
-CRTR_15		equ	$e8001E		* �b�q�s�b���W�X�^15 GR1 �̃X�N���[��Y
-CRTR_16		equ	$e80020		* �b�q�s�b���W�X�^16 GR2 �̃X�N���[��X
-CRTR_17		equ	$e80022		* �b�q�s�b���W�X�^17 GR2 �̃X�N���[��Y
-CRTR_18		equ	$e80024		* �b�q�s�b���W�X�^18 GR3 �̃X�N���[��X
-CRTR_19		equ	$e80026		* �b�q�s�b���W�X�^19 GR3 �̃X�N���[��Y
+CRTR_10		equ	$e80014		* ＣＲＴＣレジスタ10 (テキストスクロールX)
+CRTR_11		equ	$e80016		* ＣＲＴＣレジスタ11 (テキストスクロールY)
+CRTR_12		equ	$e80018		* ＣＲＴＣレジスタ12 GR0 のスクロールX
+CRTR_13		equ	$e8001A		* ＣＲＴＣレジスタ13 GR0 のスクロールY
+CRTR_14		equ	$e8001C		* ＣＲＴＣレジスタ14 GR1 のスクロールX
+CRTR_15		equ	$e8001E		* ＣＲＴＣレジスタ15 GR1 のスクロールY
+CRTR_16		equ	$e80020		* ＣＲＴＣレジスタ16 GR2 のスクロールX
+CRTR_17		equ	$e80022		* ＣＲＴＣレジスタ17 GR2 のスクロールY
+CRTR_18		equ	$e80024		* ＣＲＴＣレジスタ18 GR3 のスクロールX
+CRTR_19		equ	$e80026		* ＣＲＴＣレジスタ19 GR3 のスクロールY
 
 CRTR_20		equ	$e80028
 CRTR_21		equ	$e8002a
 CRTR_23		equ	$e8002e
 pla0		equ	$e00000
 
-g_palette	equ	$e82000		* �O���t�B�b�N�p���b�g
-t_palette	equ	$e82200		* �e�L�X�g�p���b�g	
+g_palette	equ	$e82000		* グラフィックパレット
+t_palette	equ	$e82200		* テキストパレット	
 
-VCRR_00		equ	$e82400		* �r�f�I�R���g���[�����W�X�^�O
-VCRR_01		equ	$e82500		* �r�f�I�R���g���[�����W�X�^�P
-VCRR_02		equ	$e82600		* �r�f�I�R���g���[�����W�X�^�Q
+VCRR_00		equ	$e82400		* ビデオコントロールレジスタ０
+VCRR_01		equ	$e82500		* ビデオコントロールレジスタ１
+VCRR_02		equ	$e82600		* ビデオコントロールレジスタ２
 
 GPIP		equ	$e88001
-IERA		equ	$e88007		* ���荞�݋����W�X�^A�BBit7��GPIP7(HSYNC)
-IMRA		equ	$e88013		* ���荞�݃}�X�N���W�X�^A�BBit7��GPIP7(HSYNC)
+IERA		equ	$e88007		* 割り込み許可レジスタA。Bit7がGPIP7(HSYNC)
+IMRA		equ	$e88013		* 割り込みマスクレジスタA。Bit7がGPIP7(HSYNC)
 
-X68_SSR		equ	$eb0000		* �X�v���C�g�X�N���[�����W�X�^
+X68_SSR		equ	$eb0000		* スプライトスクロールレジスタ
 
-SPCON_HTOTAL	equ	$eb080a		* �X�v���C�g�R���g���[�� ��ʃ��[�h���W�X�^ H-TOTAL
-SPCON_HDISP	equ	$eb080c		* �X�v���C�g�R���g���[�� ��ʃ��[�h���W�X�^ H-DISP
-SPCON_VDISP	equ	$eb080e		* �X�v���C�g�R���g���[�� ��ʃ��[�h���W�X�^ V-DISP
-SPCON_RES	equ	$eb0810		* �X�v���C�g�R���g���[�� ��ʃ��[�h���W�X�^ V-Res, H-Res
+SPCON_HTOTAL	equ	$eb080a		* スプライトコントローラ 画面モードレジスタ H-TOTAL
+SPCON_HDISP	equ	$eb080c		* スプライトコントローラ 画面モードレジスタ H-DISP
+SPCON_VDISP	equ	$eb080e		* スプライトコントローラ 画面モードレジスタ V-DISP
+SPCON_RES	equ	$eb0810		* スプライトコントローラ 画面モードレジスタ V-Res, H-Res
 
 
 offset_ms_vdp_init			equ	0*4
@@ -158,16 +158,16 @@ offset_ms_vdp_bits_per_dot		equ	19*4
 ; typedef struct ms_vdp {
 ; 	uint8_t	r00;	// Mode register 0
 ; 	uint8_t	r01;	// Mode register 1
-; 	uint8_t	_r02;	// R02�̐��̒l�B���ۂ̃A�N�Z�X�ł� pnametbl_baddr ���g��
-; 	uint8_t _r03;	// R03�̐��̒l�B���ۂ̃A�N�Z�X�ł� R10 �ƌ������� colortbl_baddr ���g��
-; 	uint8_t _r04;	// R04�̐��̒l�B���ۂ̃A�N�Z�X�ł� pgentbl_baddr ���g��
-; 	uint8_t _r05;	// R05�̐��̒l�B���ۂ̃A�N�Z�X�ł� R11 �ƌ������� sprattrtbl_baddr ���g��
-; 	uint8_t _r06;	// R06�̐��̒l�B���ۂ̃A�N�Z�X�ł� sprpgentbl_baddr ���g��
-; 	uint8_t _r07;	// R09�̐��̒l�B���ۂ̃A�N�Z�X�ł� text_color / back_color ���g��
+; 	uint8_t	_r02;	// R02の生の値。実際のアクセスでは pnametbl_baddr を使う
+; 	uint8_t _r03;	// R03の生の値。実際のアクセスでは R10 と結合した colortbl_baddr を使う
+; 	uint8_t _r04;	// R04の生の値。実際のアクセスでは pgentbl_baddr を使う
+; 	uint8_t _r05;	// R05の生の値。実際のアクセスでは R11 と結合した sprattrtbl_baddr を使う
+; 	uint8_t _r06;	// R06の生の値。実際のアクセスでは sprpgentbl_baddr を使う
+; 	uint8_t _r07;	// R09の生の値。実際のアクセスでは text_color / back_color を使う
 ; 	uint8_t r08;	// Mode register 2
 ; 	uint8_t r09;	// Mode register 3
-; 	uint8_t _r10;	// R10�̐��̒l�B���ۂ̃A�N�Z�X�ł� R03 �ƌ������� colortbl_baddr ���g��
-; 	uint8_t _r11;	// R11�̐��̒l�B���ۂ̃A�N�Z�X�ł� R05 �ƌ������� sprattrtbl_baddr ���g��
+; 	uint8_t _r10;	// R10の生の値。実際のアクセスでは R03 と結合した colortbl_baddr を使う
+; 	uint8_t _r11;	// R11の生の値。実際のアクセスでは R05 と結合した sprattrtbl_baddr を使う
 ; 	uint8_t r12;
 ; 	uint8_t r13;
 ; 	uint8_t r14;
@@ -188,7 +188,7 @@ offset_ms_vdp_bits_per_dot		equ	19*4
 ; 	uint8_t r29;
 ; 	uint8_t r30;
 ; 	uint8_t r31;
-; 	uint16_t sx;	// 32,33 (���т��t�ɂȂ�̂Œ���)
+; 	uint16_t sx;	// 32,33 (並びが逆になるので注意)
 ; 	uint16_t sy;	// 34,35
 ; 	uint16_t dx;	// 36,37
 ; 	uint16_t dy;	// 38,39
@@ -216,12 +216,12 @@ offset_ms_vdp_bits_per_dot		equ	19*4
 ; 	uint16_t palette[16];	// offset = +58
 
 ; 	// Special Control Registers
-; 	// 	����R���g���[�����W�X�^
+; 	// 	特殊コントロールレジスタ
 ; 	//  R_00:	.dc.b	0		* [ 0 ][ DG][IE2][IE1][ M5][ M4][ M3][ 0 ]
 ; 	//	R_01:	.dc.b	0		* [ 0 ][ BL][IE0][ M1][ M2][ 0 ][ SI][MAG]
-; 	uint8_t crt_mode;		// R_0,R_1��[ M5]�`[ M0]
-; 	uint8_t sprite_size;	// R_1��[ SI]
-; 	uint8_t sprite_zoom;	// R_1��[MAG]
+; 	uint8_t crt_mode;		// R_0,R_1の[ M5]～[ M0]
+; 	uint8_t sprite_size;	// R_1の[ SI]
+; 	uint8_t sprite_zoom;	// R_1の[MAG]
 ; 	uint8_t dummy2;
 
 ; 	// base address registers
@@ -245,10 +245,10 @@ offset_ms_vdp_bits_per_dot		equ	19*4
 ; 	uint16_t tx_active;
 ; 	uint16_t gr_active;
 
-; 	// X68000���Ɋm�ۂ���VRAM�̐擪�A�h���X
+; 	// X68000側に確保したVRAMの先頭アドレス
 ; 	uint8_t* vram;
 
-; 	// X68000��PCG�ɓ]�����邽�߂̃o�b�t�@�̈�
+; 	// X68000のPCGに転送するためのバッファ領域
 ; 	unsigned int* x68_pcg_buffer;
 ; 	int last_visible_sprite_planes;
 ; 	int last_visible_sprite_size;
@@ -342,21 +342,21 @@ SPRITE_REFRESH_FLAG_PGEN	equ	$08
 SPRITE_REFRESH_FLAG_FULL	equ	$10
 
 *
-*	�l�r�w�̉�ʃ��[�h�ƂU�W�̉�ʃ��[�h�̑Ή�
+*	ＭＳＸの画面モードと６８の画面モードの対応
 *
-*	�l�r�w			�U�W
-*	screen0	(TEXT1,TEXT2)	16�F	512*512
-*	screen1	(GRAPHIC1)	16�F	512*512
-*	screen2	(GRAPHIC2)	16�F	512*512
-*	screen3	(MULTICOLOR)	16�F	512*512
-*	screen4	(GRAPHIC3)	16�F	512*512
-*	screen5	(GRAPHIC4)	16�F	512*512
-*	screen6	(GRAPHIC5)	16�F	512*512
-*	screen7	(GRAPHIC6)	16�F	512*512
-*	screen8	(GRAPHIC7)	256�F	512*512
-*	screen10		65536�F	512*512
-*	screen11		65536�F	512*512
-*	screen12		65536�F	512*512
+*	ＭＳＸ			６８
+*	screen0	(TEXT1,TEXT2)	16色	512*512
+*	screen1	(GRAPHIC1)	16色	512*512
+*	screen2	(GRAPHIC2)	16色	512*512
+*	screen3	(MULTICOLOR)	16色	512*512
+*	screen4	(GRAPHIC3)	16色	512*512
+*	screen5	(GRAPHIC4)	16色	512*512
+*	screen6	(GRAPHIC5)	16色	512*512
+*	screen7	(GRAPHIC6)	16色	512*512
+*	screen8	(GRAPHIC7)	256色	512*512
+*	screen10		65536色	512*512
+*	screen11		65536色	512*512
+*	screen12		65536色	512*512
 *
 *
 	.68030
@@ -367,36 +367,36 @@ SPRITE_REFRESH_FLAG_FULL	equ	$10
 
 ***************************************************************
 *
-*	�u�c�o�ݒ胋�[�`��
+*	ＶＤＰ設定ルーチン
 *
 *	int ms_vdp_init_mac(ms_vdp_t *vdp);
 *
-*	��������1��Ԃ�
+*	成功時は1を返す
 *
 ***************************************************************
 ms_vdp_init_mac:
 	link	a6,#0
 	movem.l	d3-d7/a0-a5,-(sp)
 
-	; ������ vdp�̃V���O���g���C���X�^���X�̃|�C���^���󂯂Ƃ��Ă���̂ŁA
-	; ����� ms_vdp_shared �Ɋo���Ă���
+	; 引数で vdpのシングルトンインスタンスのポインタを受けとっているので、
+	; それを ms_vdp_shared に覚えておく
 	;
-	; �\���I�ɂ͕����C���X�^���X������悤�ȃC���^�[�t�F�[�X�ɂ��Ă��邪�A
-	; �{VDP������X68000�̃O���t�B�b�N���L���邽�߁A�����I�ɂ�1�������Ȃ�
-	; �����AKepler X���VDP�Ƃ̍����ւ����ł���悤�ɂ���Ȃǂ̏����I�Ȋg���̂��߂ɁA
-	; API�͂��Ȃ炸������ vdp�C���X�^���X���󂯎��悤�ɂ��Ă���
+	; 構造的には複数インスタンスが作れるようなインターフェースにしているが、
+	; 本VDP実装はX68000のグラフィックを占有するため、実質的には1つしか作れない
+	; ただ、Kepler X上のVDPとの差し替えができるようにするなどの将来的な拡張のために、
+	; APIはかならず引数に vdpインスタンスを受け取るようにしている
 	move.l	8(a6),ms_vdp_shared
-	movea.l	ms_vdp_shared,a5	* ms_vdp_t �ւ̃|�C���^���擾
+	movea.l	ms_vdp_shared,a5	* ms_vdp_t へのポインタを取得
 
-	* �v���C�I���e�B�̐ݒ�
+	* プライオリティの設定
 	* b15:14 (NONE)
-	* b13:12 �X�v���C�g�D�揇��
-	* b11:10 �e�L�X�g�D�揇��
-	* b09:08 �O���t�B�b�N�D�揇��
-	* b07:06 ���O���t�B�b�N�y�[�W3�̗D�揇��
-	* b05:04 ���O���t�B�b�N�y�[�W2�̗D�揇��
-	* b03:02 ���O���t�B�b�N�y�[�W1�̗D�揇��
-	* b01:00 ���O���t�B�b�N�y�[�W0�̗D�揇��
+	* b13:12 スプライト優先順位
+	* b11:10 テキスト優先順位
+	* b09:08 グラフィック優先順位
+	* b07:06 ┗グラフィックページ3の優先順位
+	* b05:04 ┗グラフィックページ2の優先順位
+	* b03:02 ┗グラフィックページ1の優先順位
+	* b01:00 ┗グラフィックページ0の優先順位
 	move.w	#%00_01_00_10__11_10_01_00,VCRR_01
 
 	move.w	#1,offset_ms_vdp_tx_active(a5)
@@ -405,14 +405,14 @@ ms_vdp_init_mac:
 
 	move.w	#0,$E82222
 
-	; ���荞�ݐݒ�
+	; 割り込み設定
 	move.w	sr,d0
 	move.w	d0,-(sp)
-	or.w	#%00000111_00000000,d0	* �ꎞ�I�Ɋ��荞�݋֎~
+	or.w	#%00000111_00000000,d0	* 一時的に割り込み禁止
 	move.w	d0,sr
 @@:
 	move.w	ms_vdp_vsync_rate,d1
-	and.w	#$0_ff,d1			* �����A�����ԂŁA�w��񐔂��ƂɊ��荞��
+	and.w	#$0_ff,d1			* 垂直帰線期間で、指定回数ごとに割り込み
 	lea.l	vsync_interrupt,a1
 	IOCS	__VDISPST
 	move.l	d0,d0
@@ -424,45 +424,45 @@ ms_vdp_init_mac:
 	IOCS	__VDISPST
 	bra	@b
 @@:
-	; HSYNC���荞�݂�ݒ�
-	; X68000�̃��X�^���荞�݂ɂ́AMFP��GPIP6��7��2�̕��@������
-	;  * GPIP6 : CRTC R#9 �ɐݒ肵�����X�^�ԍ��Ŋ��荞�݂�������
-	;  * GPIP7 : ���ׂẴ��X�^(H-SYNC)�Ŋ��荞�݂�������
-	; IOCS�� CRTCRAS�͑O�҂�GPIP6���g�������@�B
-	; MS.X�ł́AGPIP7���ȉ��̖ړI�Ɏg�p����
+	; HSYNC割り込みを設定
+	; X68000のラスタ割り込みには、MFPのGPIP6と7の2つの方法がある
+	;  * GPIP6 : CRTC R#9 に設定したラスタ番号で割り込みをかける
+	;  * GPIP7 : すべてのラスタ(H-SYNC)で割り込みをかける
+	; IOCSの CRTCRASは前者のGPIP6を使った方法。
+	; MS.Xでは、GPIP7を以下の目的に使用する
 	;
-	; ���ړI1: ���������荞��
-	; VDP�̑��������荞�݂��������܂��BVDP�� R#19�Ŏw�肳�ꂽ���C���Ŋ��荞�݂������邱�Ƃ�
-	; �ł���̂ŁAHSYNC���荞�݂ŊY�����C�����������ɌĂяo���܂��B
+	; ●目的1: 走査線割り込み
+	; VDPの走査線割り込みを実現します。VDPは R#19で指定されたラインで割り込みをかけることが
+	; できるので、HSYNC割り込みで該当ラインがきた時に呼び出します。
 	;
-	; ���ړI2: VSYNC����̉�ʃ��t���b�V��
-	; MSX����VSYNC���荞�݂ŃX�v���C�g�̏����������s������AX68000���̃X�v���C�g��
-	; ���̕ύX�𔽉f�������B���X��VSYNC���荞�݂�MSX���Ɋ��荞�݂���������A hostdelay��
-	; �w�肳�ꂽ���߂����s���ꂽ��Ƀz�X�g���̏���(�X�v���C�g�̃A�b�v�f�[�g�Ȃ�)���s���Ă������A
-	; ���̕��@���ƁA�^�C�~���O�����䂵�Â炢
-	; �����ŁAHSYNC���荞�݂Ń��X�^�ԍ����J�E���g���Ahostdelay�ł͂Ȃ��A����̑������ԍ���
-	; �z�X�g���̏������Ăяo����悤�ɂ�����
-	; --hostdelay��p�~���A--hostline�ɕύX
+	; ●目的2: VSYNC直後の画面リフレッシュ
+	; MSX側がVSYNC割り込みでスプライトの書き換えを行った後、X68000側のスプライトに
+	; その変更を反映したい。元々はVSYNC割り込みでMSX側に割り込みをかけた後、 hostdelayで
+	; 指定された命令が実行された後にホスト側の処理(スプライトのアップデートなど)を行っていたが、
+	; その方法だと、タイミングが制御しづらい
+	; そこで、HSYNC割り込みでラスタ番号をカウントし、hostdelayではなく、特定の走査線番号で
+	; ホスト側の処理を呼び出せるようにしたい
+	; --hostdelayを廃止し、--hostlineに変更
 	;	
-	; ���ړI3: HSYNC��2�{�������Ă��܂����ւ̑Ώ�
-	; MSX����192 or 212���C�������Ȃ����AX68000���͂��Ƃ�256�h�b�g���[�h�ɂ����Ƃ��Ă�
-	; 31kHz���[�h���ƁA���̔{��HSYNC���������Ă���
-	; �ʏ�͖�肪�N���Ȃ��� VDP S#2 �� b5�� �����A������(0:�A������,1:�\������)���v��
-	; ����Ă��܂��ƁA���@��2�{��HSYNC�������Ă��܂��B
-	; �悭���鏈���Ƃ��ẮA���X�^���荞�݂�1���C����O�Ŕ��������A���荞�ݒ��� VDP #2��
-	; �|�[�����O���āA�A�����Ԃɓ���������ۂ̏������s���Ƃ�����@������B
-	; MSX�̃��X�^���荞�݂�X68000����CRTCRAS�ōs�Ȃ��Ă���̂ŁA���̌�Ƀ|�[�����O������
-	; ���Ԃ̃��C���ŏ������s���邱�ƂɂȂ�B�������ԍ��������̎������E����悤�ɂ����
-	; �悢�̂����AX68000�ɂ͌��݂̑������ԍ����擾���郌�W�X�^���Ȃ��̂ŁAHSYNC���荞�݂��g����
-	; �J�E���^�Ő�����K�v������
-	andi.b	#%01111111,IERA		* GPIP7��HSYNC���荞�݂��֎~
-	ori.b	#%10000000,IMRA		* GPIP7��HSYNC���荞�݃}�X�N�𔍂����i1=�}�X�N���Ȃ��j
-	move.l	V_MFP_GPIP_7,hsync_vec_original	* ���̃x�N�^��ۑ�
-	move.l	#hsync_interrupt,V_MFP_GPIP_7	* HSYNC���荞�݃x�N�^��ݒ�
-	ori.b	#%10000000,IERA		* GPIP7��HSYNC���荞�݂�����
+	; ●目的3: HSYNCが2倍発生してしまう問題への対処
+	; MSX側は192 or 212ラインしかないが、X68000側はたとえ256ドットモードにしたとしても
+	; 31kHzモードだと、その倍のHSYNCが発生している
+	; 通常は問題が起きないが VDP S#2 の b5で 水平帰線期間(0:帰線期間,1:表示期間)を計測
+	; されてしまうと、実機の2倍のHSYNCが見えてしまう。
+	; よくある処理としては、ラスタ割り込みを1ライン手前で発生させ、割り込み中に VDP #2を
+	; ポーリングして、帰線期間に入ったら実際の処理を行うという手法がある。
+	; MSXのラスタ割り込みはX68000側のCRTCRASで行なっているので、その後にポーリングされると
+	; 中間のラインで処理が行われることになる。走査線番号が偶数の時だけ拾えるようにすれば
+	; よいのだが、X68000には現在の走査線番号を取得するレジスタがないので、HSYNC割り込みを使って
+	; カウンタで数える必要がある
+	andi.b	#%01111111,IERA		* GPIP7のHSYNC割り込みを禁止
+	ori.b	#%10000000,IMRA		* GPIP7のHSYNC割り込みマスクを剥がす（1=マスクしない）
+	move.l	V_MFP_GPIP_7,hsync_vec_original	* 元のベクタを保存
+	move.l	#hsync_interrupt,V_MFP_GPIP_7	* HSYNC割り込みベクタを設定
+	ori.b	#%10000000,IERA		* GPIP7のHSYNC割り込みを許可
 
 	; 
-	move.w	(sp)+,sr			* ���荞�ݕ��A
+	move.w	(sp)+,sr			* 割り込み復帰
 
 	movem.l	(sp)+,d3-d7/a0-a5
 	unlk	a6
@@ -471,26 +471,26 @@ ms_vdp_init_mac:
 
 	rts
 
-VSYNCDEBUG	.equ	1		* 1: VSYNC���荞�݂̃f�o�b�O��L���ɂ���
-RASTERDEBUG	.equ	1		* 1: ���X�^���荞�݂̃f�o�b�O��L���ɂ���
-HSYNC_BACKLINES	.equ	140		* hsync_counter��0�Ƀ��Z�b�g����Ă���0���C���ڂ��\�������܂ł̐�
+VSYNCDEBUG	.equ	1		* 1: VSYNC割り込みのデバッグを有効にする
+RASTERDEBUG	.equ	1		* 1: ラスタ割り込みのデバッグを有効にする
+HSYNC_BACKLINES	.equ	140		* hsync_counterが0にリセットされてから0ライン目が表示されるまでの数
 
 vsync_interrupt:
 	movem.l	d0/a0/a5,-(sp)
 	movea.l	ms_vdp_shared,a5
 	addq.w	#1,ms_vsync_interrupt_tick
 
-	; HSYNC�J�E���^��0�ɖ߂�
+	; HSYNCカウンタを0に戻す
 	move.w	#0,hsync_counter
 
-	; VDP�ĕ`�揈�����s�ς݃t���O���N���A
+	; VDP再描画処理実行済みフラグをクリア
 	move.w	#0,vdp_vsync_draw_fired
 
-	; �t���[�����[�g�̌v�� (4�b�̈ړ�����)
+	; フレームレートの計測 (4秒の移動平均)
 	addq.b	#1,frame_counter
 	cmp.b	#60,frame_counter
 	bne	@f
-	; 1�b���v�����I�����
+	; 1秒分計測が終わった
 	move.l	framerate_count_his,d0
 	lsl.l	#8,d0
 	move.b	framerate_count,d0
@@ -499,14 +499,14 @@ vsync_interrupt:
 	move.b	#0,framerate_count
 @@:
 
-	; �ǂ���VSYNC���荞�݂��������Ă��邩���m�F���邽�߂Ƀe�L�X�g�p���b�g�̐F��ς���
+	; どこでVSYNC割り込みがかかっているかを確認するためにテキストパレットの色を変える
 	.if 	VSYNCDEBUG=1
 		cmp.b	#0,offset_ms_vdp_hostdebugmode(a5)
 		beq	@f
 		move.w	#%11111_11111_00000_1,t_palette
 @@:	.endif
 
-	; �ǂ��Ń��X�^���荞�݂��������Ă��邩���m�F���邽�߂Ƀe�L�X�g�p���b�g�̐F��ς���(�����Ŗ߂�)
+	; どこでラスタ割り込みがかかっているかを確認するためにテキストパレットの色を変える(ここで戻す)
 	.if 	RASTERDEBUG=1
 		cmp.b	#0,offset_ms_vdp_hostdebugmode(a5)
 		beq	@f
@@ -514,45 +514,45 @@ vsync_interrupt:
 		;move.w	#%11111_00000_11111_1,raster_debug
 @@:	.endif
 
-	; VSYNC���荞�݂��X�L�b�v����/���Ȃ��Ɋւ�炸�Acpu_yield�� 1/60�b���ƂɃZ�b�g���� (�E�F�C�g�̌v�Z�ȂǂŎ����Ԃ�m��K�v�����邽��)
+	; VSYNC割り込みをスキップする/しないに関わらず、cpu_yieldは 1/60秒ごとにセットする (ウェイトの計算などで実時間を知る必要があるため)
 	move.b	#$01,cpu_yield			* cpu_yield
 
-	; --framerate �̎w��ɂ���āAVSYNC���荞�݂��X�L�b�v���邩�ǂ��������߂�
-	; $ffffffff : auto - �O�̊��荞�ݏ������I����Ă��Ȃ����͎����ŃX�L�b�v
-	; $00000000 : none - ��Ɋ��荞�݂������� (�G�~�����[�V�������x���x���ƃt���[�Y����\������)
-	; 1 - 99999 :      - �O��̊��荞�݂���w�薽�ߐ�CPU�������Ă��Ȃ��ꍇ�ɃX�L�b�v
+	; --framerate の指定によって、VSYNC割り込みをスキップするかどうかを決める
+	; $ffffffff : auto - 前の割り込み処理が終わっていない時は自動でスキップ
+	; $00000000 : none - 常に割り込みをかける (エミュレーション速度が遅いとフリーズする可能性あり)
+	; 1 - 99999 :      - 前回の割り込みから指定命令数CPUが動いていない場合にスキップ
 
 	cmp.l	#0,framerate_control
-	bgt	1f	* 1 - 99999 - �w�薽�ߐ�CPU�������Ă��Ȃ��ꍇ�ɃX�L�b�v
-	beq	8f	* none - ��Ɋ��荞�݂�������
+	bgt	1f	* 1 - 99999 - 指定命令数CPUが動いていない場合にスキップ
+	beq	8f	* none - 常に割り込みをかける
 
 	; auto
-	; auto�̏ꍇ�FCPU���܂����荞�ݏ�������߂��Ă��Ȃ��ꍇ�́A���荞�݂��X�L�b�v
+	; autoの場合：CPUがまだ割り込み処理から戻っていない場合は、割り込みをスキップ
 	cmp.w	#0,cpu_in_interrupt
-	beq	8f	* ���荞�݂�������
-	addq.w	#1,framecon_skip_count	* ���荞�݃X�L�b�v�񐔂��J�E���g
+	beq	8f	* 割り込みをかける
+	addq.w	#1,framecon_skip_count	* 割り込みスキップ回数をカウント
 	cmp.w	#5,framecon_skip_count
-	ble	9f	* 5��ȉ��Ȃ犄�荞�݃X�L�b�v
+	ble	9f	* 5回以下なら割り込みスキップ
 	move.w	#0,framecon_skip_count
-	bra	8f	* ���荞�݂�������
+	bra	8f	* 割り込みをかける
 
 1:	; 1 - 99999
-	; emu_counter �̑����ʂ� framerate_control �ɒB���Ă��Ȃ������犄�荞�݂����X�L�b�v(����)
+	; emu_counter の増加量が framerate_control に達していなかったら割り込みを一回スキップ(実験)
 	move.l	emu_counter,d0
 	sub.l	emu_counter_latch2,d0
 	cmp.l	framerate_control,d0
-	ble	9f	* ���荞�݃X�L�b�v
+	ble	9f	* 割り込みスキップ
 	move.l	emu_counter,emu_counter_latch2
-	bra	8f	* ���荞�݂�������
+	bra	8f	* 割り込みをかける
 
-8:	;	VDP�̊��荞�ݏ���
-	btst.b	#7,offset_ms_vdp_s00(a5)	* VDP S#0�� bit7�ɁA�O���VSYNC���荞�ݔ����t���O���������܂܂��ǂ����𒲂ׂ�
+8:	;	VDPの割り込み処理
+	btst.b	#7,offset_ms_vdp_s00(a5)	* VDP S#0の bit7に、前回のVSYNC割り込み発生フラグが立ったままかどうかを調べる
 	bne	@f
-	addq.b	#1,framerate_count		* �����ƃN���A����Ă����ꍇ�͊��荞�݂����������Ɣ��f���J�E���g�A�b�v
-@@:	btst.b	#5,offset_ms_vdp_r01(a5)	* VDP IE0 (R#1��bit5) ���݂āAVSYNC���荞�݂�������Ă��邩�𒲂ׂ�
-	beq	9f				* ���荞�݃X�L�b�v
-	bset.b	#7,offset_ms_vdp_s00(a5)	* VDP S#0�� bit7�ɁAVSYNC���荞�ݔ����t���O�𗧂Ă�B�����S#1�� HSYNC���荞�݂�Z80��INT�[�q�̏�Ԃ�\���Ă���B
-	bset.b	#0,ms_vdp_int			* VSYNC���荞�ݗv���t���O�𗧂Ă�
+	addq.b	#1,framerate_count		* ちゃんとクリアされていた場合は割り込みがかかったと判断しカウントアップ
+@@:	btst.b	#5,offset_ms_vdp_r01(a5)	* VDP IE0 (R#1のbit5) をみて、VSYNC割り込みが許可されているかを調べる
+	beq	9f				* 割り込みスキップ
+	bset.b	#7,offset_ms_vdp_s00(a5)	* VDP S#0の bit7に、VSYNC割り込み発生フラグを立てる。これとS#1の HSYNC割り込みがZ80のINT端子の状態を表している。
+	bset.b	#0,ms_vdp_int			* VSYNC割り込み要求フラグを立てる
 
 9:	movem.l	(sp)+,d0/a0/a5
 	rte
@@ -561,58 +561,58 @@ hsync_interrupt:
 	movem.l	d0/a5,-(sp)
 	movea.l	ms_vdp_shared,a5
 
-	; �ǂ���VSYNC���荞�݂��������Ă��邩���m�F���邽�߂Ƀe�L�X�g�p���b�g�̐F��ς��Ă���ꍇ
-	; �����Ŋ��荞�ݏI���𔻒肵�ăp���b�g��߂�
+	; どこでVSYNC割り込みがかかっているかを確認するためにテキストパレットの色を変えている場合
+	; ここで割り込み終了を判定してパレットを戻す
 	.if 	VSYNCDEBUG=1
 		cmp.w	#0,cpu_in_interrupt
 		bne	@f
 		move.w	#%00000_00000_00000_0,t_palette
 @@:	.endif
 
-	; ���X�^���荞�݂̊Y���s�ɒB������A���X�^���荞�݂�������
+	; ラスタ割り込みの該当行に達したら、ラスタ割り込みをかける
 	move.w	hsync_counter,d0
 	cmp.w	raster_interrupt_line,d0
 	bne	@f
-	bsr	raster_interrupt		* ���X�^���荞��
+	bsr	raster_interrupt		* ラスタ割り込み
 @@:	add.w	#1,d0
 	move.w	d0,hsync_counter
 
-	; VSYNC�̑����HSYNC�̍ŏI�s�t�߂��g���Ă݂�
-	; �� ����Ă݂����A�ŏI�\�����C���̒����VSYNC���荞�݂��������Ă���̂Ō��ʂ͂Ȃ�����
+	; VSYNCの代わりにHSYNCの最終行付近を使ってみる
+	; → やってみたが、最終表示ラインの直後にVSYNC割り込みがかかっているので効果はなかった
 ; 	cmp.w	#192*2+HSYNC_BACKLINES+1,d0
 ; 	bne	@f
 ; 	bsr	vsync_interrupt_2
 ; @@:
 
-	; �z�X�g(X68000)���̏������s���^�C�~���O�ɒB������Aemu_yield���Z�b�g	
+	; ホスト(X68000)側の処理を行うタイミングに達したら、emu_yieldをセット	
 	cmp.w	host_line,d0
 	bne	@f
 	move.w	#$1,emu_yield
 
-	; VSYNC�̊��荞�݂��I������^�C�~���O�ŁAVDP�̍ĕ`�揈�����Ăяo��
+	; VSYNCの割り込みが終わったタイミングで、VDPの再描画処理を呼び出す
 @@:	move.w	cpu_in_interrupt_d,d0
 	beq	@f
 	move.w	cpu_in_interrupt,d0
 	bne	@f
-	; cpu_in_interrupt ��1����0�ɂȂ���(falling edge)
+	; cpu_in_interrupt が1から0になった(falling edge)
  	cmp.w	#0,vdp_vsync_draw_fired
 	bne	@f
 	move.w	#1,vdp_vsync_draw_fired
 	movem.l	d1-d7/a0-a4,-(sp)
- 	move.l	ms_vdp_shared,-(sp)	* �\���̂̃A�h���X��������
+ 	move.l	ms_vdp_shared,-(sp)	* 構造体のアドレスを引数に
 	jsr	ms_vdp_vsync_draw
  	lea	4(sp),sp
 	movem.l	(sp)+,d1-d7/a0-a4
 @@:	move.w	cpu_in_interrupt,cpu_in_interrupt_d
 
-; 	; VDP�R�}���h�̎��������s
+; 	; VDPコマンドの時分割実行
 ; @@:	move.w	hsync_counter,d0
 ; 	andi.w	#3,d0
 ; 	bne	@f
 ; 	btst.b	#0,offset_ms_vdp_s02(a5)
 ; 	beq	@f
 ; 	movem.l	d1-d7/a0-a4,-(sp)
-; 	move.l	ms_vdp_shared,-(sp)	* �\���̂̃A�h���X��������
+; 	move.l	ms_vdp_shared,-(sp)	* 構造体のアドレスを引数に
 ; 	jsr	ms_vdp_slice_exec
 ; 	lea	4(sp),sp
 ; 	movem.l	(sp)+,d1-d7/a0-a4
@@ -623,15 +623,15 @@ hsync_interrupt:
 raster_interrupt:
 	movem.l	d0/a0,-(sp)
 	cmp.b	#0,offset_ms_vdp_disablehsyncint(a5)
-	bne	9f				* HSYNC���荞�݂��֎~����Ă���ꍇ�͉������Ȃ�
-	btst.b	#4,offset_ms_vdp_r00(a5)	* VDP IE1 (R#0��bit4) ���݂āAHSYNC���荞�݂�������Ă��邩�𒲂ׂ�
+	bne	9f				* HSYNC割り込みが禁止されている場合は何もしない
+	btst.b	#4,offset_ms_vdp_r00(a5)	* VDP IE1 (R#0のbit4) をみて、HSYNC割り込みが許可されているかを調べる
 	beq	9f
-	; ���������荞�݂�������
-	bset.b	#0,offset_ms_vdp_s01(a5)	* VDP S#1�� bit0�ɁAHSYNC���荞�ݔ����t���O�𗧂Ă�B�����S#0�� VSYNC���荞�݂�Z80��INT�[�q�̏�Ԃ�\���Ă���B
-	bset.b	#1,ms_vdp_int			* HSYNC���荞�ݗv���t���O�𗧂Ă�
+	; 走査線割り込みをかける
+	bset.b	#0,offset_ms_vdp_s01(a5)	* VDP S#1の bit0に、HSYNC割り込み発生フラグを立てる。これとS#0の VSYNC割り込みがZ80のINT端子の状態を表している。
+	bset.b	#1,ms_vdp_int			* HSYNC割り込み要求フラグを立てる
 	move.b	#$01,sub_yield			* sub_yield 
 
-	; �ǂ��Ń��X�^���荞�݂��������Ă��邩���m�F���邽�߂Ƀe�L�X�g�p���b�g�̐F��ς���
+	; どこでラスタ割り込みがかかっているかを確認するためにテキストパレットの色を変える
 	.if 	RASTERDEBUG=1
 		cmp.b	#0,offset_ms_vdp_hostdebugmode(a5)
 		beq	@f
@@ -668,33 +668,33 @@ framerate_count_his:
 	.dc.l	$3c3c3c3c	; all 60fps
 
 framecon_skip_count:
-	.dc.w	0		; auto�ŃX�L�b�v������
+	.dc.w	0		; autoでスキップした回数
 
 	.text
 ;
-; �u�c�o�̏I������
+; ＶＤＰの終了処理
 ;
 ms_vdp_deinit_mac:
 	move.w	sr,d0
-	move.w	d0,-(sp)		* sr ��ۑ�
-	or.w	#%00000111_00000000,d0	* �ꎞ�I�Ɋ��荞�݋֎~
+	move.w	d0,-(sp)		* sr を保存
+	or.w	#%00000111_00000000,d0	* 一時的に割り込み禁止
 	move.w	d0,sr
 
-	; HSYNC���荞�݂�߂�
-	andi.b	#%01111111,IERA		* GPIP7��HSYNC���荞�݂��֎~
-	andi.b	#%01111111,IMRA		* GPIP7��HSYNC���荞�݃}�X�N�i0=�}�X�N�j
-	move.l	hsync_vec_original,V_MFP_GPIP_7	* ���̃x�N�^�ɖ߂�
+	; HSYNC割り込みを戻す
+	andi.b	#%01111111,IERA		* GPIP7のHSYNC割り込みを禁止
+	andi.b	#%01111111,IMRA		* GPIP7のHSYNC割り込みマスク（0=マスク）
+	move.l	hsync_vec_original,V_MFP_GPIP_7	* 元のベクタに戻す
 
-	; HSYNC���荞�݂�߂�
-	clr.l	a1			* �����������荞�݂��֎~
+	; HSYNC割り込みを戻す
+	clr.l	a1			* 垂直同期割り込みを禁止
 	IOCS	__VDISPST
 
-	move.w	(sp)+,sr		* sr �𕜌�
+	move.w	(sp)+,sr		* sr を復元
 	rts
 
 ms_vdp_update_visibility_mac:
 	movem.l	d0-d7/a0-a5,-(sp)
-	move.l	ms_vdp_shared,-(sp)	* �\���̂̃A�h���X��������
+	move.l	ms_vdp_shared,-(sp)	* 構造体のアドレスを引数に
 	bsr	ms_vdp_update_visibility
 	lea	4(sp),sp
 	movem.l	(sp)+,d0-d7/a0-a5
@@ -711,28 +711,28 @@ ms_vdp_vsync_rate:
 ms_vsync_interrupt_tick:
 	.dc.w	0
 errms_timer_A_in_use:
-	.dc.b	'�^�C�}�`�͎g�p���ł�',0,0
+	.dc.b	'タイマＡは使用中です',0,0
 errms_raster_in_use:
-	.dc.b	'���X�^���荞�݂͎g�p���ł�',0,0
+	.dc.b	'ラスタ割り込みは使用中です',0,0
 
 	.even
-cpu_in_interrupt_d:		* �G�b�W���o�p
+cpu_in_interrupt_d:		* エッジ検出用
 	.dc.w	0
 
 	.text
 
 *
-* �o�b�N�h���b�v�p�̂a�f��ݒ�
+* バックドロップ用のＢＧを設定
 *
 enable_backdrop:
 	lea.l	$EB8000,a0
 
-	move.l	#$11111111,d1			* �p�^�[���̒�`
+	move.l	#$11111111,d1			* パターンの定義
 	move.w	#32-1,d0
 @@:	move.l	d1,(a0)+
 	dbra	d0,@b
 
-	lea.l	$EBC000,a0			* �a�f�̒�`
+	lea.l	$EBC000,a0			* ＢＧの定義
 	move.w	#%00000001_00000000,d1
 	move.w	#4096-1,d0
 @@:	move.w	d1,(a0)+
@@ -744,25 +744,25 @@ enable_backdrop:
 
 ***************************************************************
 *
-*	�u�c�o�|�[�g����̓ǂݍ��݃��[�`���Q
+*	ＶＤＰポートからの読み込みルーチン群
 *
-*    (�Ԃ�l�j
-*	d0.b �E�E�E �ǂݍ��񂾒l
+*    (返り値）
+*	d0.b ・・・ 読み込んだ値
 *
 ***************************************************************
-read_vdp_0:				* �u�q�`�l�̓ǂݍ���
-	; ��ʃ��[�h���Ƃ�VRAM�ǂݍ��ݏ������Ăяo��
-	movea.l	ms_vdp_shared,a5	* ms_vdp_t �ւ̃|�C���^���擾
-	move.l	a5,-(sp)		* �\���̂̃A�h���X������1��
+read_vdp_0:				* ＶＲＡＭの読み込み
+	; 画面モードごとのVRAM読み込み処理を呼び出す
+	movea.l	ms_vdp_shared,a5	* ms_vdp_t へのポインタを取得
+	move.l	a5,-(sp)		* 構造体のアドレスを引数1に
 	movea.l	offset_ms_vdp_current_mode(a5),a0
 	movea.l	offset_ms_vdp_read_vram(a0),a0
 	jsr	(a0)
 	lea.l	4(sp),sp
 	rts
 
-read_vdp_1:					* �X�e�[�^�X���W�X�^�̓ǂ݂���
+read_vdp_1:					* ステータスレジスタの読みだし
 	movea.l	ms_vdp_shared,a5
-	move.b	offset_ms_vdp_r15(a5),d0	* �X�e�[�^�X���W�X�^�ԍ��̓ǂ݂���
+	move.b	offset_ms_vdp_r15(a5),d0	* ステータスレジスタ番号の読みだし
 	andi.w	#%00001111,d0
 	add.w	d0,d0
 	add.w	d0,d0
@@ -793,43 +793,43 @@ r_SReg_jpt:
 
 r_SReg_0:
 	move.b	offset_ms_vdp_s00(a5),d0
-	bclr.b	#7,offset_ms_vdp_s00(a5)	* S#0�� bit 7(VSYNC���荞��)�͓ǂݏo���ƃ��Z�b�g�����
-	bclr.b	#0,ms_vdp_int			* VSYNC���荞�ݗv���N���A
+	bclr.b	#7,offset_ms_vdp_s00(a5)	* S#0の bit 7(VSYNC割り込み)は読み出すとリセットされる
+	bclr.b	#0,ms_vdp_int			* VSYNC割り込み要求クリア
 	rts
 
 r_SReg_1:
 	move.b	offset_ms_vdp_s01(a5),d0
-	bclr.b	#0,offset_ms_vdp_s01(a5)	* S#1�� bit 0(HSYNC���荞��)�͓ǂݏo���ƃ��Z�b�g�����
-	bclr.b	#1,ms_vdp_int			* HSYNC���荞�ݗv���N���A
+	bclr.b	#0,offset_ms_vdp_s01(a5)	* S#1の bit 0(HSYNC割り込み)は読み出すとリセットされる
+	bclr.b	#1,ms_vdp_int			* HSYNC割り込み要求クリア
 	rts
 
 r_SReg_2:
  	movem.l	d1-d7/a0-a4,-(sp)
- 	move.l	a5,-(sp)	* �\���̂̃A�h���X��������
+ 	move.l	a5,-(sp)	* 構造体のアドレスを引数に
  	jsr	ms_vdp_slice_exec
  	lea	4(sp),sp
  	movem.l	(sp)+,d1-d7/a0-a4
 
 	move.b	offset_ms_vdp_s02(a5),d0
-	move.b	GPIP,d1			* �������񃌃W�X�^�ɓǂ�
-	; VDP S#2 b6:�����A������(0:�A������,1:�\������) �̐ݒ�
-	btst.l	#4,d1			* GPIP b4:�����A�����Ԃ��ǂ��� (0:�����A������ 1:�����A�����ԊO(�\������))
+	move.b	GPIP,d1			* いったんレジスタに読む
+	; VDP S#2 b6:垂直帰線期間(0:帰線期間,1:表示期間) の設定
+	btst.l	#4,d1			* GPIP b4:垂直帰線期間かどうか (0:垂直帰線期間 1:垂直帰線期間外(表示期間))
 	beq	_rs2_vsync
 _rs2_vdisp:
 	ori.b	#%01000000,d0
-	; �\�����Ԃ̎��́A�����A�����Ԃ��ǂ������ݒ�
-	; TODO: 31kHz�ŕ\�����Ă����Ő����A�����Ԃ�2�{�ɂȂ�̂ŁA���̑΍􂪕K�v(�|�[�����O�����ƍ���)
-	btst.l	#7,d1			* GPIP b7:�����A�����Ԃ��ǂ��� (0:�����������ԊO(�\������) 1:������������)
+	; 表示期間の時は、水平帰線期間かどうかも設定
+	; TODO: 31kHzで表示してせいで水平帰線期間が2倍になるので、その対策が必要(ポーリングされると困る)
+	btst.l	#7,d1			* GPIP b7:水平帰線期間かどうか (0:水平同期期間外(表示期間) 1:水平同期期間)
 	bne	1f
-	ori.b	#%00100000,d0		* VDP S#2 b5:�����A������(0:�A������,1:�\������)
+	ori.b	#%00100000,d0		* VDP S#2 b5:水平帰線期間(0:帰線期間,1:表示期間)
 	bra	@f
-1:	andi.b	#%11011111,d0		* VDP S#2 b5:�����A������(0:�A������,1:�\������)
+1:	andi.b	#%11011111,d0		* VDP S#2 b5:水平帰線期間(0:帰線期間,1:表示期間)
 	bra	@f
 _rs2_vsync:
 	andi.b	#%10111111,d0
-	ori.b	#%00100000,d0		* VDP S#2 b5:�����A������(0:�A������,1:�\������)
+	ori.b	#%00100000,d0		* VDP S#2 b5:水平帰線期間(0:帰線期間,1:表示期間)
 
-@@:	move.b	d0,offset_ms_vdp_s02(a5) * �ꉞ�����߂�
+@@:	move.b	d0,offset_ms_vdp_s02(a5) * 一応書き戻し
 	rts
 
 r_SReg_3:
@@ -845,13 +845,13 @@ r_SReg_6:
 	move.b	offset_ms_vdp_s06(a5),d0
 	rts
 r_SReg_7:
-	; ��ʃ��[�h�ɉ�����VDP�R�}���h��READ�����s
-	move.l	ms_vdp_shared,-(sp)		* �\���̂̃A�h���X��������
+	; 画面モードに応じてVDPコマンドのREADを実行
+	move.l	ms_vdp_shared,-(sp)		* 構造体のアドレスを引数に
 	movea.l	offset_ms_vdp_current_mode(a5),a0
 	movea.l	offset_ms_vdp_vdp_command_read(a0),a0
 	jsr	(a0)
 	lea.l	4(sp),sp
-	; R#7��ǂݏo���ƁAS#2��bit7 (TR�r�b�g)�@���N���A�����
+	; R#7を読み出すと、S#2のbit7 (TRビット)　がクリアされる
 	bclr.b	#7,offset_ms_vdp_s02(a5)
 	rts
 r_SReg_8:
@@ -864,7 +864,7 @@ r_SReg_f:
 	move.b	#$ff,d0
 	rts
 
-read_vdp_2:				* �������ݐ�p�|�[�g�i�ǂݍ��ނ�$ff���Ԃ�炵���j
+read_vdp_2:				* 書き込み専用ポート（読み込むと$ffが返るらしい）
 read_vdp_3:
 	moveq.l	#$ff,d0
 	rts
@@ -872,18 +872,18 @@ read_vdp_3:
 
 ***************************************************************
 *
-*	�u�c�o�|�[�g�ւ̏������݃��[�`���Q
+*	ＶＤＰポートへの書き込みルーチン群
 *
-*    (�����j
-*	d1.b �E�E�E �������ޒl
+*    (引数）
+*	d1.b ・・・ 書き込む値
 *
 ***************************************************************
-write_vdp_0:				* VRAM �ւ̏�������
-	; ��ʃ��[�h���Ƃ�VRAM�������ݏ������Ăяo��
+write_vdp_0:				* VRAM への書き込み
+	; 画面モードごとのVRAM書き込み処理を呼び出す
 	andi.l	#$000000ff,d1
-	move.l	d1,-(sp)		* �������ޒl������2��
-	movea.l	ms_vdp_shared,a5	* ms_vdp_t �ւ̃|�C���^���擾
-	move.l	a5,-(sp)		* �\���̂̃A�h���X������1��
+	move.l	d1,-(sp)		* 書き込む値を引数2に
+	movea.l	ms_vdp_shared,a5	* ms_vdp_t へのポインタを取得
+	move.l	a5,-(sp)		* 構造体のアドレスを引数1に
 	movea.l	offset_ms_vdp_current_mode(a5),a0
 	movea.l	offset_ms_vdp_write_vram(a0),a0
 	jsr	(a0)
@@ -892,16 +892,16 @@ write_vdp_0:				* VRAM �ւ̏�������
 
 
 write_vdp_1:
-	bchg.b	#0,w_ContReg_mode	* �P�o�C�g�ڂ��Q�o�C�g�ڂ��H
+	bchg.b	#0,w_ContReg_mode	* １バイト目か２バイト目か？
 	bne	@f
-	move.b	d1,first_bite_1		* �P�o�C�g��
+	move.b	d1,first_bite_1		* １バイト目
 	rts
 @@:
 	movea.l	ms_vdp_shared,a5
 	move.b	d1,d0
-	bmi	set_CReg_Direct		* �R���g���[�����W�X�^�̒��ڎw�胂�[�h
+	bmi	set_CReg_Direct		* コントロールレジスタの直接指定モード
 
-	move.l	offset_ms_vdp_vram_addr(a5),d1		* �u�q�`�l�A�h���X�ݒ�
+	move.l	offset_ms_vdp_vram_addr(a5),d1		* ＶＲＡＭアドレス設定
 	andi.w	#%11000000_00000000,d1
 	andi.w	#%00000000_00111111,d0
 	lsl.w	#8,d0
@@ -911,10 +911,10 @@ write_vdp_1:
 	movea.l	set_gram_add_rot,a0
 	jmp	(a0)
 
-write_vdp_2:				* �p���b�g���W�X�^�ւ̏�������
-	bchg.b	#0,w_PalReg_mode	* �P�o�C�g�ڂ��Q�o�C�g�ڂ��H
+write_vdp_2:				* パレットレジスタへの書き込み
+	bchg.b	#0,w_PalReg_mode	* １バイト目か２バイト目か？
 	bne	@f
-	move.b	d1,first_bite_2		* �P�o�C�g��
+	move.b	d1,first_bite_2		* １バイト目
 	rts
 @@:
 	movea.l	ms_vdp_shared,a5
@@ -939,23 +939,23 @@ write_vdp_2:				* �p���b�g���W�X�^�ւ̏�������
 	or.w	d2,d1			* d1 = %GGGGGRRR_RRBBBBB0
 	addq.w	#1,d1			* d1 = %GGGGGRRR_RRBBBBB1
 
-	move.b	offset_ms_vdp_r16(a5),d0			* �������ރp���b�g�ԍ��̓ǂ݂���
-	addq.b	#1,offset_ms_vdp_r16(a5)			* R#16�̓C���N�������g
+	move.b	offset_ms_vdp_r16(a5),d0			* 書き込むパレット番号の読みだし
+	addq.b	#1,offset_ms_vdp_r16(a5)			* R#16はインクリメント
 	andi.b	#%00001111,offset_ms_vdp_r16(a5)
 	andi.w	#$000f,d0
 	add.w	d0,d0
-	lea.l	offset_ms_vdp_palette(a5),a0			* X68000��16bit�J���[�`���ɕϊ������l��P_0?P_15�ɏ�������
+	lea.l	offset_ms_vdp_palette(a5),a0			* X68000の16bitカラー形式に変換した値をP_0?P_15に書き込む
 	move.w	d1,0(a0,d0.w)
 
-	; ��ʃ��[�h�ɉ����ăp���b�g��X68000���̉�ʂɐݒ�
-	move.l	ms_vdp_shared,-(sp)		* �\���̂̃A�h���X��������
+	; 画面モードに応じてパレットをX68000側の画面に設定
+	move.l	ms_vdp_shared,-(sp)		* 構造体のアドレスを引数に
 	movea.l	offset_ms_vdp_current_mode(a5),a0
 	movea.l	offset_ms_vdp_update_palette(a0),a0
 	jsr	(a0)
 	lea.l	4(sp),sp
 	rts
 
-b3_b5_table:				* �R�r�b�g�̃f�[�^����T�r�b�g�̃f�[�^�𓾂�
+b3_b5_table:				* ３ビットのデータから５ビットのデータを得る
 	.dc.w	0			* 0
 	.dc.w	4
 	.dc.w	9
@@ -968,7 +968,7 @@ b3_b5_table:				* �R�r�b�g�̃f�[�^����T�r�b�g�̃f�[�^�𓾂�
 
 ***************************************************************
 *
-*	�R���g���[�����W�X�^�Ԑڏ������݃��[�`��
+*	コントロールレジスタ間接書き込みルーチン
 *
 ***************************************************************
 write_vdp_3:
@@ -977,7 +977,7 @@ write_vdp_3:
 	andi.w	#%00000000_10111111,d0
 	bclr.l	#7,d0
 	beq	incmode
-	cmp.b	#17,d0			* R#17 �͊Ԑڎw��ł͕ύX�o���Ȃ�
+	cmp.b	#17,d0			* R#17 は間接指定では変更出来ない
 	bne	@f
 	rts
 @@:	move.w	d0,d2
@@ -990,7 +990,7 @@ write_vdp_3:
 
 incmode:
 	addq.b	#1,offset_ms_vdp_r17(a5)
-	cmp.b	#17,d0			* R#17 �͊Ԑڎw��ł͕ύX�o���Ȃ�
+	cmp.b	#17,d0			* R#17 は間接指定では変更出来ない
 	bne	@f
 	rts
 @@:	move.w	d0,d2
@@ -1003,7 +1003,7 @@ incmode:
 
 ***************************************************************
 *
-*	�R���g���[�����W�X�^���ڏ������݃��[�`��
+*	コントロールレジスタ直接書き込みルーチン
 *
 ***************************************************************
 set_CReg_Direct:
@@ -1017,9 +1017,9 @@ set_CReg_Direct:
 	jmp	(a0)
 
 
-* 	�T�u���[�`���ւ̃R�[���e�[�u��
-*	.d0.w	���W�X�^�ԍ�		* <-- ���[�h�ł��邱�Ƃɒ���
-*	.d1.b	�������ޒl
+* 	サブルーチンへのコールテーブル
+*	.d0.w	レジスタ番号		* <-- ワードであることに注意
+*	.d1.b	書き込む値
 	.data
 
 w_CReg_jpt:
@@ -1028,13 +1028,13 @@ w_CReg_jpt:
 	.dc.l	w_R2
 	.dc.l	w_R3
 	.dc.l	w_R4
-	.dc.l	w_R5			* �X�v���C�g�A�g���r���[�g�e�[�u��(����)
-	.dc.l	w_R6			* �X�v���C�g�p�^�[���W�F�l���[�^�e�[�u��
+	.dc.l	w_R5			* スプライトアトリビュートテーブル(下位)
+	.dc.l	w_R6			* スプライトパターンジェネレータテーブル
 	.dc.l	w_R7
 	.dc.l	w_R8
 	.dc.l	w_R9
 	.dc.l	w_R10			* R#10
-	.dc.l	w_R11			* �X�v���C�g�A�g���r���[�g�e�[�u��(���)
+	.dc.l	w_R11			* スプライトアトリビュートテーブル(上位)
 	.dc.l	normal
 	.dc.l	normal
 	.dc.l	w_R14
@@ -1067,7 +1067,7 @@ w_CReg_jpt:
 	.dc.l	NX_h
 	.dc.l	NY_l
 	.dc.l	NY_h
-MC_add:	.dc.l	w_CLR			* R#44 Color register : CPU-VRAM�ԃf�[�^�]�����W�X�^
+MC_add:	.dc.l	w_CLR			* R#44 Color register : CPU-VRAM間データ転送レジスタ
 	.dc.l	w_ARG
 	.dc.l	w_R46			* R#46
 	.dc.l	noregister
@@ -1106,7 +1106,7 @@ noregister:
 
 	.data
 errms_creg:
-	.dc.b	'��������VDP�R���g���[�����W�X�^�ɏ������݂܂����B0x'
+	.dc.b	'おかしなVDPコントロールレジスタに書き込みました。0x'
 number_creg:
 	.dc.b	'00'
 	.dc.b	0x0d,0x0a,0x00
@@ -1122,67 +1122,67 @@ normal:
 
 ; R#0	VDP Mode Register 0
 ; 	[ 0 ][ DG][IE2][IE1][ M5][ M4][ M3][ 0 ]
-;	DG  : �J���[�o�X����̓��[�h�ɂ��ăf�[�^���u�q�`�l�֎�荞��
-;	IE2 : ���C�g�y�����荞��
-;		�O���֎~
-;		�P������
-;	IE1 : �����A��(HSYNC)���荞��
-;		�O���֎~
-;		�P������
-;	M5-M1 : ��ʃ��[�h(��q: set_CRT�Q��)
+;	DG  : カラーバスを入力モードにしてデータをＶＲＡＭへ取り込む
+;	IE2 : ライトペン割り込み
+;		０＝禁止
+;		１＝許可
+;	IE1 : 水平帰線(HSYNC)割り込み
+;		０＝禁止
+;		１＝許可
+;	M5-M1 : 画面モード(後述: set_CRT参照)
 w_R0:	move.b	d1,offset_ms_vdp_r00(a5)
 
-	btst.l	#4,d1			* VDP IE1 (R#0��bit4) ���݂āAHSYNC���荞�݂�������Ă��邩�𒲂ׂ�
+	btst.l	#4,d1			* VDP IE1 (R#0のbit4) をみて、HSYNC割り込みが許可されているかを調べる
 	bne	@f
-	bclr.b	#1,ms_vdp_int		* IE1��0�̎���HSYNC���荞�ݗv���t���O���N���A
+	bclr.b	#1,ms_vdp_int		* IE1が0の時はHSYNC割り込み要求フラグをクリア
 
-@@:	bsr	set_CRT			* ��ʂ̐؂�ւ�
+@@:	bsr	set_CRT			* 画面の切り替え
 	rts
 
 ; R#1	VDP Mode Register 1
 ;	[ 0 ][ BL][IE0][ M1][ M2][ 0 ][ SI][MAG]	
-; 	BL  : ��ʕ\�����
-;		�O����\��
-;		�P���\��
-;	IE0 : �����A��(VSYNC)���荞��
-;		�O���֎~
-;		�P������
-;	SI  : �X�v���C�g�T�C�Y
-; 		�O���W�~�W
-; 		�P���P�U�~�P�U
-;	MAG : �X�v���C�g�̊g��
-; 		�O���g�債�Ȃ�
-;		�P���g�傷��
-;	M5-M1 : ��ʃ��[�h(��q: set_CRT�Q��)
+; 	BL  : 画面表示状態
+;		０＝非表示
+;		１＝表示
+;	IE0 : 垂直帰線(VSYNC)割り込み
+;		０＝禁止
+;		１＝許可
+;	SI  : スプライトサイズ
+; 		０＝８×８
+; 		１＝１６×１６
+;	MAG : スプライトの拡大
+; 		０＝拡大しない
+;		１＝拡大する
+;	M5-M1 : 画面モード(後述: set_CRT参照)
 ;
 w_R1:	move.b	offset_ms_vdp_r01(a5),d2
 	move.b	d1,offset_ms_vdp_r01(a5)
 
-	btst.l	#5,d1			* VDP IE0 (R#1��bit5) ���݂āAVSYNC���荞�݂�������Ă��邩�𒲂ׂ�
+	btst.l	#5,d1			* VDP IE0 (R#1のbit5) をみて、VSYNC割り込みが許可されているかを調べる
 	bne	@f
-	bclr.b	#0,ms_vdp_int		* IE0��0�̎���VSYNC���荞�ݗv���t���O���N���A
+	bclr.b	#0,ms_vdp_int		* IE0が0の時はVSYNC割り込み要求フラグをクリア
 
-@@:	; �X�v���C�g�T�C�Y�ύX�̔��f
+@@:	; スプライトサイズ変更の反映
 	move.b	offset_ms_vdp_r01(a5),d1
 	eor.b	d1,d2
 	andi.b	#%00000011,d2
 	beq	@f
-	* �X�v���C�g�T�C�Y�̕ύX���������ꍇ�A�X�v���C�g�̍ĕ`����s��
+	* スプライトサイズの変更があった場合、スプライトの再描画を行う
 	move.w	#SPRITE_REFRESH_FLAG_FULL,offset_ms_vdp_sprite_refresh_flag(a5)
-	move.b	d1,d0			* �X�v���C�g�̃T�C�Y, 0�̎� 8x8, 1�̎� 16x16
+	move.b	d1,d0			* スプライトのサイズ, 0の時 8x8, 1の時 16x16
 	andi.b	#%00000010,d0
 	lsr.b	#1,d0
 	move.b	d0,offset_ms_vdp_sprite_size(a5)
 
-@@:	; ��ʂ̕\����\���𔽉f
+@@:	; 画面の表示非表示を反映
 	bsr	ms_vdp_update_visibility_mac
-	; ��ʃ��[�h�̕ύX�ɒǏ]
+	; 画面モードの変更に追従
 	bsr	set_CRT
 
 	rts
 
 *
-*	�V�X�e���Ƀp�^�[���l�[���e�[�u�����ύX���ꂽ���Ƃ�`����
+*	システムにパターンネームテーブルが変更されたことを伝える
 *
 w_R2:	move.b	d1,offset_ms_vdp_r02_(a5)
 
@@ -1191,9 +1191,9 @@ w_R2:	move.b	d1,offset_ms_vdp_r02_(a5)
 	lsr.l	#6,d1
 
 update_pnametbl_baddr:
-	; ��ʃ��[�h�ɉ����ăp�^�[���l�[���e�[�u���̍X�V�������Ăяo��
-	move.l	d1,-(sp)		* �A�h���X��������
-	move.l	ms_vdp_shared,-(sp)		* �\���̂̃A�h���X��������
+	; 画面モードに応じてパターンネームテーブルの更新処理を呼び出す
+	move.l	d1,-(sp)		* アドレスを引数に
+	move.l	ms_vdp_shared,-(sp)		* 構造体のアドレスを引数に
 	movea.l	offset_ms_vdp_current_mode(a5),a0
 	movea.l	offset_ms_vdp_update_pnametbl_baddr(a0),a0
 	jsr	(a0)
@@ -1202,7 +1202,7 @@ update_pnametbl_baddr:
 
 
 *
-*	�V�X�e���ɃJ���[�e�[�u�����ύX���ꂽ���Ƃ�`����
+*	システムにカラーテーブルが変更されたことを伝える
 *
 w_R3:	move.b	d1,offset_ms_vdp_r03_(a5)
 
@@ -1218,9 +1218,9 @@ w_R10:	move.b	d1,offset_ms_vdp_r10_(a5)
 	rts
 
 update_colortbl_baddr:
-	; ��ʃ��[�h�ɉ����ăJ���[�e�[�u���̍X�V�������Ăяo��
-	move.l	d0,-(sp)		* �A�h���X��������
-	move.l	ms_vdp_shared,-(sp)		* �\���̂̃A�h���X��������
+	; 画面モードに応じてカラーテーブルの更新処理を呼び出す
+	move.l	d0,-(sp)		* アドレスを引数に
+	move.l	ms_vdp_shared,-(sp)		* 構造体のアドレスを引数に
 	movea.l	offset_ms_vdp_current_mode(a5),a0
 	movea.l	offset_ms_vdp_update_colortbl_baddr(a0),a0
 	jsr	(a0)
@@ -1228,13 +1228,13 @@ update_colortbl_baddr:
 	rts
 	
 *
-*	�V�X�e���Ƀp�^�[���W�F�l���[�^�e�[�u�����ύX���ꂽ���Ƃ�`����K�p������
+*	システムにパターンジェネレータテーブルが変更されたことを伝える必用がある
 *
 w_R4:	move.b	d1,offset_ms_vdp_r04_(a5)
 
-	; ��ʃ��[�h�ɉ����ăp�^�[���W�F�l���[�^�e�[�u���̍X�V�������Ăяo��
-	move.l	d1,-(sp)		* �A�h���X��������
-	move.l	ms_vdp_shared,-(sp)		* �\���̂̃A�h���X��������
+	; 画面モードに応じてパターンジェネレータテーブルの更新処理を呼び出す
+	move.l	d1,-(sp)		* アドレスを引数に
+	move.l	ms_vdp_shared,-(sp)		* 構造体のアドレスを引数に
 	movea.l	offset_ms_vdp_current_mode(a5),a0
 	movea.l	offset_ms_vdp_update_pgentbl_baddr(a0),a0
 	jsr	(a0)
@@ -1242,8 +1242,8 @@ w_R4:	move.b	d1,offset_ms_vdp_r04_(a5)
 	rts
 
 *
-*	R5 �̓X�v���C�g�A�g���r���[�g�e�[�u���̉��ʃo�C�g
-*	�V�X�e���ɃX�v���C�g�A�g���r���[�g�e�[�u�����ύX���ꂽ���Ƃ�`����K�p������
+*	R5 はスプライトアトリビュートテーブルの下位バイト
+*	システムにスプライトアトリビュートテーブルが変更されたことを伝える必用がある
 *
 w_R5:	move.b	d1,offset_ms_vdp_r05_(a5)
 	bsr	update_spriteattrtbl_baddr
@@ -1255,23 +1255,23 @@ w_R11:	move.b	d1,offset_ms_vdp_r11_(a5)
 	rts
 
 update_spriteattrtbl_baddr:
-	; ��ʃ��[�h�ɉ����ăX�v���C�g�A�g���r���[�g�e�[�u���̍X�V�������Ăяo��
-	move.l	d1,-(sp)		* �A�h���X��������
-	move.l	ms_vdp_shared,-(sp)		* �\���̂̃A�h���X��������
+	; 画面モードに応じてスプライトアトリビュートテーブルの更新処理を呼び出す
+	move.l	d1,-(sp)		* アドレスを引数に
+	move.l	ms_vdp_shared,-(sp)		* 構造体のアドレスを引数に
 	movea.l	offset_ms_vdp_current_mode(a5),a0
 	movea.l	offset_ms_vdp_update_sprattrtbl_baddr(a0),a0
 	jsr	(a0)
 	lea.l	8(sp),sp
 	rts
 *
-*	�X�v���C�g�p�^�[���W�F�l���[�^�e�[�u���̐ݒ�
-*	�V�X�e���ɃX�v���C�g�p�^�[���W�F�l���[�^�e�[�u�����ύX���ꂽ���Ƃ�`����K�p������
+*	スプライトパターンジェネレータテーブルの設定
+*	システムにスプライトパターンジェネレータテーブルが変更されたことを伝える必用がある
 *
 w_R6:	move.b	d1,offset_ms_vdp_r06_(a5)
 
-	; ��ʃ��[�h�ɉ����ăX�v���C�g�A�g���r���[�g�e�[�u���̍X�V�������Ăяo��
-	move.l	d1,-(sp)		* �A�h���X��������
-	move.l	ms_vdp_shared,-(sp)		* �\���̂̃A�h���X��������
+	; 画面モードに応じてスプライトアトリビュートテーブルの更新処理を呼び出す
+	move.l	d1,-(sp)		* アドレスを引数に
+	move.l	ms_vdp_shared,-(sp)		* 構造体のアドレスを引数に
 	movea.l	offset_ms_vdp_current_mode(a5),a0
 	movea.l	offset_ms_vdp_update_sprpgentbl_baddr(a0),a0
 	jsr	(a0)
@@ -1279,13 +1279,13 @@ w_R6:	move.b	d1,offset_ms_vdp_r06_(a5)
 	rts
 
 *
-*	��ʂ̎��ӐF�̍X�V
+*	画面の周辺色の更新
 *
 w_R7:	move.b	d1,offset_ms_vdp_r07_(a5)
 
-	; ��ʃ��[�h�ɉ����Ď��ӐF�̂̍X�V�������Ăяo��
-	move.l	d1,-(sp)		* �l��������
-	move.l	ms_vdp_shared,-(sp)		* �\���̂̃A�h���X��������
+	; 画面モードに応じて周辺色のの更新処理を呼び出す
+	move.l	d1,-(sp)		* 値を引数に
+	move.l	ms_vdp_shared,-(sp)		* 構造体のアドレスを引数に
 	movea.l	offset_ms_vdp_current_mode(a5),a0
 	movea.l	offset_ms_vdp_update_r7_color(a0),a0
 	jsr	(a0)
@@ -1294,46 +1294,46 @@ w_R7:	move.b	d1,offset_ms_vdp_r07_(a5)
 
 ; R#8	VDP Mode Register 2
 ; 	[ MS][ LP][ TP][ CB][ VR][  0][SPD][ BW]
-;	MS  : �}�E�X���[�h(MSX�ł͖��g�p)
-;	LP  : ���C�g�y�����荞�� (V9958�ɂ͑��݂��Ȃ�)
-;	TP  : �����F�̈���
-;		0=�F�R�[�h0�������Ƃ��Ĉ�����
-;		1=�F�R�[�h0���p���b�g���W�X�^�Ŏw�肳�ꂽ�F�Ƃ��Ĉ�����
-;	CB  : �J���[�o�X�̑I��
-;		0=output(�f�t�H���g)
+;	MS  : マウスモード(MSXでは未使用)
+;	LP  : ライトペン割り込み (V9958には存在しない)
+;	TP  : 透明色の扱い
+;		0=色コード0が透明として扱われる
+;		1=色コード0がパレットレジスタで指定された色として扱われる
+;	CB  : カラーバスの選択
+;		0=output(デフォルト)
 ;		1=input
-;	VR  : VRAM�̑g�ݍ��킹
-;	SPD : �X�v���C�g�̔�\��
-;		0=�X�v���C�g�\��
-;		1=�X�v���C�g��\��
-;	BW  : �������[�h
-;		0=�J���[���[�h(�f�t�H���g)
-;		1=�������[�h
+;	VR  : VRAMの組み合わせ
+;	SPD : スプライトの非表示
+;		0=スプライト表示
+;		1=スプライト非表示
+;	BW  : 白黒モード
+;		0=カラーモード(デフォルト)
+;		1=白黒モード
 w_R8:	move.b	d1,offset_ms_vdp_r08(a5)
 	rts
 
 ; R#9	VDP Mode Register 3
 ;	[ LN][ 0 ][ S1][ S0][ IL][ EO][ NT][ DC]
-;	LN  : ���C�����̎w��
-;		0=192���C��
-;		1=212���C��
-;	S1S0: �X�[�p�[�C���|�[�Y�֘A�̐ݒ�(������)
-;	IL  : �C���^�[���[�X���[�h
-;		0=��C���^�[���[�X
-;		1=�C���^�[���[�X
-;	EO  : ��ʂ̋�����������ݕ\��
-;		0=���ݕ\�����Ȃ�
-;		1=���ݕ\������
-;	NT  : NTSC / PAL �̑I��
+;	LN  : ライン数の指定
+;		0=192ライン
+;		1=212ライン
+;	S1S0: スーパーインポーズ関連の設定(未実装)
+;	IL  : インターレースモード
+;		0=非インターレース
+;		1=インターレース
+;	EO  : 画面の偶数奇数自動交互表示
+;		0=交互表示しない
+;		1=交互表示する
+;	NT  : NTSC / PAL の選択
 ;		0=NTSC
 ;		1=PAL
-;	DC  : �h�b�g�N���b�N�̓��o�͕���
-;		0=�o��
-;		1=����
+;	DC  : ドットクロックの入出力方向
+;		0=出力
+;		1=入力
 w_R9:	move.b	d1,offset_ms_vdp_r09(a5)
 
-	; ��ʃ��[�h�ɉ����ĉ𑜓x�ݒ�̍X�V�������Ăяo��
-	move.l	ms_vdp_shared,-(sp)		* �\���̂̃A�h���X��������
+	; 画面モードに応じて解像度設定の更新処理を呼び出す
+	move.l	ms_vdp_shared,-(sp)		* 構造体のアドレスを引数に
 	movea.l	offset_ms_vdp_current_mode(a5),a0
 	movea.l	offset_ms_vdp_update_resolution(a0),a0
 	jsr	(a0)
@@ -1357,45 +1357,45 @@ w_R16:	move.b	d1,offset_ms_vdp_r16(a5)
 w_R17:	move.b	d1,offset_ms_vdp_r17(a5)
 	rts
 
-; R#18 �� set adjust
+; R#18 は set adjust
 w_R18:
-	move.b	offset_ms_vdp_r18(a5),d0	* ���݂̒l��ێ�
+	move.b	offset_ms_vdp_r18(a5),d0	* 現在の値を保持
 	move.b	d1,offset_ms_vdp_r18(a5)
-	; ���������������Ή�
-	; R18�̉���4�r�b�g������������Adjust�l�B4�r�b�g�̕������萮���� -8 �` +7 �͈̔͂̒l�����B
-	; -8(0x8)�̎��A��ʂ͉E��8�h�b�g�����
-	;  0(0x0)�̎��́A��ʂ͒����ɕ\�������
-	; +7(0x7)�̎��́A��ʂ͍���7�h�b�g�����
-	; ����AX68000��CRTR #12 �͐����X�N���[���ʂ�
-	; -8(0xfff8)�̎��A��ʂ͉E��8�h�b�g�����
-	;  0(0x0000)�̎��́A��ʂ͒����ɕ\�������
-	; +7(0x0007)�̎��́A��ʂ͍���7�h�b�g�����
-	;�ƂȂ�̂ŁA�����g������CRTR #12�ɏ������߂΂悢
+	; 水平方向だけ仮対応
+	; R18の下位4ビットが水平方向のAdjust値。4ビットの符号あり整数で -8 ～ +7 の範囲の値を取る。
+	; -8(0x8)の時、画面は右に8ドットずれる
+	;  0(0x0)の時は、画面は中央に表示される
+	; +7(0x7)の時は、画面は左に7ドットずれる
+	; 一方、X68000のCRTR #12 は水平スクロール量で
+	; -8(0xfff8)の時、画面は右に8ドットずれる
+	;  0(0x0000)の時は、画面は中央に表示される
+	; +7(0x0007)の時は、画面は左に7ドットずれる
+	;となるので、符号拡張してCRTR #12に書き込めばよい
 	andi.w	#$000f,d1
 	btst.l	#3,d1
-	beq	@f		* ���̐�
-	or.w	#$fff0,d1	* ���̐��𕄍��g��
+	beq	@f		* 正の数
+	or.w	#$fff0,d1	* 負の数を符号拡張
 @@:	lea.l	CRTR_12,a0
 	move.w	d1,(a0)
 	move.w	d1,4(a0)
 	move.w	d1,8(a0)
 	move.w	d1,12(a0)
-	; MS.X�ł́Aset adjust���O���t�B�b�N�ʂ�X�����̃X�N���[��(CRTR_12)�Ŏ������Ă��邪
-	; MSX�� set adjust�́A��ʂ̋N�_���̂��̂𓮂������̂Ȃ̂ŁA�O���t�B�b�N�ʂ����łȂ�
-	; �X�v���C�g���ړ����Ă��܂�
-	; ���̂��߁Aset adjust�̕ύX����������A�X�v���C�gX���W����������K�v������
-	; ����̃��t���b�V����҂��Ă���ƊԂɍ���Ȃ��̂ŁA���̏�őS�X�v���C�g��X���W��
-	; �����I�ɏ���������
-	; �ȑO�̒l��0(����)�ŁA����1(����1�h�b�g�X�N���[��)�̏ꍇ�A�S�X�v���C�g�����Ɉړ�����A
-	; �܂�X�v���C�g��X���W��1���炷�K�v������B�Ƃ������Ƃ� (�O��)-(����)�� d�Ƃ���
-	; �S�ẴX�v���C�g��d�𑫂��΂悢���ƂɂȂ�
+	; MS.Xでは、set adjustをグラフィック面のX方向のスクロール(CRTR_12)で実現しているが
+	; MSXの set adjustは、画面の起点そのものを動かすものなので、グラフィック面だけでなく
+	; スプライトも移動してしまう
+	; そのため、set adjustの変更があったら、スプライトX座標も調整する必要がある
+	; 次回のリフレッシュを待っていると間に合わないので、この場で全スプライトのX座標を
+	; 強制的に書き換える
+	; 以前の値が0(中央)で、今回が1(左に1ドットスクロール)の場合、全スプライトを左に移動する、
+	; つまりスプライトのX座標を1減らす必要がある。ということは (前回)-(今回)を dとして
+	; 全てのスプライトにdを足せばよいことになる
 	;move.w	#SPRITE_REFRESH_FLAG_COORD,offset_ms_vdp_sprite_refresh_flag(a5)
-	andi.w	#$000f,d0	* X�����̒l�̎��o��(4bit�����t������)
-	sub.w	d1,d0		* d0 = (�O��)-(����) = d
+	andi.w	#$000f,d0	* X方向の値の取り出し(4bit符号付き整数)
+	sub.w	d1,d0		* d0 = (前回)-(今回) = d
 	andi.w	#$000f,d0
 	btst.l	#3,d0
-	beq	@f		* ���̐�
-	or.w	#$fff0,d0	* ���̐��𕄍��g��
+	beq	@f		* 正の数
+	or.w	#$fff0,d0	* 負の数を符号拡張
 @@:
 	lea.l	X68_SSR,a0
 	move.w	#128-1,d1
@@ -1405,37 +1405,37 @@ w_R18:
 
 	rts
 
-; R#19 �̓��X�^���荞�ݔԍ��̎w��
+; R#19 はラスタ割り込み番号の指定
 w_R19:	move.b	d1,offset_ms_vdp_r19(a5)
 	bsr	update_raster_interrupt_line
 	rts
 
 update_raster_interrupt_line:
-	; CRTC R09 �̃��X�^���荞�ݔԍ����X�V
-	; R#23 �ɂ��c�X�N���[���̉e�����󂯂�̂ŁA�␳����K�v������
-	; �Ⴆ�΁A�X�N���[���I�t�Z�b�g��10�̂Ƃ����������荞�ݔԍ���100���ƁAX68000����90���C���ڂŊ��荞�݂�������K�v������
+	; CRTC R09 のラスタ割り込み番号を更新
+	; R#23 による縦スクロールの影響を受けるので、補正する必要がある
+	; 例えば、スクロールオフセットが10のとき走査線割り込み番号が100だと、X68000側の90ライン目で割り込みをかける必要がある
 	move.b	offset_ms_vdp_r19(a5),d1
 	sub.b	offset_ms_vdp_r23(a5),d1
 	andi.w	#$00ff,d1
-	; ���X�^�ԍ�����ʓ��ɕ\�������͈͂��ǂ������ׂ�
-	btst.b	#7,offset_ms_vdp_r09(a5)	* R#9�� bit7 ����ʂ̃��C����
+	; ラスタ番号が画面内に表示される範囲かどうか調べる
+	btst.b	#7,offset_ms_vdp_r09(a5)	* R#9の bit7 が画面のライン数
 	beq	1f
-	; 212���C���̎�
+	; 212ラインの時
 	cmpi.w	#212,d0
 	bra	2f
-1:	; 192���C���̎�
+1:	; 192ラインの時
 	cmpi.w	#192,d0
 2:	bge	@f
-	; ��ʓ��Ȃ̂Ŋ��荞�݂�������
+	; 画面内なので割り込みをかける
 	add.w	d1,d1
-	addi.w	#HSYNC_BACKLINES,d1	; hsync_counter��0�Ƀ��Z�b�g����Ă���0���C���ڂ��\�������܂ł̍���␳
+	addi.w	#HSYNC_BACKLINES,d1	; hsync_counterが0にリセットされてから0ライン目が表示されるまでの差を補正
 	move.w	d1,raster_interrupt_line
 	rts
-@@:	; ��ʊO�Ȃ̂Ŋ��荞�݂������Ȃ�
+@@:	; 画面外なので割り込みをかけない
 	move.w	#$ffff,raster_interrupt_line
 	rts	
 
-; R#23 �͏c�X�N���[��
+; R#23 は縦スクロール
 w_R23:					
 	move.b	d1,offset_ms_vdp_r23(a5)
 	bsr	ms_vdp_update_visibility_mac
@@ -1444,7 +1444,7 @@ w_R23:
 
 SX_l:	move.b	d1,offset_ms_vdp_sx+1(a5)
 	rts
-SX_h:	andi.b	#%00000001,d1		* �]�v�ȕ������폜
+SX_h:	andi.b	#%00000001,d1		* 余計な部分を削除
 	move.b	d1,offset_ms_vdp_sx+0(a5)
 	rts
 SY_l:	move.b	d1,offset_ms_vdp_sy+1(a5)
@@ -1469,11 +1469,11 @@ NY_h:	move.b	d1,offset_ms_vdp_ny+0(a5)
 	rts
 
 w_CLR:	move.b	d1,offset_ms_vdp_clr(a5)
-	; ��ʃ��[�h�ɉ�����VDP�R�}���h��WRITE�����s
+	; 画面モードに応じてVDPコマンドのWRITEを実行
 	clr.l	d0
 	move.b	d1,d0
-	move.l	d0,-(sp)			* �����ɒl���Z�b�g
-	move.l	ms_vdp_shared,-(sp)		* �\���̂̃A�h���X��������
+	move.l	d0,-(sp)			* 引数に値をセット
+	move.l	ms_vdp_shared,-(sp)		* 構造体のアドレスを引数に
 	movea.l	offset_ms_vdp_current_mode(a5),a0
 	movea.l	offset_ms_vdp_vdp_command_write(a0),a0
 	jsr	(a0)
@@ -1484,9 +1484,9 @@ w_ARG:	move.b	d1,offset_ms_vdp_arg(a5)
 	rts
 
 w_R46:
-	; ��ʃ��[�h�ɉ�����VDP�R�}���h�̎��s�������Ăяo��
-	move.l	d1,-(sp)		* �����ɃR�}���h�ԍ����Z�b�g
-	move.l	ms_vdp_shared,-(sp)		* �\���̂̃A�h���X��������
+	; 画面モードに応じてVDPコマンドの実行処理を呼び出す
+	move.l	d1,-(sp)		* 引数にコマンド番号をセット
+	move.l	ms_vdp_shared,-(sp)		* 構造体のアドレスを引数に
 	movea.l	offset_ms_vdp_current_mode(a5),a0
 	movea.l	offset_ms_vdp_vdp_command_exec(a0),a0
 	jsr	(a0)
@@ -1496,7 +1496,7 @@ w_R46:
 
 ***************************************************************
 *
-*	R#0��R#2�ɏ]����ʃ��[�h��؂�ւ��܂�
+*	R#0とR#2に従い画面モードを切り替えます
 *
 *		     | M5 | M4 | M3 | M2 | M1 |
 *	|SCREEN 0(40)|  0 |  0 |  0 |  0 |  1 |		0x01	TEXT1
@@ -1518,27 +1518,27 @@ set_CRT:
 	;	[ 0 ][ BL][IE0][ M1][ M2][ 0 ][ SI][MAG]
 	clr.w	d0
 	move.b	offset_ms_vdp_r00(a5),d0
-	; M5,M4,M3�� bit4,3,2�̈ʒu��
+	; M5,M4,M3を bit4,3,2の位置に
 	andi.w	#%00000000_00001110,d0
 	lsl.w	#1,d0
-	; M1��bit0��
+	; M1をbit0に
 	move.b	offset_ms_vdp_r01(a5),d1
 	andi.w	#%00000000_00010000,d1
 	lsr.w	#4,d1
 	or.w	d1,d0
-	; M2��bit1��
+	; M2をbit1に
 	move.b	offset_ms_vdp_r01(a5),d1
 	andi.w	#%00000000_00001000,d1
 	lsr.w	#2,d1
 	or.w	d1,d0
 
-	cmp.b	offset_ms_vdp_crt_mode(a5),d0		* �O�ƕς���ĂȂ���Ή������Ȃ�
+	cmp.b	offset_ms_vdp_crt_mode(a5),d0		* 前と変わってなければ何もしない
 	bne	@f
 	rts
-@@:	move.b	d0,offset_ms_vdp_crt_mode(a5)		* �b�q�s�l�n�c�d���W�X�^�[�̍X�V
+@@:	move.b	d0,offset_ms_vdp_crt_mode(a5)		* ＣＲＴＭＯＤＥレジスターの更新
 	ext.l	d0
 	move.l	d0,-(sp)
-	move.l	ms_vdp_shared,-(sp)		* �\���̂̃A�h���X��������
+	move.l	ms_vdp_shared,-(sp)		* 構造体のアドレスを引数に
 	bsr	ms_vdp_set_mode
 	lea	8(sp),sp
 	rts
@@ -1546,7 +1546,7 @@ set_CRT:
 set_TEXT1_mac:
 	move.l	#s_TEXT1,set_gram_add_rot
 
-	movea.l	ms_vdp_shared,a5	* ms_vdp_t �ւ̃|�C���^���擾
+	movea.l	ms_vdp_shared,a5	* ms_vdp_t へのポインタを取得
 	move.l	offset_ms_vdp_vram_addr(a5),d1
 	movea.l	set_gram_add_rot,a0
 	jsr	(a0)
@@ -1556,7 +1556,7 @@ set_TEXT1_mac:
 set_TEXT2_mac:
 	move.l	#s_TEXT2,set_gram_add_rot
 
-	movea.l	ms_vdp_shared,a5	* ms_vdp_t �ւ̃|�C���^���擾
+	movea.l	ms_vdp_shared,a5	* ms_vdp_t へのポインタを取得
 	move.l	offset_ms_vdp_vram_addr(a5),d1
 	movea.l	set_gram_add_rot,a0
 	jsr	(a0)
@@ -1564,17 +1564,17 @@ set_TEXT2_mac:
 	rts
 
 set_MULTICOLOR_mac:
-	movea.l	ms_vdp_shared,a5		* ms_vdp_t �ւ̃|�C���^���擾
+	movea.l	ms_vdp_shared,a5		* ms_vdp_t へのポインタを取得
 
-	move.w	CRTR_20,d0			* CRT ���W�X�^�̐ݒ�
-	andi.w	#%11111000_11111111,d0		* 16�F���[�h��
+	move.w	CRTR_20,d0			* CRT レジスタの設定
+	andi.w	#%11111000_11111111,d0		* 16色モードに
 	move.w	d0,CRTR_20
-	move.w	VCRR_00,d0			* �r�f�I�R���g���[�����W�X�^�̐ݒ�
-	andi.w	#%11111111_11111000,d0		* 16�F���[�h��
+	move.w	VCRR_00,d0			* ビデオコントロールレジスタの設定
+	andi.w	#%11111111_11111000,d0		* 16色モードに
 	move.w	d0,VCRR_00
 
-	lea.l	$EB8000,a0			* �o�b�N�h���b�v�p�̂a�f��ݒ�
-	move.l	#$11111111,d1			* �p�^�[���̒�`
+	lea.l	$EB8000,a0			* バックドロップ用のＢＧを設定
+	move.l	#$11111111,d1			* パターンの定義
 	move.w	#16-1,d0
 @@:	move.l	d1,(a0)+
 	clr.l	(a0)+
@@ -1589,13 +1589,13 @@ set_MULTICOLOR_mac:
 
 
 set_GRAPHIC1_mac:
-	movea.l	ms_vdp_shared,a5		* ms_vdp_t �ւ̃|�C���^���擾
+	movea.l	ms_vdp_shared,a5		* ms_vdp_t へのポインタを取得
 
-	move.w	CRTR_20,d0			* CRT ���W�X�^�̐ݒ�
-	andi.w	#%11111000_11111111,d0		* 16�F���[�h��
+	move.w	CRTR_20,d0			* CRT レジスタの設定
+	andi.w	#%11111000_11111111,d0		* 16色モードに
 	move.w	d0,CRTR_20
-	move.w	VCRR_00,d0			* �r�f�I�R���g���[�����W�X�^�̐ݒ�
-	andi.w	#%11111111_11111000,d0		* 16�F���[�h��
+	move.w	VCRR_00,d0			* ビデオコントロールレジスタの設定
+	andi.w	#%11111111_11111000,d0		* 16色モードに
 	move.w	d0,VCRR_00
 
 	move.w	#1,offset_ms_vdp_gr_active(a5)
@@ -1606,13 +1606,13 @@ set_GRAPHIC1_mac:
 	rts
 
 set_GRAPHIC2_mac:
-	movea.l	ms_vdp_shared,a5		* ms_vdp_t �ւ̃|�C���^���擾
+	movea.l	ms_vdp_shared,a5		* ms_vdp_t へのポインタを取得
 
-	move.w	CRTR_20,d0			* CRT ���W�X�^�̐ݒ�
-	andi.w	#%11111000_11111111,d0		* 16�F���[�h��
+	move.w	CRTR_20,d0			* CRT レジスタの設定
+	andi.w	#%11111000_11111111,d0		* 16色モードに
 	move.w	d0,CRTR_20
-	move.w	VCRR_00,d0			* �r�f�I�R���g���[�����W�X�^�̐ݒ�
-	andi.w	#%11111111_11111000,d0		* 16�F���[�h��
+	move.w	VCRR_00,d0			* ビデオコントロールレジスタの設定
+	andi.w	#%11111111_11111000,d0		* 16色モードに
 	move.w	d0,VCRR_00
 
 	move.w	#1,offset_ms_vdp_gr_active(a5)
@@ -1623,19 +1623,19 @@ set_GRAPHIC2_mac:
 	rts
 
 set_GRAPHIC4_mac:
-	movea.l	ms_vdp_shared,a5		* ms_vdp_t �ւ̃|�C���^���擾
+	movea.l	ms_vdp_shared,a5		* ms_vdp_t へのポインタを取得
 
-	move.w	CRTR_20,d0			* CRT ���W�X�^�̐ݒ�
-	andi.w	#%11111000_11111111,d0		* 16�F���[�h��
+	move.w	CRTR_20,d0			* CRT レジスタの設定
+	andi.w	#%11111000_11111111,d0		* 16色モードに
 	move.w	d0,CRTR_20
-	move.w	VCRR_00,d0			* �r�f�I�R���g���[�����W�X�^�̐ݒ�
-	andi.w	#%11111111_11111000,d0		* 16�F���[�h��
+	move.w	VCRR_00,d0			* ビデオコントロールレジスタの設定
+	andi.w	#%11111111_11111000,d0		* 16色モードに
 	move.w	d0,VCRR_00
 
 	move.l	offset_ms_vdp_pnametbl_baddr(a5),d1
 	add.l	d1,d1
 	swap	d1
-	andi.w	#%00000000_00000011,d1		* d1 = �A�N�e�B�u�y�[�W�i���o�[
+	andi.w	#%00000000_00000011,d1		* d1 = アクティブページナンバー
 
 	clr.w	d0
 	bset.l	d1,d0
@@ -1647,19 +1647,19 @@ set_GRAPHIC4_mac:
 	rts
 
 set_GRAPHIC5_mac:
-	movea.l	ms_vdp_shared,a5		* ms_vdp_t �ւ̃|�C���^���擾
+	movea.l	ms_vdp_shared,a5		* ms_vdp_t へのポインタを取得
 
-	move.w	CRTR_20,d0			* CRT ���W�X�^�̐ݒ�
-	andi.w	#%11111000_11111111,d0		* 16�F���[�h��
+	move.w	CRTR_20,d0			* CRT レジスタの設定
+	andi.w	#%11111000_11111111,d0		* 16色モードに
 	move.w	d0,CRTR_20
-	move.w	VCRR_00,d0			* �r�f�I�R���g���[�����W�X�^�̐ݒ�
-	andi.w	#%11111111_11111000,d0		* 16�F���[�h��
+	move.w	VCRR_00,d0			* ビデオコントロールレジスタの設定
+	andi.w	#%11111111_11111000,d0		* 16色モードに
 	move.w	d0,VCRR_00
 
 	move.l	offset_ms_vdp_pnametbl_baddr(a5),d1
 	add.l	d1,d1
 	swap	d1
-	andi.w	#%00000000_00000011,d1		* d1 = �A�N�e�B�u�y�[�W�i���o�[
+	andi.w	#%00000000_00000011,d1		* d1 = アクティブページナンバー
 	clr.w	d0
 	bset.l	d1,d0
 	move.w	d0,offset_ms_vdp_gr_active(a5)
@@ -1670,18 +1670,18 @@ set_GRAPHIC5_mac:
 	rts
 
 set_GRAPHIC6_mac:
-	movea.l	ms_vdp_shared,a5		* ms_vdp_t �ւ̃|�C���^���擾
+	movea.l	ms_vdp_shared,a5		* ms_vdp_t へのポインタを取得
 
-	move.w	CRTR_20,d0			* CRT ���W�X�^�̐ݒ�
-	andi.w	#%11111000_11111111,d0		* 16�F���[�h��
+	move.w	CRTR_20,d0			* CRT レジスタの設定
+	andi.w	#%11111000_11111111,d0		* 16色モードに
 	move.w	d0,CRTR_20
-	move.w	VCRR_00,d0			* �r�f�I�R���g���[�����W�X�^�̐ݒ�
-	andi.w	#%11111111_11111000,d0		* 16�F���[�h��
+	move.w	VCRR_00,d0			* ビデオコントロールレジスタの設定
+	andi.w	#%11111111_11111000,d0		* 16色モードに
 	move.w	d0,VCRR_00
 
 	move.l	offset_ms_vdp_pnametbl_baddr(a5),d1
 	swap	d1
-	andi.w	#%00000000_00000001,d1		* d1 = �A�N�e�B�u�y�[�W�i���o�[
+	andi.w	#%00000000_00000001,d1		* d1 = アクティブページナンバー
 	clr.w	d0
 	bset.l	d1,d0
 	move.w	d0,offset_ms_vdp_gr_active(a5)
@@ -1692,20 +1692,20 @@ set_GRAPHIC6_mac:
 	rts
 
 set_GRAPHIC7_mac:
-	movea.l	ms_vdp_shared,a5		* ms_vdp_t �ւ̃|�C���^���擾
+	movea.l	ms_vdp_shared,a5		* ms_vdp_t へのポインタを取得
 
-	move.w	CRTR_20,d0			* CRT ���W�X�^�̐ݒ�
-	andi.w	#%11111000_11111111,d0		* 256�F���[�h��
+	move.w	CRTR_20,d0			* CRT レジスタの設定
+	andi.w	#%11111000_11111111,d0		* 256色モードに
 	ori.w	#%00000001_00000000,d0
 	move.w	d0,CRTR_20
-	move.w	VCRR_00,d0			* �r�f�I�R���g���[�����W�X�^�̐ݒ�
-	andi.w	#%11111111_11111000,d0		* 256�F���[�h��
+	move.w	VCRR_00,d0			* ビデオコントロールレジスタの設定
+	andi.w	#%11111111_11111000,d0		* 256色モードに
 	ori.w	#%00000000_00000001,d0
 	move.w	d0,VCRR_00
 
 	move.l	offset_ms_vdp_pnametbl_baddr(a5),d1
 	swap	d1
-	andi.w	#%00000000_00000001,d1	* d1 = �A�N�e�B�u�y�[�W�i���o�[
+	andi.w	#%00000000_00000001,d1	* d1 = アクティブページナンバー
 	clr.w	d0
 	bset.l	d1,d0
 	move.w	d0,offset_ms_vdp_gr_active(a5)
@@ -1718,106 +1718,106 @@ set_GRAPHIC7_mac:
 
 ***************************************************************
 *
-*	�f�q�`�l�A�h���X�ݒ�T�u���[�`���Q
+*	ＧＲＡＭアドレス設定サブルーチン群
 *
-*	d1.l	�E�E�E �Ή�����VRAM�A�h���X
+*	d1.l	・・・ 対応するVRAMアドレス
 *
 ***************************************************************
 s_TEXT1:
-	movea.l	ms_vdp_shared,a5		* ms_vdp_t �ւ̃|�C���^���擾
-	andi.l	#%00000011_11111111,d1		* ��ʃ��[�h���O�ɂ���������.l�ɂ��Ă���
+	movea.l	ms_vdp_shared,a5		* ms_vdp_t へのポインタを取得
+	andi.l	#%00000011_11111111,d1		* 上位ワードも０にしたいから.lにしてある
 	move.l	d1,d0
 	divu.w	#40,d1
-	move.w	d1,d0				* d0.l �E�E��	y
-	lsl.w	#8,d0				* d0.l = d0 * 256	(word�łn�j)
+	move.w	d1,d0				* d0.l ・・商	y
+	lsl.w	#8,d0				* d0.l = d0 * 256	(wordでＯＫ)
 	lsl.l	#6,d0				* d0.l = d0 * 64 = y * 1024*16
-	swap	d1				* d1.w �E�E�]��	x
+	swap	d1				* d1.w ・・余り	x
 	lsl.w	#3,d1
 	move.w	d1,d2				* d2.w = x * 8
 	add.w	d1,d1				* d1.w = x * 16
 	add.w	d1,d2				* d2.w = x * 24
 
-	add.w	d2,d0				* d0.l = �A�h���X (word ���Z�łn�j�j
+	add.w	d2,d0				* d0.l = アドレス (word 演算でＯＫ）
 	add.l	#$c00000+32,d0
 	move.l	d0,offset_ms_vdp_gram_addr(a5)
 
 	rts
 
 s_TEXT2:
-	movea.l	ms_vdp_shared,a5		* ms_vdp_t �ւ̃|�C���^���擾
-	andi.l	#%00001111_11111111,d1		* ��ʃ��[�h���O�ɂ���������.l�ɂ��Ă���
+	movea.l	ms_vdp_shared,a5		* ms_vdp_t へのポインタを取得
+	andi.l	#%00001111_11111111,d1		* 上位ワードも０にしたいから.lにしてある
 	move.l	d1,d0
 	divu.w	#80,d1
-	move.w	d1,d0				* d0.l �E�E��	y
-	lsl.w	#8,d0				* d0.l = d0 * 256	(word�łn�j)
+	move.w	d1,d0				* d0.l ・・商	y
+	lsl.w	#8,d0				* d0.l = d0 * 256	(wordでＯＫ)
 	lsl.l	#6,d0				* d0.l = d0 * 64 = y * 1024*16
-	swap	d1				* d1.w �E�E�]��	x
+	swap	d1				* d1.w ・・余り	x
 	lsl.w	#2,d1
 	move.w	d1,d2				* d2.w = x * 4
 	add.w	d1,d1				* d1.w = x * 8
 	add.w	d1,d2				* d2.w = x * 12
 
-	add.w	d2,d0				* d0.l = �A�h���X (word ���Z�łn�j�j
+	add.w	d2,d0				* d0.l = アドレス (word 演算でＯＫ）
 	add.l	#$c00000+32,d0
 	move.l	d0,offset_ms_vdp_gram_addr(a5)
 
 	rts
 
 s_MULTICOLOR:
-	movea.l	ms_vdp_shared,a5		* ms_vdp_t �ւ̃|�C���^���擾
+	movea.l	ms_vdp_shared,a5		* ms_vdp_t へのポインタを取得
 	rts
 
 s_GRAPHIC1:
-	movea.l	ms_vdp_shared,a5		* ms_vdp_t �ւ̃|�C���^���擾
-	andi.l	#%00000011_11111111,d1		* VRAM�A�h���X�̉���10�r�b�g���擾
-	; VRAM�A�h���X��32�Ŋ���΃��C���ԍ��ɂȂ�
-	; �����1024*8�{����ƁAGRAM�̃A�h���X�ɂȂ�
-	; �Ȃ̂ŁAVRAM�A�h���X��256�{���āA����13�r�b�g���N���A�����GRAM�̉�ʍ��[�A�h���X�ɂȂ�
-	move.l	d1,d0				* 32�Ŋ�����1024*8�{ = 256�{
+	movea.l	ms_vdp_shared,a5		* ms_vdp_t へのポインタを取得
+	andi.l	#%00000011_11111111,d1		* VRAMアドレスの下位10ビットを取得
+	; VRAMアドレスを32で割ればライン番号になる
+	; それを1024*8倍すると、GRAMのアドレスになる
+	; なので、VRAMアドレスを256倍して、下位13ビットをクリアするとGRAMの画面左端アドレスになる
+	move.l	d1,d0				* 32で割って1024*8倍 = 256倍
 	lsl.l	#8,d0				* d0.w = y * 256
-	and.l	#$fffe000,d0			* ����13�r�b�g���N���A
-	; VRAM�A�h���X��32�Ŋ������]�肪�L�����N�^��X���W�ɂȂ�
-	; �����8*2�{����ƁAGRAM�̃A�h���X�ɂȂ�
-	andi.w	#%00000000_00011111,d1		* d1.l �E�E�]��	x
+	and.l	#$fffe000,d0			* 下位13ビットをクリア
+	; VRAMアドレスを32で割った余りがキャラクタのX座標になる
+	; それを8*2倍すると、GRAMのアドレスになる
+	andi.w	#%00000000_00011111,d1		* d1.l ・・余り	x
 	lsl.w	#4,d1				* d1.l = x * 16
-	; ���v�����GRAM�A�h���X��������
-	add.l	d1,d0				* d0.l = �A�h���X
+	; 合計するとGRAMアドレスが得られる
+	add.l	d1,d0				* d0.l = アドレス
 	add.l	#$c00000,d0
 	move.l	d0,offset_ms_vdp_gram_addr(a5)
 
 	rts
 
 s_GRAPHIC2:
-	movea.l	ms_vdp_shared,a5		* ms_vdp_t �ւ̃|�C���^���擾
-	andi.l	#%00000011_11111111,d1		* VRAM�A�h���X�̉���10�r�b�g���擾
-	; VRAM�A�h���X��32�Ŋ���΃��C���ԍ��ɂȂ�
-	; �����1024*8�{����ƁAGRAM�̃A�h���X�ɂȂ�
-	; �Ȃ̂ŁAVRAM�A�h���X��256�{���āA����13�r�b�g���N���A�����GRAM�̉�ʍ��[�A�h���X�ɂȂ�
-	move.l	d1,d0				* 32�Ŋ�����1024*8�{ = 256�{
+	movea.l	ms_vdp_shared,a5		* ms_vdp_t へのポインタを取得
+	andi.l	#%00000011_11111111,d1		* VRAMアドレスの下位10ビットを取得
+	; VRAMアドレスを32で割ればライン番号になる
+	; それを1024*8倍すると、GRAMのアドレスになる
+	; なので、VRAMアドレスを256倍して、下位13ビットをクリアするとGRAMの画面左端アドレスになる
+	move.l	d1,d0				* 32で割って1024*8倍 = 256倍
 	lsl.l	#8,d0				* d0.w = y * 256
-	and.l	#$fffe000,d0			* ����13�r�b�g���N���A
-	; VRAM�A�h���X��32�Ŋ������]�肪�L�����N�^��X���W�ɂȂ�
-	; �����8*2�{����ƁAGRAM�̃A�h���X�ɂȂ�
-	andi.w	#%00000000_00011111,d1		* d1.l �E�E�]��	x
+	and.l	#$fffe000,d0			* 下位13ビットをクリア
+	; VRAMアドレスを32で割った余りがキャラクタのX座標になる
+	; それを8*2倍すると、GRAMのアドレスになる
+	andi.w	#%00000000_00011111,d1		* d1.l ・・余り	x
 	lsl.w	#4,d1				* d1.l = x * 16
-	; ���v�����GRAM�A�h���X��������
-	add.l	d1,d0				* d0.l = �A�h���X
+	; 合計するとGRAMアドレスが得られる
+	add.l	d1,d0				* d0.l = アドレス
 	add.l	#$c00000,d0
 	move.l	d0,offset_ms_vdp_gram_addr(a5)
 
 	rts
 
-s_GRAPHIC4:					* SCREEN 5 ��,16�F256*256���[�h���g��
-	movea.l	ms_vdp_shared,a5		* ms_vdp_t �ւ̃|�C���^���擾
-	; d1 = VRAM�A�h���X
-	lsl.l	#2,d1				* VRAM��1�A�h���X��2�s�N�Z�� �� GRAM��4�o�C�g	
+s_GRAPHIC4:					* SCREEN 5 は,16色256*256モードを使う
+	movea.l	ms_vdp_shared,a5		* ms_vdp_t へのポインタを取得
+	; d1 = VRAMアドレス
+	lsl.l	#2,d1				* VRAMの1アドレスは2ピクセル → GRAMの4バイト	
 	move.l	d1,d0
-	andi.w	#%00000000_00000001_11111100,d1	* d1: X�����̃A�h���X�I�t�Z�b�g
-	lsl.l	#1,d0				* X68000�̎���ʂ͉�512�s�N�Z���Ȃ̂ŁAY������1024�o�C�g�P��
+	andi.w	#%00000000_00000001_11111100,d1	* d1: X方向のアドレスオフセット
+	lsl.l	#1,d0				* X68000の実画面は横512ピクセルなので、Y方向は1024バイト単位
 	move.l	d0,d2
-	andi.l	#%00000011_11111100_00000000,d0	* d0: Y�����̃A�h���X�I�t�Z�b�g
-	lsl.l	#1,d2				* X68000�̎���ʂ͏c512�s�N�Z���Ȃ̂ŁA�y�[�W���ׂ��ƁA1024 * 512 �o�C�g�P��
-	andi.l	#%00011000_00000000_00000000,d2	* d2: �y�[�W�̃A�h���X�I�t�Z�b�g
+	andi.l	#%00000011_11111100_00000000,d0	* d0: Y方向のアドレスオフセット
+	lsl.l	#1,d2				* X68000の実画面は縦512ピクセルなので、ページを跨ぐと、1024 * 512 バイト単位
+	andi.l	#%00011000_00000000_00000000,d2	* d2: ページのアドレスオフセット
 	or.w	d1,d0
 	or.l	d2,d0
 	add.l	#$c00000,d0
@@ -1826,13 +1826,13 @@ s_GRAPHIC4:					* SCREEN 5 ��,16�F256*256���[�h���g��
 	rts
 
 
-s_GRAPHIC5:					* SCREEN 6 ��,16�F512*512���[�h���g��
-	movea.l	ms_vdp_shared,a5		* ms_vdp_t �ւ̃|�C���^���擾
-	; d1 = VRAM�A�h���X
-	lsl.l	#3,d1				* 1�o�C�g��4�s�N�Z�� �� GRAM��8�o�C�g
+s_GRAPHIC5:					* SCREEN 6 は,16色512*512モードを使う
+	movea.l	ms_vdp_shared,a5		* ms_vdp_t へのポインタを取得
+	; d1 = VRAMアドレス
+	lsl.l	#3,d1				* 1バイトが4ピクセル → GRAMの8バイト
 	move.l	d1,d0
 	andi.w	#%00000000_00000011_11111111,d1
-	add.l	d0,d0				* �c�����͈ꃉ�C�������ɂȂ�
+	add.l	d0,d0				* 縦方向は一ラインおきになる
 	andi.l	#%00011111_11111000_00000000,d0
 	or.w	d1,d0
 	add.l	#$c00000,d0
@@ -1841,15 +1841,15 @@ s_GRAPHIC5:					* SCREEN 6 ��,16�F512*512���[�h���g��
 	rts
 
 *
-*	�r�b�q�d�d�m�V (512x424)
+*	ＳＣＲＥＥＮ７ (512x424)
 *
 s_GRAPHIC6:
-	movea.l	ms_vdp_shared,a5		* ms_vdp_t �ւ̃|�C���^���擾
-	; d1 = VRAM�A�h���X
-	lsl.l	#2,d1				* 1�o�C�g��2�s�N�Z�� �� GRAM��4�o�C�g
+	movea.l	ms_vdp_shared,a5		* ms_vdp_t へのポインタを取得
+	; d1 = VRAMアドレス
+	lsl.l	#2,d1				* 1バイトが2ピクセル → GRAMの4バイト
 	move.l	d1,d0
 	andi.w	#%00000000_00000011_11111111,d1
-	add.l	d0,d0				* �c�����͈ꃉ�C�������ɂȂ�
+	add.l	d0,d0				* 縦方向は一ラインおきになる
 	andi.l	#%00001111_11111000_00000000,d0
 	or.w	d1,d0
 	add.l	#$c00000,d0
@@ -1858,19 +1858,19 @@ s_GRAPHIC6:
 	rts
 
 *
-*	�r�b�q�d�d�m�W (256x212)
+*	ＳＣＲＥＥＮ８ (256x212)
 *
 s_GRAPHIC7:
-	movea.l	ms_vdp_shared,a5		* ms_vdp_t �ւ̃|�C���^���擾
-	; d1 = VRAM�A�h���X
-	lsl.l	#1,d1				* 1�o�C�g��1�s�N�Z�� �� GRAM��2�o�C�g
+	movea.l	ms_vdp_shared,a5		* ms_vdp_t へのポインタを取得
+	; d1 = VRAMアドレス
+	lsl.l	#1,d1				* 1バイトが1ピクセル → GRAMの2バイト
 	move.l	d1,d0
-	andi.w	#%00000000_00000001_11111110,d1 * X: ����ʂ�512��1024�o�C�g���邪�A�����������g���Ă��Ȃ��̂�512�o�C�g
+	andi.w	#%00000000_00000001_11111110,d1 * X: 実画面は512で1024バイトあるが、左半分しか使っていないので512バイト
 	add.l	d0,d0
 	move.l	d0,d2
-	andi.l	#%00000011_11111100_00000000,d0 * Y: �E�������g���Ă��Ȃ��̂�1�r�b�g���炷
-	lsl.l	#1,d2				* X68000�̎���ʂ͏c512�s�N�Z���Ȃ̂ŁA�y�[�W���ׂ��ƁA1024 * 512 �o�C�g�P��
-	andi.l	#%00001000_00000000_00000000,d2	* d2: �y�[�W�̃A�h���X�I�t�Z�b�g
+	andi.l	#%00000011_11111100_00000000,d0 * Y: 右半分を使っていないので1ビットずらす
+	lsl.l	#1,d2				* X68000の実画面は縦512ピクセルなので、ページを跨ぐと、1024 * 512 バイト単位
+	andi.l	#%00001000_00000000_00000000,d2	* d2: ページのアドレスオフセット
 	or.w	d1,d0
 	or.l	d2,d0
 	add.l	#$c00000,d0
@@ -1880,54 +1880,54 @@ s_GRAPHIC7:
 
 s_SCREEN10:
 s_SCREEN12:
-	movea.l	ms_vdp_shared,a5		* ms_vdp_t �ւ̃|�C���^���擾
+	movea.l	ms_vdp_shared,a5		* ms_vdp_t へのポインタを取得
 	rts
 
 ***************************************************************
 *
-*	�u�q�`�l�ǂݍ��݃��[�`��
+*	ＶＲＡＭ読み込みルーチン
 *
-*	d0.b �ɓǂ݂��񂾒l������ rts
-*
-***************************************************************
-
-; �ȑO�́AGRAPHIC4�ȍ~��X68000��GRAM���̂��̂�VRAM�ƌ��Ȃ��悤�ɂ��Ă������A
-; ���� VRAM�p�̃�������ʓr�m�ۂ��Ă���̂ŁA����𒼐ړǂ߂Ηǂ��Ȃ���
-
-***************************************************************
-*
-*	�u�q�`�l�������݃��[�`��
-*
-*	d1.b �ɏ������ޒl�����ăR�[��
+*	d0.b に読みこんだ値を入れて rts
 *
 ***************************************************************
 
-* �f�o�b�O�悤�ɕ`��ʂ��팸���邽�߂̃t���O
-HALFDRAW	.equ	0		* 1:�����̂ݕ`�� 0:�S�ĕ`��
-DRAWWIDTH_TX	.equ	6/(HALFDRAW+1)	* �P���C���̕`���
-DRAWWIDTH_GR	.equ	8/(HALFDRAW+1)	* �P���C���̕`���
-DIFFDRAW	.equ	1		* 1:�ύX�����������̂ݕ`�� 0:�S�ĕ`��
+; 以前は、GRAPHIC4以降はX68000のGRAMそのものをVRAMと見なすようにしていたが、
+; 今は VRAM用のメモリを別途確保しているので、それを直接読めば良くなった
+
+***************************************************************
+*
+*	ＶＲＡＭ書き込みルーチン
+*
+*	d1.b に書き込む値を入れてコール
+*
+***************************************************************
+
+* デバッグように描画量を削減するためのフラグ
+HALFDRAW	.equ	0		* 1:半分のみ描画 0:全て描画
+DRAWWIDTH_TX	.equ	6/(HALFDRAW+1)	* １ラインの描画回数
+DRAWWIDTH_GR	.equ	8/(HALFDRAW+1)	* １ラインの描画回数
+DIFFDRAW	.equ	1		* 1:変更があった時のみ描画 0:全て描画
 
 ; w_TEXT1_mac:
 ; 	move.l	4(sp),d1
 ; 	movea.l	VideoRAM,a0
-; 	move.l	vram_add,d0			* D0 �E�E�������ރA�h���X
-; 	move.b	d1,0(a0,d0.l)			* VRAM �֏�������
-; 	andi.w	#%11111100_00000000,d0		* ���ʂP�O�r�b�g���N���A
+; 	move.l	vram_add,d0			* D0 ・・書き込むアドレス
+; 	move.b	d1,0(a0,d0.l)			* VRAM へ書き込み
+; 	andi.w	#%11111100_00000000,d0		* 下位１０ビットをクリア
 ; 	cmp.l	R_2_pnametbl_baddr,d0
 ; 	bne	@f
 ; 	move.l	d0,-(sp)
 ; 	move.w	d1,-(sp)
-; 	bsr	w_p_name_tx1_mac		* �p�^�[���l�[���e�[�u���ւ̏�������
+; 	bsr	w_p_name_tx1_mac		* パターンネームテーブルへの書き込み
 ; 	move.w	(sp)+,d1
 ; 	move.l	(sp)+,d0
 ; @@:	andi.w	#%11111000_00000000,d0
 ; 	cmp.l	R_4_patgentbl_baddr,d0
 ; 	bne	@f
-; 	bsr	w_p_gene_tx1_mac		* �p�^�[���W�F�l���[�^�e�[�u���ւ̏�������
+; 	bsr	w_p_gene_tx1_mac		* パターンジェネレータテーブルへの書き込み
 ; @@:	move.l	vram_add,d0
 ; 	move.w	d0,d2
-; 	addq.w	#1,d2				* ��ʃ��[�h�͕ω����Ȃ����烏�[�h�łn�j
+; 	addq.w	#1,d2				* 上位ワードは変化しないからワードでＯＫ
 ; 	andi.w	#%00111111_11111111,d2
 ; 	andi.w	#%11000000_00000000,d0
 ; 	or.w	d2,d0
@@ -1936,7 +1936,7 @@ DIFFDRAW	.equ	1		* 1:�ύX�����������̂ݕ`�� 0:�S�ĕ`��
 
 w_p_gene_tx1_mac:
 *
-*	�X�V�t���O�𗧂ĂĐ����A�����ԂɈ�x�ɍX�V����悤�ɂ���B
+*	更新フラグを立てて垂直帰線期間に一度に更新するようにする。
 *
 *	rewrite_f_0	.dc.l	0
 *	rewrite_f_1	.dc.l	0
@@ -1947,95 +1947,95 @@ w_p_gene_tx1_mac:
 *	rewrite_f_6	.dc.l	0
 *	rewrite_f_7	.dc.l	0
 *	
-	move.w	#0,rewrite_screen	* �Z�b�g������ʃ��[�h������
+	move.w	#0,rewrite_screen	* セットした画面モードを入れる
 
-	movea.l	ms_vdp_shared,a5		* ms_vdp_t �ւ̃|�C���^���擾
+	movea.l	ms_vdp_shared,a5		* ms_vdp_t へのポインタを取得
  	movea.l	offset_ms_vdp_vram(a5),a0
 	move.l	offset_ms_vdp_vram_addr(a5),d1
 	andi.w	#%00000111_11111111,d1	
-	lsr.w	#3,d1			* d1 �E�E �����ւ����L�����N�^�[�ԍ��O�`�Q�T�T
+	lsr.w	#3,d1			* d1 ・・ 書き替えたキャラクター番号０～２５５
 	move.w	d1,d2
 	andi.w	#%00000000_00011111,d2
 	lsr.w	#5,d1
 	lea.l	rewrite_f_0,a0
 	add.w	d1,d1
 	add.w	d1,d1
-	move.l	0(a0,d1.w),d0		* rewrite_f_n ��ǂݍ���
+	move.l	0(a0,d1.w),d0		* rewrite_f_n を読み込み
 	bset.l	d2,d0
-	move.l	d0,0(a0,d1.w)		* rewrite_f_n �֏�������
+	move.l	d0,0(a0,d1.w)		* rewrite_f_n へ書き込み
 	rts	
 
 *
-*	�����L�����N�^�\��
+*	文字キャラクタ表示
 *
-*	d1.b �E�E�E �L�����N�^�R�[�h 0 �` 255
+*	d1.b ・・・ キャラクタコード 0 ～ 255
 *
-* (�Ԃ�l)
-*	d1,d2,d3,a0 �E�E�E �j��
+* (返り値)
+*	d1,d2,d3,a0 ・・・ 破壊
 *
 w_p_name_tx1_mac:
 	move.l	4(sp),d1
 	move.l	d4,-(sp)
 
-	movea.l	ms_vdp_shared,a5		* ms_vdp_t �ւ̃|�C���^���擾
+	movea.l	ms_vdp_shared,a5		* ms_vdp_t へのポインタを取得
  	movea.l	offset_ms_vdp_vram(a5),a0
-	movea.l	offset_ms_vdp_gram_addr(a5),a1		* a1.l �E�E�E �\������f�q�`�l�A�h���X
+	movea.l	offset_ms_vdp_gram_addr(a5),a1		* a1.l ・・・ 表示するＧＲＡＭアドレス
 	move.l	offset_ms_vdp_pgentbl_baddr(a5),d0
-	lea.l	0(a0,d0.l),a0		* a0 = ���p�^�[���W�F�l���[�^�e�[�u���A�h���X
+	lea.l	0(a0,d0.l),a0		* a0 = 実パターンジェネレータテーブルアドレス
 
 	clr.w	d0
 	move.b	d1,d0
 	add.w	d0,d0
 	add.w	d0,d0
 	add.w	d0,d0
-	lea.l	0(a0,d0.w),a0		* a0 = �\������t�H���g�̃A�h���X
+	lea.l	0(a0,d0.w),a0		* a0 = 表示するフォントのアドレス
 
-	move.w	offset_ms_vdp_text_color(a5),d2		* �Q�h�b�g�����������݂��邽��
+	move.w	offset_ms_vdp_text_color(a5),d2		* ２ドット同時書き込みするため
 	swap	d2
 	move.w	offset_ms_vdp_text_color(a5),d2
 	move.w	offset_ms_vdp_back_color(a5),d3
 	swap	d3
 	move.w	offset_ms_vdp_back_color(a5),d3
 
-	moveq.l	#4-1,d0			* ���[�v�J�E���^
+	moveq.l	#4-1,d0			* ループカウンタ
 loop1_put_char:
-	move.w	(a0)+,d1		* d1 = �t�H���g�f�[�^
+	move.w	(a0)+,d1		* d1 = フォントデータ
 
 
-	moveq.l	#DRAWWIDTH_TX-1,d4	* ���[�v�J�E���^
-2:	lsl.w	#1,d1			* �ŏ�ʃr�b�g�𑗂�o��
-	bcc	1f			* �ŏ�ʃr�b�g���P�łȂ���Ύ���	
-*	move.l	d2,1024(a1)		* �O�i�F��\��
+	moveq.l	#DRAWWIDTH_TX-1,d4	* ループカウンタ
+2:	lsl.w	#1,d1			* 最上位ビットを送り出す
+	bcc	1f			* 最上位ビットが１でなければ次へ	
+*	move.l	d2,1024(a1)		* 前景色を表示
 	move.l	d2,(a1)+
 	dbra	d4,2b
 	bra	@f
 1:
-*	move.l	d3,1024(a1)		* �w�i�F��\��
-	move.l	d3,(a1)+		* �w�i�F��\��
+*	move.l	d3,1024(a1)		* 背景色を表示
+	move.l	d3,(a1)+		* 背景色を表示
 	dbra	d4,2b
 
-@@:	adda.l	#1024+1024-DRAWWIDTH_TX*4,a1	* �P���C��������
+@@:	adda.l	#1024+1024-DRAWWIDTH_TX*4,a1	* １ライン下げる
 	lsl.w	#2,d1
 
-	moveq.l	#DRAWWIDTH_TX-1,d4	* ���[�v�J�E���^
-2:	lsl.w	#1,d1			* �ŏ�ʃr�b�g�𑗂�o��
-	bcc	1f			* �ŏ�ʃr�b�g���P�łȂ���Ύ���	
-*	move.l	d2,1024(a1)		* �O�i�F��\��
+	moveq.l	#DRAWWIDTH_TX-1,d4	* ループカウンタ
+2:	lsl.w	#1,d1			* 最上位ビットを送り出す
+	bcc	1f			* 最上位ビットが１でなければ次へ	
+*	move.l	d2,1024(a1)		* 前景色を表示
 	move.l	d2,(a1)+
 	dbra	d4,2b
 	bra	@f
 1:
-*	move.l	d3,1024(a1)		* �w�i�F��\��
-	move.l	d3,(a1)+		* �w�i�F��\��
+*	move.l	d3,1024(a1)		* 背景色を表示
+	move.l	d3,(a1)+		* 背景色を表示
 	dbra	d4,2b
 
-@@:	adda.l	#1024+1024-DRAWWIDTH_TX*4,a1	* �P���C��������
+@@:	adda.l	#1024+1024-DRAWWIDTH_TX*4,a1	* １ライン下げる
 
 	dbra	d0,loop1_put_char
 
-	suba.l	#1024*16-24,a1		* gram_add �̍X�V
+	suba.l	#1024*16-24,a1		* gram_add の更新
 	move.l	a1,d0
-	andi.w	#$03ff,d0		* ���s�������̃`�F�b�N
+	andi.w	#$03ff,d0		* 改行したかのチェック
 	cmpi.w	#$03e0,d0
 	bne	@f
 	adda.l	#1024*15+64,a1
@@ -2046,23 +2046,23 @@ loop1_put_char:
 ; w_TEXT2_mac:
 ; 	move.l	4(sp),d1
 ; 	movea.l	VideoRAM,a0
-; 	move.l	vram_add,d0			* D0 �E�E�������ރA�h���X
-; 	move.b	d1,0(a0,d0.l)			* VRAM �֏�������
+; 	move.l	vram_add,d0			* D0 ・・書き込むアドレス
+; 	move.b	d1,0(a0,d0.l)			* VRAM へ書き込み
 ; 	andi.w	#%11111000_00000000,d0
 ; 	cmp.l	R_4_patgentbl_baddr,d0
 ; 	bne	@f
 ; 	move.l	d0,-(sp)
 ; 	move.w	d1,-(sp)
-; 	bsr	w_p_gene_tx2			* �p�^�[���W�F�l���[�^�e�[�u���ւ̏�������
+; 	bsr	w_p_gene_tx2			* パターンジェネレータテーブルへの書き込み
 ; 	move.w	(sp)+,d1
 ; 	move.l	(sp)+,d0
-; @@:	andi.w	#%11110000_00000000,d0		* ���ʂP�Q�r�b�g���N���A
+; @@:	andi.w	#%11110000_00000000,d0		* 下位１２ビットをクリア
 ; 	move.l	R_2_pnametbl_baddr,d0
 ; 	bne	@f
-; 	bsr	w_p_name_tx2			* �p�^�[���l�[���e�[�u���ւ̏�������
+; 	bsr	w_p_name_tx2			* パターンネームテーブルへの書き込み
 ; @@:	move.l	vram_add,d0
 ; 	move.w	d0,d2
-; 	addq.w	#1,d2				* ��ʃ��[�h�͕ω����Ȃ����烏�[�h�łn�j
+; 	addq.w	#1,d2				* 上位ワードは変化しないからワードでＯＫ
 ; 	andi.w	#%00111111_11111111,d2
 ; 	andi.w	#%11000000_00000000,d0
 ; 	or.w	d2,d0
@@ -2071,96 +2071,96 @@ loop1_put_char:
 
 w_p_gene_tx2_mac:
 *
-*	�X�V�t���O�𗧂ĂĐ����A�����ԂɈ�x�ɍX�V����悤�ɂ���B
+*	更新フラグを立てて垂直帰線期間に一度に更新するようにする。
 *
-	move.w	#1,rewrite_screen	* �Z�b�g������ʃ��[�h������
+	move.w	#1,rewrite_screen	* セットした画面モードを入れる
 
-	movea.l	ms_vdp_shared,a5		* ms_vdp_t �ւ̃|�C���^���擾
+	movea.l	ms_vdp_shared,a5		* ms_vdp_t へのポインタを取得
  	movea.l	offset_ms_vdp_vram(a5),a0
 	move.l	offset_ms_vdp_vram_addr(a5),d1
 	andi.w	#%00000111_11111111,d1	
-	lsr.w	#3,d1			* d1 �E�E �����ւ����L�����N�^�[�ԍ��O�`�Q�T�T
+	lsr.w	#3,d1			* d1 ・・ 書き替えたキャラクター番号０～２５５
 	move.w	d1,d2
 	andi.w	#%00000000_00011111,d2
 	lsr.w	#5,d1
 	lea.l	rewrite_f_0,a0
 	add.w	d1,d1
 	add.w	d1,d1
-	move.l	0(a0,d1.w),d0		* rewrite_f_n ��ǂݍ���
+	move.l	0(a0,d1.w),d0		* rewrite_f_n を読み込み
 	bset.l	d2,d0
-	move.l	d0,0(a0,d1.w)		* rewrite_f_n �֏�������
+	move.l	d0,0(a0,d1.w)		* rewrite_f_n へ書き込み
 	rts	
 
 *
-*	�����L�����N�^�\��
+*	文字キャラクタ表示
 *
-*	d1.b �E�E�E �L�����N�^�R�[�h 0 �` 255
+*	d1.b ・・・ キャラクタコード 0 ～ 255
 *
-* (�Ԃ�l)
-*	d1,d2,d3,a0 �E�E�E �j��
+* (返り値)
+*	d1,d2,d3,a0 ・・・ 破壊
 *
 w_p_name_tx2_mac:
 	move.l	4(sp),d1
 	move.l	d4,-(sp)
 
-	movea.l	ms_vdp_shared,a5		* ms_vdp_t �ւ̃|�C���^���擾
+	movea.l	ms_vdp_shared,a5		* ms_vdp_t へのポインタを取得
  	movea.l	offset_ms_vdp_vram(a5),a0
-	movea.l	offset_ms_vdp_gram_addr(a5),a1		* a1.l �E�E�E �\������f�q�`�l�A�h���X
+	movea.l	offset_ms_vdp_gram_addr(a5),a1		* a1.l ・・・ 表示するＧＲＡＭアドレス
 	move.l	offset_ms_vdp_pgentbl_baddr(a5),d0
-	lea.l	0(a0,d0.l),a0		* a0 = ���p�^�[���W�F�l���[�^�e�[�u���A�h���X
+	lea.l	0(a0,d0.l),a0		* a0 = 実パターンジェネレータテーブルアドレス
 
 	clr.w	d0
 	move.b	d1,d0
 	add.w	d0,d0
 	add.w	d0,d0
 	add.w	d0,d0
-	lea.l	0(a0,d0.w),a0		* a0 = �\������t�H���g�̃A�h���X
+	lea.l	0(a0,d0.w),a0		* a0 = 表示するフォントのアドレス
 
 	move.w	offset_ms_vdp_text_color(a5),d2
 	move.w	offset_ms_vdp_back_color(a5),d3
 
-	moveq.l	#4-1,d0			* ���[�v�J�E���^
+	moveq.l	#4-1,d0			* ループカウンタ
 1:
-	move.w	(a0)+,d1		* d1 = �t�H���g�f�[�^(2���C������x�ɓǂ�)
+	move.w	(a0)+,d1		* d1 = フォントデータ(2ライン分一度に読む)
 
 
-	moveq.l	#DRAWWIDTH_TX-1,d4	* ���[�v�J�E���^(�����s��)
+	moveq.l	#DRAWWIDTH_TX-1,d4	* ループカウンタ(偶数行目)
 2:
-	lsl.w	#1,d1			* �ŏ�ʃr�b�g�𑗂�o��
-	bcc	3f			* �ŏ�ʃr�b�g���P�łȂ���Ύ���	
-*	move.w	d2,1024(a1)		* �O�i�F��\��
+	lsl.w	#1,d1			* 最上位ビットを送り出す
+	bcc	3f			* 最上位ビットが１でなければ次へ	
+*	move.w	d2,1024(a1)		* 前景色を表示
 	move.w	d2,(a1)+
 	dbra	d4,2b
 	bra	@f
 3:
-*	move.w	d3,1024(a1)		* �w�i�F��\��
-	move.w	d3,(a1)+		* �w�i�F��\��
+*	move.w	d3,1024(a1)		* 背景色を表示
+	move.w	d3,(a1)+		* 背景色を表示
 	dbra	d4,2b
 
-@@:	adda.l	#1024+1024-DRAWWIDTH_TX*2,a1	* �P���C��������
+@@:	adda.l	#1024+1024-DRAWWIDTH_TX*2,a1	* １ライン下げる
 	lsl.w	#2,d1
 
-	moveq.l	#DRAWWIDTH_TX-1,d4	* ���[�v�J�E���^(��s��)
+	moveq.l	#DRAWWIDTH_TX-1,d4	* ループカウンタ(奇数行目)
 2:
-	lsl.w	#1,d1			* �ŏ�ʃr�b�g�𑗂�o��
-	bcc	3f			* �ŏ�ʃr�b�g���P�łȂ���Ύ���	
-*	move.w	d2,1024(a1)		* �O�i�F��\��
+	lsl.w	#1,d1			* 最上位ビットを送り出す
+	bcc	3f			* 最上位ビットが１でなければ次へ	
+*	move.w	d2,1024(a1)		* 前景色を表示
 	move.w	d2,(a1)+
 	dbra	d4,2b
 	bra	@f
 3:
-*	move.w	d3,1024(a1)		* �w�i�F��\��
-	move.w	d3,(a1)+		* �w�i�F��\��
+*	move.w	d3,1024(a1)		* 背景色を表示
+	move.w	d3,(a1)+		* 背景色を表示
 	dbra	d4,2b
 
-@@:	adda.l	#1024+1024-DRAWWIDTH_TX*2,a1	* �P���C��������
+@@:	adda.l	#1024+1024-DRAWWIDTH_TX*2,a1	* １ライン下げる
 
 	dbra	d0,1b
 
-	suba.l	#1024*16-12,a1		* gram_add �̍X�V
+	suba.l	#1024*16-12,a1		* gram_add の更新
 	move.l	a1,d0
-	andi.w	#$03ff,d0		* ���s�������̃`�F�b�N
-	cmpi.w	#$03e0,d0		* (16�h�b�g�I�t�Z�b�g+6�h�b�gx80����) * 2�o�C�g = 992 = 0x03e0
+	andi.w	#$03ff,d0		* 改行したかのチェック
+	cmpi.w	#$03e0,d0		* (16ドットオフセット+6ドットx80文字) * 2バイト = 992 = 0x03e0
 	bne	@f
 	adda.l	#1024*15+64,a1
 @@:	move.l	a1,offset_ms_vdp_gram_addr(a5)
@@ -2172,99 +2172,99 @@ w_GRAPHIC1_mac:
 	movem.l	d1-d3/a0-a5,-(sp)
 
 	move.l	8(a6),d1
-	movea.l	ms_vdp_shared,a5		* ms_vdp_t �ւ̃|�C���^���擾
+	movea.l	ms_vdp_shared,a5		* ms_vdp_t へのポインタを取得
 	movea.l	offset_ms_vdp_vram(a5),a0
-	move.l	offset_ms_vdp_vram_addr(a5),d0	* D0 �E�E��������VRAM�A�h���X
-	.if DIFFDRAW=1 ;�����`��̎���
+	move.l	offset_ms_vdp_vram_addr(a5),d0	* D0 ・・書き込むVRAMアドレス
+	.if DIFFDRAW=1 ;差分描画の実験
 	move.b	0(a0,d0.l),d2
 	sub.b	d1,d2
-	move.b	d2,-2(a6)			* �����t���O���Z�b�g
+	move.b	d2,-2(a6)			* 差分フラグをセット
 	.endif
-	move.b	(a0,d0.l),-4(a6)		* �ȑO�̒l��ۑ�
-	move.b	d1,(a0,d0.l)			* VRAM �֏�������
+	move.b	(a0,d0.l),-4(a6)		* 以前の値を保存
+	move.b	d1,(a0,d0.l)			* VRAM へ書き込み
 
-; colortbl_baddr�ƈ�v���Ă�����J���[�e�[�u���ւ̏�������
-@@:	andi.w	#%11111111_11000000,d0		* ����6�r�b�g���N���A
+; colortbl_baddrと一致していたらカラーテーブルへの書き込み
+@@:	andi.w	#%11111111_11000000,d0		* 下位6ビットをクリア
 	move.l	offset_ms_vdp_colortbl_baddr(a5),d2
 	andi.w	#%11111111_11000000,d2
 	cmp.l	d2,d0
 	bne	@f
 
-	.if DIFFDRAW=1 ;���������鎞�̂ݏ�������
-	cmp.b	#0,-2(a6)			* �����t���O���`�F�b�N
+	.if DIFFDRAW=1 ;差分がある時のみ書き込み
+	cmp.b	#0,-2(a6)			* 差分フラグをチェック
 	beq	9f
 	.endif
 
-	move.b	-4(a6),d0			* �ȑO�̒l���擾
-	bsr	w_color_GR1			* �J���[�e�[�u���ւ̏�������
+	move.b	-4(a6),d0			* 以前の値を取得
+	bsr	w_color_GR1			* カラーテーブルへの書き込み
 
-	bra	9f	; �e�[�u�����d�Ȃ��Ă���ꍇ�����肤��̂Ŗ{���̓X�L�b�v���Ă͂����Ȃ��̂����c�c
+	bra	9f	; テーブルが重なっている場合もありうるので本当はスキップしてはいけないのだが……
 
-; sprattrtbl_baddr�ƈ�v���Ă�����X�v���C�g�A�g���r���[�g�e�[�u���ւ̏�������
-@@:	andi.w	#%11111111_10000000,d0		* ����7�r�b�g���N���A
+; sprattrtbl_baddrと一致していたらスプライトアトリビュートテーブルへの書き込み
+@@:	andi.w	#%11111111_10000000,d0		* 下位7ビットをクリア
 	move.l	offset_ms_vdp_sprattrtbl_baddr(a5),d2
 	andi.w	#%11111111_10000000,d2
 	cmp.l	d2,d0
 	bne	@f
 
-	.if DIFFDRAW=1 ;���������鎞�̂ݏ�������
-	cmp.b	#0,-2(a6)			* �����t���O���`�F�b�N
+	.if DIFFDRAW=1 ;差分がある時のみ書き込み
+	cmp.b	#0,-2(a6)			* 差分フラグをチェック
 	beq	9f
 	.endif
 
-	move.b	-4(a6),d0			* �ȑO�̒l���擾
-	bsr	w_SP_attr			* �X�v���C�g�A�g���r���[�g�e�[�u���ւ̏�������
+	move.b	-4(a6),d0			* 以前の値を取得
+	bsr	w_SP_attr			* スプライトアトリビュートテーブルへの書き込み
 
-	bra	9f	; �e�[�u�����d�Ȃ��Ă���ꍇ�����肤��̂Ŗ{���̓X�L�b�v���Ă͂����Ȃ��̂����c�c
+	bra	9f	; テーブルが重なっている場合もありうるので本当はスキップしてはいけないのだが……
 
-; offset_ms_vdp_pnametbl_baddr(a5)�ƈ�v���Ă�����p�^�[���l�[���e�[�u���ւ̏�������
-@@:	andi.w	#%11111100_00000000,d0		* ����10�r�b�g���N���A
+; offset_ms_vdp_pnametbl_baddr(a5)と一致していたらパターンネームテーブルへの書き込み
+@@:	andi.w	#%11111100_00000000,d0		* 下位10ビットをクリア
 	move.l	offset_ms_vdp_pnametbl_baddr(a5),d2
 	andi.w	#%11111100_00000000,d2
 	cmp.l	d2,d0
 	bne	@f
 
-	.if DIFFDRAW=1 ;�����`��̎���
-	cmp.b	#0,-2(a6)			* �����t���O���`�F�b�N
+	.if DIFFDRAW=1 ;差分描画の実験
+	cmp.b	#0,-2(a6)			* 差分フラグをチェック
 	beq	@f
 	.endif
 
-	move.b	-4(a6),d0			* �ȑO�̒l���擾
-	bsr	w_p_name_GR1			* �p�^�[���l�[���e�[�u���ւ̏�������
+	move.b	-4(a6),d0			* 以前の値を取得
+	bsr	w_p_name_GR1			* パターンネームテーブルへの書き込み
 
-	bra	9f	; �e�[�u�����d�Ȃ��Ă���ꍇ�����肤��̂Ŗ{���̓X�L�b�v���Ă͂����Ȃ��̂����c�c
+	bra	9f	; テーブルが重なっている場合もありうるので本当はスキップしてはいけないのだが……
 
-; sprpatgentbl_baddr�ƈ�v���Ă�����X�v���C�g�p�^�[���W�F�l���[�^�e�[�u���ւ̏�������
-@@:	andi.w	#%11111000_00000000,d0		* ����11�r�b�g���N���A
+; sprpatgentbl_baddrと一致していたらスプライトパターンジェネレータテーブルへの書き込み
+@@:	andi.w	#%11111000_00000000,d0		* 下位11ビットをクリア
 	move.l	offset_ms_vdp_sprpgentbl_baddr(a5),d2
 	andi.w	#%11111000_00000000,d2
 	cmp.l	d2,d0
 	bne	@f
 	movem.l	d0-d1,-(sp)
-	bsr	w_SP_p_gene			* �X�v���C�g�p�^�[���W�F�l���[�^�e�[�u���ւ̏�������
+	bsr	w_SP_p_gene			* スプライトパターンジェネレータテーブルへの書き込み
 	movem.l	(sp)+,d0-d1
 
-	bra	9f	; �e�[�u�����d�Ȃ��Ă���ꍇ�����肤��̂Ŗ{���̓X�L�b�v���Ă͂����Ȃ��̂����c�c
+	bra	9f	; テーブルが重なっている場合もありうるので本当はスキップしてはいけないのだが……
 
-	* pgentbl_baddr �ƈ�v���Ă�����p�^�[���W�F�l���[�^�e�[�u���ւ̏�������
-@@:	andi.w	#%11111000_00000000,d0		* ����11�r�b�g���N���A
+	* pgentbl_baddr と一致していたらパターンジェネレータテーブルへの書き込み
+@@:	andi.w	#%11111000_00000000,d0		* 下位11ビットをクリア
 	move.l	offset_ms_vdp_pgentbl_baddr(a5),d2
 	andi.w	#%11111000_00000000,d2
 	cmp.l	d2,d0
 	bne	@f
 
-	.if DIFFDRAW=1 ;�����`��̎���
-	cmp.b	#0,-2(a6)			* �����t���O���`�F�b�N
+	.if DIFFDRAW=1 ;差分描画の実験
+	cmp.b	#0,-2(a6)			* 差分フラグをチェック
 	beq	@f
 	.endif
 
-	move.b	-4(a6),d0			* �ȑO�̒l���擾
-	bsr	w_p_gene_GR1			* �p�^�[���W�F�l���[�^�e�[�u���ւ̏�������
+	move.b	-4(a6),d0			* 以前の値を取得
+	bsr	w_p_gene_GR1			* パターンジェネレータテーブルへの書き込み
 
-@@:	* VRAM�������݃A�h���X���C���N�������g
+@@:	* VRAM書き込みアドレスをインクリメント
 9:	move.l	offset_ms_vdp_vram_addr(a5),d0
 	move.w	d0,d2
-	addq.w	#1,d2				* ��ʃ��[�h�͕ω����Ȃ����烏�[�h�łn�j
+	addq.w	#1,d2				* 上位ワードは変化しないからワードでＯＫ
 	andi.w	#%00111111_11111111,d2
 	andi.w	#%11000000_00000000,d0
 	or.w	d2,d0
@@ -2275,16 +2275,16 @@ w_GRAPHIC1_mac:
 	rts
 
 w_color_GR1:
-*	�X�V�t���O�𗧂ĂĐ����A�����ԂɈ�x�ɍX�V����悤�ɂ���B
-	move.w	#3,rewrite_screen	* �Z�b�g������ʃ��[�h������
+*	更新フラグを立てて垂直帰線期間に一度に更新するようにする。
+	move.w	#3,rewrite_screen	* セットした画面モードを入れる
 
 	lea.l	rewrite_f_0,a1
-	movea.l	ms_vdp_shared,a5	* ms_vdp_t �ւ̃|�C���^���擾
+	movea.l	ms_vdp_shared,a5	* ms_vdp_t へのポインタを取得
 	move.l	offset_ms_vdp_vram_addr(a5),d1
 	andi.w	#%00000000_00111111,d1
-	cmpi.w	#%00000000_00100000,d1	* �J���[�e�[�u���̒�����0x001f�܂łȂ̂ŁA0x0020�ȏ�͖���
+	cmpi.w	#%00000000_00100000,d1	* カラーテーブルの長さは0x001fまでなので、0x0020以上は無視
 	bcc	@f
-	andi.w	#%00000000_00011111,d1	* d1 �E�E �����ւ����L�����N�^�[�ԍ�/8 = 0�`31
+	andi.w	#%00000000_00011111,d1	* d1 ・・ 書き替えたキャラクター番号/8 = 0～31
 	move.w	d1,d2
 	andi.w	#%00000000_00011100,d1
 	andi.w	#%00000000_00000011,d2
@@ -2303,85 +2303,85 @@ w_color_GR1:
 
 
 w_p_gene_GR1:
-*	�X�V�t���O�𗧂ĂĐ����A�����ԂɈ�x�ɍX�V����悤�ɂ���B
-	move.w	#3,rewrite_screen	* �Z�b�g������ʃ��[�h������
+*	更新フラグを立てて垂直帰線期間に一度に更新するようにする。
+	move.w	#3,rewrite_screen	* セットした画面モードを入れる
 
-	movea.l	ms_vdp_shared,a5		* ms_vdp_t �ւ̃|�C���^���擾
+	movea.l	ms_vdp_shared,a5		* ms_vdp_t へのポインタを取得
 	move.l	offset_ms_vdp_vram_addr(a5),d1
 	andi.w	#%00000111_11111111,d1	
-	lsr.w	#3,d1			* d1 �E�E �����ւ����L�����N�^�[�ԍ��O�`�Q�T�T
+	lsr.w	#3,d1			* d1 ・・ 書き替えたキャラクター番号０～２５５
 	move.w	d1,d2
 	andi.w	#%00000000_00011111,d2
 	lsr.w	#5,d1
 	lea.l	rewrite_f_0,a0
-	move.l	0(a0,d1.w*4),d0		* rewrite_f_n ��ǂݍ���
+	move.l	0(a0,d1.w*4),d0		* rewrite_f_n を読み込み
 	bset.l	d2,d0
-	move.l	d0,0(a0,d1.w*4)		* rewrite_f_n �֏�������
+	move.l	d0,0(a0,d1.w*4)		* rewrite_f_n へ書き込み
 	rts	
 
 *
-*	�����L�����N�^�\��
+*	文字キャラクタ表示
 *
-*	a0.l �E�E�E VRAM�̂���A�h���X(X68000��)
-*	d1.b �E�E�E �L�����N�^�R�[�h 0 �` 255
+*	a0.l ・・・ VRAMのあるアドレス(X68000上)
+*	d1.b ・・・ キャラクタコード 0 ～ 255
 *
-* (�Ԃ�l)
-*	d1,d2,d3,a0 �E�E�E �j��
-*	a1 �E�E�E�E ���ɕ\������f�q�`�l�A�h���X
+* (返り値)
+*	d1,d2,d3,a0 ・・・ 破壊
+*	a1 ・・・・ 次に表示するＧＲＡＭアドレス
 *
 w_p_name_GR1:
-	movea.l	ms_vdp_shared,a5		* ms_vdp_t �ւ̃|�C���^���擾
+	movea.l	ms_vdp_shared,a5		* ms_vdp_t へのポインタを取得
 	move.l	d4,-(sp)
 
-	.if DIFFDRAW=1 ;�����`��̎���
+	.if DIFFDRAW=1 ;差分描画の実験
 	move.l	d1,-(sp)
 	move.l	offset_ms_vdp_vram_addr(a5),d1
 	bsr	s_GRAPHIC1
 	move.l	(sp)+,d1
 	.endif
 
-	movea.l	offset_ms_vdp_gram_addr(a5),a1		* a1.l �E�E�E �\������f�q�`�l�A�h���X
+	movea.l	offset_ms_vdp_gram_addr(a5),a1		* a1.l ・・・ 表示するＧＲＡＭアドレス
 
-	move.l	offset_ms_vdp_colortbl_baddr(a5),d0	* d0 = �J���[�e�[�u���x�[�X�A�h���X
-	andi.w	#%11111111_11000000,d0		* ����6�r�b�g���N���A
-	lea.l	0(a0,d0.l),a2			* a2 = ���J���[�e�[�u���x�[�X�A�h���X
+	move.l	offset_ms_vdp_colortbl_baddr(a5),d0	* d0 = カラーテーブルベースアドレス
+	andi.w	#%11111111_11000000,d0		* 下位6ビットをクリア
+	lea.l	0(a0,d0.l),a2			* a2 = 実カラーテーブルベースアドレス
 	move.l	offset_ms_vdp_pgentbl_baddr(a5),d0
-	andi.w	#%11111000_00000000,d0		* ����11�r�b�g���N���A
-	lea.l	0(a0,d0.l),a0			* a0 = ���p�^�[���W�F�l���[�^�e�[�u���A�h���X
+	andi.w	#%11111000_00000000,d0		* 下位11ビットをクリア
+	lea.l	0(a0,d0.l),a0			* a0 = 実パターンジェネレータテーブルアドレス
 
 	clr.w	d0
 	move.b	d1,d0
 	lsl.w	#3,d0
-	lea.l	0(a0,d0.w),a0		* a0 = �\������p�^�[���̃A�h���X
+	lea.l	0(a0,d0.w),a0		* a0 = 表示するパターンのアドレス
 
-	lsr.w	#6,d0			* GRAPHIC1��8��ނ��Ƃɓ����F (���3�r�b�g�V�t�g���Ă���̂�6�r�b�g������)
+	lsr.w	#6,d0			* GRAPHIC1は8種類ごとに同じ色 (上で3ビットシフトしているので6ビット動かす)
 	clr.w	d3
-	move.b	0(a2,d0.w),d3		* d3: �w�i�F
-	move.w	d3,d2			* d2: �O�i�F
+	move.b	0(a2,d0.w),d3		* d3: 背景色
+	move.w	d3,d2			* d2: 前景色
 	lsr.w	#4,d2
 	andi.w	#%00001111,d3
 
-	moveq.l	#8-1,d0			* Y�������[�v�J�E���^(8���C��)
-3:	move.b	(a0)+,d1		* d1 = �t�H���g�f�[�^
+	moveq.l	#8-1,d0			* Y方向ループカウンタ(8ライン)
+3:	move.b	(a0)+,d1		* d1 = フォントデータ
 
-	moveq.l	#DRAWWIDTH_GR-1,d4	*  X�������[�v�J�E���^(8�h�b�g)
-2:	lsl.b	#1,d1			* �ŏ�ʃr�b�g�𑗂�o��
-	bcc	1f			* �ŏ�ʃr�b�g���P�łȂ���Ύ���	
-	move.w	d2,(a1)+		* �O�i�F��\��
+	moveq.l	#DRAWWIDTH_GR-1,d4	*  X方向ループカウンタ(8ドット)
+2:	lsl.b	#1,d1			* 最上位ビットを送り出す
+	bcc	1f			* 最上位ビットが１でなければ次へ	
+	move.w	d2,(a1)+		* 前景色を表示
 	bra	@f
-1:	move.w	d3,(a1)+		* �w�i�F��\��
+1:	move.w	d3,(a1)+		* 背景色を表示
 @@:	dbra	d4,2b
 
-	; ���̃��C����
-	adda.l	#1024-(DRAWWIDTH_GR*2),a1	* �P���C��������
+	; 次のラインへ
+	adda.l	#1024-(DRAWWIDTH_GR*2),a1	* １ライン下げる
 	dbra	d0,3b
 
-	; ��E�̕�����
-	suba.l	#1024*8-(DRAWWIDTH_GR*2),a1	* gram_add �����̕����̈ʒu���w���悤�ɍX�V
+	; 一つ右の文字へ
+	suba.l	#1024*8-(DRAWWIDTH_GR*2),a1	* gram_add が次の文字の位置を指すように更新
 	move.l	a1,d0
-	andi.w	#$01ff,d0		* ���s�������ǂ����̃`�F�b�N
+	andi.w	#$01ff,d0		* 改行したかどうかのチェック
 	bne	@f
-	adda.l	#1024*8-256*2,a1	* �E�[�܂ŒB�����ꍇ�́A�����512��x=256�̈ʒu�ɂ���̂ŁA7.5�s������
+	adda.l	#1024*8-256*2,a1	* 右端まで達した場合は、実画面512のx=256の位置にいるので、7.5行下げる
 @@:	move.l	a1,offset_ms_vdp_gram_addr(a5)
 	move.l	(sp)+,d4
 	rts
@@ -2392,103 +2392,103 @@ w_GRAPHIC2_mac:
 	movem.l	d1-d3/a0-a5,-(sp)
 
 	move.l	8(a6),d1
-	movea.l	ms_vdp_shared,a5		* ms_vdp_t �ւ̃|�C���^���擾
+	movea.l	ms_vdp_shared,a5		* ms_vdp_t へのポインタを取得
 	movea.l	offset_ms_vdp_vram(a5),a0
-	move.l	offset_ms_vdp_vram_addr(a5),d0			* D0 �E�E�������ރA�h���X
-	.if DIFFDRAW=1 ;�����`��̎���
+	move.l	offset_ms_vdp_vram_addr(a5),d0			* D0 ・・書き込むアドレス
+	.if DIFFDRAW=1 ;差分描画の実験
 	move.b	0(a0,d0.l),d2
 	sub.b	d1,d2
-	move.b	d2,-2(a6)			* �����t���O���Z�b�g
+	move.b	d2,-2(a6)			* 差分フラグをセット
 	.endif
-	move.b	(a0,d0.l),-4(a6)		* �ȑO�̒l��ۑ�
-	move.b	d1,(a0,d0.l)			* VRAM �֏�������
+	move.b	(a0,d0.l),-4(a6)		* 以前の値を保存
+	move.b	d1,(a0,d0.l)			* VRAM へ書き込み
 
-; sprattrtbl_baddr�ƈ�v���Ă�����X�v���C�g�A�g���r���[�g�e�[�u���ւ̏�������
-	andi.w	#%11111111_10000000,d0		* ����7�r�b�g���N���A
+; sprattrtbl_baddrと一致していたらスプライトアトリビュートテーブルへの書き込み
+	andi.w	#%11111111_10000000,d0		* 下位7ビットをクリア
 	move.l	offset_ms_vdp_sprattrtbl_baddr(a5),d2
 	andi.w	#%11111111_10000000,d2
 	cmp.l	d2,d0
 	bne	@f
 
-	.if DIFFDRAW=1 ;���������鎞�̂ݏ�������
-	cmp.b	#0,-2(a6)			* �����t���O���`�F�b�N
+	.if DIFFDRAW=1 ;差分がある時のみ書き込み
+	cmp.b	#0,-2(a6)			* 差分フラグをチェック
 	beq	9f
 	.endif
 
-	move.b	-4(a6),d0			* �ȑO�̒l���擾
-	bsr	w_SP_attr			* �X�v���C�g�A�g���r���[�g�e�[�u���ւ̏�������
+	move.b	-4(a6),d0			* 以前の値を取得
+	bsr	w_SP_attr			* スプライトアトリビュートテーブルへの書き込み
 
-	bra	9f	; �e�[�u�����d�Ȃ��Ă���ꍇ�����肤��̂Ŗ{���̓X�L�b�v���Ă͂����Ȃ��̂����c�c
+	bra	9f	; テーブルが重なっている場合もありうるので本当はスキップしてはいけないのだが……
 
-; offset_ms_vdp_pnametbl_baddr(a5)�ƈ�v���Ă�����p�^�[���l�[���e�[�u���ւ̏�������
-@@:	andi.w	#%11111100_00000000,d0		* ����10�r�b�g���N���A
+; offset_ms_vdp_pnametbl_baddr(a5)と一致していたらパターンネームテーブルへの書き込み
+@@:	andi.w	#%11111100_00000000,d0		* 下位10ビットをクリア
 	move.l	offset_ms_vdp_pnametbl_baddr(a5),d2
 	andi.w	#%11111100_00000000,d2
 	cmp.l	d2,d0
 	bne	@f
 
-	.if DIFFDRAW=1 ;���������鎞�̂ݏ�������
-	cmp.b	#0,-2(a6)			* �����t���O���`�F�b�N
+	.if DIFFDRAW=1 ;差分がある時のみ書き込み
+	cmp.b	#0,-2(a6)			* 差分フラグをチェック
 	beq	9f
 	.endif
 
-	move.b	-4(a6),d0			* �ȑO�̒l���擾
-	bsr	w_p_name_GR2			* �p�^�[���l�[���e�[�u���ւ̏�������
+	move.b	-4(a6),d0			* 以前の値を取得
+	bsr	w_p_name_GR2			* パターンネームテーブルへの書き込み
 
-	bra	9f	; �e�[�u�����d�Ȃ��Ă���ꍇ�����肤��̂Ŗ{���̓X�L�b�v���Ă͂����Ȃ��̂����c�c
+	bra	9f	; テーブルが重なっている場合もありうるので本当はスキップしてはいけないのだが……
 
-; sprpatgentbl_baddr�ƈ�v���Ă�����X�v���C�g�p�^�[���W�F�l���[�^�e�[�u���ւ̏�������
-@@:	andi.w	#%11111000_00000000,d0		* ����11�r�b�g���N���A
+; sprpatgentbl_baddrと一致していたらスプライトパターンジェネレータテーブルへの書き込み
+@@:	andi.w	#%11111000_00000000,d0		* 下位11ビットをクリア
 	move.l	offset_ms_vdp_sprpgentbl_baddr(a5),d2
 	andi.w	#%11111000_00000000,d2
 	cmp.l	d2,d0
 	bne	@f
 
-	.if DIFFDRAW=1 ;���������鎞�̂ݏ�������
-	cmp.b	#0,-2(a6)			* �����t���O���`�F�b�N
+	.if DIFFDRAW=1 ;差分がある時のみ書き込み
+	cmp.b	#0,-2(a6)			* 差分フラグをチェック
 	beq	9f
 	.endif
 
-	move.b	-4(a6),d0			* �ȑO�̒l���擾
-	bsr	w_SP_p_gene			* �X�v���C�g�p�^�[���W�F�l���[�^�e�[�u���ւ̏�������
+	move.b	-4(a6),d0			* 以前の値を取得
+	bsr	w_SP_p_gene			* スプライトパターンジェネレータテーブルへの書き込み
 
-	bra	9f	; �e�[�u�����d�Ȃ��Ă���ꍇ�����肤��̂Ŗ{���̓X�L�b�v���Ă͂����Ȃ��̂����c�c
+	bra	9f	; テーブルが重なっている場合もありうるので本当はスキップしてはいけないのだが……
 
-; pgentbl_baddr �ƈ�v���Ă�����p�^�[���W�F�l���[�^�e�[�u���ւ̏�������
-@@:	andi.w	#%11100000_00000000,d0		* ����13�r�b�g���N���A
+; pgentbl_baddr と一致していたらパターンジェネレータテーブルへの書き込み
+@@:	andi.w	#%11100000_00000000,d0		* 下位13ビットをクリア
 	move.l	offset_ms_vdp_pgentbl_baddr(a5),d2
 	andi.w	#%11100000_00000000,d2
 	cmp.l	d2,d0
 	bne	@f
 
-	.if DIFFDRAW=1 ;���������鎞�̂ݏ�������
-	cmp.b	#0,-2(a6)			* �����t���O���`�F�b�N
+	.if DIFFDRAW=1 ;差分がある時のみ書き込み
+	cmp.b	#0,-2(a6)			* 差分フラグをチェック
 	beq	9f
 	.endif
 
-	move.b	-4(a6),d0			* �ȑO�̒l���擾
-	bsr	w_p_gene_GR2			* �p�^�[���W�F�l���[�^�e�[�u���ւ̏�������
+	move.b	-4(a6),d0			* 以前の値を取得
+	bsr	w_p_gene_GR2			* パターンジェネレータテーブルへの書き込み
 
-	bra	9f	; �e�[�u�����d�Ȃ��Ă���ꍇ�����肤��̂Ŗ{���̓X�L�b�v���Ă͂����Ȃ��̂����c�c
+	bra	9f	; テーブルが重なっている場合もありうるので本当はスキップしてはいけないのだが……
 
-; colortbl_baddr�ƈ�v���Ă�����J���[�e�[�u���ւ̏�������
+; colortbl_baddrと一致していたらカラーテーブルへの書き込み
 @@:	move.l	offset_ms_vdp_colortbl_baddr(a5),d2
 	andi.w	#%11100000_00000000,d2
 	cmp.l	d2,d0
 	bne	@f
 
-	.if DIFFDRAW=1 ;���������鎞�̂ݏ�������
-	cmp.b	#0,-2(a6)			* �����t���O���`�F�b�N
+	.if DIFFDRAW=1 ;差分がある時のみ書き込み
+	cmp.b	#0,-2(a6)			* 差分フラグをチェック
 	beq	9f
 	.endif
 
-	move.b	-4(a6),d0			* �ȑO�̒l���擾
-	bsr	w_color_GR2			* �J���[�e�[�u���ւ̏�������
+	move.b	-4(a6),d0			* 以前の値を取得
+	bsr	w_color_GR2			* カラーテーブルへの書き込み
 
-@@:	* VRAM�������݃A�h���X���C���N�������g
+@@:	* VRAM書き込みアドレスをインクリメント
 9:	move.l	offset_ms_vdp_vram_addr(a5),d0
 	move.w	d0,d2
-	addq.w	#1,d2				* ��ʃ��[�h�͕ω����Ȃ����烏�[�h�łn�j
+	addq.w	#1,d2				* 上位ワードは変化しないからワードでＯＫ
 	andi.w	#%00111111_11111111,d2
 	andi.w	#%11000000_00000000,d0
 	or.w	d2,d0
@@ -2498,58 +2498,58 @@ w_GRAPHIC2_mac:
 	unlk	a6
 	rts
 
-* �X�v���C�g�A�g���r���[�g�e�[�u���ւ̏�������
-* d0.b �E�E�E �ȑO�̒l
-* d1.b �E�E�E �������܂ꂽ�l
+* スプライトアトリビュートテーブルへの書き込み
+* d0.b ・・・ 以前の値
+* d1.b ・・・ 書き込まれた値
 w_SP_attr:
 	movem.l	d0-d2,-(sp)
 	and.l	#$ff,d0
 	and.l	#$ff,d1
-	move.l	d0,-(sp)			* ��4���� �ȑO�̒l
-	move.l	d1,-(sp)			* ��3���� �������܂ꂽ�l
-	movea.l	ms_vdp_shared,a5		* ms_vdp_t �ւ̃|�C���^���擾
+	move.l	d0,-(sp)			* 第4引数 以前の値
+	move.l	d1,-(sp)			* 第3引数 書き込まれた値
+	movea.l	ms_vdp_shared,a5		* ms_vdp_t へのポインタを取得
 	move.l	offset_ms_vdp_vram_addr(a5),d0
 	sub.l	offset_ms_vdp_sprattrtbl_baddr(a5),d0
-	move.l	d0,-(sp)			* ��2���� �I�t�Z�b�g
-	move.l	ms_vdp_shared,-(sp)		* ��1���� �\���̂̃A�h���X
+	move.l	d0,-(sp)			* 第2引数 オフセット
+	move.l	ms_vdp_shared,-(sp)		* 第1引数 構造体のアドレス
 	jsr	_write_sprite_attribute
 	lea.l	16(sp),sp
 	movem.l	(sp)+,d0-d2
 	rts
 
-* �X�v���C�g�J���[�e�[�u���ւ̏�������
-* d0.b �E�E�E �ȑO�̒l
-* d1.b �E�E�E �������܂ꂽ�l
+* スプライトカラーテーブルへの書き込み
+* d0.b ・・・ 以前の値
+* d1.b ・・・ 書き込まれた値
 w_SP_color:
 	movem.l	d0-d2,-(sp)
 	and.l	#$ff,d0
 	and.l	#$ff,d1
-	move.l	d0,-(sp)			* ��4���� �ȑO�̒l
-	move.l	d1,-(sp)			* ��3���� �������܂ꂽ�l
-	movea.l	ms_vdp_shared,a5		* ms_vdp_t �ւ̃|�C���^���擾
+	move.l	d0,-(sp)			* 第4引数 以前の値
+	move.l	d1,-(sp)			* 第3引数 書き込まれた値
+	movea.l	ms_vdp_shared,a5		* ms_vdp_t へのポインタを取得
 	move.l	offset_ms_vdp_vram_addr(a5),d0
 	sub.l	offset_ms_vdp_sprcolrtbl_baddr(a5),d0
-	move.l	d0,-(sp)			* ��2���� �I�t�Z�b�g
-	move.l	ms_vdp_shared,-(sp)		* ��1���� �\���̂̃A�h���X
+	move.l	d0,-(sp)			* 第2引数 オフセット
+	move.l	ms_vdp_shared,-(sp)		* 第1引数 構造体のアドレス
 	jsr	_write_sprite_color
 	lea.l	16(sp),sp
 	movem.l	(sp)+,d0-d2
 	rts
 
-* �X�v���C�g�p�^�[���W�F�l���[�^�e�[�u���ւ̏�������
-* d0.b �E�E�E �ȑO�̒l
-* d1.b �E�E�E �������܂ꂽ�l
+* スプライトパターンジェネレータテーブルへの書き込み
+* d0.b ・・・ 以前の値
+* d1.b ・・・ 書き込まれた値
 w_SP_p_gene:
 	movem.l	d0-d2,-(sp)
 	and.l	#$ff,d0
 	and.l	#$ff,d1
-	move.l	d0,-(sp)			* ��4���� �ȑO�̒l
-	move.l	d1,-(sp)			* ��3���� �������܂ꂽ�l
-	movea.l	ms_vdp_shared,a5		* ms_vdp_t �ւ̃|�C���^���擾
+	move.l	d0,-(sp)			* 第4引数 以前の値
+	move.l	d1,-(sp)			* 第3引数 書き込まれた値
+	movea.l	ms_vdp_shared,a5		* ms_vdp_t へのポインタを取得
 	move.l	offset_ms_vdp_vram_addr(a5),d0
-	sub.l	offset_ms_vdp_sprpgentbl_baddr(a5),d0			* �I�t�Z�b�g
-	move.l	d0,-(sp)			* ��2���� �I�t�Z�b�g
-	move.l	ms_vdp_shared,-(sp)		* ��1���� �\���̂̃A�h���X
+	sub.l	offset_ms_vdp_sprpgentbl_baddr(a5),d0			* オフセット
+	move.l	d0,-(sp)			* 第2引数 オフセット
+	move.l	ms_vdp_shared,-(sp)		* 第1引数 構造体のアドレス
 	jsr	_write_sprite_pattern
 	lea.l	16(sp),sp
 	movem.l	(sp)+,d0-d2
@@ -2557,114 +2557,114 @@ w_SP_p_gene:
 
 
 w_color_GR2:
-	move.w	#4,rewrite_screen	* �Z�b�g������ʃ��[�h������
+	move.w	#4,rewrite_screen	* セットした画面モードを入れる
 
-	movea.l	ms_vdp_shared,a5	* ms_vdp_t �ւ̃|�C���^���擾
+	movea.l	ms_vdp_shared,a5	* ms_vdp_t へのポインタを取得
 	move.l	offset_ms_vdp_vram_addr(a5),d1
 	andi.w	#%00011111_11111111,d1
-	cmpi.w	#%00011000_00000000,d1	* �J���[�e�[�u���̒�����0x17ff�܂łȂ̂ŁA0x1800�ȏ�͖��� TODO: 192���C���̏ꍇ�̘b�Ȃ̂ŁA212���C���̎��͗v����
+	cmpi.w	#%00011000_00000000,d1	* カラーテーブルの長さは0x17ffまでなので、0x1800以上は無視 TODO: 192ラインの場合の話なので、212ラインの時は要検討
 	bcc	@f
 	andi.w	#%00000111_11111111,d1
-	lsr.w	#3,d1			* d1 �E�E �����ւ����L�����N�^�[�ԍ��O�`�Q�T�T TODO: �u���b�N�ԍ���ׂ��Ă���̂Ńu���b�N���l������悤�ɂ�����
+	lsr.w	#3,d1			* d1 ・・ 書き替えたキャラクター番号０～２５５ TODO: ブロック番号を潰しているのでブロックも考慮するようにしたい
 	move.w	d1,d2
 	andi.l	#%00000000_00011111,d2
 	lsr.w	#5,d1
 	lea.l	rewrite_f_0,a0
-	move.l	(a0,d1.w*4),d0		* rewrite_f_n ��ǂݍ���
+	move.l	(a0,d1.w*4),d0		* rewrite_f_n を読み込み
 	bset.l	d2,d0
-	move.l	d0,(a0,d1.w*4)		* rewrite_f_n �֏�������
+	move.l	d0,(a0,d1.w*4)		* rewrite_f_n へ書き込み
 @@:	rts	
 
 w_p_gene_GR2:
-	move.w	#4,rewrite_screen	* �Z�b�g������ʃ��[�h������
+	move.w	#4,rewrite_screen	* セットした画面モードを入れる
 
-	movea.l	ms_vdp_shared,a5	* ms_vdp_t �ւ̃|�C���^���擾
+	movea.l	ms_vdp_shared,a5	* ms_vdp_t へのポインタを取得
 	move.l	offset_ms_vdp_vram_addr(a5),d1
 	andi.l	#%00011111_11111111,d1	
-	cmpi.w	#%00011000_00000000,d1	* �p�^�[���W�F�l���[�^�e�[�u���̒�����0x17ff�܂łȂ̂ŁA0x1800�ȏ�͖��� TODO: 192���C���̏ꍇ�̘b�Ȃ̂ŁA212���C���̎��͗v����
+	cmpi.w	#%00011000_00000000,d1	* パターンジェネレータテーブルの長さは0x17ffまでなので、0x1800以上は無視 TODO: 192ラインの場合の話なので、212ラインの時は要検討
 	bcc	@f
 	andi.w	#%00000111_11111111,d1
-	lsr.w	#3,d1			* d1 �E�E �����ւ����L�����N�^�[�ԍ��O�`�Q�T�T TODO: �u���b�N�ԍ���ׂ��Ă���̂Ńu���b�N���l������悤�ɂ�����
+	lsr.w	#3,d1			* d1 ・・ 書き替えたキャラクター番号０～２５５ TODO: ブロック番号を潰しているのでブロックも考慮するようにしたい
 	move.w	d1,d2
 	andi.l	#%00000000_00011111,d2
 	lsr.w	#5,d1
 	lea.l	rewrite_f_0,a0
-	move.l	0(a0,d1.w*4),d0		* rewrite_f_n ��ǂݍ���
+	move.l	0(a0,d1.w*4),d0		* rewrite_f_n を読み込み
 	bset.l	d2,d0
-	move.l	d0,0(a0,d1.w*4)		* rewrite_f_n �֏�������
+	move.l	d0,0(a0,d1.w*4)		* rewrite_f_n へ書き込み
 @@:	rts	
 
 *
-*	�����L�����N�^�\��
+*	文字キャラクタ表示
 *
-*	a0.l �E�E�E VRAM�̂���A�h���X(X68000��)
-*	d1.b �E�E�E �L�����N�^�R�[�h 0 �` 255
+*	a0.l ・・・ VRAMのあるアドレス(X68000上)
+*	d1.b ・・・ キャラクタコード 0 ～ 255
 *
-* (�Ԃ�l)
-*	d1,d2,d3,a0 �E�E�E �j��
-*	a1 �E�E�E�E ���ɕ\������f�q�`�l�A�h���X
+* (返り値)
+*	d1,d2,d3,a0 ・・・ 破壊
+*	a1 ・・・・ 次に表示するＧＲＡＭアドレス
 *
 w_p_name_GR2:
-	movea.l	ms_vdp_shared,a5		* ms_vdp_t �ւ̃|�C���^���擾
+	movea.l	ms_vdp_shared,a5		* ms_vdp_t へのポインタを取得
 	move.l	d4,-(sp)
 
-	.if DIFFDRAW=1 ;�����`��̎���
+	.if DIFFDRAW=1 ;差分描画の実験
 	move.l	d1,-(sp)
 	move.l	offset_ms_vdp_vram_addr(a5),d1
 	bsr	s_GRAPHIC2
 	move.l	(sp)+,d1
 	.endif
 
-	movea.l	offset_ms_vdp_gram_addr(a5),a1	* a1.l �E�E�E �\������f�q�`�l�A�h���X
+	movea.l	offset_ms_vdp_gram_addr(a5),a1	* a1.l ・・・ 表示するＧＲＡＭアドレス
 
-	move.l	offset_ms_vdp_vram_addr(a5),d0	* D0 �E�E�������ރA�h���X
-	andi.l	#%00000011_00000000,d0		* d0.l �E�E�������ރu���b�N �~ 0x100
-	lsl.l	#3,d0				* d0.l �E�E�������ރu���b�N �~ 0x800
+	move.l	offset_ms_vdp_vram_addr(a5),d0	* D0 ・・書き込むアドレス
+	andi.l	#%00000011_00000000,d0		* d0.l ・・書き込むブロック × 0x100
+	lsl.l	#3,d0				* d0.l ・・書き込むブロック × 0x800
 
-	move.l	offset_ms_vdp_colortbl_baddr(a5),d3	* d3 = �J���[�e�[�u���x�[�X�A�h���X
+	move.l	offset_ms_vdp_colortbl_baddr(a5),d3	* d3 = カラーテーブルベースアドレス
 	andi.w	#%11100000_00000000,d3
 	clr.l	d2
 	move.b	d1,d2
-	lsl.w	#3,d2			* �L�����N�^�ԍ�*8
-	add.l	d0,d2			* d2 = �u���b�N�ԍ�*0x800 + �L�����N�^�ԍ�*8
+	lsl.w	#3,d2			* キャラクタ番号*8
+	add.l	d0,d2			* d2 = ブロック番号*0x800 + キャラクタ番号*8
 	add.l	d2,d3
-	lea.l	0(a0,d3.l),a2		* a2 = �\������L�����̃J���[�e�[�u���A�h���X
+	lea.l	0(a0,d3.l),a2		* a2 = 表示するキャラのカラーテーブルアドレス
 
-	move.l	offset_ms_vdp_pgentbl_baddr(a5),d3	* d3 = �p�^�[���W�F�l���[�^�e�[�u���A�h���X
+	move.l	offset_ms_vdp_pgentbl_baddr(a5),d3	* d3 = パターンジェネレータテーブルアドレス
 	andi.w	#%11100000_00000000,d3
 	add.l	d2,d3
-	lea.l	0(a0,d3.l),a0		* a0 = �\������t�H���g�̃A�h���X
+	lea.l	0(a0,d3.l),a0		* a0 = 表示するフォントのアドレス
 
-	moveq.l	#8-1,d0			* Y�������[�v�J�E���^(8���C��)
-3:	move.b	(a0)+,d1		* d1 = �t�H���g�f�[�^
-	move.b	(a2)+,d2		* �J���[�e�[�u������F���擾 d2: �O�i�F d3: �w�i�F
+	moveq.l	#8-1,d0			* Y方向ループカウンタ(8ライン)
+3:	move.b	(a0)+,d1		* d1 = フォントデータ
+	move.b	(a2)+,d2		* カラーテーブルから色を取得 d2: 前景色 d3: 背景色
 	move.w	d2,d3
-	lsr.w	#4,d2			* �O�i�F
+	lsr.w	#4,d2			* 前景色
 	bne	@f
 	move.w	#0,d2
-@@:	andi.w	#%00001111,d3		* �w�i�F
+@@:	andi.w	#%00001111,d3		* 背景色
 	bne	@f
 	;move.w	offset_ms_vdp_back_color(a5),d3
 	move.w	#0,d3
 @@:
-	moveq.l	#DRAWWIDTH_GR-1,d4	* X�������[�v�J�E���^(8�h�b�g)
-2:	lsl.b	#1,d1			* �ŏ�ʃr�b�g�𑗂�o��
-	bcc	1f			* �ŏ�ʃr�b�g���P�łȂ���Ύ���	
-	move.w	d2,(a1)+		* �O�i�F��\��
+	moveq.l	#DRAWWIDTH_GR-1,d4	* X方向ループカウンタ(8ドット)
+2:	lsl.b	#1,d1			* 最上位ビットを送り出す
+	bcc	1f			* 最上位ビットが１でなければ次へ	
+	move.w	d2,(a1)+		* 前景色を表示
 	bra	@f
-1:	move.w	d3,(a1)+		* �w�i�F��\��
+1:	move.w	d3,(a1)+		* 背景色を表示
 @@:	dbra	d4,2b
 
-	; ���̃��C����
+	; 次のラインへ
 	adda.l	#1024-(DRAWWIDTH_GR*2),a1
 	dbra	d0,3b
 
-	; ��E�̕�����
-	suba.l	#1024*8-(DRAWWIDTH_GR*2),a1	* gram_add �̍X�V
+	; 一つ右の文字へ
+	suba.l	#1024*8-(DRAWWIDTH_GR*2),a1	* gram_add の更新
 	move.l	a1,d0
-	andi.w	#$01ff,d0		* ���s�������̃`�F�b�N
+	andi.w	#$01ff,d0		* 改行したかのチェック
 	bne	@f
-	adda.l	#1024*8-256*2,a1	* �E�[�܂ŒB�����ꍇ�́A�����512��x=256�̈ʒu�ɂ���̂ŁA7.5�s������
+	adda.l	#1024*8-256*2,a1	* 右端まで達した場合は、実画面512のx=256の位置にいるので、7.5行下げる
 @@:	move.l	a1,offset_ms_vdp_gram_addr(a5)
 
 	move.l	(sp)+,d4
@@ -2678,84 +2678,84 @@ w_GRAPHIC4_mac:
 	link	a6,#-4
 	movem.l	d1-d3/a0-a5,-(sp)
 
-	movea.l	ms_vdp_shared,a5		* ms_vdp_t �ւ̃|�C���^���擾
+	movea.l	ms_vdp_shared,a5		* ms_vdp_t へのポインタを取得
 
-	; GRAM�A�h���X�Čv�Z �i�f�o�b�O�p�j
+	; GRAMアドレス再計算 （デバッグ用）
 	move.l	offset_ms_vdp_vram_addr(a5),d1
 	bsr	s_GRAPHIC4
 
-	move.l	8(a6),d1			* d1 : ����(�������ޒl)���擾
+	move.l	8(a6),d1			* d1 : 引数(書き込む値)を取得
 
 	movea.l	offset_ms_vdp_vram(a5),a0
-	move.l	offset_ms_vdp_vram_addr(a5),d0	* D0 �E�E�������ރA�h���X
+	move.l	offset_ms_vdp_vram_addr(a5),d0	* D0 ・・書き込むアドレス
 	move.b	(a0,d0.l),d2
-	.if DIFFDRAW=1 ;�����`��̎���
+	.if DIFFDRAW=1 ;差分描画の実験
 	cmp.b	d1,d2
 	bne	@f
-	lea	4(a0),a0			* GRAM�A�h���X�C���N�������g
+	lea	4(a0),a0			* GRAMアドレスインクリメント
 	bra	8f
 	.endif
-@@:	move.b	d2,-4(a6)		* �ȑO�̒l��ۑ�
+@@:	move.b	d2,-4(a6)		* 以前の値を保存
 
-; GRAM��������
-	move.b	d1,(a0,d0.l)			* VRAM �֏�������
+; GRAM書き換え
+	move.b	d1,(a0,d0.l)			* VRAM へ書き込み
 	movea.l	offset_ms_vdp_gram_addr(a5),a0
 	move.b	d1,d2
 	lsr.w	#4,d2
-	move.w	d2,(a0)				* ���4�r�b�g
-	move.w	d2,1024*256(a0)			* �~���X�N���[���Ή�
-	move.w	d1,2(a0)			* ����4�r�b�g
-	move.w	d1,1024*256+2(a0)		* �~���X�N���[���Ή�
+	move.w	d2,(a0)				* 上位4ビット
+	move.w	d2,1024*256(a0)			* 円筒スクロール対応
+	move.w	d1,2(a0)			* 下位4ビット
+	move.w	d1,1024*256+2(a0)		* 円筒スクロール対応
 
-@@:	lea	4(a0),a0			* GRAM�A�h���X�C���N�������g
+@@:	lea	4(a0),a0			* GRAMアドレスインクリメント
 	move.l	a0,-(sp)
 
-; sprattrtbl_baddr�ƈ�v���Ă�����X�v���C�g�A�g���r���[�g�e�[�u���ւ̏�������
-	andi.w	#%11111111_10000000,d0		* ����7�r�b�g���N���A
+; sprattrtbl_baddrと一致していたらスプライトアトリビュートテーブルへの書き込み
+	andi.w	#%11111111_10000000,d0		* 下位7ビットをクリア
 	move.l	offset_ms_vdp_sprattrtbl_baddr(a5),d2
 	andi.w	#%11111111_10000000,d2
 	cmp.l	d2,d0
 	bne	@f
 
-	move.b	-4(a6),d0			* �ȑO�̒l���擾
-	bsr	w_SP_attr			* �X�v���C�g�A�g���r���[�g�e�[�u���ւ̏�������
+	move.b	-4(a6),d0			* 以前の値を取得
+	bsr	w_SP_attr			* スプライトアトリビュートテーブルへの書き込み
 
-	bra	9f	; �e�[�u�����d�Ȃ��Ă���ꍇ�����肤��̂Ŗ{���̓X�L�b�v���Ă͂����Ȃ��̂����c�c
+	bra	9f	; テーブルが重なっている場合もありうるので本当はスキップしてはいけないのだが……
 
-; sprcolrtbl_baddr�ƈ�v���Ă�����X�v���C�g�J���[�e�[�u���ւ̏�������
-@@:	andi.w	#%11111110_00000000,d0		* ����9�r�b�g���N���A
+; sprcolrtbl_baddrと一致していたらスプライトカラーテーブルへの書き込み
+@@:	andi.w	#%11111110_00000000,d0		* 下位9ビットをクリア
 	move.l	offset_ms_vdp_sprcolrtbl_baddr(a5),d2
 	andi.w	#%11111110_00000000,d2
 	cmp.l	d2,d0
 	bne	@f
 
-	move.b	-4(a6),d0			* �ȑO�̒l���擾
-	bsr	w_SP_color			* �X�v���C�g�J���[�e�[�u���ւ̏�������
+	move.b	-4(a6),d0			* 以前の値を取得
+	bsr	w_SP_color			* スプライトカラーテーブルへの書き込み
 
-	bra	9f	; �e�[�u�����d�Ȃ��Ă���ꍇ�����肤��̂Ŗ{���̓X�L�b�v���Ă͂����Ȃ��̂����c�c
+	bra	9f	; テーブルが重なっている場合もありうるので本当はスキップしてはいけないのだが……
 
-; sprpatgentbl_baddr�ƈ�v���Ă�����X�v���C�g�p�^�[���W�F�l���[�^�e�[�u���ւ̏�������
-@@:	andi.w	#%11111000_00000000,d0		* ����11�r�b�g���N���A
+; sprpatgentbl_baddrと一致していたらスプライトパターンジェネレータテーブルへの書き込み
+@@:	andi.w	#%11111000_00000000,d0		* 下位11ビットをクリア
 	move.l	offset_ms_vdp_sprpgentbl_baddr(a5),d2
 	andi.w	#%11111000_00000000,d2
 	cmp.l	d2,d0
 	bne	@f
 
-	move.b	-4(a6),d0			* �ȑO�̒l���擾
-	bsr	w_SP_p_gene			* �X�v���C�g�p�^�[���W�F�l���[�^�e�[�u���ւ̏�������
+	move.b	-4(a6),d0			* 以前の値を取得
+	bsr	w_SP_p_gene			* スプライトパターンジェネレータテーブルへの書き込み
 
-	bra	9f	; �e�[�u�����d�Ȃ��Ă���ꍇ�����肤��̂Ŗ{���̓X�L�b�v���Ă͂����Ȃ��̂����c�c
+	bra	9f	; テーブルが重なっている場合もありうるので本当はスキップしてはいけないのだが……
 
-@@:	* VRAM�������݃A�h���X���C���N�������g
+@@:	* VRAM書き込みアドレスをインクリメント
 9:	move.l	(sp)+,a0
 
 8:	move.l	offset_ms_vdp_vram_addr(a5),d1
-	addq.l	#1,d1				* �C���N�������g	
+	addq.l	#1,d1				* インクリメント	
 	andi.l	#%00000001_11111111_11111111,d1
 	move.l	d1,offset_ms_vdp_vram_addr(a5)
-	andi.w	#%00000000_00000000_01111111,d1	* ���C�����E���܂�������
+	andi.w	#%00000000_00000000_01111111,d1	* ライン境界をまたいだか
 	bne	@f
-	lea.l	512*2-256*2(a0),a0		* ���̃��C����
+	lea.l	512*2-256*2(a0),a0		* 次のラインへ
 @@:	move.l	a0,offset_ms_vdp_gram_addr(a5)
 
 	movem.l	(sp)+,d1-d3/a0-a5
@@ -2766,27 +2766,27 @@ w_GRAPHIC5_mac:
 	link	a6,#-4
 	movem.l	d1-d3/a0-a5,-(sp)
 
-	movea.l	ms_vdp_shared,a5		* ms_vdp_t �ւ̃|�C���^���擾
-	; GRAM�A�h���X�Čv�Z �i�f�o�b�O�p�j
+	movea.l	ms_vdp_shared,a5		* ms_vdp_t へのポインタを取得
+	; GRAMアドレス再計算 （デバッグ用）
 	move.l	offset_ms_vdp_vram_addr(a5),d1
 	bsr	s_GRAPHIC5
 
-	move.l	8(a6),d1			* d1 : ����(�������ޒl)���擾
+	move.l	8(a6),d1			* d1 : 引数(書き込む値)を取得
 
 	movea.l	offset_ms_vdp_vram(a5),a0
-	move.l	offset_ms_vdp_vram_addr(a5),d0	* D0 �E�E�������ރA�h���X
-	.if DIFFDRAW=1 ;�����`��̎���
+	move.l	offset_ms_vdp_vram_addr(a5),d0	* D0 ・・書き込むアドレス
+	.if DIFFDRAW=1 ;差分描画の実験
 	move.b	(a0,d0.l),d2
 	sub.b	d1,d2
-	move.b	d2,-2(a6)			* �����t���O���Z�b�g
+	move.b	d2,-2(a6)			* 差分フラグをセット
 	.endif
-	move.b	(a0,d0.l),-4(a6)		* �ȑO�̒l��ۑ�
-	move.b	d1,(a0,d0.l)			* VRAM �֏�������
+	move.b	(a0,d0.l),-4(a6)		* 以前の値を保存
+	move.b	d1,(a0,d0.l)			* VRAM へ書き込み
 
-; GRAM��������
+; GRAM書き換え
 	movea.l	offset_ms_vdp_gram_addr(a5),a0
-	.if DIFFDRAW=1 ;���������鎞�̂ݏ�������
-	cmp.b	#0,-2(a6)			* �����t���O���`�F�b�N
+	.if DIFFDRAW=1 ;差分がある時のみ書き込み
+	cmp.b	#0,-2(a6)			* 差分フラグをチェック
 	beq	@f
 	.endif
 
@@ -2809,70 +2809,70 @@ w_GRAPHIC5_mac:
 	andi.w	#%00000011,d2
 	move.w	d2,6(a0)
 
-@@:	lea	8(a0),a0			* GRAM�A�h���X�C���N�������g
+@@:	lea	8(a0),a0			* GRAMアドレスインクリメント
 	move.l	a0,-(sp)
 
-; sprattrtbl_baddr�ƈ�v���Ă�����X�v���C�g�A�g���r���[�g�e�[�u���ւ̏�������
-	andi.w	#%11111111_10000000,d0		* ����7�r�b�g���N���A
+; sprattrtbl_baddrと一致していたらスプライトアトリビュートテーブルへの書き込み
+	andi.w	#%11111111_10000000,d0		* 下位7ビットをクリア
 	move.l	offset_ms_vdp_sprattrtbl_baddr(a5),d2
 	andi.w	#%11111111_10000000,d2
 	cmp.l	d2,d0
 	bne	@f
 
-	.if DIFFDRAW=1 ;���������鎞�̂ݏ�������
-	cmp.b	#0,-2(a6)			* �����t���O���`�F�b�N
+	.if DIFFDRAW=1 ;差分がある時のみ書き込み
+	cmp.b	#0,-2(a6)			* 差分フラグをチェック
 	beq	9f
 	.endif
 
-	move.b	-4(a6),d0			* �ȑO�̒l���擾
-	bsr	w_SP_attr			* �X�v���C�g�A�g���r���[�g�e�[�u���ւ̏�������
+	move.b	-4(a6),d0			* 以前の値を取得
+	bsr	w_SP_attr			* スプライトアトリビュートテーブルへの書き込み
 
-	bra	9f	; �e�[�u�����d�Ȃ��Ă���ꍇ�����肤��̂Ŗ{���̓X�L�b�v���Ă͂����Ȃ��̂����c�c
+	bra	9f	; テーブルが重なっている場合もありうるので本当はスキップしてはいけないのだが……
 
-; sprcolrtbl_baddr�ƈ�v���Ă�����X�v���C�g�J���[�e�[�u���ւ̏�������
-@@:	andi.w	#%11111110_00000000,d0		* ����9�r�b�g���N���A
+; sprcolrtbl_baddrと一致していたらスプライトカラーテーブルへの書き込み
+@@:	andi.w	#%11111110_00000000,d0		* 下位9ビットをクリア
 	move.l	offset_ms_vdp_sprcolrtbl_baddr(a5),d2
 	andi.w	#%11111110_00000000,d2
 	cmp.l	d2,d0
 	bne	@f
 
-	.if DIFFDRAW=1 ;���������鎞�̂ݏ�������
-	cmp.b	#0,-2(a6)			* �����t���O���`�F�b�N
+	.if DIFFDRAW=1 ;差分がある時のみ書き込み
+	cmp.b	#0,-2(a6)			* 差分フラグをチェック
 	beq	9f
 	.endif
 
-	move.b	-4(a6),d0			* �ȑO�̒l���擾
-	bsr	w_SP_color			* �X�v���C�g�J���[�e�[�u���ւ̏�������
+	move.b	-4(a6),d0			* 以前の値を取得
+	bsr	w_SP_color			* スプライトカラーテーブルへの書き込み
 
-	bra	9f	; �e�[�u�����d�Ȃ��Ă���ꍇ�����肤��̂Ŗ{���̓X�L�b�v���Ă͂����Ȃ��̂����c�c
+	bra	9f	; テーブルが重なっている場合もありうるので本当はスキップしてはいけないのだが……
 
-; sprpatgentbl_baddr�ƈ�v���Ă�����X�v���C�g�p�^�[���W�F�l���[�^�e�[�u���ւ̏�������
-@@:	andi.w	#%11111000_00000000,d0		* ����11�r�b�g���N���A
+; sprpatgentbl_baddrと一致していたらスプライトパターンジェネレータテーブルへの書き込み
+@@:	andi.w	#%11111000_00000000,d0		* 下位11ビットをクリア
 	move.l	offset_ms_vdp_sprpgentbl_baddr(a5),d2
 	andi.w	#%11111000_00000000,d2
 	cmp.l	d2,d0
 	bne	@f
 
-	.if DIFFDRAW=1 ;���������鎞�̂ݏ�������
-	cmp.b	#0,-2(a6)			* �����t���O���`�F�b�N
+	.if DIFFDRAW=1 ;差分がある時のみ書き込み
+	cmp.b	#0,-2(a6)			* 差分フラグをチェック
 	beq	9f
 	.endif
 
-	move.b	-4(a6),d0			* �ȑO�̒l���擾
-	bsr	w_SP_p_gene			* �X�v���C�g�p�^�[���W�F�l���[�^�e�[�u���ւ̏�������
+	move.b	-4(a6),d0			* 以前の値を取得
+	bsr	w_SP_p_gene			* スプライトパターンジェネレータテーブルへの書き込み
 
-	bra	9f	; �e�[�u�����d�Ȃ��Ă���ꍇ�����肤��̂Ŗ{���̓X�L�b�v���Ă͂����Ȃ��̂����c�c
+	bra	9f	; テーブルが重なっている場合もありうるので本当はスキップしてはいけないのだが……
 
-@@:	* VRAM�������݃A�h���X���C���N�������g
+@@:	* VRAM書き込みアドレスをインクリメント
 9:	move.l	(sp)+,a0
 
 	move.l	offset_ms_vdp_vram_addr(a5),d1
-	addq.l	#1,d1				* �C���N�������g	
+	addq.l	#1,d1				* インクリメント	
 	andi.l	#%00000001_11111111_11111111,d1
 	move.l	d1,offset_ms_vdp_vram_addr(a5)
-	andi.w	#%00000000_00000000_01111111,d1	* ���C�����E���܂�������
+	andi.w	#%00000000_00000000_01111111,d1	* ライン境界をまたいだか
 	bne	@f
-	lea.l	1024(a0),a0			* �ꃉ�C����΂�
+	lea.l	1024(a0),a0			* 一ライン飛ばす
 @@:	move.l	a0,offset_ms_vdp_gram_addr(a5)
 
 	movem.l	(sp)+,d1-d3/a0-a5
@@ -2883,100 +2883,100 @@ w_GRAPHIC6_mac:
 	link	a6,#-4
 	movem.l	d1-d3/a0-a5,-(sp)
 
-	movea.l	ms_vdp_shared,a5		* ms_vdp_t �ւ̃|�C���^���擾
+	movea.l	ms_vdp_shared,a5		* ms_vdp_t へのポインタを取得
 
-	; GRAM�A�h���X�Čv�Z �i�f�o�b�O�p�j
+	; GRAMアドレス再計算 （デバッグ用）
 	move.l	offset_ms_vdp_vram_addr(a5),d1
 	bsr	s_GRAPHIC6
 
-	move.l	8(a6),d1			* d1 : ����(�������ޒl)���擾
+	move.l	8(a6),d1			* d1 : 引数(書き込む値)を取得
 
 	movea.l	offset_ms_vdp_vram(a5),a0
-	move.l	offset_ms_vdp_vram_addr(a5),d0	* D0 �E�E�������ރA�h���X
-	.if DIFFDRAW=1 ;�����`��̎���
+	move.l	offset_ms_vdp_vram_addr(a5),d0	* D0 ・・書き込むアドレス
+	.if DIFFDRAW=1 ;差分描画の実験
 	move.b	(a0,d0.l),d2
 	sub.b	d1,d2
-	move.b	d2,-2(a6)			* �����t���O���Z�b�g
+	move.b	d2,-2(a6)			* 差分フラグをセット
 	.endif
-	move.b	(a0,d0.l),-4(a6)		* �ȑO�̒l��ۑ�
-	move.b	d1,(a0,d0.l)			* VRAM �֏�������
+	move.b	(a0,d0.l),-4(a6)		* 以前の値を保存
+	move.b	d1,(a0,d0.l)			* VRAM へ書き込み
 
-; GRAM��������
+; GRAM書き換え
 	movea.l	offset_ms_vdp_gram_addr(a5),a0
-	.if DIFFDRAW=1 ;���������鎞�̂ݏ�������
-	cmp.b	#0,-2(a6)			* �����t���O���`�F�b�N
+	.if DIFFDRAW=1 ;差分がある時のみ書き込み
+	cmp.b	#0,-2(a6)			* 差分フラグをチェック
 	beq	@f
 	.endif
 
 	move.b	d1,d2
 	lsr.w	#4,d2
-	move.w	d2,0(a0)			* ���4�r�b�g(�����s�N�Z��)�̏�������
-	move.w	d1,2(a0)			* ����4�r�b�g(�E���s�N�Z��)�̏�������
+	move.w	d2,0(a0)			* 上位4ビット(左側ピクセル)の書き込み
+	move.w	d1,2(a0)			* 下位4ビット(右側ピクセル)の書き込み
 
-@@:	lea	4(a0),a0			* GRAM�A�h���X�C���N�������g
+@@:	lea	4(a0),a0			* GRAMアドレスインクリメント
 	move.l	a0,-(sp)
 
-; sprattrtbl_baddr�ƈ�v���Ă�����X�v���C�g�A�g���r���[�g�e�[�u���ւ̏�������
-	andi.w	#%11111111_10000000,d0		* ����7�r�b�g���N���A
+; sprattrtbl_baddrと一致していたらスプライトアトリビュートテーブルへの書き込み
+	andi.w	#%11111111_10000000,d0		* 下位7ビットをクリア
 	move.l	offset_ms_vdp_sprattrtbl_baddr(a5),d2
 	andi.w	#%11111111_10000000,d2
 	cmp.l	d2,d0
 	bne	@f
 
-	.if DIFFDRAW=1 ;���������鎞�̂ݏ�������
-	cmp.b	#0,-2(a6)			* �����t���O���`�F�b�N
+	.if DIFFDRAW=1 ;差分がある時のみ書き込み
+	cmp.b	#0,-2(a6)			* 差分フラグをチェック
 	beq	9f
 	.endif
 
-	move.b	-4(a6),d0			* �ȑO�̒l���擾
-	bsr	w_SP_attr			* �X�v���C�g�A�g���r���[�g�e�[�u���ւ̏�������
+	move.b	-4(a6),d0			* 以前の値を取得
+	bsr	w_SP_attr			* スプライトアトリビュートテーブルへの書き込み
 
-	bra	9f	; �e�[�u�����d�Ȃ��Ă���ꍇ�����肤��̂Ŗ{���̓X�L�b�v���Ă͂����Ȃ��̂����c�c
+	bra	9f	; テーブルが重なっている場合もありうるので本当はスキップしてはいけないのだが……
 
-; sprcolrtbl_baddr�ƈ�v���Ă�����X�v���C�g�J���[�e�[�u���ւ̏�������
-@@:	andi.w	#%11111110_00000000,d0		* ����9�r�b�g���N���A
+; sprcolrtbl_baddrと一致していたらスプライトカラーテーブルへの書き込み
+@@:	andi.w	#%11111110_00000000,d0		* 下位9ビットをクリア
 	move.l	offset_ms_vdp_sprcolrtbl_baddr(a5),d2
 	andi.w	#%11111110_00000000,d2
 	cmp.l	d2,d0
 	bne	@f
 
-	.if DIFFDRAW=1 ;���������鎞�̂ݏ�������
-	cmp.b	#0,-2(a6)			* �����t���O���`�F�b�N
+	.if DIFFDRAW=1 ;差分がある時のみ書き込み
+	cmp.b	#0,-2(a6)			* 差分フラグをチェック
 	beq	9f
 	.endif
 
-	move.b	-4(a6),d0			* �ȑO�̒l���擾
-	bsr	w_SP_color			* �X�v���C�g�J���[�e�[�u���ւ̏�������
+	move.b	-4(a6),d0			* 以前の値を取得
+	bsr	w_SP_color			* スプライトカラーテーブルへの書き込み
 
-	bra	9f	; �e�[�u�����d�Ȃ��Ă���ꍇ�����肤��̂Ŗ{���̓X�L�b�v���Ă͂����Ȃ��̂����c�c
+	bra	9f	; テーブルが重なっている場合もありうるので本当はスキップしてはいけないのだが……
 
-; sprpatgentbl_baddr�ƈ�v���Ă�����X�v���C�g�p�^�[���W�F�l���[�^�e�[�u���ւ̏�������
-@@:	andi.w	#%11111000_00000000,d0		* ����11�r�b�g���N���A
+; sprpatgentbl_baddrと一致していたらスプライトパターンジェネレータテーブルへの書き込み
+@@:	andi.w	#%11111000_00000000,d0		* 下位11ビットをクリア
 	move.l	offset_ms_vdp_sprpgentbl_baddr(a5),d2
 	andi.w	#%11111000_00000000,d2
 	cmp.l	d2,d0
 	bne	@f
 
-	.if DIFFDRAW=1 ;���������鎞�̂ݏ�������
-	cmp.b	#0,-2(a6)			* �����t���O���`�F�b�N
+	.if DIFFDRAW=1 ;差分がある時のみ書き込み
+	cmp.b	#0,-2(a6)			* 差分フラグをチェック
 	beq	9f
 	.endif
 
-	move.b	-4(a6),d0			* �ȑO�̒l���擾
-	bsr	w_SP_p_gene			* �X�v���C�g�p�^�[���W�F�l���[�^�e�[�u���ւ̏�������
+	move.b	-4(a6),d0			* 以前の値を取得
+	bsr	w_SP_p_gene			* スプライトパターンジェネレータテーブルへの書き込み
 
-	bra	9f	; �e�[�u�����d�Ȃ��Ă���ꍇ�����肤��̂Ŗ{���̓X�L�b�v���Ă͂����Ȃ��̂����c�c
+	bra	9f	; テーブルが重なっている場合もありうるので本当はスキップしてはいけないのだが……
 
-@@:	* VRAM�������݃A�h���X���C���N�������g
+@@:	* VRAM書き込みアドレスをインクリメント
 9:	move.l	(sp)+,a0
 
 	move.l	offset_ms_vdp_vram_addr(a5),d1
-	addq.l	#1,d1				* �C���N�������g	
+	addq.l	#1,d1				* インクリメント	
 	andi.l	#%00000001_11111111_11111111,d1
 	move.l	d1,offset_ms_vdp_vram_addr(a5)
-	andi.w	#%00000000_00000000_11111111,d1	* ���C�����E���܂������� (GRAPHIC6��1���C��256�o�C�g)
+	andi.w	#%00000000_00000000_11111111,d1	* ライン境界をまたいだか (GRAPHIC6は1ライン256バイト)
 	bne	@f
-	lea.l	1024(a0),a0			* �ꃉ�C����΂�
+	lea.l	1024(a0),a0			* 一ライン飛ばす
 @@:	move.l	a0,offset_ms_vdp_gram_addr(a5)
 
 	movem.l	(sp)+,d1-d3/a0-a5
@@ -2987,97 +2987,97 @@ w_GRAPHIC7_mac:
 	link	a6,#-4
 	movem.l	d1-d3/a0-a5,-(sp)
 
-	movea.l	ms_vdp_shared,a5		* ms_vdp_t �ւ̃|�C���^���擾
+	movea.l	ms_vdp_shared,a5		* ms_vdp_t へのポインタを取得
 
-	; GRAM�A�h���X�Čv�Z �i�f�o�b�O�p�j
+	; GRAMアドレス再計算 （デバッグ用）
 	move.l	offset_ms_vdp_vram_addr(a5),d1
 	bsr	s_GRAPHIC7
 
-	move.l	8(a6),d1			* d1 : ����(�������ޒl)���擾
+	move.l	8(a6),d1			* d1 : 引数(書き込む値)を取得
 
 	movea.l	offset_ms_vdp_vram(a5),a0
-	move.l	offset_ms_vdp_vram_addr(a5),d0	* D0 �E�E�������ރA�h���X
-	.if DIFFDRAW=1 ;�����`��̎���
+	move.l	offset_ms_vdp_vram_addr(a5),d0	* D0 ・・書き込むアドレス
+	.if DIFFDRAW=1 ;差分描画の実験
 	move.b	(a0,d0.l),d2
 	sub.b	d1,d2
-	move.b	d2,-2(a6)			* �����t���O���Z�b�g
+	move.b	d2,-2(a6)			* 差分フラグをセット
 	.endif
-	move.b	(a0,d0.l),-4(a6)		* �ȑO�̒l��ۑ�
-	move.b	d1,(a0,d0.l)			* VRAM �֏�������
+	move.b	(a0,d0.l),-4(a6)		* 以前の値を保存
+	move.b	d1,(a0,d0.l)			* VRAM へ書き込み
 
-; GRAM��������
+; GRAM書き換え
 	movea.l	offset_ms_vdp_gram_addr(a5),a0
-	.if DIFFDRAW=1 ;���������鎞�̂ݏ�������
-	cmp.b	#0,-2(a6)			* �����t���O���`�F�b�N
+	.if DIFFDRAW=1 ;差分がある時のみ書き込み
+	cmp.b	#0,-2(a6)			* 差分フラグをチェック
 	beq	@f
 	.endif
 	move.w	d1,0(a0)
-	move.w	d1,1024*256(a0)			* �~���X�N���[���Ή�
+	move.w	d1,1024*256(a0)			* 円筒スクロール対応
 
-@@:	lea	2(a0),a0			* GRAM�A�h���X�C���N�������g
+@@:	lea	2(a0),a0			* GRAMアドレスインクリメント
 	move.l	a0,-(sp)
 
-; sprattrtbl_baddr�ƈ�v���Ă�����X�v���C�g�A�g���r���[�g�e�[�u���ւ̏�������
-	andi.w	#%11111111_10000000,d0		* ����7�r�b�g���N���A
+; sprattrtbl_baddrと一致していたらスプライトアトリビュートテーブルへの書き込み
+	andi.w	#%11111111_10000000,d0		* 下位7ビットをクリア
 	move.l	offset_ms_vdp_sprattrtbl_baddr(a5),d2
 	andi.w	#%11111111_10000000,d2
 	cmp.l	d2,d0
 	bne	@f
 
-	.if DIFFDRAW=1 ;���������鎞�̂ݏ�������
-	cmp.b	#0,-2(a6)			* �����t���O���`�F�b�N
+	.if DIFFDRAW=1 ;差分がある時のみ書き込み
+	cmp.b	#0,-2(a6)			* 差分フラグをチェック
 	beq	9f
 	.endif
 
-	move.b	-4(a6),d0			* �ȑO�̒l���擾
-	bsr	w_SP_attr			* �X�v���C�g�A�g���r���[�g�e�[�u���ւ̏�������
+	move.b	-4(a6),d0			* 以前の値を取得
+	bsr	w_SP_attr			* スプライトアトリビュートテーブルへの書き込み
 
-	bra	9f	; �e�[�u�����d�Ȃ��Ă���ꍇ�����肤��̂Ŗ{���̓X�L�b�v���Ă͂����Ȃ��̂����c�c
+	bra	9f	; テーブルが重なっている場合もありうるので本当はスキップしてはいけないのだが……
 
-; sprcolrtbl_baddr�ƈ�v���Ă�����X�v���C�g�J���[�e�[�u���ւ̏�������
-@@:	andi.w	#%11111110_00000000,d0		* ����9�r�b�g���N���A
+; sprcolrtbl_baddrと一致していたらスプライトカラーテーブルへの書き込み
+@@:	andi.w	#%11111110_00000000,d0		* 下位9ビットをクリア
 	move.l	offset_ms_vdp_sprcolrtbl_baddr(a5),d2
 	andi.w	#%11111110_00000000,d2
 	cmp.l	d2,d0
 	bne	@f
 
-	.if DIFFDRAW=1 ;���������鎞�̂ݏ�������
-	cmp.b	#0,-2(a6)			* �����t���O���`�F�b�N
+	.if DIFFDRAW=1 ;差分がある時のみ書き込み
+	cmp.b	#0,-2(a6)			* 差分フラグをチェック
 	beq	9f
 	.endif
 
-	move.b	-4(a6),d0			* �ȑO�̒l���擾
-	bsr	w_SP_color			* �X�v���C�g�J���[�e�[�u���ւ̏�������
+	move.b	-4(a6),d0			* 以前の値を取得
+	bsr	w_SP_color			* スプライトカラーテーブルへの書き込み
 
-	bra	9f	; �e�[�u�����d�Ȃ��Ă���ꍇ�����肤��̂Ŗ{���̓X�L�b�v���Ă͂����Ȃ��̂����c�c
+	bra	9f	; テーブルが重なっている場合もありうるので本当はスキップしてはいけないのだが……
 
-; sprpatgentbl_baddr�ƈ�v���Ă�����X�v���C�g�p�^�[���W�F�l���[�^�e�[�u���ւ̏�������
-@@:	andi.w	#%11111000_00000000,d0		* ����11�r�b�g���N���A
+; sprpatgentbl_baddrと一致していたらスプライトパターンジェネレータテーブルへの書き込み
+@@:	andi.w	#%11111000_00000000,d0		* 下位11ビットをクリア
 	move.l	offset_ms_vdp_sprpgentbl_baddr(a5),d2
 	andi.w	#%11111000_00000000,d2
 	cmp.l	d2,d0
 	bne	@f
 
-	.if DIFFDRAW=1 ;���������鎞�̂ݏ�������
-	cmp.b	#0,-2(a6)			* �����t���O���`�F�b�N
+	.if DIFFDRAW=1 ;差分がある時のみ書き込み
+	cmp.b	#0,-2(a6)			* 差分フラグをチェック
 	beq	9f
 	.endif
 
-	move.b	-4(a6),d0			* �ȑO�̒l���擾
-	bsr	w_SP_p_gene			* �X�v���C�g�p�^�[���W�F�l���[�^�e�[�u���ւ̏�������
+	move.b	-4(a6),d0			* 以前の値を取得
+	bsr	w_SP_p_gene			* スプライトパターンジェネレータテーブルへの書き込み
 
-	bra	9f	; �e�[�u�����d�Ȃ��Ă���ꍇ�����肤��̂Ŗ{���̓X�L�b�v���Ă͂����Ȃ��̂����c�c
+	bra	9f	; テーブルが重なっている場合もありうるので本当はスキップしてはいけないのだが……
 
-@@:	* VRAM�������݃A�h���X���C���N�������g
+@@:	* VRAM書き込みアドレスをインクリメント
 9:	move.l	(sp)+,a0
 
 	move.l	offset_ms_vdp_vram_addr(a5),d1
-	addq.l	#1,d1				* �C���N�������g	
+	addq.l	#1,d1				* インクリメント	
 	andi.l	#%00000001_11111111_11111111,d1
 	move.l	d1,offset_ms_vdp_vram_addr(a5)
-	andi.w	#%00000000_00000000_11111111,d1	* ���C�����E���܂������� (GRAPHIC7��1���C��256�o�C�g)
+	andi.w	#%00000000_00000000_11111111,d1	* ライン境界をまたいだか (GRAPHIC7は1ライン256バイト)
 	bne	@f
-	lea.l	512*2-256*2(a0),a0		* ���̃��C����
+	lea.l	512*2-256*2(a0),a0		* 次のラインへ
 @@:	move.l	a0,offset_ms_vdp_gram_addr(a5)
 
 	movem.l	(sp)+,d1-d3/a0-a5
@@ -3086,11 +3086,11 @@ w_GRAPHIC7_mac:
 	
 
 *
-* VDP �R�}���h
+* VDP コマンド
 *
 
 *
-*	�o������
+*	Ｐｓｅｔ
 *
 PSET_G4:
 	bsr	get_D_gram_add_G4
@@ -3109,31 +3109,31 @@ PSET_G5:
 	rts
 
 *
-*	�k������	�K���o�[�W����
+*	Ｌｉｎｅ	適当バージョン
 *
 LINE_G5:
 	movem.l	d4-d6,-(sp)
 
 	andi.w	#%00000000_00001111,d1
 
-	bsr	get_D_gram_add_G5	* �n�_�̂f�q�`�l�A�h���X�iDX,DY���狁�߂�j
+	bsr	get_D_gram_add_G5	* 始点のＧＲＡＭアドレス（DX,DYから求める）
 
 	move.b	offset_ms_vdp_arg(a5),d1
-	bclr.l	#0,d1			* MAJ �̃e�X�g
-	bne	9f			* ���ӂ��x�����̎�
+	bclr.l	#0,d1			* MAJ のテスト
+	bne	9f			* 長辺がＹ方向の時
 
 	move.w	offset_ms_vdp_ny(a5),d5
-*	subq.w	#1,d5			* d5 = �x�����̒���
+*	subq.w	#1,d5			* d5 = Ｙ方向の長さ
 	
-	move.w	offset_ms_vdp_nx(a5),d2		* d2 = ���Ӄh�b�g��
-*	subq.w	#1,d2			* d2 = �w�����̒���
+	move.w	offset_ms_vdp_nx(a5),d2		* d2 = 長辺ドット数
+*	subq.w	#1,d2			* d2 = Ｘ方向の長さ
 
-	bclr.l	#2,d1			* DIX �𒲂ׂ�
+	bclr.l	#2,d1			* DIX を調べる
 	bne	1f
 	move.l	#2,d0
 	bra	@f
 1:	move.l	#-2,d0
-@@:	bclr.l	#3,d1			* DIY �𒲂ׂ�
+@@:	bclr.l	#3,d1			* DIY を調べる
 	bne	1f
 	move.l	#1024*2,d1
 	add.w	d5,offset_ms_vdp_dy(a5)
@@ -3145,10 +3145,10 @@ LINE_G5:
 	andi.w	#%00000011,d6
 
 	move.w	d2,d4
-	neg.w	d4			* d4 = �덷��񏉊��l
+	neg.w	d4			* d4 = 誤差情報初期値
 
-	move.w	d2,d3			* d3 = ���[�v�J�E���^
-	add.w	d2,d2			* d2 = �덷���C���l
+	move.w	d2,d3			* d3 = ループカウンタ
+	add.w	d2,d2			* d2 = 誤差情報修正値
 1:
 	move.w	d6,(a0)
 *	move.w	d6,1024(a0)
@@ -3169,38 +3169,38 @@ LINE_G5:
 	rts
 
 *
-*	�k�l�l�b
+*	ＬＭＭＣ
 *
 LMMC_G5:
 	movem.l	d4-d6,-(sp)
 
-	andi.w	#%00000000_00001111,d1	* d1 = ���W�J���I�y���[�V����
+	andi.w	#%00000000_00001111,d1	* d1 = ロジカルオペレーション
 
-	ori.b	#%00000001,offset_ms_vdp_s02(a5)		* CE ���O ��
+	ori.b	#%00000001,offset_ms_vdp_s02(a5)		* CE を０ に
 
-	bsr	get_D_gram_add_G5	* �n�_�̂f�q�`�l�A�h���X�iDX,DY���狁�߂�j
+	bsr	get_D_gram_add_G5	* 始点のＧＲＡＭアドレス（DX,DYから求める）
 	movea.l	d0,a0
 
 	move.w	offset_ms_vdp_ny(a5),d5
 	move.w	offset_ms_vdp_nx(a5),d2
 	
 	move.b	offset_ms_vdp_arg(a5),d1
-	bclr.l	#2,d1			* DIX �𒲂ׂ�
+	bclr.l	#2,d1			* DIX を調べる
 	bne	1f
 	move.l	#2,d0
 	bra	@f
 1:	move.l	#-2,d0
-@@:	andi.b	#%00001000,d1		* DIY �𒲂ׂ�
+@@:	andi.b	#%00001000,d1		* DIY を調べる
 	bne	1f
 	move.l	#1024*2,d1
 	move.w	offset_ms_vdp_dy(a5),d6
 	add.w	d5,d6
-	move.w	d6,NEXT_DY		* �R�}���h�I������DY��ݒ�
+	move.w	d6,NEXT_DY		* コマンド終了時のDYを設定
 	bra	@f
 1:	move.l	#-1024*2,d1
 	move.w	offset_ms_vdp_dy(a5),d6
 	add.w	d5,d6
-	move.w	d6,NEXT_DY		* �R�}���h�I������DY��ݒ�
+	move.w	d6,NEXT_DY		* コマンド終了時のDYを設定
 @@:
 	move.b	offset_ms_vdp_clr(a5),d6		* color
 	andi.w	#%00000011,d6
@@ -3214,11 +3214,11 @@ LMMC_G5:
 	bne	@f
 	add.l	d1,g_add_2
 	move.l	g_add_2,a0
-	move.w	offset_ms_vdp_nx(a5),d2		* loop_x �Đݒ�
+	move.w	offset_ms_vdp_nx(a5),d2		* loop_x 再設定
 	subq.w	#1,d5
 	bne	@f
 
-	andi.b	#%11111110,offset_ms_vdp_s02(a5)		* �R�}���h�I��
+	andi.b	#%11111110,offset_ms_vdp_s02(a5)		* コマンド終了
 	move.w	NEXT_DY,offset_ms_vdp_dy(a5)
 	move.l	#w_CLR,MC_add
 
@@ -3250,11 +3250,11 @@ DO_LMMC_G5:
 	move.l	add_y,d1
 	add.l	d1,g_add_2
 	move.l	g_add_2,a0
-	move.w	offset_ms_vdp_nx(a5),loop_x		* loop_x �Đݒ�
+	move.w	offset_ms_vdp_nx(a5),loop_x		* loop_x 再設定
 	subq.w	#1,loop_y
 	bne	@f
 
-	andi.b	#%11111110,offset_ms_vdp_s02(a5)		* �R�}���h�I��
+	andi.b	#%11111110,offset_ms_vdp_s02(a5)		* コマンド終了
 	move.w	NEXT_DY,offset_ms_vdp_dy(a5)
 	move.l	#w_CLR,MC_add
 	rts
@@ -3269,11 +3269,11 @@ loop_x:	.dc.w	0
 loop_y:	.dc.w	0
 g_add:	.dc.l	0
 g_add_2:
-	.dc.l	0			* �x�����̃��[�v�̎��Ɏg��
+	.dc.l	0			* Ｙ方向のループの時に使う
 
 
-add_x:	.dc.l	0			* �A�h���X�̂w��������
-add_y:	.dc.l	0			* �A�h���X�̂x��������
+add_x:	.dc.l	0			* アドレスのＸ方向増分
+add_y:	.dc.l	0			* アドレスのＹ方向増分
 
 NEXT_DY:
 	.dc.w	0
@@ -3282,14 +3282,14 @@ NEXT_DY:
 
 ***************************************************************
 *
-*	�T�u���[�`��
+*	サブルーチン
 *
 ***************************************************************
 *
-*	�r�w�C�r�x����f�q�`�l�A�h���X�����߂�
+*	ＳＸ，ＳＹからＧＲＡＭアドレスを求める
 *
-*	(�Ԃ�l)
-*		a0.l	���߂��A�h���X
+*	(返り値)
+*		a0.l	求めたアドレス
 *
 get_S_gram_add_G5:
 	move.w	offset_ms_vdp_sy(a5),d0
@@ -3297,16 +3297,16 @@ get_S_gram_add_G5:
 	add.w	#$00c0*32,d0		* gram base add
 	swap	d0
 	lsr.l	#5,d0			* d0.l = $c00000 + SY * 2048
-	add.w	offset_ms_vdp_sx(a5),d0		* ���[�h�łn�j
+	add.w	offset_ms_vdp_sx(a5),d0		* ワードでＯＫ
 	add.w	offset_ms_vdp_sx(a5),d0		* d0.1 = $c00000 + SY * 2048 + SX * 2
 	movea.l	d0,a0
 	rts
 
 *
-*	�c�w�C�c�x����f�q�`�l�A�h���X�����߂�
+*	ＤＸ，ＤＹからＧＲＡＭアドレスを求める
 *
-*	(�Ԃ�l)
-*		a0.l	���߂��A�h���X
+*	(返り値)
+*		a0.l	求めたアドレス
 *
 get_D_gram_add_G4:
 	move.w	offset_ms_vdp_dy(a5),d0
@@ -3315,7 +3315,7 @@ get_D_gram_add_G4:
 	swap	d0
 	lsr.l	#5,d0			* d0.l = $c00000 + DY * 2048
 	movea.l	d0,a0
-	move.w	offset_ms_vdp_dx(a5),d0		* ���[�h�łn�j
+	move.w	offset_ms_vdp_dx(a5),d0		* ワードでＯＫ
 	add.w	d0,d0
 	add.w	d0,d0
 	adda.w	d0,a0			* a0.l = $c00000 + DY * 2048 + DX * 4
@@ -3327,27 +3327,27 @@ get_D_gram_add_G5:
 	add.w	#$00c0*32,d0		* gram base add
 	swap	d0
 	lsr.l	#5,d0			* d0.l = $c00000 + DY * 2048
-	add.w	offset_ms_vdp_dx(a5),d0		* ���[�h�łn�j
+	add.w	offset_ms_vdp_dx(a5),d0		* ワードでＯＫ
 	add.w	offset_ms_vdp_dx(a5),d0		* d0.l = $c00000 + DY * 2048 + DX * 2
 	movea.l	d0,a0
 	rts
 
 ***************************************************************
 *
-*	�����`��i������Bresenham�{���[�`��j
+*	線分描画（整数化Bresenham＋両端描画）
 *
 *
 ***************************************************************
 
 	.data
 
-	.offset	0	*gline�̈����\��
+	.offset	0	*glineの引数構造
 *
-*X0:	.ds.w	1	*�n�_���W
+*X0:	.ds.w	1	*始点座標
 *Y0:	.ds.w	1	*
-*X1:	.ds.w	1	*�I�_���W
+*X1:	.ds.w	1	*終点座標
 *Y1:	.ds.w	1	*
-*COL:	.ds.w	1	*�`��F
+*COL:	.ds.w	1	*描画色
 *
 	.text
 	.even
@@ -3358,15 +3358,15 @@ ARGPTR	=	4+8*4+6*4
 
 *	bsr	set_apage
 
-	movea.l	ARGPTR(sp),a5	*a5 = ������
-	movem.w	(a5)+,d0-d3	*d0�`d3�ɍ��W�����o��
+	movea.l	ARGPTR(sp),a5	*a5 = 引数列
+	movem.w	(a5)+,d0-d3	*d0～d3に座標を取り出す
 
- 	cmp.w	d2,d0		*x0��x1��ۏ؂���
+ 	cmp.w	d2,d0		*x0≦x1を保証する
 	ble	gline0		*
 	exg.l	d0,d2		*
 	exg.l	d1,d3		*
 
-gline0:	move.w	d1,d6		*�n�_/�I�_��G-RAM�A�h���X�����߂�
+gline0:	move.w	d1,d6		*始点/終点のG-RAMアドレスを求める
 	move.w	d3,d7		*
 	ext.l	d6		*
 	ext.l	d7		*
@@ -3381,39 +3381,39 @@ gline0:	move.w	d1,d6		*�n�_/�I�_��G-RAM�A�h���X�����߂�
 				*
 *	movea.l	gbase,a0	*
 	movea.l	a0,a2		*
-	add.l	d6,a0		*a0 = �n�_��G-RAM�A�h���X
-	add.l	d7,a2		*a2 = �I�_��G-RAM�A�h���X
+	add.l	d6,a0		*a0 = 始点のG-RAMアドレス
+	add.l	d7,a2		*a2 = 終点のG-RAMアドレス
 
-*	move.w	#GNBYTE,d5	*d5 = ��1���C�����̃o�C�g��
+*	move.w	#GNBYTE,d5	*d5 = 横1ライン分のバイト数
 	sub.w	d1,d3		*d3 = y1-y0
-	beq	hor_line	*y0��y1�Ȃ琅����
+	beq	hor_line	*y0＝y1なら水平線
 	bpl	gline1
 	neg.w	d3
 	neg.w	d5
 gline1:	sub.w	d0,d2		*d2 = x1-x0 ( >=0 )
-	beq	ver_line	*x0��x1�Ȃ琂����
-*���̎��_��
+	beq	ver_line	*x0＝x1なら垂直線
+*この時点で
 *	d2 = dx = abs(x1-x0) ( > 0 )
 *	d3 = dy = abs(y1-y0) ( > 0 )
 *	d5 = sy = sgn(y1-y0) ( -1 or 1 )
-*	�i������d5��GNBYTE�{�ς݁j
+*	（ただしd5はGNBYTE倍済み）
 
-	move.w	(a5),d0		*d0 = �`��F
+	move.w	(a5),d0		*d0 = 描画色
 
-	cmp.w	d3,d2		*dy��dx�Ȃ��
-	bcs	yline		*�@y�ɂ��ă��[�v
-	beq	xyline		*dy��dx�Ȃ��45�x�̐�
+	cmp.w	d3,d2		*dy＞dxならば
+	bcs	yline		*　yについてループ
+	beq	xyline		*dy＝dxならば45度の線
 
-			*dx��dy�̂Ƃ�
+			*dx≧dyのとき
 xline:	move.w	d2,d1		*d1 = dx
 	neg.w	d1		*d1 = e = -dx
 	move.w	d2,d6		*d6 = n = dx
 	add.w	d2,d2		*d2 = 2*dx
 	add.w	d3,d3		*d3 = 2*dy
-	subq.w	#1,d6		*dbra�̓�����v�Z�ɓ����
-	lsr.w	#1,d6		*�@���[�v�J�E���^�𔼌�
-	scs.b	d4		*��s�N�Z���̂Ƃ���0
-	addq.l	#2,a2		*�v���f�N�������g���镪�␳
+	subq.w	#1,d6		*dbraの動作を計算に入れて
+	lsr.w	#1,d6		*　ループカウンタを半減
+	scs.b	d4		*奇数ピクセルのとき非0
+	addq.l	#2,a2		*プリデクリメントする分補正
 				*do {
 xline0:	eor.w	d0,(a0)+	*  pset(x++,y)
 	eor.w	d0,-(a2)	*  pset(--x',y')
@@ -3425,19 +3425,19 @@ xline0:	eor.w	d0,(a0)+	*  pset(x++,y)
 				*  }
 xline1:	dbra	d6,xline0	*} while (--n >= 0)
 
-	tst.b	d4		*��s�N�Z���H
-	beq	done		*�@��������Ȃ�
-	bra	odd		*�����̃s�N�Z����_��
+	tst.b	d4		*奇数ピクセル？
+	beq	done		*　そうじゃない
+	bra	odd		*中央のピクセルを点灯
 
-			*dx��dy�̂Ƃ�
+			*dx＜dyのとき
 yline:	move.w	d3,d1		*d1 = dy
 	neg.w	d1		*d1 = e = -dy
 	move.w	d3,d6		*d6 = n = dy
 	add.w	d2,d2		*d2 = 2*dx
 	add.w	d3,d3		*d3 = 2*dy
-	subq.w	#1,d6		*dbra�̂��Ƃ��v�Z�ɓ����
-	lsr.w	#1,d6		*�@���[�v�J�E���^�𔼌�
-	scs.b	d4		*��s�N�Z���̂Ƃ���0
+	subq.w	#1,d6		*dbraのことを計算に入れて
+	lsr.w	#1,d6		*　ループカウンタを半減
+	scs.b	d4		*奇数ピクセルのとき非0
 	move.w	d5,d7		*d7 = d5 + 2
 	addq.w	#2,d7		*
 				*do {
@@ -3459,32 +3459,32 @@ yline1:	eor.w	d0,(a0)+	*    pset(x++,y)
 				*  }
 	dbra	d6,yline0	*} while (--n >= 0)
 
-done0:	tst.b	d4		*��s�N�Z���H
-	beq	done		*�@��������Ȃ�
-odd:	eor.w	d0,(a0)		*�����̃s�N�Z����_��
+done0:	tst.b	d4		*奇数ピクセル？
+	beq	done		*　そうじゃない
+odd:	eor.w	d0,(a0)		*中央のピクセルを点灯
 
 done:	movem.l	(sp)+,d0-d7/a0-a5
 	rts
 *
-hor_line:		*��������
+hor_line:		*水平線分
 	sub.w	d0,d2		*d2 = dx = x1-x0
-	move.w	(a5),d0		*d0 = �`��F
+	move.w	(a5),d0		*d0 = 描画色
 hloop:	eor.w	d0,(a0)+	*pset(x++,y)
 	dbra	d2,hloop
 	bra	done
 
-xyline:			*45�x�̐���
-	addq.w	#2,d5		*d5 = 2�}GNBYTE
-ver_line:		*��������
-	move.w	(a5),d0		*d0 = �`��F
+xyline:			*45度の線分
+	addq.w	#2,d5		*d5 = 2±GNBYTE
+ver_line:		*垂直線分
+	move.w	(a5),d0		*d0 = 描画色
 vloop:	eor.w	d0,(a0)		*pset(x,y)
 	adda.w	d5,a0		*y += sx
-	dbra	d3,vloop	*dy+1��J��Ԃ�
+	dbra	d3,vloop	*dy+1回繰り返す
 	bra	done
 
 **************************************************************
 *
-*		���[�N�G���A
+*		ワークエリア
 *
 **************************************************************
 
@@ -3494,13 +3494,13 @@ vloop:	eor.w	d0,(a0)		*pset(x,y)
 set_gram_add_rot:
 	.dc.l	s_TEXT1
 
-w_ContReg_mode:				* �|�[�g���P�͂Q�o�C�g�ЂƂ����܂�ŃA�N�Z�X
-	.dc.w	0			* ����̂ŁA�P�o�C�g�ڂ��Q�o�C�g�ڂ��̋�ʂ�
-					* ���邽�߂̂���
-					* �O�E�E�P�o�C�g��
-					* �P�E�E�Q�o�C�g��
-first_bite_1:				* �P�o�C�g�ڂɂǂ�Ȓl���������܂ꂽ�̂���
-	.dc.b	0			* �����Ă���
+w_ContReg_mode:				* ポート＃１は２バイトひとかたまりでアクセス
+	.dc.w	0			* するので、１バイト目か２バイト目かの区別を
+					* するためのもの
+					* ０・・１バイト目
+					* １・・２バイト目
+first_bite_1:				* １バイト目にどんな値が書き込まれたのかが
+	.dc.b	0			* 入っている
 
 w_PalReg_mode:
 	.dc.b	0
@@ -3510,17 +3510,17 @@ first_bite_2:
 	.even
 
 rewrite_screen:
-		.dc.w	$ffff		* ���� rewrite_f ���ǂ̉�ʃ��[�h���Z�b�g������
-					* ������B�����A�����Ԃ̎��Ɍ��݂̉�ʃ��[�h�Ɣ�
-					* �r���āA�Ⴄ���ɂ�rewrite_f�����ׂăN���A����
-					* �������Ȃ��B
-					*  $ffff �������Ă��鎞�͉����ύX����Ă��Ȃ���
-					* �Ƃ������B
+		.dc.w	$ffff		* 下の rewrite_f をどの画面モードがセットしたか
+					* が入る。垂直帰線期間の時に現在の画面モードと比
+					* 較して、違う時にはrewrite_fをすべてクリアして
+					* 何もしない。
+					*  $ffff が入っている時は何も変更されていないこ
+					* とを示す。
 
 raster_interrupt_line:
 	.dc.w	$ffff
 
-*	�r�b�q�d�d�m�O�C�Q�C�S�Ŏg��
+*	ＳＣＲＥＥＮ０，２，４で使う
 ms_vdp_rewrite_flag_tbl:
 		.dc.l	rewrite_f_0
 
@@ -3534,9 +3534,9 @@ rewrite_f_6:	.dc.l	0
 rewrite_f_7:	.dc.l	0
 
 
-; *	------ �u�c�o �q���������������� ------
-; ms_vdp:				* �\���̂̐擪�A�h���X
-; *	�R���g���[�����W�X�^
+; *	------ ＶＤＰ Ｒｅｇｉｓｔｅｒｓ ------
+; ms_vdp:				* 構造体の先頭アドレス
+; *	コントロールレジスタ
 ; Control_registers:
 ; R_00:	.dc.b	0		* Mode register 0
 
@@ -3552,7 +3552,7 @@ rewrite_f_7:	.dc.l	0
 ; R_09:	.dc.b	0		* Mode register 3
 ; R_10:	.dc.b	0		* >> R#3
 ; R_11:	.dc.b	0		* >> R#5
-; R_12:	.dc.b	0		* TEXT color / Back color register (�u�����N�Ŏg�p�j
+; R_12:	.dc.b	0		* TEXT color / Back color register (ブリンクで使用）
 ; R_13:	.dc.b	0
 ; R_14:	.dc.b	0		* >> vram_add
 ; R_15:	.dc.b	0
@@ -3572,7 +3572,7 @@ rewrite_f_7:	.dc.l	0
 ; 	.dc.b	0		* dummy
 ; 	.dc.b	0		* dummy
 ; 	.dc.b	0		* dummy
-; SX:	.dc.w	0		* 32,33 ���т��t�ɂȂ�̂Œ���
+; SX:	.dc.w	0		* 32,33 並びが逆になるので注意
 ; SY:	.dc.w	0		* 34,35
 ; DX:	.dc.w	0		* 36,37
 ; DY:	.dc.w	0		* 38,39
@@ -3584,11 +3584,11 @@ rewrite_f_7:	.dc.l	0
 
 ; 	.dc.b	0		* dummy
 
-; *	�X�e�[�^�X���W�X�^
+; *	ステータスレジスタ
 ; VDP_S_00:
 ; S_0:	.dc.b	0
-; S_1:	.dc.b	%00000100		* V9958 �̂h�c
-; S_2:	.dc.b	%10001100		* TR �͏�ɂP
+; S_1:	.dc.b	%00000100		* V9958 のＩＤ
+; S_2:	.dc.b	%10001100		* TR は常に１
 ; S_3:	.dc.b	0
 ; S_4:	.dc.b	%11111110
 ; S_5:	.dc.b	0
@@ -3599,7 +3599,7 @@ rewrite_f_7:	.dc.l	0
 
 ; 	.even
 
-; *	�p���b�g���W�X�^
+; *	パレットレジスタ
 ; *		%GGGG_GRRR_RRBB_B001
 ; *P_0:	.dc.w	%0000_0000_0000_0000
 ; *P_1:	.dc.w	%0000_0000_0000_0000
@@ -3644,16 +3644,16 @@ rewrite_f_7:	.dc.l	0
 ; *	.dc.w	%11011
 ; *	.dc.w	%11111			* 7
 
-; *	����R���g���[�����W�X�^
+; *	特殊コントロールレジスタ
 ; * R_00:	.dc.b	0		* [ 0 ][ DG][IE2][IE1][ M5][ M4][ M3][ 0 ]
 ; * R_01:	.dc.b	0		* [ 0 ][ BL][IE0][ M1][ M2][ 0 ][ SI][MAG]	
 
-; CRT_mode:			* R_0,R_1��[ M5]�`[ M0]
-; 	.dc.b	0		* M5�`M0 �����ꂼ��r�b�g�T�`�O�ɓ����Ă���
-; _sprite_size:			* R_1��[ SI]
-; 	.dc.b	0		* �X�v���C�g�̃T�C�Y �O�E�E�W�~�W  �P�E�E�P�U�~�P�U
-; sprite_zoom:			* R_1��[MAG]
-; 	.dc.b	0		* �X�v���C�g�̊g��   �O�E�E�Ȃ�    �P�E�E����
+; CRT_mode:			* R_0,R_1の[ M5]～[ M0]
+; 	.dc.b	0		* M5～M0 がそれぞれビット５～０に入っている
+; _sprite_size:			* R_1の[ SI]
+; 	.dc.b	0		* スプライトのサイズ ０・・８×８  １・・１６×１６
+; sprite_zoom:			* R_1の[MAG]
+; 	.dc.b	0		* スプライトの拡大   ０・・なし    １・・あり
 
 ; 	.even
 
@@ -3668,35 +3668,35 @@ rewrite_f_7:	.dc.l	0
 ; R_6_sprpatgentbl_baddr:
 ; 	.dc.l	0		* Sprite pattern generator table base address
 ; ;R_7:				  Text color / Back drop color register
-; text_color:			* �����̐F
+; text_color:			* 文字の色
 ; 	.dc.w	0
-; back_color:			* �w�i�̐F
+; back_color:			* 背景の色
 ; 	.dc.w	0
 
 
-; *	�u�q�`�l�A�N�Z�X�A�h���X
+; *	ＶＲＡＭアクセスアドレス
 ; vram_add:			* 
 ; 	.dc.l	0
 ; gram_add:
-; 	.dc.l	$C00000		* gram��vram_add�ɑΉ�����A�h���X
+; 	.dc.l	$C00000		* gramのvram_addに対応するアドレス
 ; 				* 
 
-; *	���݂̉�ʃ��[�h
+; *	現在の画面モード
 ; display_mode:
-; 	.dc.w	0		* 0 �E�E�E TEXT1
-; 				* 1 �E�E�E TEXT2
-; 				* 2 �E�E�E multi color
-; 				* 3 �E�E�E GRAPHIC1
-; 				* 4 �E�E�E GRAPHIC2
-; 				* 5 �E�E�E GRAPHIC3
-; 				* 6 �E�E�E GRAPHIC4
-; 				* 7 �E�E�E GRAPHIC5
-; 				* 8 �E�E�E GRAPHIC6
-; 				* 9 �E�E�E GRAPHIC7
-; 				*10 �E�E�E SCREEN10
-; 				*11 �E�E�E SCREEN12
+; 	.dc.w	0		* 0 ・・・ TEXT1
+; 				* 1 ・・・ TEXT2
+; 				* 2 ・・・ multi color
+; 				* 3 ・・・ GRAPHIC1
+; 				* 4 ・・・ GRAPHIC2
+; 				* 5 ・・・ GRAPHIC3
+; 				* 6 ・・・ GRAPHIC4
+; 				* 7 ・・・ GRAPHIC5
+; 				* 8 ・・・ GRAPHIC6
+; 				* 9 ・・・ GRAPHIC7
+; 				*10 ・・・ SCREEN10
+; 				*11 ・・・ SCREEN12
 ; *
-; *	��ʃ��[�h
+; *	画面モード
 ; *	MMMMM
 ; *	54321
 ; *
@@ -3711,28 +3711,28 @@ rewrite_f_7:	.dc.l	0
 ; *	10100		GRAPHIC6
 ; *	11100		GRAPHIC7
 
-; ; �e�L�X�g��ʂ̕\�� ON/OF (0:OFF 1:ON)
+; ; テキスト画面の表示 ON/OF (0:OFF 1:ON)
 ; tx_active:
 ; 	.dc.w	1
-; ; MSX�̉�ʂ̕\����Ԃ����Ă��AX68000�̕\������O���t�B�b�N�y�[�W�ԍ�(0:OFF, 0x1-0xf:�Ή�����y�[�W�̃r�b�g��1�ɂ���)
+; ; MSXの画面の表示状態を勘案し、X68000の表示するグラフィックページ番号(0:OFF, 0x1-0xf:対応するページのビットを1にする)
 ; gr_active:
 ; 	.dc.w	1
 
-; ; X68000���Ɋm�ۂ���VRAM�̐擪�A�h���X
+; ; X68000側に確保したVRAMの先頭アドレス
 ; VideoRAM:
-; 	.dc.l	0		* �u�q�`�l�̃A�h���X
+; 	.dc.l	0		* ＶＲＡＭのアドレス
 
 
-; *gbase:	.dc.l	GPAGE0		* ���C�����[�`�������Ŏg�p
+; *gbase:	.dc.l	GPAGE0		* ラインルーチン内等で使用
 
 ; cliprect:
-; 	.dc.w	0		*�N���b�s���O�̈�
+; 	.dc.w	0		*クリッピング領域
 ; 	.dc.w	0		*
 ; *	.dc.w	GNPIXEL-1	*
 ; *	.dc.w	GNPIXEL-1	*
 ; ucliprect:
-; 	.dc.w	$8000		*�N���b�s���O�̈�
-; 	.dc.w	$8000		*�i$8000�̃Q�^�����j
+; 	.dc.w	$8000		*クリッピング領域
+; 	.dc.w	$8000		*（$8000のゲタ履き）
 ; *	.dc.w	$8000+GNPIXEL-1	*
 ; *	.dc.w	$8000+GNPIXEL-1	*
 
@@ -3755,14 +3755,14 @@ filebuf:
 	.ds.b	53 
 
 errmes_file:
-	.dc.b	"�t�@�C���G���[�ł�",$0d,$0a,$00
+	.dc.b	"ファイルエラーです",$0d,$0a,$00
 errmes_memory:
-	.dc.b	"���������m�ۂł��܂���",$0d,$0a,$00
+	.dc.b	"メモリが確保できません",$0d,$0a,$00
 
 mes_screen:
-	.dc.b	'�r�b�q�d�d�m��'
+	.dc.b	'ＳＣＲＥＥＮを'
 num:	.dc.b	'1'
-	.dc.b	'�ɂ��܂����B',0xd,0xa,0
+	.dc.b	'にしました。',0xd,0xa,0
 
 
 number:
@@ -3770,7 +3770,7 @@ number:
 	.dc.b	0x0d,0x0a,0x00
 
 mes_w_GR1:
-	.dc.b	'SCREEN1�ɏ������݂܂����B',0x0d,0x0a,0x00
+	.dc.b	'SCREEN1に書き込みました。',0x0d,0x0a,0x00
 
 	.even
 

@@ -1,6 +1,6 @@
 *
-*	‚l‚“‚˜ ‚r‚‰‚‚•‚Œ‚‚”‚…‚’
-*		[[ ‚a‚c‚n‚r ‚b‚`‚k‚k ‚r‚t‚a ]]
+*	ï¼­ï½“ï½˜ ï¼³ï½‰ï½ï½•ï½Œï½ï½”ï½…ï½’
+*		[[ ï¼¢ï¼¤ï¼¯ï¼³ ï¼£ï¼¡ï¼¬ï¼¬ ï¼³ï¼µï¼¢ ]]
 *				1995.6.30		by Kuni.
 *
 
@@ -16,60 +16,60 @@
 	.xref	vram_adr
 	.xref	FONT_adr
 
-GPAGE0		equ	$c00000		* ‚f‚q‚`‚l‚Ìæ“ªƒAƒhƒŒƒX
+GPAGE0		equ	$c00000		* ï¼§ï¼²ï¼¡ï¼­ã®å…ˆé ­ã‚¢ãƒ‰ãƒ¬ã‚¹
 
-R09		equ	$e80012		* ‚b‚q‚s‚bƒŒƒWƒXƒ^‚X
+R09		equ	$e80012		* ï¼£ï¼²ï¼´ï¼£ãƒ¬ã‚¸ã‚¹ã‚¿ï¼™
 R21		equ	$e8002a
 R23		equ	$e8002e
 pla0		equ	$e00000
 
-V_R02		equ	$e82600		* ƒrƒfƒIƒRƒ“ƒgƒ[ƒ‹ƒŒƒWƒXƒ^‚Q
+V_R02		equ	$e82600		* ãƒ“ãƒ‡ã‚ªã‚³ãƒ³ãƒˆãƒ­ãƒ¼ãƒ«ãƒ¬ã‚¸ã‚¹ã‚¿ï¼’
 
 	.text
 	.even
 
 ********************************************************************************
 *
-*	•¶š•\¦‚Ì‚½‚ß‚ÌƒTƒuƒ‹[ƒ`ƒ“ŒQ
+*	æ–‡å­—è¡¨ç¤ºã®ãŸã‚ã®ã‚µãƒ–ãƒ«ãƒ¼ãƒãƒ³ç¾¤
 *
 ********************************************************************************
 *
-*	‚P•¶š•\¦
+*	ï¼‘æ–‡å­—è¡¨ç¤º
 *
-*  (—á)
+*  (ä¾‹)
 *	put( int char_cord);
 *
 _put:
 	link	a6,#0
 	movem.l	d0-d4/a0-a3,-(sp)
 
-	bsr	select_putchar	* a3 = put_char ƒ‹[ƒ`ƒ“‚ÌƒAƒhƒŒƒX
+	bsr	select_putchar	* a3 = put_char ãƒ«ãƒ¼ãƒãƒ³ã®ã‚¢ãƒ‰ãƒ¬ã‚¹
 
-	move.l	8(a6),d0	* •\¦‚·‚é•¶šƒR[ƒh
+	move.l	8(a6),d0	* è¡¨ç¤ºã™ã‚‹æ–‡å­—ã‚³ãƒ¼ãƒ‰
 
 	movea.l	carsol_g_address,a1
 	movea.l	carsol_v_address,a2
 
 	jsr	(a3)		* jsr put_char
 
-	addq.w	#1,locate_x	* ‚wÀ•W‚ğ‚P‘‰Á
+	addq.w	#1,locate_x	* ï¼¸åº§æ¨™ã‚’ï¼‘å¢—åŠ 
 	move.w	width,d0
-	cmp.w	locate_x,d0	* ‚wÀ•W‚ª’[‚Ü‚Å’B‚µ‚½‚ç‰üs
+	cmp.w	locate_x,d0	* ï¼¸åº§æ¨™ãŒç«¯ã¾ã§é”ã—ãŸã‚‰æ”¹è¡Œ
 	beq	put_cord_13
 
 put_next:
 	move.l	a1,carsol_g_address
 	move.l	a2,carsol_v_address
 
-************ ƒJ[ƒ\ƒ‹•\¦ *************
-	move.l	screen_mode,d0	* ƒXƒNƒŠ[ƒ“ƒ‚[ƒh‚ª‚P‚æ‚è‘å‚«‚¢‚È‚ç‚Î”ò‚Î‚µ
+************ ã‚«ãƒ¼ã‚½ãƒ«è¡¨ç¤º *************
+	move.l	screen_mode,d0	* ã‚¹ã‚¯ãƒªãƒ¼ãƒ³ãƒ¢ãƒ¼ãƒ‰ãŒï¼‘ã‚ˆã‚Šå¤§ãã„ãªã‚‰ã°é£›ã°ã—
 	cmpi.l	#1,d0
 	bhi	put_end
-	move.w	cur_mode,d0	* ƒJ[ƒ\ƒ‹”ñ•\¦ƒ‚[ƒh‚È‚ç”ò‚Î‚µ
+	move.w	cur_mode,d0	* ã‚«ãƒ¼ã‚½ãƒ«éè¡¨ç¤ºãƒ¢ãƒ¼ãƒ‰ãªã‚‰é£›ã°ã—
 	beq	put_end
 
 	move.l	#255,d0
-	jsr	(a3)		* ƒJ[ƒ\ƒ‹•\¦
+	jsr	(a3)		* ã‚«ãƒ¼ã‚½ãƒ«è¡¨ç¤º
 
 put_end:
 	movem.l	(sp)+,d0-d4/a0-a3
@@ -85,39 +85,39 @@ put_cord_13:
 	bra	put_next		
 
 *
-*	•¶š—ñ•\¦
+*	æ–‡å­—åˆ—è¡¨ç¤º
 *
-*  (—á)
+*  (ä¾‹)
 *	print( (char *)strings);
 *
 _print:
 	link	a6,#0
 	movem.l	d0-d4/a0-a4,-(sp)
 
-	movea.l	8(a6),a4	* a4 = •¶š—ñ‚Ö‚Ì‚Ìƒ|ƒCƒ“ƒ^
+	movea.l	8(a6),a4	* a4 = æ–‡å­—åˆ—ã¸ã®ã®ãƒã‚¤ãƒ³ã‚¿
 
-	bsr	select_putchar	* a3 = put_char ƒ‹[ƒ`ƒ“‚ÌƒAƒhƒŒƒX
+	bsr	select_putchar	* a3 = put_char ãƒ«ãƒ¼ãƒãƒ³ã®ã‚¢ãƒ‰ãƒ¬ã‚¹
 
 	movea.l	carsol_g_address,a1
 	movea.l	carsol_v_address,a2
 
 loop1_print:
 	clr.l	d0
-	move.b	(a4)+,d0	* d0 = •\¦‚·‚é•¶š‚ÌƒLƒƒƒ‰ƒNƒ^[ƒR[ƒh
-	beq	print_end	* d0 = 0  ‚È‚çI—¹
+	move.b	(a4)+,d0	* d0 = è¡¨ç¤ºã™ã‚‹æ–‡å­—ã®ã‚­ãƒ£ãƒ©ã‚¯ã‚¿ãƒ¼ã‚³ãƒ¼ãƒ‰
+	beq	print_end	* d0 = 0  ãªã‚‰çµ‚äº†
 
-	cmp.b	#10,d0		* d0 = 10,13 ‚È‚ç‰üsˆ—
+	cmp.b	#10,d0		* d0 = 10,13 ãªã‚‰æ”¹è¡Œå‡¦ç†
 	beq	cord_13
 	cmp.b	#13,d0
 	beq	cord_13
 
-	cmp.b	#32,d0		* ‚»‚Ì‘¼‚ÌƒRƒ“ƒgƒ[ƒ‹ƒR[ƒh‚Í”ò‚Î‚·B
+	cmp.b	#32,d0		* ãã®ä»–ã®ã‚³ãƒ³ãƒˆãƒ­ãƒ¼ãƒ«ã‚³ãƒ¼ãƒ‰ã¯é£›ã°ã™ã€‚
 	bmi	loop1_print
 	jsr	(a3)		* jsr put_char
 
 	addq.w	#1,locate_x
 	move.w	width,d0
-	cmp.w	locate_x,d0	* ‚wÀ•W‚ª’[‚Ü‚Å’B‚µ‚½‚ç‰üs
+	cmp.w	locate_x,d0	* ï¼¸åº§æ¨™ãŒç«¯ã¾ã§é”ã—ãŸã‚‰æ”¹è¡Œ
 	beq	cord_13
 
 	bra	loop1_print
@@ -126,15 +126,15 @@ print_end:
 	move.l	a1,carsol_g_address
 	move.l	a3,carsol_v_address
 
-************ ƒJ[ƒ\ƒ‹•\¦ *************
-	move.l	screen_mode,d0	* ƒXƒNƒŠ[ƒ“ƒ‚[ƒh‚ª‚P‚æ‚è‘å‚«‚¢‚È‚ç‚Î”ò‚Î‚µ
+************ ã‚«ãƒ¼ã‚½ãƒ«è¡¨ç¤º *************
+	move.l	screen_mode,d0	* ã‚¹ã‚¯ãƒªãƒ¼ãƒ³ãƒ¢ãƒ¼ãƒ‰ãŒï¼‘ã‚ˆã‚Šå¤§ãã„ãªã‚‰ã°é£›ã°ã—
 	cmpi.l	#1,d0
 	bhi	print_end2
-	move.w	cur_mode,d0	* ƒJ[ƒ\ƒ‹”ñ•\¦ƒ‚[ƒh‚È‚ç”ò‚Î‚µ
+	move.w	cur_mode,d0	* ã‚«ãƒ¼ã‚½ãƒ«éè¡¨ç¤ºãƒ¢ãƒ¼ãƒ‰ãªã‚‰é£›ã°ã—
 	beq	print_end2
 
 	move.l	#255,d0
-	jsr	(a3)		* ƒJ[ƒ\ƒ‹•\¦
+	jsr	(a3)		* ã‚«ãƒ¼ã‚½ãƒ«è¡¨ç¤º
 print_end2:
 	movem.l	(sp)+,d0-d4/a0-a4
 	unlk	a6
@@ -149,10 +149,10 @@ cord_13:
 	bra	loop1_print
 
 *
-*	ƒJ[ƒ\ƒ‹‚ÌÀ•W‚©‚çA•\¦‚·‚é‚f‚q‚`‚lƒAƒhƒŒƒX‚ğŒvZ
+*	ã‚«ãƒ¼ã‚½ãƒ«ã®åº§æ¨™ã‹ã‚‰ã€è¡¨ç¤ºã™ã‚‹ï¼§ï¼²ï¼¡ï¼­ã‚¢ãƒ‰ãƒ¬ã‚¹ã‚’è¨ˆç®—
 *
-*	a1 EEEE Ÿ‚É•\¦‚·‚é‚f‚q‚`‚lƒAƒhƒŒƒX
-*	a2 EEEE Ÿ‚É•\¦‚·‚é‚u‚q‚`‚lƒAƒhƒŒƒX
+*	a1 ãƒ»ãƒ»ãƒ»ãƒ» æ¬¡ã«è¡¨ç¤ºã™ã‚‹ï¼§ï¼²ï¼¡ï¼­ã‚¢ãƒ‰ãƒ¬ã‚¹
+*	a2 ãƒ»ãƒ»ãƒ»ãƒ» æ¬¡ã«è¡¨ç¤ºã™ã‚‹ï¼¶ï¼²ï¼¡ï¼­ã‚¢ãƒ‰ãƒ¬ã‚¹
 *
 calc_gram:
 	movem.l	d0-d1,-(sp)
@@ -167,21 +167,21 @@ calc_gram:
 
 next_calc:
 	movem.l	(sp)+,d0-d1
-	rts			* screen 0,1 ˆÈŠO‚Å‚Í•¶š‚Í•\¦‚µ‚È‚¢
-				* iƒOƒ‰ƒtƒBƒbƒN‚Æ‚µ‚Äˆµ‚¤j
+	rts			* screen 0,1 ä»¥å¤–ã§ã¯æ–‡å­—ã¯è¡¨ç¤ºã—ãªã„
+				* ï¼ˆã‚°ãƒ©ãƒ•ã‚£ãƒƒã‚¯ã¨ã—ã¦æ‰±ã†ï¼‰
 screen0:
 	move.w	screen0_mode,d0
 	beq	width40_mode_calc
 
-* screen0 width80 ‚Ì
-	move.w	locate_x,d0	* •\¦‚·‚é‚wÀ•W
+* screen0 width80 ã®æ™‚
+	move.w	locate_x,d0	* è¡¨ç¤ºã™ã‚‹ï¼¸åº§æ¨™
 	ext.l	d0
 	lsl.l	#1,d0		* d0 = d0 x 6(dot) x 2(byte)
 	move.l	d0,d1		* d1 = d0x2
 	lsl.l	#1,d0		* d0 = d0x4
 	add.l	d1,d0		* d0 = d0x2 + d0x4 = d0x6 
 	adda.l	d0,a1
-	move.w	locate_y,d0	* •\¦‚·‚é‚xÀ•W
+	move.w	locate_y,d0	* è¡¨ç¤ºã™ã‚‹ï¼¹åº§æ¨™
 	ext.l	d0
 	swap	d0		* d0 = d0 x 65536
 	lsr.l	#2,d0		* d0 = d0 / 4
@@ -198,16 +198,16 @@ screen0:
 
 	bra	next_calc
 
-* screen0 width40 ‚Ì
+* screen0 width40 ã®æ™‚
 width40_mode_calc:
-	move.w	locate_x,d0	* •\¦‚·‚é‚wÀ•W
+	move.w	locate_x,d0	* è¡¨ç¤ºã™ã‚‹ï¼¸åº§æ¨™
 	ext.l	d0
-	lsl.l	#2,d0		* d0 = d0 x 6(dot) x 2(byte) x 2(”{)
+	lsl.l	#2,d0		* d0 = d0 x 6(dot) x 2(byte) x 2(å€)
 	move.l	d0,d1		* d1 = d0x4
 	lsl.l	#1,d0		* d0 = d0x8
 	add.l	d1,d0		* d0 = d0x4 + d0x8 = d0 x12 
 	adda.l	d0,a1
-	move.w	locate_y,d0	* •\¦‚·‚é‚xÀ•W
+	move.w	locate_y,d0	* è¡¨ç¤ºã™ã‚‹ï¼¹åº§æ¨™
 	ext.l	d0
 	swap	d0		* d0 = d0 x 65536
 	lsr.l	#2,d0		* d0 = d0 / 4
@@ -225,17 +225,17 @@ width40_mode_calc:
 	bra	next_calc
 		
 screen1:
-	move.w	locate_x,d0	* •\¦‚·‚é‚wÀ•W
+	move.w	locate_x,d0	* è¡¨ç¤ºã™ã‚‹ï¼¸åº§æ¨™
 	ext.l	d0
-	lsl.l	#5,d0		* d0 = d0 x 8(dot) x 2(byte) x 2(”{) = d0 x 32 
+	lsl.l	#5,d0		* d0 = d0 x 8(dot) x 2(byte) x 2(å€) = d0 x 32 
 	adda.l	d0,a1
-	move.w	locate_y,d0	* •\¦‚·‚é‚xÀ•W
+	move.w	locate_y,d0	* è¡¨ç¤ºã™ã‚‹ï¼¹åº§æ¨™
 	ext.l	d0
 	swap	d0		* d0 = d0 x 65536
 	lsr.l	#2,d0		* d0 = d0 / 4
 	adda.l	d0,a1		* a1 = a1 + (d0 x 1024x2x8)
 
-	adda.l	#$1800,a2	* a2 = ƒpƒ^[ƒ“ƒl[ƒ€ƒe[ƒuƒ‹
+	adda.l	#$1800,a2	* a2 = ãƒ‘ã‚¿ãƒ¼ãƒ³ãƒãƒ¼ãƒ ãƒ†ãƒ¼ãƒ–ãƒ«
 	move.w	locate_y,d0
 	lsl.w	#5,d0		* d0 = d0 x 32
 	add.w	locate_x,d0
@@ -245,96 +245,96 @@ screen1:
 	bra	next_calc
 
 *
-*	ƒXƒNƒŠ[ƒ“ƒ‚[ƒh‚É‰‚¶‚Ä put_char ƒ‹[ƒ`ƒ“‚ğ‘I‘ğ‚µA
-*	‚»‚ÌƒAƒhƒŒƒX‚ğ a3 ‚É•Ô‚·ƒ‹[ƒ`ƒ“
+*	ã‚¹ã‚¯ãƒªãƒ¼ãƒ³ãƒ¢ãƒ¼ãƒ‰ã«å¿œã˜ã¦ put_char ãƒ«ãƒ¼ãƒãƒ³ã‚’é¸æŠã—ã€
+*	ãã®ã‚¢ãƒ‰ãƒ¬ã‚¹ã‚’ a3 ã«è¿”ã™ãƒ«ãƒ¼ãƒãƒ³
 *
 select_putchar:
-	move.w	screen_mode,d0		* d0 = ƒXƒNƒŠ[ƒ“ƒ‚[ƒh
+	move.w	screen_mode,d0		* d0 = ã‚¹ã‚¯ãƒªãƒ¼ãƒ³ãƒ¢ãƒ¼ãƒ‰
 	beq	s0_putchar
 	cmpi.w	#1,d0
 	beq	s1_putchar
 
-	lea.l	put_char_other,a3	* ‚»‚Ì‘¼‚Ìƒ‚[ƒh  ‚Ì
+	lea.l	put_char_other,a3	* ãã®ä»–ã®ãƒ¢ãƒ¼ãƒ‰  ã®æ™‚
 	rts
 
 s0_putchar:
 	move.w	screen0_mode,d0
 	beq	width40_mode
 
-	lea.l	put_char_s0_1,a3	* screen0 width80 ‚Ì
+	lea.l	put_char_s0_1,a3	* screen0 width80 ã®æ™‚
 	rts
 
 width40_mode:
-	lea.l	put_char_s0_0,a3	* screen0 width40 ‚Ì
+	lea.l	put_char_s0_0,a3	* screen0 width40 ã®æ™‚
 	rts
 
 s1_putchar:
-	lea.l	put_char_s1,a3		* screen1	  ‚Ì
+	lea.l	put_char_s1,a3		* screen1	  ã®æ™‚
 	rts
 
 *
-*	•¶šƒLƒƒƒ‰ƒNƒ^•\¦
+*	æ–‡å­—ã‚­ãƒ£ãƒ©ã‚¯ã‚¿è¡¨ç¤º
 *
-*	d0.l EEE ƒLƒƒƒ‰ƒNƒ^ƒR[ƒh 0 ` 255
-*	a1.l EEE •\¦‚·‚é‚f‚q‚`‚lƒAƒhƒŒƒX
-*	a2.l EEE •\¦‚·‚é‚u‚q‚`‚lƒAƒhƒŒƒX
+*	d0.l ãƒ»ãƒ»ãƒ» ã‚­ãƒ£ãƒ©ã‚¯ã‚¿ã‚³ãƒ¼ãƒ‰ 0 ï½ 255
+*	a1.l ãƒ»ãƒ»ãƒ» è¡¨ç¤ºã™ã‚‹ï¼§ï¼²ï¼¡ï¼­ã‚¢ãƒ‰ãƒ¬ã‚¹
+*	a2.l ãƒ»ãƒ»ãƒ» è¡¨ç¤ºã™ã‚‹ï¼¶ï¼²ï¼¡ï¼­ã‚¢ãƒ‰ãƒ¬ã‚¹
 *
-* (•Ô‚è’l)
-*	d1,d2,d3,d4,a0 EEE ”j‰ó
-*	a1 EEEE Ÿ‚É•\¦‚·‚é‚f‚q‚`‚lƒAƒhƒŒƒX
-*	a2 EEEE Ÿ‚É•\¦‚·‚é‚u‚q‚`‚lƒAƒhƒŒƒX
+* (è¿”ã‚Šå€¤)
+*	d1,d2,d3,d4,a0 ãƒ»ãƒ»ãƒ» ç ´å£Š
+*	a1 ãƒ»ãƒ»ãƒ»ãƒ» æ¬¡ã«è¡¨ç¤ºã™ã‚‹ï¼§ï¼²ï¼¡ï¼­ã‚¢ãƒ‰ãƒ¬ã‚¹
+*	a2 ãƒ»ãƒ»ãƒ»ãƒ» æ¬¡ã«è¡¨ç¤ºã™ã‚‹ï¼¶ï¼²ï¼¡ï¼­ã‚¢ãƒ‰ãƒ¬ã‚¹
 *
-put_char_other:			* •¶š‚ğ•\¦‚Å‚«‚È‚¢ƒ‚[ƒh‚Ì‚Í‚±‚±‚ğŒÄ‚Ô
-	rts			* —v‚·‚é‚É‰½‚à‚µ‚È‚¢
+put_char_other:			* æ–‡å­—ã‚’è¡¨ç¤ºã§ããªã„ãƒ¢ãƒ¼ãƒ‰ã®æ™‚ã¯ã“ã“ã‚’å‘¼ã¶
+	rts			* è¦ã™ã‚‹ã«ä½•ã‚‚ã—ãªã„
 
 put_char_s0_0:
-	movea.l	FONT_adr,a0	* a0 = ƒtƒHƒ“ƒg‚Ì‚ ‚éæ“ªƒAƒhƒŒƒX
+	movea.l	FONT_adr,a0	* a0 = ãƒ•ã‚©ãƒ³ãƒˆã®ã‚ã‚‹å…ˆé ­ã‚¢ãƒ‰ãƒ¬ã‚¹
 
 	lsl.w	#3,d0		* d0 *= 8
-	adda.l	d0,a0		* a0 = •\¦‚·‚éƒtƒHƒ“ƒg‚ÌƒAƒhƒŒƒX
+	adda.l	d0,a0		* a0 = è¡¨ç¤ºã™ã‚‹ãƒ•ã‚©ãƒ³ãƒˆã®ã‚¢ãƒ‰ãƒ¬ã‚¹
 
-	move.w	fore_color,d2	* ‚Qƒhƒbƒg“¯‘‚«‚İ‚·‚é‚½‚ß
+	move.w	fore_color,d2	* ï¼’ãƒ‰ãƒƒãƒˆåŒæ™‚æ›¸ãè¾¼ã¿ã™ã‚‹ãŸã‚
 	swap	d2
 	move.w	fore_color,d2
 	move.w	back_color,d3
 	swap	d3
 	move.w	back_color,d3
 
-	moveq.l	#4,d0		* ƒ‹[ƒvƒJƒEƒ“ƒ^
+	moveq.l	#4,d0		* ãƒ«ãƒ¼ãƒ—ã‚«ã‚¦ãƒ³ã‚¿
 loop1_put_char:
-	move.w	(a0)+,d1	* d1 = ƒtƒHƒ“ƒgƒf[ƒ^
+	move.w	(a0)+,d1	* d1 = ãƒ•ã‚©ãƒ³ãƒˆãƒ‡ãƒ¼ã‚¿
 
 
-	moveq.l	#6,d4		* ƒ‹[ƒvƒJƒEƒ“ƒ^
+	moveq.l	#6,d4		* ãƒ«ãƒ¼ãƒ—ã‚«ã‚¦ãƒ³ã‚¿
 loop2_put_char:
-	lsl.w	#1,d1		* ÅãˆÊƒrƒbƒg‚ğ‘—‚èo‚·
-	bcc	not0_1		* ÅãˆÊƒrƒbƒg‚ª‚P‚Å‚È‚¯‚ê‚ÎŸ‚Ö	
-	move.l	d2,1024(a1)	* ‘OŒiF‚ğ•\¦
+	lsl.w	#1,d1		* æœ€ä¸Šä½ãƒ“ãƒƒãƒˆã‚’é€ã‚Šå‡ºã™
+	bcc	not0_1		* æœ€ä¸Šä½ãƒ“ãƒƒãƒˆãŒï¼‘ã§ãªã‘ã‚Œã°æ¬¡ã¸	
+	move.l	d2,1024(a1)	* å‰æ™¯è‰²ã‚’è¡¨ç¤º
 	move.l	d2,(a1)+
 	bra	next0_1
-not0_1:	move.l	d3,1024(a1)	* ”wŒiF‚ğ•\¦
-	move.l	d3,(a1)+	* ”wŒiF‚ğ•\¦
+not0_1:	move.l	d3,1024(a1)	* èƒŒæ™¯è‰²ã‚’è¡¨ç¤º
+	move.l	d3,(a1)+	* èƒŒæ™¯è‰²ã‚’è¡¨ç¤º
 next0_1:
 	subq.w	#1,d4
 	bne	loop2_put_char
 
-	adda.l	#1024+1024-24,a1	* ‚Pƒ‰ƒCƒ“‰º‚°‚é
+	adda.l	#1024+1024-24,a1	* ï¼‘ãƒ©ã‚¤ãƒ³ä¸‹ã’ã‚‹
 	lsl.w	#2,d1
 
-	moveq.l	#6,d4		* ƒ‹[ƒvƒJƒEƒ“ƒ^
+	moveq.l	#6,d4		* ãƒ«ãƒ¼ãƒ—ã‚«ã‚¦ãƒ³ã‚¿
 loop3_put_char:
-	lsl.w	#1,d1		* ÅãˆÊƒrƒbƒg‚ğ‘—‚èo‚·
-	bcc	not0_2		* ÅãˆÊƒrƒbƒg‚ª‚P‚Å‚È‚¯‚ê‚ÎŸ‚Ö	
-	move.l	d2,1024(a1)	* ‘OŒiF‚ğ•\¦
+	lsl.w	#1,d1		* æœ€ä¸Šä½ãƒ“ãƒƒãƒˆã‚’é€ã‚Šå‡ºã™
+	bcc	not0_2		* æœ€ä¸Šä½ãƒ“ãƒƒãƒˆãŒï¼‘ã§ãªã‘ã‚Œã°æ¬¡ã¸	
+	move.l	d2,1024(a1)	* å‰æ™¯è‰²ã‚’è¡¨ç¤º
 	move.l	d2,(a1)+
 	bra	next0_2
-not0_2:	move.l	d3,1024(a1)	* ”wŒiF‚ğ•\¦
-	move.l	d3,(a1)+	* ”wŒiF‚ğ•\¦
+not0_2:	move.l	d3,1024(a1)	* èƒŒæ™¯è‰²ã‚’è¡¨ç¤º
+	move.l	d3,(a1)+	* èƒŒæ™¯è‰²ã‚’è¡¨ç¤º
 next0_2:
 	subq.w	#1,d4
 	bne	loop3_put_char
 
-	adda.l	#1024+1024-24,a1	* ‚Pƒ‰ƒCƒ“‰º‚°‚é
+	adda.l	#1024+1024-24,a1	* ï¼‘ãƒ©ã‚¤ãƒ³ä¸‹ã’ã‚‹
 
 
 	subq.w	#1,d0
@@ -345,49 +345,49 @@ next0_2:
 
 
 put_char_s0_1:
-	movea.l	FONT_adr,a0	* a0 = ƒtƒHƒ“ƒg‚Ì‚ ‚éæ“ªƒAƒhƒŒƒX
+	movea.l	FONT_adr,a0	* a0 = ãƒ•ã‚©ãƒ³ãƒˆã®ã‚ã‚‹å…ˆé ­ã‚¢ãƒ‰ãƒ¬ã‚¹
 
 	lsl.w	#3,d0		* d0 *= 8
-	adda.l	d0,a0		* a0 = •\¦‚·‚éƒtƒHƒ“ƒg‚ÌƒAƒhƒŒƒX
+	adda.l	d0,a0		* a0 = è¡¨ç¤ºã™ã‚‹ãƒ•ã‚©ãƒ³ãƒˆã®ã‚¢ãƒ‰ãƒ¬ã‚¹
 
 	move.w	fore_color,d2
 	move.w	back_color,d3
 
-	moveq.l	#4,d0		* ƒ‹[ƒvƒJƒEƒ“ƒ^
+	moveq.l	#4,d0		* ãƒ«ãƒ¼ãƒ—ã‚«ã‚¦ãƒ³ã‚¿
 loop4_put_char:
-	move.w	(a0)+,d1	* d1 = ƒtƒHƒ“ƒgƒf[ƒ^
+	move.w	(a0)+,d1	* d1 = ãƒ•ã‚©ãƒ³ãƒˆãƒ‡ãƒ¼ã‚¿
 
 
-	moveq.l	#6,d4		* ƒ‹[ƒvƒJƒEƒ“ƒ^
+	moveq.l	#6,d4		* ãƒ«ãƒ¼ãƒ—ã‚«ã‚¦ãƒ³ã‚¿
 loop5_put_char:
-	lsl.w	#1,d1		* ÅãˆÊƒrƒbƒg‚ğ‘—‚èo‚·
-	bcc	not0_3		* ÅãˆÊƒrƒbƒg‚ª‚P‚Å‚È‚¯‚ê‚ÎŸ‚Ö	
-	move.w	d2,1024(a1)	* ‘OŒiF‚ğ•\¦
+	lsl.w	#1,d1		* æœ€ä¸Šä½ãƒ“ãƒƒãƒˆã‚’é€ã‚Šå‡ºã™
+	bcc	not0_3		* æœ€ä¸Šä½ãƒ“ãƒƒãƒˆãŒï¼‘ã§ãªã‘ã‚Œã°æ¬¡ã¸	
+	move.w	d2,1024(a1)	* å‰æ™¯è‰²ã‚’è¡¨ç¤º
 	move.w	d2,(a1)+
 	bra	next0_3
-not0_3:	move.w	d3,1024(a1)	* ”wŒiF‚ğ•\¦
-	move.w	d3,(a1)+	* ”wŒiF‚ğ•\¦
+not0_3:	move.w	d3,1024(a1)	* èƒŒæ™¯è‰²ã‚’è¡¨ç¤º
+	move.w	d3,(a1)+	* èƒŒæ™¯è‰²ã‚’è¡¨ç¤º
 next0_3:
 	subq.w	#1,d4
 	bne	loop5_put_char
 
-	adda.l	#1024+1024-12,a1	* ‚Pƒ‰ƒCƒ“‰º‚°‚é
+	adda.l	#1024+1024-12,a1	* ï¼‘ãƒ©ã‚¤ãƒ³ä¸‹ã’ã‚‹
 	lsl.w	#2,d1
 
-	moveq.l	#6,d4		* ƒ‹[ƒvƒJƒEƒ“ƒ^
+	moveq.l	#6,d4		* ãƒ«ãƒ¼ãƒ—ã‚«ã‚¦ãƒ³ã‚¿
 loop6_put_char:
-	lsl.w	#1,d1		* ÅãˆÊƒrƒbƒg‚ğ‘—‚èo‚·
-	bcc	not0_4		* ÅãˆÊƒrƒbƒg‚ª‚P‚Å‚È‚¯‚ê‚ÎŸ‚Ö	
-	move.w	d2,1024(a1)	* ‘OŒiF‚ğ•\¦
+	lsl.w	#1,d1		* æœ€ä¸Šä½ãƒ“ãƒƒãƒˆã‚’é€ã‚Šå‡ºã™
+	bcc	not0_4		* æœ€ä¸Šä½ãƒ“ãƒƒãƒˆãŒï¼‘ã§ãªã‘ã‚Œã°æ¬¡ã¸	
+	move.w	d2,1024(a1)	* å‰æ™¯è‰²ã‚’è¡¨ç¤º
 	move.w	d2,(a1)+
 	bra	next0_4
-not0_4:	move.w	d3,1024(a1)	* ”wŒiF‚ğ•\¦
-	move.w	d3,(a1)+	* ”wŒiF‚ğ•\¦
+not0_4:	move.w	d3,1024(a1)	* èƒŒæ™¯è‰²ã‚’è¡¨ç¤º
+	move.w	d3,(a1)+	* èƒŒæ™¯è‰²ã‚’è¡¨ç¤º
 next0_4:
 	subq.w	#1,d4
 	bne	loop6_put_char
 
-	adda.l	#1024+1024-12,a1	* ‚Pƒ‰ƒCƒ“‰º‚°‚é
+	adda.l	#1024+1024-12,a1	* ï¼‘ãƒ©ã‚¤ãƒ³ä¸‹ã’ã‚‹
 
 
 	subq.w	#1,d0
@@ -398,51 +398,51 @@ next0_4:
 
 
 put_char_s1:
-	movea.l	FONT_adr,a0	* a0 = ƒtƒHƒ“ƒg‚Ì‚ ‚éæ“ªƒAƒhƒŒƒX
+	movea.l	FONT_adr,a0	* a0 = ãƒ•ã‚©ãƒ³ãƒˆã®ã‚ã‚‹å…ˆé ­ã‚¢ãƒ‰ãƒ¬ã‚¹
 
 	lsl.w	#3,d0		* d0 *= 8
-	adda.l	d0,a0		* a0 = •\¦‚·‚éƒtƒHƒ“ƒg‚ÌƒAƒhƒŒƒX
+	adda.l	d0,a0		* a0 = è¡¨ç¤ºã™ã‚‹ãƒ•ã‚©ãƒ³ãƒˆã®ã‚¢ãƒ‰ãƒ¬ã‚¹
 
-	move.w	fore_color,d2	* ‚Qƒhƒbƒg“¯‘‚«‚İ‚·‚é‚½‚ß
+	move.w	fore_color,d2	* ï¼’ãƒ‰ãƒƒãƒˆåŒæ™‚æ›¸ãè¾¼ã¿ã™ã‚‹ãŸã‚
 	swap	d2
 	move.w	fore_color,d2
 	move.w	back_color,d3
 	swap	d3
 	move.w	back_color,d3
 
-	moveq.l	#4,d0		* ƒ‹[ƒvƒJƒEƒ“ƒ^
+	moveq.l	#4,d0		* ãƒ«ãƒ¼ãƒ—ã‚«ã‚¦ãƒ³ã‚¿
 loop7_put_char:
-	move.w	(a0)+,d1	* d1 = ƒtƒHƒ“ƒgƒf[ƒ^
+	move.w	(a0)+,d1	* d1 = ãƒ•ã‚©ãƒ³ãƒˆãƒ‡ãƒ¼ã‚¿
 
-	moveq.l	#8,d4		* ƒ‹[ƒvƒJƒEƒ“ƒ^
+	moveq.l	#8,d4		* ãƒ«ãƒ¼ãƒ—ã‚«ã‚¦ãƒ³ã‚¿
 loop8_put_char:
-	lsl.w	#1,d1		* ÅãˆÊƒrƒbƒg‚ğ‘—‚èo‚·
-	bcc	not1_1		* ÅãˆÊƒrƒbƒg‚ª‚P‚Å‚È‚¯‚ê‚ÎŸ‚Ö	
-	move.l	d2,1024(a1)	* ‘OŒiF‚ğ•\¦
+	lsl.w	#1,d1		* æœ€ä¸Šä½ãƒ“ãƒƒãƒˆã‚’é€ã‚Šå‡ºã™
+	bcc	not1_1		* æœ€ä¸Šä½ãƒ“ãƒƒãƒˆãŒï¼‘ã§ãªã‘ã‚Œã°æ¬¡ã¸	
+	move.l	d2,1024(a1)	* å‰æ™¯è‰²ã‚’è¡¨ç¤º
 	move.l	d2,(a1)+
 	bra	next1_1
-not1_1:	move.l	d3,1024(a1)	* ”wŒiF‚ğ•\¦
-	move.l	d3,(a1)+	* ”wŒiF‚ğ•\¦
+not1_1:	move.l	d3,1024(a1)	* èƒŒæ™¯è‰²ã‚’è¡¨ç¤º
+	move.l	d3,(a1)+	* èƒŒæ™¯è‰²ã‚’è¡¨ç¤º
 next1_1:
 	subq.w	#1,d4
 	bne	loop8_put_char
 
-	adda.l	#1024+1024-32,a1	* ‚Pƒ‰ƒCƒ“‰º‚°‚é
+	adda.l	#1024+1024-32,a1	* ï¼‘ãƒ©ã‚¤ãƒ³ä¸‹ã’ã‚‹
 
-	moveq.l	#8,d4		* ƒ‹[ƒvƒJƒEƒ“ƒ^
+	moveq.l	#8,d4		* ãƒ«ãƒ¼ãƒ—ã‚«ã‚¦ãƒ³ã‚¿
 loop9_put_char:
-	lsl.w	#1,d1		* ÅãˆÊƒrƒbƒg‚ğ‘—‚èo‚·
-	bcc	not1_2		* ÅãˆÊƒrƒbƒg‚ª‚P‚Å‚È‚¯‚ê‚ÎŸ‚Ö	
-	move.l	d2,1024(a1)	* ‘OŒiF‚ğ•\¦
+	lsl.w	#1,d1		* æœ€ä¸Šä½ãƒ“ãƒƒãƒˆã‚’é€ã‚Šå‡ºã™
+	bcc	not1_2		* æœ€ä¸Šä½ãƒ“ãƒƒãƒˆãŒï¼‘ã§ãªã‘ã‚Œã°æ¬¡ã¸	
+	move.l	d2,1024(a1)	* å‰æ™¯è‰²ã‚’è¡¨ç¤º
 	move.l	d2,(a1)+
 	bra	next1_2
-not1_2:	move.l	d3,1024(a1)	* ”wŒiF‚ğ•\¦
-	move.l	d3,(a1)+	* ”wŒiF‚ğ•\¦
+not1_2:	move.l	d3,1024(a1)	* èƒŒæ™¯è‰²ã‚’è¡¨ç¤º
+	move.l	d3,(a1)+	* èƒŒæ™¯è‰²ã‚’è¡¨ç¤º
 next1_2:
 	subq.w	#1,d4
 	bne	loop9_put_char
 
-	adda.l	#1024+1024-32,a1	* ‚Pƒ‰ƒCƒ“‰º‚°‚é
+	adda.l	#1024+1024-32,a1	* ï¼‘ãƒ©ã‚¤ãƒ³ä¸‹ã’ã‚‹
 
 
 	subq.w	#1,d0
@@ -453,9 +453,9 @@ next1_2:
 	rts
 
 *
-*	ƒJ[ƒ\ƒ‹ˆÊ’uw’è
+*	ã‚«ãƒ¼ã‚½ãƒ«ä½ç½®æŒ‡å®š
 *
-*  (—á)
+*  (ä¾‹)
 *	locate( int x, int y);
 *
 _locate:
@@ -478,7 +478,7 @@ _locate:
 	rts
 
 *
-*	‰æ–Ê•\¦•İ’è
+*	ç”»é¢è¡¨ç¤ºå¹…è¨­å®š
 *
 *	int set_width( int size);
 *
@@ -486,49 +486,49 @@ _set_width:
 	link	a6,#0
 
 	move.l	d1,-(sp)
-	move.l	8(a6),d0	* d0 = •\¦•
+	move.l	8(a6),d0	* d0 = è¡¨ç¤ºå¹…
 
 	move.w	screen_mode,d1
 	beq	screen0_wi
 
 	cmpi.w	#32,d0
-	bhi	over_wi		* ƒXƒNƒŠ[ƒ“‚P‚Å‚R‚Q‚æ‚è‘å‚«‚¢‚ÍƒGƒ‰[
+	bhi	over_wi		* ã‚¹ã‚¯ãƒªãƒ¼ãƒ³ï¼‘ã§ï¼“ï¼’ã‚ˆã‚Šå¤§ãã„æ™‚ã¯ã‚¨ãƒ©ãƒ¼
 	move.w	d0,width_s1
 
 	bra	next_set_width
 
 screen0_wi:
-	cmpi.w	#40,d0		* •\¦•‚ª‚S‚O‚æ‚è‚à‘å‚«‚¢
+	cmpi.w	#40,d0		* è¡¨ç¤ºå¹…ãŒï¼”ï¼ã‚ˆã‚Šã‚‚å¤§ãã„æ™‚
 	bhi	width80_mode_wi
 
 	move.w	d0,width_s0
 	bra	next_set_width
 
 width80_mode_wi:
-	cmpi.w	#80,d0		* ƒXƒNƒŠ[ƒ“‚O‚Å‚W‚O‚æ‚è‘å‚«‚¢‚ÍƒGƒ‰[
+	cmpi.w	#80,d0		* ã‚¹ã‚¯ãƒªãƒ¼ãƒ³ï¼ã§ï¼˜ï¼ã‚ˆã‚Šå¤§ãã„æ™‚ã¯ã‚¨ãƒ©ãƒ¼
 	bhi	over_wi
 	move.w	d0,width_s0
 
 next_set_width:
-	move.l	d1,-(sp)	* ƒXƒNƒŠ[ƒ“‚ğ‰Šú‰»
+	move.l	d1,-(sp)	* ã‚¹ã‚¯ãƒªãƒ¼ãƒ³ã‚’åˆæœŸåŒ–
 	bsr	_set_screen
 	addq.l	#4,sp
 
-	clr.l	d0		* ƒGƒ‰[–³‚µ‚ÌƒTƒCƒ“
+	clr.l	d0		* ã‚¨ãƒ©ãƒ¼ç„¡ã—ã®ã‚µã‚¤ãƒ³
 
 	move.l	(sp)+,d1
 	unlk	a6
 	rts
 
-over_wi:			* İ’è‚Å‚«‚È‚¢”’l‚ğw’è‚µ‚Ä‚«‚½
-	move.l	#$ffff_ffff,d0	* ƒGƒ‰[ƒR[ƒh‚Æ‚µ‚Ä|‚P‚ğ‹A‚·
+over_wi:			* è¨­å®šã§ããªã„æ•°å€¤ã‚’æŒ‡å®šã—ã¦ããŸæ™‚
+	move.l	#$ffff_ffff,d0	* ã‚¨ãƒ©ãƒ¼ã‚³ãƒ¼ãƒ‰ã¨ã—ã¦ï¼ï¼‘ã‚’å¸°ã™
 
 	move.l	(sp)+,d1
 	unlk	a6
 	rts
 
 *
-*	•¶š•\¦‚Ì‚½‚ß‚Ìƒ[ƒNƒGƒŠƒA
+*	æ–‡å­—è¡¨ç¤ºã®ãŸã‚ã®ãƒ¯ãƒ¼ã‚¯ã‚¨ãƒªã‚¢
 *
 width:
 	.dc.w	80
@@ -537,34 +537,34 @@ width_s0:
 width_s1:
 	.dc.w	32
 	
-carsol_g_address:		* Ÿ‚É•\¦‚·‚é‚f‚q‚`‚lƒAƒhƒŒƒX
+carsol_g_address:		* æ¬¡ã«è¡¨ç¤ºã™ã‚‹ï¼§ï¼²ï¼¡ï¼­ã‚¢ãƒ‰ãƒ¬ã‚¹
 	.dc.l	GPAGE0
 
-carsol_v_address:		* Ÿ‚É•\¦‚·‚é‚u‚q‚`‚lƒAƒhƒŒƒX
+carsol_v_address:		* æ¬¡ã«è¡¨ç¤ºã™ã‚‹ï¼¶ï¼²ï¼¡ï¼­ã‚¢ãƒ‰ãƒ¬ã‚¹
 	.dc.l	0
 
 
 screen_mode:
-	.dc.w	0		* Œ»İ‚ÌƒXƒNƒŠ[ƒ“ƒ‚[ƒh
+	.dc.w	0		* ç¾åœ¨ã®ã‚¹ã‚¯ãƒªãƒ¼ãƒ³ãƒ¢ãƒ¼ãƒ‰
 screen0_mode:
-	.dc.w	1		* ‚OEEwidth40  ‚PEEwidth80
+	.dc.w	1		* ï¼ãƒ»ãƒ»width40  ï¼‘ãƒ»ãƒ»width80
 
-locate_x:			*ƒJ[ƒ\ƒ‹‚ÌÀ•W
+locate_x:			*ã‚«ãƒ¼ã‚½ãƒ«ã®åº§æ¨™
 	.dc.w	0
 locate_y:
 	.dc.w	0
 cur_mode:
-	.dc.w	1		* ƒJ[ƒ\ƒ‹‚Ì•\¦^”ñ•\¦ (‚OEE”ñ•\¦ ‚PEE•\¦)
+	.dc.w	1		* ã‚«ãƒ¼ã‚½ãƒ«ã®è¡¨ç¤ºï¼éè¡¨ç¤º (ï¼ãƒ»ãƒ»éè¡¨ç¤º ï¼‘ãƒ»ãƒ»è¡¨ç¤º)
 
 
-fore_color:			* •\¦‚·‚é•¶š‚Ì‘OŒiF
+fore_color:			* è¡¨ç¤ºã™ã‚‹æ–‡å­—ã®å‰æ™¯è‰²
 	.dc.w	15
-back_color:			* •\¦‚·‚é•¶š‚Ì”wŒiF
+back_color:			* è¡¨ç¤ºã™ã‚‹æ–‡å­—ã®èƒŒæ™¯è‰²
 	.dc.w	0
 
 ********************************************************************
 *
-*	ƒXƒNƒŠ[ƒ“ƒ‚[ƒhw’è‹y‚Ñ‰Šú‰»
+*	ã‚¹ã‚¯ãƒªãƒ¼ãƒ³ãƒ¢ãƒ¼ãƒ‰æŒ‡å®šåŠã³åˆæœŸåŒ–
 *
 *	int set_screen( int screen_mode);
 *
@@ -574,7 +574,7 @@ _set_screen:
 	move.l	d1,-(sp)
 	clr.l	d1
 
-	move.l	8(a6),d0	* d0 = ƒXƒNƒŠ[ƒ“ƒ‚[ƒh
+	move.l	8(a6),d0	* d0 = ã‚¹ã‚¯ãƒªãƒ¼ãƒ³ãƒ¢ãƒ¼ãƒ‰
 	move.w	d0,screen_mode
 
 	beq	screen0_set_sc
@@ -586,7 +586,7 @@ _set_screen:
 
 screen0_set_sc:
 	move.w	width,d0
-	cmpi.w	#40,d0		* •\¦•‚ª‚S‚O‚æ‚è‚à‘å‚«‚¢
+	cmpi.w	#40,d0		* è¡¨ç¤ºå¹…ãŒï¼”ï¼ã‚ˆã‚Šã‚‚å¤§ãã„æ™‚
 	bhi	width80_mode
 
 	move.w	d0,width_s0
@@ -594,7 +594,7 @@ screen0_set_sc:
 	bra	next_set_sc
 
 width80_mode:
-	cmpi.w	#80,d0		* ƒXƒNƒŠ[ƒ“‚O‚Å‚W‚O‚æ‚è‘å‚«‚¢‚ÍƒGƒ‰[
+	cmpi.w	#80,d0		* ã‚¹ã‚¯ãƒªãƒ¼ãƒ³ï¼ã§ï¼˜ï¼ã‚ˆã‚Šå¤§ãã„æ™‚ã¯ã‚¨ãƒ©ãƒ¼
 	bhi	over_set_sc
 	move.w	d0,width_s0
 	move.w	#1,screen0_mode
@@ -602,7 +602,7 @@ width80_mode:
 next_set_sc:
 	clr.l	-(sp)
 	clr.l	-(sp)
-	bsr	_locate		* ƒJ[ƒ\ƒ‹ˆÊ’u‚ği ‚O, ‚Oj‚É
+	bsr	_locate		* ã‚«ãƒ¼ã‚½ãƒ«ä½ç½®ã‚’ï¼ˆ ï¼, ï¼ï¼‰ã«
 	addq.l	#8,sp
 
 	move.l	d1,d0
@@ -611,15 +611,15 @@ next_set_sc:
 
 	rts
 
-over_set_sc:			* İ’è‚Å‚«‚È‚¢”’l‚ğw’è‚µ‚Ä‚«‚½
-	ori.l	#$ffff_ffff,d1	* ƒGƒ‰[ƒR[ƒh‚Æ‚µ‚Ä|‚P‚ğ‹A‚·
+over_set_sc:			* è¨­å®šã§ããªã„æ•°å€¤ã‚’æŒ‡å®šã—ã¦ããŸæ™‚
+	ori.l	#$ffff_ffff,d1	* ã‚¨ãƒ©ãƒ¼ã‚³ãƒ¼ãƒ‰ã¨ã—ã¦ï¼ï¼‘ã‚’å¸°ã™
 
 	move.l	(sp)+,d1
 	unlk	a6
 	rts
 
 *
-*		ƒ[ƒNƒGƒŠƒA
+*		ãƒ¯ãƒ¼ã‚¯ã‚¨ãƒªã‚¢
 *
 	.data
 	.even
@@ -638,8 +638,8 @@ filebuf:
 	.ds.b	53 
 
 errmes_file:
-	.dc.b	"ƒtƒ@ƒCƒ‹ƒGƒ‰[‚Å‚·",$0d,$0a,$00
+	.dc.b	"ãƒ•ã‚¡ã‚¤ãƒ«ã‚¨ãƒ©ãƒ¼ã§ã™",$0d,$0a,$00
 errmes_memory:
-	.dc.b	"ƒƒ‚ƒŠ‚ªŠm•Û‚Å‚«‚Ü‚¹‚ñ",$0d,$0a,$00
+	.dc.b	"ãƒ¡ãƒ¢ãƒªãŒç¢ºä¿ã§ãã¾ã›ã‚“",$0d,$0a,$00
 
 	.end

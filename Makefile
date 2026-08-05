@@ -30,6 +30,23 @@ LDFLAGS = src/disk/9scdrv/_X_KPCHK_elf.o -lm -lbas -liocs -ldos -Wl,-e,msboot_st
 ASFLAGS = -i $(SRC_DIR) -i $(ASMINC_DIR) -i $(VDP_DIR) -i $(MEMMAP_DIR) -i ${DISK_DIR} -i ${PERIPHERAL_DIR} -w0
 ASFLAGS_DEBUG = -d -s DEBUG $(ASFLAGS)
 
+# ソースを探索するディレクトリ (vpath でサブフォルダごとの重複ルールを1組にまとめる)
+SRC_DIRS = $(SRC_DIR) $(VDP_DIR) $(MEMMAP_DIR) $(DISK_DIR) $(DISK_9SCDRV_DIR) $(PERIPHERAL_DIR)
+vpath %.c $(SRC_DIRS)
+vpath %.has $(SRC_DIRS)
+
+# ヘッダを更新したら全オブジェクトを作り直す (依存指定を簡潔にするため一括)
+HEADERS = $(wildcard $(SRC_DIR)/*.h $(VDP_DIR)/*.h $(MEMMAP_DIR)/*.h $(DISK_DIR)/*.h $(DISK_9SCDRV_DIR)/*.h $(PERIPHERAL_DIR)/*.h)
+
+# アセンブラソースは UTF-8 で管理し、HAS060 が要求する SJIS(CP932) に変換した
+# シャドウツリー ($(ASMSRC_DIR)) を作ってからアセンブルする。.include も元のパス
+# 基準で読まれるため、ディレクトリ構造ごと複製する。
+# (macOS の iconv は CP932 変換が不安定なため Python の cp932 コーデックを使用)
+UTF8TOCP932 = python3 -c 'import sys;sys.stdout.buffer.write(open(sys.argv[1],encoding="utf-8").read().encode("cp932"))'
+ASMSRC_DIR = $(BUILD_DIR)/asmsrc
+ASM_SOURCES = $(shell find $(SRC_DIR) -type f \( -name '*.has' -o -name '*.mac' -o -name '*.MAC' -o -name '*.equ' \))
+ASM_STAMP = $(ASMSRC_DIR)/.stamp
+
 # オブジェクトファイルのリストを変数にまとめる
 OBJS =	$(BUILD_DIR)/msboot_mac.o \
 		$(BUILD_DIR)/ms.o \
@@ -189,107 +206,34 @@ ${BUILD_DIR}/ms.x: $(OBJS)
 ${BUILD_DIR}/ms_debug.x: $(OBJS_DEBUG)
 	$(LD) -o $@ $^ $(LDFLAGS) 
 
-${BUILD_DIR}/%.o: $(SRC_DIR)/%.c $(SRC_DIR)/ms_R800.h $(SRC_DIR)/ms.h
+# --- C ソース (全サブフォルダ共通。vpath でソースを探索) ---
+${BUILD_DIR}/%.o: %.c $(HEADERS)
 	$(CC) $(CFLAGS) $< -o $@
 
-${BUILD_DIR}/%_d.o: $(SRC_DIR)/%.c $(SRC_DIR)/ms_R800.h $(SRC_DIR)/ms.h
+${BUILD_DIR}/%_d.o: %.c $(HEADERS)
 	$(CC) $(CFLAGS_DEBUG) $< -o $@
 
-${BUILD_DIR}/%_mac.o: $(SRC_DIR)/%.has
-	$(AS) $(ASFLAGS) $< -o $@.tmp
-	x68k2elf.py $@.tmp $@
-	rm $@.tmp
+# --- アセンブラソース (CP932 シャドウツリーを作ってからアセンブル) ---
+# 全アセンブラソースを CP932 に変換して $(ASMSRC_DIR)/ にツリー複製する
+$(ASM_STAMP): $(ASM_SOURCES)
+	@rm -rf $(ASMSRC_DIR)
+	@set -e; for f in $(ASM_SOURCES); do \
+		mkdir -p "$(ASMSRC_DIR)/$$(dirname $$f)"; \
+		$(UTF8TOCP932) "$$f" > "$(ASMSRC_DIR)/$$f"; \
+	done
+	@mkdir -p $(ASMSRC_DIR)
+	@touch $@
 
-${BUILD_DIR}/%_mac_d.o: $(SRC_DIR)/%.has $(SRC_DIR)/ms.mac
-	$(AS) $(ASFLAGS_DEBUG) $< -o $@.tmp
-	x68k2elf.py $@.tmp $@
-	rm $@.tmp
+# シャドウツリー内でアセンブルする (cd するので include の相対解決も従来どおり)
+${BUILD_DIR}/%_mac.o: %.has $(ASM_STAMP)
+	cd $(ASMSRC_DIR) && $(AS) $(ASFLAGS) $< -o $(notdir $@).tmp
+	x68k2elf.py $(ASMSRC_DIR)/$(notdir $@).tmp $@
+	rm $(ASMSRC_DIR)/$(notdir $@).tmp
 
-
-# VDP files
-${BUILD_DIR}/%.o: $(VDP_DIR)/%.c $(VDP_DIR)/ms_vdp.h $(SRC_DIR)/ms.h
-	$(CC) $(CFLAGS) $< -o $@
-
-${BUILD_DIR}/%_d.o: $(VDP_DIR)/%.c $(VDP_DIR)/ms_vdp.h $(SRC_DIR)/ms.h
-	$(CC) $(CFLAGS_DEBUG) $< -o $@
-
-${BUILD_DIR}/%_mac.o: $(VDP_DIR)/%.has
-	$(AS) $(ASFLAGS) $< -o $@.tmp
-	x68k2elf.py $@.tmp $@
-	rm $@.tmp
-
-${BUILD_DIR}/%_mac_d.o: $(VDP_DIR)/%.has $(SRC_DIR)/ms.mac
-	$(AS) $(ASFLAGS_DEBUG) $< -o $@.tmp
-	x68k2elf.py $@.tmp $@
-	rm $@.tmp
-
-# Memmap files
-${BUILD_DIR}/%.o: $(MEMMAP_DIR)/%.c $(MEMMAP_DIR)/ms_memmap.h $(SRC_DIR)/ms.h
-	$(CC) $(CFLAGS) $< -o $@
-
-${BUILD_DIR}/%_d.o: $(MEMMAP_DIR)/%.c $(MEMMAP_DIR)/ms_memmap.h $(SRC_DIR)/ms.h
-	$(CC) $(CFLAGS_DEBUG) $< -o $@
-
-${BUILD_DIR}/%_mac.o: $(MEMMAP_DIR)/%.has
-	$(AS) $(ASFLAGS) $< -o $@.tmp
-	x68k2elf.py $@.tmp $@
-	rm $@.tmp
-
-${BUILD_DIR}/%_mac_d.o: $(MEMMAP_DIR)/%.has $(SRC_DIR)/ms.mac
-	$(AS) $(ASFLAGS_DEBUG) $< -o $@.tmp
-	x68k2elf.py $@.tmp $@
-	rm $@.tmp
-
-# Disk files
-${BUILD_DIR}/%.o: $(DISK_DIR)/%.c $(DISK_DIR)/ms_disk.h $(SRC_DIR)/ms.h
-	$(CC) $(CFLAGS) $< -o $@
-
-${BUILD_DIR}/%_d.o: $(DISK_DIR)/%.c $(DISK_DIR)/ms_disk.h $(SRC_DIR)/ms.h
-	$(CC) $(CFLAGS_DEBUG) $< -o $@
-
-${BUILD_DIR}/%_mac.o: $(DISK_DIR)/%.has
-	$(AS) $(ASFLAGS) $< -o $@.tmp
-	x68k2elf.py $@.tmp $@
-	rm $@.tmp
-
-${BUILD_DIR}/%_mac_d.o: $(DISK_DIR)/%.has $(SRC_DIR)/ms.mac
-	$(AS) $(ASFLAGS_DEBUG) $< -o $@.tmp
-	x68k2elf.py $@.tmp $@
-	rm $@.tmp
-
-# 9scdrv files
-${BUILD_DIR}/%.o: $(DISK_9SCDRV_DIR)/%.c $(DISK_DIR)/ms_disk.h $(SRC_DIR)/ms.h
-	$(CC) $(CFLAGS) $< -o $@
-
-${BUILD_DIR}/%_d.o: $(DISK_9SCDRV_DIR)/%.c $(DISK_DIR)/ms_disk.h $(SRC_DIR)/ms.h
-	$(CC) $(CFLAGS_DEBUG) $< -o $@
-
-${BUILD_DIR}/%_mac.o: $(DISK_9SCDRV_DIR)/%.has
-	$(AS) $(ASFLAGS) $< -o $@.tmp
-	x68k2elf.py $@.tmp $@
-	rm $@.tmp
-
-${BUILD_DIR}/%_mac_d.o: $(DISK_9SCDRV_DIR)/%.has $(SRC_DIR)/ms.mac
-	$(AS) $(ASFLAGS_DEBUG) $< -o $@.tmp
-	x68k2elf.py $@.tmp $@
-	rm $@.tmp
-
-# Peripheral files
-${BUILD_DIR}/%.o: $(PERIPHERAL_DIR)/%.c $(SRC_DIR)/ms.h
-	$(CC) $(CFLAGS) $< -o $@
-
-${BUILD_DIR}/%_d.o: $(PERIPHERAL_DIR)/%.c $(SRC_DIR)/ms.h
-	$(CC) $(CFLAGS_DEBUG) $< -o $@
-
-${BUILD_DIR}/%_mac.o: $(PERIPHERAL_DIR)/%.has
-	$(AS) $(ASFLAGS) $< -o $@.tmp
-	x68k2elf.py $@.tmp $@
-	rm $@.tmp
-
-${BUILD_DIR}/%_mac_d.o: $(PERIPHERAL_DIR)/%.has $(SRC_DIR)/ms.mac
-	$(AS) $(ASFLAGS_DEBUG) $< -o $@.tmp
-	x68k2elf.py $@.tmp $@
-	rm $@.tmp
+${BUILD_DIR}/%_mac_d.o: %.has $(ASM_STAMP)
+	cd $(ASMSRC_DIR) && $(AS) $(ASFLAGS_DEBUG) $< -o $(notdir $@).tmp
+	x68k2elf.py $(ASMSRC_DIR)/$(notdir $@).tmp $@
+	rm $(ASMSRC_DIR)/$(notdir $@).tmp
 
 # Test program
 test/z80test/exe/ms_z80tests.x:

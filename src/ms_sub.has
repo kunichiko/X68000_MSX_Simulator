@@ -1,6 +1,6 @@
 *
-*	�l���� �r����������������
-*		[[ ������ �q������������ ]]
+*	Ｍｓｘ Ｓｉｍｕｌａｔｅｒ
+*		[[ ｓｕｂ Ｒｏｕｔｉｎｅ ]]
 *				1993.10.		by Kuni.
 *
 
@@ -12,7 +12,7 @@
 
 	.xref	slot_3_ex
 
-	.xref	VDP_R_01		* VDP �R���g���[�����W�X�^ 1
+	.xref	VDP_R_01		* VDP コントロールレジスタ 1
 
 	.xref	KEY_INT
 
@@ -32,23 +32,23 @@
 
 headerlength	equ	8
 
-V_MFP_GPIP_4	equ	$000118		* V-DISP���荞�݂̃x�N�^�A�h���X
-V_MFP_GPIP_6	equ	$000138		* ���胉�X�^(CRTC R#9)�ł̊��荞�݂̃x�N�^�A�h���X
-V_MFP_GPIP_7	equ	$00013C		* H-SYNC���荞��(�S���X�^���荞��)
-V_MFP_MPSC_EMP	equ	$000130		* �L�[���̓x�N�^�A�h���X
-IERA		equ	$e88007		* ���荞�݋����W�X�^A�BBit7��GPIP7(HSYNC)
+V_MFP_GPIP_4	equ	$000118		* V-DISP割り込みのベクタアドレス
+V_MFP_GPIP_6	equ	$000138		* 特定ラスタ(CRTC R#9)での割り込みのベクタアドレス
+V_MFP_GPIP_7	equ	$00013C		* H-SYNC割り込み(全ラスタ割り込み)
+V_MFP_MPSC_EMP	equ	$000130		* キー入力ベクタアドレス
+IERA		equ	$e88007		* 割り込み許可レジスタA。Bit7がGPIP7(HSYNC)
 IERB		equ	$e88009
 ISRA		equ	$e8800F
 ISRB		equ	$e88011
-IMRA		equ	$e88013		* ���荞�݃}�X�N���W�X�^A�BBit7��GPIP7(HSYNC)
+IMRA		equ	$e88013		* 割り込みマスクレジスタA。Bit7がGPIP7(HSYNC)
 IMRB		equ	$e88015
-VR		equ	$e88017		* �x�N�^���W�X�^
+VR		equ	$e88017		* ベクタレジスタ
 
-GPAGE0		equ	$c00000		* �f�q�`�l�̐擪�A�h���X
+GPAGE0		equ	$c00000		* ＧＲＡＭの先頭アドレス
 
 pla0		equ	$e00000
 
-* ------ ���b�Z�[�W�\���}�N�� ------------------
+* ------ メッセージ表示マクロ ------------------
 print:		macro	msg
 		pea	msg
 		DOS	__PRINT
@@ -58,9 +58,9 @@ print:		macro	msg
 	.data
 	.even
 
-; CPU�R�A��INT�[�q(���荞�ݎ�t)�ƁAVDP��INT�[�q(���荞�ݗv��)��ڑ����邽�߂̕ϐ�
-; bit0: VSYNC���荞�ݗv��
-; bit1: HSYNC���荞�ݗv��
+; CPUコアのINT端子(割り込み受付)と、VDPのINT端子(割り込み要求)を接続するための変数
+; bit0: VSYNC割り込み要求
+; bit1: HSYNC割り込み要求
 ms_cpu_int:
 ms_vdp_int:
 	.dc.b	0
@@ -72,7 +72,7 @@ ms_vdp_int:
 
 *
 *
-*	�������m�ۃ��[�`��
+*	メモリ確保ルーチン
 *
 *
 _new_malloc:
@@ -85,7 +85,7 @@ _new_malloc:
 
 	btst.l	#31,d0
 	bne	@f
-	; �m�ۂł����ꍇ�́A�m�ۂ������������N���A����
+	; 確保できた場合は、確保したメモリをクリアする
 	movea.l	d0,a1
 	move.l	8(a6),d1
 	lsr.l	#2,d1
@@ -95,16 +95,16 @@ _new_malloc:
 	unlk	a6
 	rts
 
-	; �m�ۂł��Ȃ�������NULL��Ԃ�
+	; 確保できなかったらNULLを返す
 @@:	clr.l	d0
 	movem.l	(sp)+,d3-d7/a0-a5
 	unlk	a6
 	rts
 
 
-; �ȉ��͎g���ĂȂ�
+; 以下は使ってない
 
-	clr.l	-(sp)			; himem.sys �̏풓�m�F
+	clr.l	-(sp)			; himem.sys の常駐確認
 	DOS	__SUPER
 	addq.l	#4,sp
 
@@ -155,14 +155,14 @@ not_himem:
 
 
 *
-*	������������[�`��
+*	メモリ解放ルーチン
 *
 _new_free:
 	link	a6,#0
 	movem.l	d3-d7/a0-a5,-(sp)
 
 	move.l	8(a6),d0
-	beq	@f		; NULL�`�F�b�N
+	beq	@f		; NULLチェック
 	move.l	d0,-(sp)
 	DOS	__MFREE
 	lea.l	4(sp),sp
@@ -172,7 +172,7 @@ _new_free:
 	rts
 
 *
-*	�t�@�C���ǂݍ��݃��[�`��
+*	ファイル読み込みルーチン
 *
 *
 *	int new_read( short filedes, char *buff, unsigned int n);
@@ -235,13 +235,13 @@ _new_read_210:
 ;
 ;	LED ON/OFF
 ;
-;	bit 0:	����
-;	bit 1:	���[�}��
-;	bit 2:	�R�[�h����
+;	bit 0:	かな
+;	bit 1:	ローマ字
+;	bit 2:	コード入力
 ;	bit 3:	CAPS
 ;	bit 4:	INS
-;	bit 5:	�Ђ炪��
-;	bit 6:	�S�p	
+;	bit 5:	ひらがな
+;	bit 6:	全角	
 ;
 ;	on = 1, off = 0
 ;
@@ -261,11 +261,11 @@ host_line:
 original:
 	.dc.l	0
 
-msg00:	.dc.b	'������������܂���B',0,0
+msg00:	.dc.b	'メモリが足りません。',0,0
 
 	.even
 
-*	���荞�݃x�N�^�ۑ��̈�
+*	割り込みベクタ保存領域
 NMI_vector:
 	.dc.l	0
 KEY_vector:

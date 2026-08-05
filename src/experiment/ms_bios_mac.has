@@ -1,5 +1,5 @@
 *
-*	‚U‚WƒlƒCƒeƒBƒuƒ‹[ƒ`ƒ“‹y‚Ñ‚»‚ÌƒWƒƒƒ“ƒvƒe[ƒuƒ‹
+*	ï¼–ï¼˜ãƒã‚¤ãƒ†ã‚£ãƒ–ãƒ«ãƒ¼ãƒãƒ³åŠã³ãã®ã‚¸ãƒ£ãƒ³ãƒ—ãƒ†ãƒ¼ãƒ–ãƒ«
 *
 *
 
@@ -21,7 +21,7 @@ MS_JPT:
 	.dc.l	INITIO
 	.dc.l	INIFNK
 
-*	------ ‚u‚c‚o ƒAƒNƒZƒX—p ------
+*	------ ï¼¶ï¼¤ï¼° ã‚¢ã‚¯ã‚»ã‚¹ç”¨ ------
 	.dc.l	DISSCR
 	.dc.l	ENASCR
 	.dc.l	WRTVDP
@@ -49,13 +49,13 @@ MS_JPT:
 	.dc.l	GSPSIZ
 	.dc.l	GRPPRT
 
-*	------ ‚o‚r‚f ŠÖ˜A ------
+*	------ ï¼°ï¼³ï¼§ é–¢é€£ ------
 	.dc.l	GICINI
 	.dc.l	WRTPSG
 	.dc.l	RDPSG
 	.dc.l	STRTMS
 
-*	------ “üo—Í ------
+*	------ å…¥å‡ºåŠ› ------
 	.dc.l	CHSNS
 	.dc.l	CHGET
 	.dc.l	CHPUT
@@ -74,13 +74,13 @@ MS_JPT:
 	.dc.l	DSPFNK
 	.dc.l	TOTEXT
 
-*	------ ‚f‚`‚l‚d ‚h^‚n ------
+*	------ ï¼§ï¼¡ï¼­ï¼¥ ï¼©ï¼ï¼¯ ------
 	.dc.l	GTSTCK
 	.dc.l	GTTRIG
 	.dc.l	GETPAD
 	.dc.l	GETPDL
 
-*	------ ‚n‚”‚ˆ‚…‚’ ------
+*	------ ï¼¯ï½”ï½ˆï½…ï½’ ------
 	.dc.l	CHGCAP
 	.dc.l	CHGSND
 	.dc.l	RSLREG
@@ -92,7 +92,7 @@ MS_JPT:
 	.dc.l	KILBUF
 	.dc.l	CALBAS
 
-*	------ ‚l‚r‚w‚Q ŠÖ˜A ------
+*	------ ï¼­ï¼³ï¼¸ï¼’ é–¢é€£ ------
 	.dc.l	SUBROM
 	.dc.l	EXTROM
 	.dc.l	EOL
@@ -102,17 +102,17 @@ MS_JPT:
 	.dc.l	NRDVRM
 	.dc.l	NWRVRM
 
-*	------ ‚l‚r‚w‚Q{ ŠÖ˜A ------
+*	------ ï¼­ï¼³ï¼¸ï¼’ï¼‹ é–¢é€£ ------
 	.dc.l	RDRES
 	.dc.l	WRRES
 
-*	------ ‚”‚•‚’‚‚‚‚q ŠÖ˜A ------
+*	------ ï½”ï½•ï½’ï½‚ï½ï¼² é–¢é€£ ------
 	.dc.l	CHGCPU
 	.dc.l	GETCPU
 	.dc.l	PCMPLY
 	.dc.l	PCMREC
 
-*	------ ‚r‚t‚a|‚q‚n‚l ------
+*	------ ï¼³ï¼µï¼¢ï¼ï¼²ï¼¯ï¼­ ------
 	.dc.l	GRPPRT
 	.dc.l	NVBXLN
 	.dc.l	NVBXFL
@@ -151,7 +151,7 @@ MS_JPT:
 	.dc.l	WRTCLK
 
 
-*	------ ‚q‚r‚s ŠÖŒW ------
+*	------ ï¼²ï¼³ï¼´ é–¢ä¿‚ ------
 CHKRAM:
 	rts
 SYNCHR:
@@ -181,7 +181,7 @@ INITIO:
 INIFNK:
 	rts
 
-*	------ ‚u‚c‚o ƒAƒNƒZƒX—p ------
+*	------ ï¼¶ï¼¤ï¼° ã‚¢ã‚¯ã‚»ã‚¹ç”¨ ------
 DISSCR:
 	rts
 ENASCR:
@@ -235,7 +235,7 @@ GSPSIZ:
 GRPPRT:
 	rts
 
-*	------ ‚o‚r‚f ŠÖ˜A ------
+*	------ ï¼°ï¼³ï¼§ é–¢é€£ ------
 GICINI:
 	rts
 WRTPSG:
@@ -245,7 +245,7 @@ RDPSG:
 STRTMS:
 	rts
 
-*	------ “üo—Í ------
+*	------ å…¥å‡ºåŠ› ------
 CHSNS:
 	rts
 CHGET:
@@ -281,7 +281,7 @@ DSPFNK:
 TOTEXT:
 	rts
 
-*	------ ‚f‚`‚l‚d ‚h^‚n ------
+*	------ ï¼§ï¼¡ï¼­ï¼¥ ï¼©ï¼ï¼¯ ------
 GTSTCK:
 	rts
 GTTRIG:
@@ -291,7 +291,7 @@ GETPAD:
 GETPDL:
 	rts
 
-*	------ ‚n‚”‚ˆ‚…‚’ ------
+*	------ ï¼¯ï½”ï½ˆï½…ï½’ ------
 CHGCAP:
 	rts
 CHGSND:
@@ -313,7 +313,7 @@ KILBUF:
 CALBAS:
 	rts
 
-*	------ ‚l‚r‚w‚Q ŠÖ˜A ------
+*	------ ï¼­ï¼³ï¼¸ï¼’ é–¢é€£ ------
 SUBROM:
 	rts
 EXTROM:
@@ -331,13 +331,13 @@ NRDVRM:
 NWRVRM:
 	rts
 
-*	------ ‚l‚r‚w‚Q{ ŠÖ˜A ------
+*	------ ï¼­ï¼³ï¼¸ï¼’ï¼‹ é–¢é€£ ------
 RDRES:
 	rts
 WRRES:
 	rts
 
-*	------ ‚”‚•‚’‚‚‚‚q ŠÖ˜A ------
+*	------ ï½”ï½•ï½’ï½‚ï½ï¼² é–¢é€£ ------
 CHGCPU:
 	rts
 GETCPU:
@@ -347,7 +347,7 @@ PCMPLY:
 PCMREC:
 	rts
 
-*	------ ‚r‚t‚a|‚q‚n‚l ------
+*	------ ï¼³ï¼µï¼¢ï¼ï¼²ï¼¯ï¼­ ------
 GRPPRT:
 	rts
 NVBXLN:

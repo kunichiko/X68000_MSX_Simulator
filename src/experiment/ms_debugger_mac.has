@@ -1,21 +1,21 @@
 *
-*	‚l‚“‚˜ ‚r‚‰‚‚•‚Œ‚‚”‚…‚’
-*		[[ ƒfƒoƒbƒK ]]
+*	ï¼­ï½“ï½˜ ï¼³ï½‰ï½ï½•ï½Œï½ï½”ï½…ï½’
+*		[[ ãƒ‡ãƒãƒƒã‚¬ ]]
 *					1995.9.21	Kuni.
 *
 
 *	 31     16 15       0
-*	b        b   b A b  d4	‚`ƒŒƒWƒXƒ^
-*	b        b   bHC1b  d5	ƒtƒ‰ƒO
-*	b        b F b SZb  d6	ƒtƒ‰ƒO
-*	b PC pagebPC(16k) b	d7
-*	b     registers    b	a3	a3 = ƒŒƒWƒXƒ^[‚ÌŠi”[‚³‚ê‚Ä‚¢‚éƒAƒhƒŒƒX
-*	b    PC Base ADD   b	a4
+*	ï½œ        ï½œ   ï½œ A ï½œ  d4	ï¼¡ãƒ¬ã‚¸ã‚¹ã‚¿
+*	ï½œ        ï½œ   ï½œHC1ï½œ  d5	ãƒ•ãƒ©ã‚°
+*	ï½œ        ï½œ F ï½œ SZï½œ  d6	ãƒ•ãƒ©ã‚°
+*	ï½œ PC pageï½œPC(16k) ï½œ	d7
+*	ï½œ     registers    ï½œ	a3	a3 = ãƒ¬ã‚¸ã‚¹ã‚¿ãƒ¼ã®æ ¼ç´ã•ã‚Œã¦ã„ã‚‹ã‚¢ãƒ‰ãƒ¬ã‚¹
+*	ï½œ    PC Base ADD   ï½œ	a4
 *
-*	PC Base ADD + PC(16k) = ÀƒAƒhƒŒƒX
+*	PC Base ADD + PC(16k) = å®Ÿã‚¢ãƒ‰ãƒ¬ã‚¹
 *
-*	PC page ‚Í PC(R800) ‚ÌãˆÊ‚Qƒrƒbƒg‚Ì’l‚ª“ü‚Á‚Ä‚¢‚é
-*	PC(16k) ‚Í PC(R800) ‚Ì‰ºˆÊ14ƒrƒbƒg‚Ì’l
+*	PC page ã¯ PC(R800) ã®ä¸Šä½ï¼’ãƒ“ãƒƒãƒˆã®å€¤ãŒå…¥ã£ã¦ã„ã‚‹
+*	PC(16k) ã¯ PC(R800) ã®ä¸‹ä½14ãƒ“ãƒƒãƒˆã®å€¤
 *
 *		PC(R800)  $8100  =   %10___000001_00000000 
 *
@@ -25,10 +25,10 @@
 *	flag = 00000000
 *		   | |+--Cy
 *		   | +---N
-*		   +-----HC ‚Ìƒ‚[ƒhB0‚Ì’Êíƒ‚[ƒhB1‚Ì ADC,SBC ƒ‚[ƒhB
+*		   +-----HC ã®ãƒ¢ãƒ¼ãƒ‰ã€‚0ã®æ™‚é€šå¸¸ãƒ¢ãƒ¼ãƒ‰ã€‚1ã®æ™‚ ADC,SBC ãƒ¢ãƒ¼ãƒ‰ã€‚
 *
 *	registers:
-*	a:	.dc.b	0		* ‚`ƒŒƒWƒXƒ^‚Í d4 ‚É“ü‚Á‚Ä‚é‚©‚çg‚í‚È‚¢
+*	a:	.dc.b	0		* ï¼¡ãƒ¬ã‚¸ã‚¹ã‚¿ã¯ d4 ã«å…¥ã£ã¦ã‚‹ã‹ã‚‰ä½¿ã‚ãªã„
 *	f:	.dc.b	0
 *	b:	.dc.b	0
 *	c:	.dc.b	0
@@ -48,11 +48,11 @@
 *	    7  6  5  4  3  2  1  0
 *	F:| s| z|  | H|  |PV| N|CY|
 *
-*		H ‚Æ P/V ‚ÍA‚»‚Ì 0,1 ‚ğ”»’è‚·‚é‚½‚ß‚Ì’l‚ğ‚»‚ê‚¼‚ê
-*		HC1,HC2 ‚Æ PV ‚É•Û‘¶‚µA•K—p‚È‚ÉŒvZ‚·‚éB
+*		H ã¨ P/V ã¯ã€ãã® 0,1 ã‚’åˆ¤å®šã™ã‚‹ãŸã‚ã®å€¤ã‚’ãã‚Œãã‚Œ
+*		HC1,HC2 ã¨ PV ã«ä¿å­˜ã—ã€å¿…ç”¨ãªæ™‚ã«è¨ˆç®—ã™ã‚‹ã€‚
 *
-*		S ‚Æ Z ‚ÍA‚»‚Ì 0,1 ‚ğ”»’f‚·‚é‚½‚ß‚Ì’l‚ğ SZ ‚É•Û‘¶
-*		‚µA•K—p‚È‚ÉŒvZ‚·‚éB
+*		S ã¨ Z ã¯ã€ãã® 0,1 ã‚’åˆ¤æ–­ã™ã‚‹ãŸã‚ã®å€¤ã‚’ SZ ã«ä¿å­˜
+*		ã—ã€å¿…ç”¨ãªæ™‚ã«è¨ˆç®—ã™ã‚‹ã€‚
 *
 
 	.cpu 68030
@@ -120,7 +120,7 @@ _debugger:
 	link	a6,#0
 	movem.l	d3-d7/a0-a5,-(sp)
 
-	move.l	8(a6),emu_loop_func	* ˆø”1‚Ìƒ‹[ƒvŠÖ”‚Ìƒ|ƒCƒ“ƒ^‚ğ•Û‘¶‚µ‚Ä‚¨‚­
+	move.l	8(a6),emu_loop_func	* å¼•æ•°1ã®ãƒ«ãƒ¼ãƒ—é–¢æ•°ã®ãƒã‚¤ãƒ³ã‚¿ã‚’ä¿å­˜ã—ã¦ãŠã
 
 	clr.l	emu_counter
 	clr.l	emu_counter_latch
@@ -141,7 +141,7 @@ loop:
 	DOS	__PRINT
 	lea.l	4(sp),sp
 
-	move.b	input_buf+2,d0			* Å‰‚Ì‚P•¶š‚ğ“¾‚é
+	move.b	input_buf+2,d0			* æœ€åˆã®ï¼‘æ–‡å­—ã‚’å¾—ã‚‹
 
 	cmpi.b	#'X',d0
 	beq	command_X
@@ -181,7 +181,7 @@ loop:
 	bra	loop
 
 *
-*	ƒŒƒWƒXƒ^‚Ì“à—e‚ğ•\¦
+*	ãƒ¬ã‚¸ã‚¹ã‚¿ã®å†…å®¹ã‚’è¡¨ç¤º
 *
 command_X:
 	pea.l	program_counter
@@ -231,7 +231,7 @@ command_X:
 	bra	loop
 
 *
-*	‚p‚t‚h‚s
+*	ï¼±ï¼µï¼©ï¼´
 *
 command_Q:
 	movem.l	(sp)+,d3-d7/a0-a5
@@ -240,7 +240,7 @@ command_Q:
 	rts
 
 *
-*	‚f‚n
+*	ï¼§ï¼¯
 *
 command_G:
 	movem.l	(sp)+,d4-d7/a3-a4
@@ -249,7 +249,7 @@ command_G:
 	move.w	#$4c,d1
 	movea.l	key,a1
 	IOCS	__B_INTVCS
-	move.l	d0,KEY_vector	* Œ³‚ÌƒAƒhƒŒƒX‚ğ•Û‘¶
+	move.l	d0,KEY_vector	* å…ƒã®ã‚¢ãƒ‰ãƒ¬ã‚¹ã‚’ä¿å­˜
 
 	jsr	cpu_main
 
@@ -263,9 +263,9 @@ command_G:
 	swap	d0		* d0 = 00000000_000000pp
 	ror.w	#2,d0		* d0 = pp000000_00000000
 	or.w	d1,d0		* d0 = PC (R800)
-	subq.l	#2,d0		* ‚r‚s‚n‚o–½—ß‚Ì‚ ‚Á‚½êŠ‚ğ‚à‚¤ˆê“xÀs‚·‚é‚½‚ß
+	subq.l	#2,d0		* ï¼³ï¼´ï¼¯ï¼°å‘½ä»¤ã®ã‚ã£ãŸå ´æ‰€ã‚’ã‚‚ã†ä¸€åº¦å®Ÿè¡Œã™ã‚‹ãŸã‚
 
-	clr.l	d7		* d7 ‚ÌãˆÊƒ[ƒh‚ğ‚O‚É‚·‚éB•„†Šg’£‚Å‚Í‚¾‚ß
+	clr.l	d7		* d7 ã®ä¸Šä½ãƒ¯ãƒ¼ãƒ‰ã‚’ï¼ã«ã™ã‚‹ã€‚ç¬¦å·æ‹¡å¼µã§ã¯ã ã‚
 	move.w	d0,d7
 	andi.w	#%00111111_11111111,d0
 	lsl.l	#2,d7
@@ -277,55 +277,55 @@ command_G:
 	movem.l	d4-d7/a3-a4,-(sp)
 
 	move.b	PV(a3),d0
-	ori.w	#%00000100_00000000,d6	* P/V ƒtƒ‰ƒO‚ğƒZƒbƒg
+	ori.w	#%00000100_00000000,d6	* P/V ãƒ•ãƒ©ã‚°ã‚’ã‚»ãƒƒãƒˆ
 	move.w	#8-1,d1
 @@:	lsr.b	#1,d0
 	bcc	not_1
-	eori.w	#%00000100_00000000,d6	* P/V ƒtƒ‰ƒO‚ğ”½“]
+	eori.w	#%00000100_00000000,d6	* P/V ãƒ•ãƒ©ã‚°ã‚’åè»¢
 not_1:	dbra	d1,@b
 
-	andi.w	#%10101111_11111111,d6	* SZH ƒtƒ‰ƒO‚ğƒŠƒZƒbƒg
-	move.w	d6,d0			* ƒn[ƒtƒLƒƒƒŠ[ƒtƒ‰ƒO‚ğ’²‚×‚é
-	andi.w	#%00001000_00000000,d0	* HC mode ‚ğ’²‚×‚é
+	andi.w	#%10101111_11111111,d6	* SZH ãƒ•ãƒ©ã‚°ã‚’ãƒªã‚»ãƒƒãƒˆ
+	move.w	d6,d0			* ãƒãƒ¼ãƒ•ã‚­ãƒ£ãƒªãƒ¼ãƒ•ãƒ©ã‚°ã‚’èª¿ã¹ã‚‹
+	andi.w	#%00001000_00000000,d0	* HC mode ã‚’èª¿ã¹ã‚‹
 	rol.w	#5,d0
 	move.b	HC2(a3),d1		
-	andi.w	#$000f,d5		* HC1 HC2 ‚ğ‚Sƒrƒbƒg‚Ì‚İ—LŒø‚É‚·‚é
+	andi.w	#$000f,d5		* HC1 HC2 ã‚’ï¼”ãƒ“ãƒƒãƒˆã®ã¿æœ‰åŠ¹ã«ã™ã‚‹
 	andi.w	#$000f,d1
 	add.w	d0,d1
 	cmp.w	d1,d5			* HC1-(HC2 + HC mode)
 	bcc	not_HC_1
-	ori.w	#%00010000_00000000,d6	* H ƒtƒ‰ƒO‚ğƒZƒbƒg
+	ori.w	#%00010000_00000000,d6	* H ãƒ•ãƒ©ã‚°ã‚’ã‚»ãƒƒãƒˆ
 not_HC_1:
-	bclr.l	#15,d6			* SZ mode ‚ğƒeƒXƒg
+	bclr.l	#15,d6			* SZ mode ã‚’ãƒ†ã‚¹ãƒˆ
 	bne	@f
 	tst.b	d6
 	bmi	minus
 	bne	next_pushAF
-	ori.w	#%01000000_00000000,d6	* Z ƒtƒ‰ƒO‚ğƒZƒbƒg
+	ori.w	#%01000000_00000000,d6	* Z ãƒ•ãƒ©ã‚°ã‚’ã‚»ãƒƒãƒˆ
 	bra	next_pushAF
 
-minus:	ori.w	#%10000000_00000000,d6	* S ƒtƒ‰ƒO‚ğƒZƒbƒg
+minus:	ori.w	#%10000000_00000000,d6	* S ãƒ•ãƒ©ã‚°ã‚’ã‚»ãƒƒãƒˆ
 	bra	next_pushAF
 
 @@:	ori.w	#%11000000_00000000,d6
 
 next_pushAF:
 	move.b	d4,d1
-	lsl.w	#8,d1			* A ƒŒƒWƒXƒ^‚ğƒ[ƒh
+	lsl.w	#8,d1			* A ãƒ¬ã‚¸ã‚¹ã‚¿ã‚’ãƒ­ãƒ¼ãƒ‰
 	move.w	d6,-(sp)
-	move.b	(sp)+,d1		* ƒtƒ‰ƒO‚Ìƒ[ƒh
-	andi.b	#%11010111,d1		* ƒtƒ‰ƒO‚ÆŠÖŒW–³‚¢•”•ª‚Ìíœ
+	move.b	(sp)+,d1		* ãƒ•ãƒ©ã‚°ã®ãƒ­ãƒ¼ãƒ‰
+	andi.b	#%11010111,d1		* ãƒ•ãƒ©ã‚°ã¨é–¢ä¿‚ç„¡ã„éƒ¨åˆ†ã®å‰Šé™¤
 	move.b	f(a3),d0
-	andi.b	#%00101000,d0		* ƒtƒ‰ƒO‚ÆŠÖŒW–³‚¢•”•ª‚Ìƒ[ƒh
+	andi.b	#%00101000,d0		* ãƒ•ãƒ©ã‚°ã¨é–¢ä¿‚ç„¡ã„éƒ¨åˆ†ã®ãƒ­ãƒ¼ãƒ‰
 	or.b	d0,d1
 
 	move.w	d1,base
 
 	move.w	break_point+0,d2
-	move.w	d2,d0				* ƒZƒbƒg‚µ‚½ƒAƒhƒŒƒX
+	move.w	d2,d0				* ã‚»ãƒƒãƒˆã—ãŸã‚¢ãƒ‰ãƒ¬ã‚¹
 	move.b	break_point+2,d1
 	jsr	ms_write_mem_8
-	move.w	d2,d0				* ƒZƒbƒg‚·‚éƒAƒhƒŒƒX
+	move.w	d2,d0				* ã‚»ãƒƒãƒˆã™ã‚‹ã‚¢ãƒ‰ãƒ¬ã‚¹
 	addq.w	#1,d0
 	move.b	break_point+3,d1
 	jsr	ms_write_mem_8
@@ -333,7 +333,7 @@ next_pushAF:
 	bra	command_X
 
 *
-*	‚r‚d‚s ‚a‚’‚…‚‚‹‚o‚‚‰‚‚”
+*	ï¼³ï¼¥ï¼´ ï¼¢ï½’ï½…ï½ï½‹ï¼°ï½ï½‰ï½ï½”
 *
 command_B:
 	lea.l	input_buf+3,a0
@@ -362,18 +362,18 @@ command_B:
 	or.w	d0,d2
 
 	move.w	d2,break_point+0
-	move.w	d2,d0				* ƒZƒbƒg‚·‚éƒAƒhƒŒƒX
+	move.w	d2,d0				* ã‚»ãƒƒãƒˆã™ã‚‹ã‚¢ãƒ‰ãƒ¬ã‚¹
 	jsr	ms_read_mem_8
 	move.b	d0,break_point+2
-	move.w	d2,d0				* ƒZƒbƒg‚·‚éƒAƒhƒŒƒX
+	move.w	d2,d0				* ã‚»ãƒƒãƒˆã™ã‚‹ã‚¢ãƒ‰ãƒ¬ã‚¹
 	addq.w	#1,d0
 	jsr	ms_read_mem_8
 	move.b	d0,break_point+3
 
-	move.w	d2,d0				* ƒZƒbƒg‚·‚éƒAƒhƒŒƒX
+	move.w	d2,d0				* ã‚»ãƒƒãƒˆã™ã‚‹ã‚¢ãƒ‰ãƒ¬ã‚¹
 	move.w	#$DD,d1
 	jsr	ms_write_mem_8
-	move.w	d2,d0				* ƒZƒbƒg‚·‚éƒAƒhƒŒƒX
+	move.w	d2,d0				* ã‚»ãƒƒãƒˆã™ã‚‹ã‚¢ãƒ‰ãƒ¬ã‚¹
 	addq.w	#1,d0
 	move.w	#$FE,d1
 	jsr	ms_write_mem_8
@@ -387,7 +387,7 @@ char_hex:
 	beq	@f
 	dbra	d1,@b
 	lea.l	4(sp),sp
-	bra	1f				* ”š‚¶‚á‚È‚¢‚Æ‚«
+	bra	1f				* æ•°å­—ã˜ã‚ƒãªã„ã¨ã
 @@:	move.w	#15,d0
 	sub.w	d1,d0
 	rts
@@ -399,13 +399,13 @@ char_hex:
 
 	.data
 errms_ch:
-	.dc.b	'”’lƒGƒ‰[  (’)‰pš‚Í‘å•¶š‚Å',$0D,$0A,$00
+	.dc.b	'æ•°å€¤ã‚¨ãƒ©ãƒ¼  (æ³¨)è‹±å­—ã¯å¤§æ–‡å­—ã§',$0D,$0A,$00
 	.text
 
 	.even
 
 *
-*	‚r‚”‚…‚ ‚f‚n
+*	ï¼³ï½”ï½…ï½ ï¼§ï¼¯
 *
 command_S:
 	movem.l	(sp)+,d4-d7/a3-a4
@@ -416,21 +416,21 @@ command_S:
 	lsr.l	#2,d7
 	or.w	d7,d2
 
-*	Ÿ‚Ì–½—ß‚ÌˆÊ’u‚ğŠ„‚èo‚·ˆ—‚ª•K—p
+*	æ¬¡ã®å‘½ä»¤ã®ä½ç½®ã‚’å‰²ã‚Šå‡ºã™å‡¦ç†ãŒå¿…ç”¨
 
 	move.w	d2,break_point+0
-	move.w	d2,d0				* ƒZƒbƒg‚·‚éƒAƒhƒŒƒX
+	move.w	d2,d0				* ã‚»ãƒƒãƒˆã™ã‚‹ã‚¢ãƒ‰ãƒ¬ã‚¹
 	jsr	ms_read_mem_8
 	move.b	d0,break_point+2
-	move.w	d2,d0				* ƒZƒbƒg‚·‚éƒAƒhƒŒƒX
+	move.w	d2,d0				* ã‚»ãƒƒãƒˆã™ã‚‹ã‚¢ãƒ‰ãƒ¬ã‚¹
 	addq.w	#1,d0
 	jsr	ms_read_mem_8
 	move.b	d0,break_point+3
 
-	move.w	d2,d0				* ƒZƒbƒg‚·‚éƒAƒhƒŒƒX
+	move.w	d2,d0				* ã‚»ãƒƒãƒˆã™ã‚‹ã‚¢ãƒ‰ãƒ¬ã‚¹
 	move.w	#$DD,d1
 	jsr	ms_write_mem_8
-	move.w	d2,d0				* ƒZƒbƒg‚·‚éƒAƒhƒŒƒX
+	move.w	d2,d0				* ã‚»ãƒƒãƒˆã™ã‚‹ã‚¢ãƒ‰ãƒ¬ã‚¹
 	addq.w	#1,d0
 	move.w	#$FE,d1
 	jsr	ms_write_mem_8
@@ -443,9 +443,9 @@ command_S:
 	swap	d0		* d0 = 00000000_000000pp
 	ror.w	#2,d0		* d0 = pp000000_00000000
 	or.w	d1,d0		* d0 = PC (R800)
-	subq.l	#2,d0		* ‚r‚s‚n‚o–½—ß‚Ì‚ ‚Á‚½êŠ‚ğ‚à‚¤ˆê“xÀs‚·‚é‚½‚ß
+	subq.l	#2,d0		* ï¼³ï¼´ï¼¯ï¼°å‘½ä»¤ã®ã‚ã£ãŸå ´æ‰€ã‚’ã‚‚ã†ä¸€åº¦å®Ÿè¡Œã™ã‚‹ãŸã‚
 
-	clr.l	d7		* d7 ‚ÌãˆÊƒ[ƒh‚ğ‚O‚É‚·‚éB•„†Šg’£‚Å‚Í‚¾‚ß
+	clr.l	d7		* d7 ã®ä¸Šä½ãƒ¯ãƒ¼ãƒ‰ã‚’ï¼ã«ã™ã‚‹ã€‚ç¬¦å·æ‹¡å¼µã§ã¯ã ã‚
 	move.w	d0,d7
 	andi.w	#%00111111_11111111,d0
 	lsl.l	#2,d7
@@ -459,10 +459,10 @@ command_S:
 	move.b	d4,base
 
 	move.w	break_point+0,d2
-	move.w	d2,d0				* ƒZƒbƒg‚µ‚½ƒAƒhƒŒƒX
+	move.w	d2,d0				* ã‚»ãƒƒãƒˆã—ãŸã‚¢ãƒ‰ãƒ¬ã‚¹
 	move.b	break_point+2,d1
 	jsr	ms_write_mem_8
-	move.w	d2,d0				* ƒZƒbƒg‚·‚éƒAƒhƒŒƒX
+	move.w	d2,d0				* ã‚»ãƒƒãƒˆã™ã‚‹ã‚¢ãƒ‰ãƒ¬ã‚¹
 	addq.w	#1,d0
 	move.b	break_point+3,d1
 	jsr	ms_write_mem_8
@@ -472,11 +472,11 @@ command_S:
 
 *******************************************************************
 *
-*	ƒƒ‚ƒŠ‚©‚ç 8ƒrƒbƒg‚Ìƒf[ƒ^‚ğ“Ç‚İ‚ŞƒTƒuƒ‹[ƒ`ƒ“B
-*iˆø”j
-*	d0.w EEE ƒAƒhƒŒƒX
-*i“®ìj
-*	d0.b ‚Éƒƒ‚ƒŠ‚©‚ç“Ç‚İ‚ñ‚¾’l‚ª“ü‚é
+*	ãƒ¡ãƒ¢ãƒªã‹ã‚‰ 8ãƒ“ãƒƒãƒˆã®ãƒ‡ãƒ¼ã‚¿ã‚’èª­ã¿è¾¼ã‚€ã‚µãƒ–ãƒ«ãƒ¼ãƒãƒ³ã€‚
+*ï¼ˆå¼•æ•°ï¼‰
+*	d0.w ãƒ»ãƒ»ãƒ» ã‚¢ãƒ‰ãƒ¬ã‚¹
+*ï¼ˆå‹•ä½œï¼‰
+*	d0.b ã«ãƒ¡ãƒ¢ãƒªã‹ã‚‰èª­ã¿è¾¼ã‚“ã å€¤ãŒå…¥ã‚‹
 *
 *******************************************************************
 read_mem:
@@ -487,38 +487,38 @@ read_mem:
 page_0_r8:
 	movea.l	page0,a0
 	movea.l	rd8_sub_add_p0,a1
-	jmp	(a1)				* rts ‚ğÈ—ª‚·‚é‚½‚ß‚É jmp ‚É‚µ‚Ä‚ ‚é
+	jmp	(a1)				* rts ã‚’çœç•¥ã™ã‚‹ãŸã‚ã« jmp ã«ã—ã¦ã‚ã‚‹
 page_1_r8:
 	movea.l	page1,a0
 	movea.l	rd8_sub_add_p1,a1
-	jmp	(a1)				* rts ‚ğÈ—ª‚·‚é‚½‚ß‚É jmp ‚É‚µ‚Ä‚ ‚é
+	jmp	(a1)				* rts ã‚’çœç•¥ã™ã‚‹ãŸã‚ã« jmp ã«ã—ã¦ã‚ã‚‹
 page_2or3_r8:
 	bclr.l	#14,d0
 	bne	page_3_r8
 page_2_r8:
 	movea.l	page2,a0
 	movea.l	rd8_sub_add_p2,a1
-	jmp	(a1)				* rts ‚ğÈ—ª‚·‚é‚½‚ß‚É jmp ‚É‚µ‚Ä‚ ‚é
+	jmp	(a1)				* rts ã‚’çœç•¥ã™ã‚‹ãŸã‚ã« jmp ã«ã—ã¦ã‚ã‚‹
 page_3_r8:
 	movea.l	page3,a0
 	movea.l	rd8_sub_add_p3,a1
 	cmp.w	#$3fff,d0
 	beq	next_r8
-	jmp	(a1)				* rts ‚ğÈ—ª‚·‚é‚½‚ß‚É jmp ‚É‚µ‚Ä‚ ‚é
+	jmp	(a1)				* rts ã‚’çœç•¥ã™ã‚‹ãŸã‚ã« jmp ã«ã—ã¦ã‚ã‚‹
 next_r8:
-	jmp	exslotreg_read			* rts ‚ğÈ—ª‚·‚é‚½‚ß‚É jmp ‚É‚µ‚Ä‚ ‚é
+	jmp	exslotreg_read			* rts ã‚’çœç•¥ã™ã‚‹ãŸã‚ã« jmp ã«ã—ã¦ã‚ã‚‹
 
 
 *******************************************************************
 *
-*	ƒƒ‚ƒŠ‚Ö 8ƒrƒbƒg‚Ìƒf[ƒ^‚ğ‘‚«‚ŞƒTƒuƒ‹[ƒ`ƒ“B
-*iˆø”j
-*	d0.w EEE ƒAƒhƒŒƒX
-*	d1.b EEE ‘‚«‚Ş’l
-*i“®ìj
-*	d0.w ‚ÌƒAƒhƒŒƒX‚É d1‚Ì’l‚ğ‘‚«‚ŞB  
+*	ãƒ¡ãƒ¢ãƒªã¸ 8ãƒ“ãƒƒãƒˆã®ãƒ‡ãƒ¼ã‚¿ã‚’æ›¸ãè¾¼ã‚€ã‚µãƒ–ãƒ«ãƒ¼ãƒãƒ³ã€‚
+*ï¼ˆå¼•æ•°ï¼‰
+*	d0.w ãƒ»ãƒ»ãƒ» ã‚¢ãƒ‰ãƒ¬ã‚¹
+*	d1.b ãƒ»ãƒ»ãƒ» æ›¸ãè¾¼ã‚€å€¤
+*ï¼ˆå‹•ä½œï¼‰
+*	d0.w ã®ã‚¢ãƒ‰ãƒ¬ã‚¹ã« d1ã®å€¤ã‚’æ›¸ãè¾¼ã‚€ã€‚  
 *
-*	d2 ”j‰ó‰Â”\«‚ ‚è
+*	d2 ç ´å£Šå¯èƒ½æ€§ã‚ã‚Š
 *
 *******************************************************************
 write_mem:
@@ -545,14 +545,14 @@ page_3_w8:
 	beq	next_w8
 	bra	@f
 next_w8:
-	jmp	exslotreg_write			* rts ‚ğÈ—ª‚·‚é‚½‚ß‚É jmp ‚É‚µ‚Ä‚ ‚é
+	jmp	exslotreg_write			* rts ã‚’çœç•¥ã™ã‚‹ãŸã‚ã« jmp ã«ã—ã¦ã‚ã‚‹
 
 @@:	move.b	d1,0(a0,d0.w)
 	rts
 
 
 *
-*	ƒVƒXƒeƒ€î•ñ‚Ì•\¦
+*	ã‚·ã‚¹ãƒ†ãƒ æƒ…å ±ã®è¡¨ç¤º
 *
 command_W:
 	lea.l	input_buf+3,a0
@@ -589,7 +589,7 @@ show_page1:
 	DOS	__PRINT
 	lea.l	4(sp),sp
 
-	move.b	slot_reg,d0			* port A8 ‚Ì’l
+	move.b	slot_reg,d0			* port A8 ã®å€¤
 	andi.w	#%00001100,d0
 	lsr.w	#2,d0
 	addi.w	#'0',d0
@@ -607,10 +607,10 @@ show_page1:
 	DOS	__PRINT
 	lea.l	4(sp),sp
 
-	move.b	slot_reg,d0			* port A8 ‚Ì’l
+	move.b	slot_reg,d0			* port A8 ã®å€¤
 	andi.w	#%00001100,d0
 	lsr.w	#2,d0
-	move.b	slot_0_ex-base(a3,d0.w),d0	* ƒy[ƒW‚P‚ÌƒXƒƒbƒg‚ÍŠg’£‚³‚ê‚Ä‚¢‚é‚©
+	move.b	slot_0_ex-base(a3,d0.w),d0	* ãƒšãƒ¼ã‚¸ï¼‘ã®ã‚¹ãƒ­ãƒƒãƒˆã¯æ‹¡å¼µã•ã‚Œã¦ã„ã‚‹ã‹
 	beq	@f
 	pea.l	yes_msg
 	DOS	__PRINT
@@ -688,7 +688,7 @@ show_page0:
 	DOS	__PRINT
 	lea.l	4(sp),sp
 
-	move.b	slot_reg,d0			* port A8 ‚Ì’l
+	move.b	slot_reg,d0			* port A8 ã®å€¤
 	andi.w	#%00000011,d0
 	addi.w	#'0',d0
 	move.w	d0,-(sp)
@@ -705,9 +705,9 @@ show_page0:
 	DOS	__PRINT
 	lea.l	4(sp),sp
 
-	move.b	slot_reg,d0			* port A8 ‚Ì’l
+	move.b	slot_reg,d0			* port A8 ã®å€¤
 	andi.w	#%00000011,d0
-	move.b	slot_0_ex-base(a3,d0.w),d0	* ƒy[ƒW‚O‚ÌƒXƒƒbƒg‚ÍŠg’£‚³‚ê‚Ä‚¢‚é‚©
+	move.b	slot_0_ex-base(a3,d0.w),d0	* ãƒšãƒ¼ã‚¸ï¼ã®ã‚¹ãƒ­ãƒƒãƒˆã¯æ‹¡å¼µã•ã‚Œã¦ã„ã‚‹ã‹
 	beq	@f
 	pea.l	yes_msg
 	DOS	__PRINT
@@ -784,7 +784,7 @@ show_page2:
 	DOS	__PRINT
 	lea.l	4(sp),sp
 
-	move.b	slot_reg,d0			* port A8 ‚Ì’l
+	move.b	slot_reg,d0			* port A8 ã®å€¤
 	andi.w	#%00110000,d0
 	lsr.w	#4,d0
 	addi.w	#'0',d0
@@ -802,10 +802,10 @@ show_page2:
 	DOS	__PRINT
 	lea.l	4(sp),sp
 
-	move.b	slot_reg,d0			* port A8 ‚Ì’l
+	move.b	slot_reg,d0			* port A8 ã®å€¤
 	andi.w	#%00110000,d0
 	lsr.w	#4,d0
-	move.b	slot_0_ex-base(a3,d0.w),d0	* ƒy[ƒW‚Q‚ÌƒXƒƒbƒg‚ÍŠg’£‚³‚ê‚Ä‚¢‚é‚©
+	move.b	slot_0_ex-base(a3,d0.w),d0	* ãƒšãƒ¼ã‚¸ï¼’ã®ã‚¹ãƒ­ãƒƒãƒˆã¯æ‹¡å¼µã•ã‚Œã¦ã„ã‚‹ã‹
 	beq	@f
 	pea.l	yes_msg
 	DOS	__PRINT
@@ -882,7 +882,7 @@ show_page3:
 	DOS	__PRINT
 	lea.l	4(sp),sp
 
-	move.b	slot_reg,d0			* port A8 ‚Ì’l
+	move.b	slot_reg,d0			* port A8 ã®å€¤
 	andi.w	#%11000000,d0
 	lsr.w	#6,d0
 	addi.w	#'0',d0
@@ -900,10 +900,10 @@ show_page3:
 	DOS	__PRINT
 	lea.l	4(sp),sp
 
-	move.b	slot_reg,d0			* port A8 ‚Ì’l
+	move.b	slot_reg,d0			* port A8 ã®å€¤
 	andi.w	#%11000000,d0
 	lsr.w	#6,d0
-	move.b	slot_0_ex-base(a3,d0.w),d0	* ƒy[ƒW‚R‚ÌƒXƒƒbƒg‚ÍŠg’£‚³‚ê‚Ä‚¢‚é‚©
+	move.b	slot_0_ex-base(a3,d0.w),d0	* ãƒšãƒ¼ã‚¸ï¼“ã®ã‚¹ãƒ­ãƒƒãƒˆã¯æ‹¡å¼µã•ã‚Œã¦ã„ã‚‹ã‹
 	beq	@f
 	pea.l	yes_msg
 	DOS	__PRINT
@@ -988,7 +988,7 @@ print_address:
 	rts
 
 *
-*	‚c‚t‚l‚o
+*	ï¼¤ï¼µï¼­ï¼°
 *
 command_D:
 	lea.l	HEX,a2
