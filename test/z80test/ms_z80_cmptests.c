@@ -1,5 +1,5 @@
 /*
- superzazu/z80 ‚ÌÀ‘•‚Æ”äŠr‚µ‚È‚ª‚ç“®‚©‚·ƒeƒXƒg
+ superzazu/z80 ã®å®Ÿè£…ã¨æ¯”è¼ƒã—ãªãŒã‚‰å‹•ã‹ã™ãƒ†ã‚¹ãƒˆ
 */
 
 #include <stdio.h>
@@ -51,7 +51,7 @@ void dump_cpu() {
 	printf(" (HL): %02x %02x\n", ms_memory[(ms_cpu.h << 8) | ms_cpu.l], ms_memory[(ms_cpu.h << 8) | ms_cpu.l + 1]);
 }
 
-// addr‚Åw’è‚³‚ê‚½‘OŒã16ƒoƒCƒg‚ğƒ_ƒ“ƒv‚·‚é
+// addrã§æŒ‡å®šã•ã‚ŒãŸå‰å¾Œ16ãƒã‚¤ãƒˆã‚’ãƒ€ãƒ³ãƒ—ã™ã‚‹
 void dump_mem(int addr) {
 	for(int j=-1;j<2;j++)
 	{
@@ -93,7 +93,7 @@ int run_specific_test()
 	sz_memory[0x0006] = 0x00;
 	sz_memory[0x0007] = 0xC9;
 
-	// ƒeƒXƒgƒR[ƒh
+	// ãƒ†ã‚¹ãƒˆã‚³ãƒ¼ãƒ‰
 	sz_memory[org+0] = 0xdd;
 	sz_memory[org+1] = 0x00;
 	sz_memory[org+2] = 0x00;
@@ -108,7 +108,7 @@ int run_specific_test()
 	sz_memory[0xffff] = 0x33;
 
 	printf("Specific Test:\n");
-	// ƒeƒXƒgƒR[ƒhSZ
+	// ãƒ†ã‚¹ãƒˆã‚³ãƒ¼ãƒ‰SZ
 	sz_cpu.pc = org;
 	sz_cpu.sp = 0xffff;
 	sz_cpu.a = 0xb6;
@@ -177,7 +177,7 @@ void set_registers(value_func_t value_func)
 	sz_cpu.iy = (*value_func)();
 }
 
-// ’Êí‚Ì–½—ß‚ÌƒeƒXƒg
+// é€šå¸¸ã®å‘½ä»¤ã®ãƒ†ã‚¹ãƒˆ
 int through_test_normal(value_func_t value_func)
 {
 	char result[256];
@@ -202,7 +202,7 @@ int through_test_normal(value_func_t value_func)
 		}
 		printf("Test: 0x%02x ... ", i);
 		fflush(stdout);
-		// ƒeƒXƒgƒR[ƒhSZ
+		// ãƒ†ã‚¹ãƒˆã‚³ãƒ¼ãƒ‰SZ
 		sz_cpu.pc = org;
 		sz_memory[org+1] = i;
 		bool debug = false;
@@ -219,7 +219,7 @@ int through_test_normal(value_func_t value_func)
 	return 0;
 }
 
-// ’Êí‚Ì–½—ß‚ÌƒeƒXƒgBƒy[ƒW‹«ŠEã‚Å‚ÌƒeƒXƒg
+// é€šå¸¸ã®å‘½ä»¤ã®ãƒ†ã‚¹ãƒˆã€‚ãƒšãƒ¼ã‚¸å¢ƒç•Œä¸Šã§ã®ãƒ†ã‚¹ãƒˆ
 int through_test_normal_page_edge(value_func_t value_func)
 {
 	char result[256];
@@ -245,7 +245,7 @@ int through_test_normal_page_edge(value_func_t value_func)
 		}
 		printf("Test on edge: 0x%02x ... ", i);
 		fflush(stdout);
-		// ƒeƒXƒgƒR[ƒhSZ
+		// ãƒ†ã‚¹ãƒˆã‚³ãƒ¼ãƒ‰SZ
 		sz_cpu.pc = org_local;
 		sz_memory[org_local] = i;
 		bool debug = false;
@@ -262,7 +262,7 @@ int through_test_normal_page_edge(value_func_t value_func)
 	return 0;
 }
 
-// ƒoƒO‚Ì‘½‚¢DAA–½—ß‚ÌƒeƒXƒg
+// ãƒã‚°ã®å¤šã„DAAå‘½ä»¤ã®ãƒ†ã‚¹ãƒˆ
 int through_test_DAA()
 {
 	char result[256];
@@ -282,7 +282,7 @@ int through_test_DAA()
 			for (int n=0;n<2;n++) {
 				printf("Test DAA: A=0x%02x C=%d H=%d n=%d... ", i, c % 2, c / 2, n);
 				fflush(stdout);
-				// ƒeƒXƒgƒR[ƒhSZ
+				// ãƒ†ã‚¹ãƒˆã‚³ãƒ¼ãƒ‰SZ
 				sz_cpu.pc = org;
 				sz_cpu.a = i;
 				sz_cpu.c = c % 2;
@@ -301,7 +301,7 @@ int through_test_DAA()
 	return 0;
 }
 
-// CB ƒ‰ƒCƒ“‚ÌƒeƒXƒg
+// CB ãƒ©ã‚¤ãƒ³ã®ãƒ†ã‚¹ãƒˆ
 int through_test_cb(value_func_t value_func)
 {
 	char result[256];
@@ -321,9 +321,9 @@ int through_test_cb(value_func_t value_func)
 	{
 		printf("Test: 0xCB 0x%02x ... ", i);
 		fflush(stdout);
-		// ƒeƒXƒgƒR[ƒhSZ
+		// ãƒ†ã‚¹ãƒˆã‚³ãƒ¼ãƒ‰SZ
 		sz_cpu.pc = org;
-		sz_memory[org+0] = 0xCB; // ”j‰ó‚³‚ê‚é‚±‚Æ‚ª‚ ‚é‚Ì‚Å‘‚«’¼‚·
+		sz_memory[org+0] = 0xCB; // ç ´å£Šã•ã‚Œã‚‹ã“ã¨ãŒã‚ã‚‹ã®ã§æ›¸ãç›´ã™
 		sz_memory[org+1] = i;
 		bool debug = false;
 		if ( i == 0xfd75 | i == 0x76 ) {
@@ -339,7 +339,7 @@ int through_test_cb(value_func_t value_func)
 	return 0;
 }
 
-// DD CB / FD CBƒ‰ƒCƒ“‚ÌƒeƒXƒg
+// DD CB / FD CBãƒ©ã‚¤ãƒ³ã®ãƒ†ã‚¹ãƒˆ
 int through_test_ddfd_cb(value_func_t value_func)
 {
 	char result[256];
@@ -369,7 +369,7 @@ int through_test_ddfd_cb(value_func_t value_func)
 			}
 			printf("Test: 0x%02x 0xCB 0x%02x 0x%02x ... ", j, d, i);
 			fflush(stdout);
-			// ƒeƒXƒgƒR[ƒhSZ
+			// ãƒ†ã‚¹ãƒˆã‚³ãƒ¼ãƒ‰SZ
 			sz_cpu.pc = org;
 			sz_memory[org+0] = j;
 			sz_memory[org+1] = 0xCB;
@@ -390,7 +390,7 @@ int through_test_ddfd_cb(value_func_t value_func)
 	return 0;
 }
 
-// dd, fd ƒ‰ƒCƒ“‚ÌƒeƒXƒg
+// dd, fd ãƒ©ã‚¤ãƒ³ã®ãƒ†ã‚¹ãƒˆ
 int through_test_ddfd(value_func_t value_func)
 {
 	char result[256];
@@ -415,7 +415,7 @@ int through_test_ddfd(value_func_t value_func)
 			}
 			printf("Test: 0x%02x 0x%02x ... ", j, i);
 			fflush(stdout);
-			// ƒeƒXƒgƒR[ƒhSZ
+			// ãƒ†ã‚¹ãƒˆã‚³ãƒ¼ãƒ‰SZ
 			sz_cpu.pc = org;
 			sz_cpu.ix = 0x1234;
 			sz_cpu.iy = 0x5678;
@@ -439,7 +439,7 @@ int through_test_ddfd(value_func_t value_func)
 	return 0;
 }
 
-// dd, fd ƒ‰ƒCƒ“‚Ì a,ixh‚â a,ixl‚Ìƒtƒ‹ƒŒƒ“ƒWƒeƒXƒg
+// dd, fd ãƒ©ã‚¤ãƒ³ã® a,ixhã‚„ a,ixlã®ãƒ•ãƒ«ãƒ¬ãƒ³ã‚¸ãƒ†ã‚¹ãƒˆ
 int through_test_ddfd_alu(value_func_t value_func)
 {
 	char result[256];
@@ -474,7 +474,7 @@ int through_test_ddfd_alu(value_func_t value_func)
 				bool cf = ((*value_func)() & 0x05);
 				printf("Test: 0x%02x 0x%02x A=%02x Idx=%02x Cf=%d... ", j, opcode, a, idx, cf);
 				fflush(stdout);
-				// ƒeƒXƒgƒR[ƒhSZ
+				// ãƒ†ã‚¹ãƒˆã‚³ãƒ¼ãƒ‰SZ
 				sz_cpu.pc = org;
 				sz_cpu.a = a;
 				sz_cpu.cf = cf;
@@ -509,7 +509,7 @@ int through_test_ddfd_alu(value_func_t value_func)
 	return 0;
 }
 
-// ed ƒ‰ƒCƒ“‚ÌƒeƒXƒg
+// ed ãƒ©ã‚¤ãƒ³ã®ãƒ†ã‚¹ãƒˆ
 int through_test_ed(value_func_t value_func)
 {
 	char result[256];
@@ -544,9 +544,9 @@ int through_test_ed(value_func_t value_func)
 	{
 		printf("Test: 0xED 0x%02x ... ", opcode);
 		fflush(stdout);
-		// ƒeƒXƒgƒR[ƒhSZ
+		// ãƒ†ã‚¹ãƒˆã‚³ãƒ¼ãƒ‰SZ
 		sz_cpu.pc = org;
-		sz_memory[org+0] = 0xed; // ”j‰ó‚³‚ê‚é‚±‚Æ‚ª‚ ‚é‚Ì‚Å‘‚«’¼‚·
+		sz_memory[org+0] = 0xed; // ç ´å£Šã•ã‚Œã‚‹ã“ã¨ãŒã‚ã‚‹ã®ã§æ›¸ãç›´ã™
 		sz_memory[org+1] = opcode;
 		bool debug = false;
 		if ( opcode == 0xb9 ) {
@@ -562,7 +562,7 @@ int through_test_ed(value_func_t value_func)
 	return 0;
 }
 
-// ed ƒ‰ƒCƒ“‚Ì@<adc,sbc> hl,<bc,de,hl,sp> ‚ÌW’†ƒeƒXƒg
+// ed ãƒ©ã‚¤ãƒ³ã®ã€€<adc,sbc> hl,<bc,de,hl,sp> ã®é›†ä¸­ãƒ†ã‚¹ãƒˆ
 int through_test_ed_adc_sbc(value_func_t value_func)
 {
 	char result[256];
@@ -603,7 +603,7 @@ int through_test_ed_adc_sbc(value_func_t value_func)
 			bool cf = (k & 0x200) >> 9;
 			printf("Test: 0xED 0x%02x HL=%04x BC/DE/SP=%04x Cf=%d... ", opcode, (h<<8) | l, (vh<<8) | vl, cf);
 			fflush(stdout);
-			// ƒeƒXƒgƒR[ƒhSZ
+			// ãƒ†ã‚¹ãƒˆã‚³ãƒ¼ãƒ‰SZ
 			sz_cpu.pc = org;
 			sz_cpu.h = h;
 			sz_cpu.l = l;
@@ -613,10 +613,10 @@ int through_test_ed_adc_sbc(value_func_t value_func)
 			sz_cpu.e = vl+1;
 			sz_cpu.sp = (vh<<8) | vl+2;
 			sz_cpu.cf = cf;
-			// ƒeƒXƒgƒR[ƒhSZ
+			// ãƒ†ã‚¹ãƒˆã‚³ãƒ¼ãƒ‰SZ
 			sz_cpu.pc = org;
 
-			sz_memory[org+0] = 0xed; // ”j‰ó‚³‚ê‚é‚±‚Æ‚ª‚ ‚é‚Ì‚Å‘‚«’¼‚·
+			sz_memory[org+0] = 0xed; // ç ´å£Šã•ã‚Œã‚‹ã“ã¨ãŒã‚ã‚‹ã®ã§æ›¸ãç›´ã™
 			sz_memory[org+1] = opcode;
 			bool debug = false;
 			if (dotest(1,result,debug) ) {
@@ -846,7 +846,7 @@ int dotest(int max_steps, char* result, bool debug)
 
 int compare(char* result)
 {
-	// ƒŒƒWƒXƒ^‚Ì”äŠr
+	// ãƒ¬ã‚¸ã‚¹ã‚¿ã®æ¯”è¼ƒ
 	if (sz_cpu.pc != ms_cpu.pc)
 	{
 		sprintf(result, "pc: %04X != %04X", sz_cpu.pc, ms_cpu.pc);
@@ -1028,7 +1028,7 @@ int compare(char* result)
 
 char *test_nop()
 {
-	// ƒeƒXƒgƒR[ƒhSZ
+	// ãƒ†ã‚¹ãƒˆã‚³ãƒ¼ãƒ‰SZ
 	sz_cpu.pc = org;
 	sz_memory[org+0] = 0x00; // nop
 	// inject "out 1,a" (signal to stop the test)
@@ -1040,7 +1040,7 @@ char *test_nop()
 
 char *test_neg()
 {
-	// ƒeƒXƒgƒR[ƒhSZ
+	// ãƒ†ã‚¹ãƒˆã‚³ãƒ¼ãƒ‰SZ
 	sz_cpu.pc = org;
 	sz_memory[org+0] = 0x3e;
 	sz_memory[org+1] = 0xff;

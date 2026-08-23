@@ -25,7 +25,7 @@
 		"cstring": "c"
 	},
 	// ソース・ドキュメントは UTF-8 で管理している。
-	// 例外として exe/ms.ini と test/ 配下の一部ファイルは SJIS のままなので、
+	// 例外として exe/ms.ini と test/misc/ 配下は SJIS のままなので、
 	// それらを編集するときは「エンコード付きで再度開く」で SJIS を選ぶ。
 	"files.encoding": "utf8",
 	"editor.detectIndentation": false,

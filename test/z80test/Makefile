@@ -1,22 +1,30 @@
+REPO_DIR = ../..
 SRC_DIR = .
+MS_SRC_DIR = $(REPO_DIR)/src
 BUILD_DIR = build
 EXE_DIR = exe
 
 CROSS = m68k-xelf-
 CC = $(CROSS)gcc
-#AS = $(CROSS)as
-AS = run68 /Users/ohnaka/work/XEiJ/HFS/HAS/HAS060.X
+AS = run68 /Users/ohnaka/work/XEiJ/HFS/prog/HAS/HAS060.X
 LD = $(CROSS)gcc
 
-CFLAGS = -g -c -m68000 -finput-charset=CP932
+CFLAGS = -g -c -m68000 -finput-charset=UTF-8 -fexec-charset=CP932
 LDFLAGS = -lm -lbas -liocs -ldos
 
-#GCC_OPTS = -c -O -g -finput-charset=CP932
+-include ~/.human68k.mk
 
-#LD = m68k-xelf-ld.x
-#LD_OPTS = -L /Users/ohnaka/work/XEiJ/HFS/XGCC/LIB/
+ASFLAGS = -d -i src -i src/include -w0
 
-ASFLAGS = -d -i $(SRC_DIR)/../../src/ -i /Users/ohnaka/work/XEiJ/HFS/XGCC/INCLUDE/ -w0
+# アセンブラソースは UTF-8 で管理し、HAS060 が要求する SJIS(CP932) に変換した
+# シャドウツリー ($(ASMSRC_DIR)) を作ってからアセンブルする (ルートの Makefile と同じ方式)。
+# .include はリポジトリルート基準で解決されるため、ディレクトリ構造ごと複製する。
+# (macOS の iconv は CP932 変換が不安定なため Python の cp932 コーデックを使用)
+UTF8TOCP932 = python3 -c 'import sys;sys.stdout.buffer.write(open(sys.argv[1],encoding="utf-8").read().encode("cp932"))'
+ASMSRC_DIR = $(BUILD_DIR)/asmsrc
+ASM_SOURCES = $(shell cd $(REPO_DIR) && find src test/z80test -type f \( -name '*.has' -o -name '*.mac' -o -name '*.MAC' -o -name '*.equ' \))
+ASM_DEPS = $(addprefix $(REPO_DIR)/,$(ASM_SOURCES))
+ASM_STAMP = $(ASMSRC_DIR)/.stamp
 
 all: copy_to_target_all
 
@@ -35,30 +43,42 @@ copy_to_target: ${BUILD_DIR} ${BUILD_DIR}/ms_z80_tests.x ${BUILD_DIR}/ms_z80_tes
 	cp ${BUILD_DIR}/ms_z80_cmptests.x ${EXE_DIR}/
 	cp ${BUILD_DIR}/ms_z80_cmptests.x /Users/ohnaka/work/XEiJ/HFS/MS.X/
 
-${BUILD_DIR}/ms_z80_tests.x: $(BUILD_DIR)/ms_z80_wrapper.o $(BUILD_DIR)/ms_z80_tests.o $(BUILD_DIR)/ms_R800_mac_30.o $(BUILD_DIR)/ms_R800_flag.o ${BUILD_DIR}/ms_z80_test_iomap.o ${BUILD_DIR}/ms_z80_test_memmap.o
+${BUILD_DIR}/ms_z80_tests.x: $(BUILD_DIR)/ms_z80_wrapper.o $(BUILD_DIR)/ms_z80_tests.o $(BUILD_DIR)/ms_R800_30.o $(BUILD_DIR)/ms_R800_flag.o ${BUILD_DIR}/ms_z80_test_iomap.o ${BUILD_DIR}/ms_z80_test_memmap.o
 	$(LD) $(LDFLAGS) -o $@ $^
 
-${BUILD_DIR}/ms_z80_tests_cmp.x: $(BUILD_DIR)/ms_z80_wrapper.o $(BUILD_DIR)/ms_z80_tests_cmp.o $(BUILD_DIR)/ms_R800_mac_30.o $(BUILD_DIR)/ms_R800_flag.o ${BUILD_DIR}/ms_z80_test_iomap.o ${BUILD_DIR}/ms_z80_test_memmap.o $(BUILD_DIR)/z80.o
+${BUILD_DIR}/ms_z80_tests_cmp.x: $(BUILD_DIR)/ms_z80_wrapper.o $(BUILD_DIR)/ms_z80_tests_cmp.o $(BUILD_DIR)/ms_R800_30.o $(BUILD_DIR)/ms_R800_flag.o ${BUILD_DIR}/ms_z80_test_iomap.o ${BUILD_DIR}/ms_z80_test_memmap.o $(BUILD_DIR)/z80.o
 	$(LD) $(LDFLAGS) -o $@ $^
 
-${BUILD_DIR}/ms_z80_cmptests.x: $(BUILD_DIR)/ms_z80_cmptests.o $(BUILD_DIR)/ms_z80_cmptests_sz.o $(BUILD_DIR)/ms_z80_cmptests_ms.o $(BUILD_DIR)/ms_z80_wrapper.o  $(BUILD_DIR)/ms_R800_mac_30.o $(BUILD_DIR)/ms_R800_flag.o ${BUILD_DIR}/ms_z80_test_iomap.o ${BUILD_DIR}/ms_z80_test_memmap.o $(BUILD_DIR)/z80.o
+${BUILD_DIR}/ms_z80_cmptests.x: $(BUILD_DIR)/ms_z80_cmptests.o $(BUILD_DIR)/ms_z80_cmptests_sz.o $(BUILD_DIR)/ms_z80_cmptests_ms.o $(BUILD_DIR)/ms_z80_wrapper.o  $(BUILD_DIR)/ms_R800_30.o $(BUILD_DIR)/ms_R800_flag.o ${BUILD_DIR}/ms_z80_test_iomap.o ${BUILD_DIR}/ms_z80_test_memmap.o $(BUILD_DIR)/z80.o
 	$(LD) $(LDFLAGS) -o $@ $^
 
-${BUILD_DIR}/%.o: $(SRC_DIR)/%.c $(SRC_DIR)/../../src/ms_R800.h
+${BUILD_DIR}/%.o: $(SRC_DIR)/%.c $(MS_SRC_DIR)/ms_R800.h | $(BUILD_DIR)
 	$(CC) $(CFLAGS) $< -o $@
 
-${BUILD_DIR}/%.o: $(SRC_DIR)/superzazu-z80/%.c
+${BUILD_DIR}/%.o: $(SRC_DIR)/superzazu-z80/%.c | $(BUILD_DIR)
 	$(CC) $(CFLAGS) $< -o $@
 
-${BUILD_DIR}/%.o: $(SRC_DIR)/%.has $(SRC_DIR)/../../src/ms.mac
-	$(AS) $(ASFLAGS) $< -o $@.tmp
-	x68k2elf.py $@.tmp $@
-	rm $@.tmp
+# --- アセンブラソース (CP932 シャドウツリーを作ってからアセンブル) ---
+# 全アセンブラソースを CP932 に変換して $(ASMSRC_DIR)/ にツリー複製する
+$(ASM_STAMP): $(ASM_DEPS)
+	@rm -rf $(ASMSRC_DIR)
+	@set -e; for f in $(ASM_SOURCES); do \
+		mkdir -p "$(ASMSRC_DIR)/$$(dirname $$f)"; \
+		$(UTF8TOCP932) "$(REPO_DIR)/$$f" > "$(ASMSRC_DIR)/$$f"; \
+	done
+	@mkdir -p $(ASMSRC_DIR)
+	@touch $@
 
-${BUILD_DIR}/%.o: $(SRC_DIR)/../../src/%.has $(SRC_DIR)/../../src/ms.mac
-	$(AS) $(ASFLAGS) $< -o $@.tmp
-	x68k2elf.py $@.tmp $@
-	rm $@.tmp
+# シャドウツリー内でアセンブルする (cd するので include の相対解決も従来どおり)
+${BUILD_DIR}/%.o: $(SRC_DIR)/%.has $(ASM_STAMP) | $(BUILD_DIR)
+	cd $(ASMSRC_DIR) && $(AS) $(ASFLAGS) test/z80test/$*.has -o $(notdir $@).tmp
+	x68k2elf.py $(ASMSRC_DIR)/$(notdir $@).tmp $@
+	rm $(ASMSRC_DIR)/$(notdir $@).tmp
+
+${BUILD_DIR}/%.o: $(MS_SRC_DIR)/%.has $(ASM_STAMP) | $(BUILD_DIR)
+	cd $(ASMSRC_DIR) && $(AS) $(ASFLAGS) src/$*.has -o $(notdir $@).tmp
+	x68k2elf.py $(ASMSRC_DIR)/$(notdir $@).tmp $@
+	rm $(ASMSRC_DIR)/$(notdir $@).tmp
 
 clean:
 	rm -rf $(BUILD_DIR)

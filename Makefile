@@ -179,8 +179,10 @@ update_version:
 
 debug: copy_to_target_debug
 
-test: src/z80test/exe/ms_z80tests.x
-	cd src/z80test/exe ; run68 ms_z80tests.x
+.PHONY: test
+# roms/ を相対パスで開くため superzazu-z80 ディレクトリで実行する
+test: test/z80test/exe/ms_z80_tests.x
+	cd test/z80test/superzazu-z80 ; run68 ../exe/ms_z80_tests.x
 
 $(BUILD_DIR):
 	mkdir -p $(BUILD_DIR)
@@ -236,7 +238,7 @@ ${BUILD_DIR}/%_mac_d.o: %.has $(ASM_STAMP)
 	rm $(ASMSRC_DIR)/$(notdir $@).tmp
 
 # Test program
-test/z80test/exe/ms_z80tests.x:
+test/z80test/exe/ms_z80_tests.x:
 	make -C test/z80test
 
 clean:

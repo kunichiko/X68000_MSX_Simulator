@@ -11,7 +11,7 @@ static uint8_t *sz_memory = NULL;
 bool ms_test_finished = 0;
 bool sz_test_finished = 0;
 
-// addr‚Åw’è‚³‚ê‚½‘OŒã16ƒoƒCƒg‚ğƒ_ƒ“ƒv‚·‚é
+// addrã§æŒ‡å®šã•ã‚ŒãŸå‰å¾Œ16ãƒã‚¤ãƒˆã‚’ãƒ€ãƒ³ãƒ—ã™ã‚‹
 void dump_mem(int addr) {
 	for(int j=-1;j<2;j++)
 	{
@@ -156,7 +156,7 @@ static void sz_out(z80 *const z, uint8_t port, uint8_t val)
 
 int compare(ms_z80 *const ms_z, z80 *const sz_z, char* result)
 {
-	// ƒŒƒWƒXƒ^‚Ì”äŠr
+	// ãƒ¬ã‚¸ã‚¹ã‚¿ã®æ¯”è¼ƒ
 	if (sz_z->pc != ms_z->pc)
 	{
 		sprintf(result, "pc: %04X != %04X", sz_z->pc, ms_z->pc);
