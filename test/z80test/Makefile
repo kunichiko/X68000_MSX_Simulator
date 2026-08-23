@@ -4,15 +4,20 @@ MS_SRC_DIR = $(REPO_DIR)/src
 BUILD_DIR = build
 EXE_DIR = exe
 
+# 環境依存の設定はルートの Makefile と同じ仕組みで読み込む (詳細はそちらのコメント参照)
+-include $(HOME)/.human68k.mk
+-include $(REPO_DIR)/local.mk
+
+HAS060 ?= $(HOME)/work/XEiJ/HFS/prog/HAS/HAS060.X
+INSTALL_DIR ?=
+
 CROSS = m68k-xelf-
 CC = $(CROSS)gcc
-AS = run68 /Users/ohnaka/work/XEiJ/HFS/prog/HAS/HAS060.X
+AS = run68 $(HAS060)
 LD = $(CROSS)gcc
 
 CFLAGS = -g -c -m68000 -finput-charset=UTF-8 -fexec-charset=CP932
 LDFLAGS = -lm -lbas -liocs -ldos
-
--include ~/.human68k.mk
 
 ASFLAGS = -d -i src -i src/include -w0
 
@@ -36,12 +41,12 @@ copy_to_target_all: copy_to_target
 copy_to_target: ${BUILD_DIR} ${BUILD_DIR}/ms_z80_tests.x ${BUILD_DIR}/ms_z80_tests_cmp.x ${BUILD_DIR}/ms_z80_cmptests.x
 	cp ${BUILD_DIR}/ms_z80_tests.x ${EXE_DIR}/
 	cp ${BUILD_DIR}/ms_z80_tests.x.elf ${EXE_DIR}/
-	cp ${BUILD_DIR}/ms_z80_tests.x /Users/ohnaka/work/XEiJ/HFS/MS.X/
 	cp ${BUILD_DIR}/ms_z80_tests_cmp.x ${EXE_DIR}/
 	cp ${BUILD_DIR}/ms_z80_tests_cmp.x.elf ${EXE_DIR}/
-	cp ${BUILD_DIR}/ms_z80_tests_cmp.x /Users/ohnaka/work/XEiJ/HFS/MS.X/
 	cp ${BUILD_DIR}/ms_z80_cmptests.x ${EXE_DIR}/
-	cp ${BUILD_DIR}/ms_z80_cmptests.x /Users/ohnaka/work/XEiJ/HFS/MS.X/
+	$(if $(INSTALL_DIR),cp ${BUILD_DIR}/ms_z80_tests.x $(INSTALL_DIR)/)
+	$(if $(INSTALL_DIR),cp ${BUILD_DIR}/ms_z80_tests_cmp.x $(INSTALL_DIR)/)
+	$(if $(INSTALL_DIR),cp ${BUILD_DIR}/ms_z80_cmptests.x $(INSTALL_DIR)/)
 
 ${BUILD_DIR}/ms_z80_tests.x: $(BUILD_DIR)/ms_z80_wrapper.o $(BUILD_DIR)/ms_z80_tests.o $(BUILD_DIR)/ms_R800_30.o $(BUILD_DIR)/ms_R800_flag.o ${BUILD_DIR}/ms_z80_test_iomap.o ${BUILD_DIR}/ms_z80_test_memmap.o
 	$(LD) $(LDFLAGS) -o $@ $^
@@ -69,13 +74,23 @@ $(ASM_STAMP): $(ASM_DEPS)
 	@mkdir -p $(ASMSRC_DIR)
 	@touch $@
 
+# HAS060.X のパスが違うと HAS の usage が延々流れるだけで原因が分かりにくいため、
+# アセンブルの前に存在確認する
+.PHONY: check-has060
+check-has060:
+	@test -f "$(HAS060)" || { \
+		echo "エラー: HAS060.X が見つかりません: $(HAS060)"; \
+		echo "       local.mk (local.mk.example を参照) か環境変数 HAS060 で指定してください"; \
+		exit 1; \
+	}
+
 # シャドウツリー内でアセンブルする (cd するので include の相対解決も従来どおり)
-${BUILD_DIR}/%.o: $(SRC_DIR)/%.has $(ASM_STAMP) | $(BUILD_DIR)
+${BUILD_DIR}/%.o: $(SRC_DIR)/%.has $(ASM_STAMP) | $(BUILD_DIR) check-has060
 	cd $(ASMSRC_DIR) && $(AS) $(ASFLAGS) test/z80test/$*.has -o $(notdir $@).tmp
 	x68k2elf.py $(ASMSRC_DIR)/$(notdir $@).tmp $@
 	rm $(ASMSRC_DIR)/$(notdir $@).tmp
 
-${BUILD_DIR}/%.o: $(MS_SRC_DIR)/%.has $(ASM_STAMP) | $(BUILD_DIR)
+${BUILD_DIR}/%.o: $(MS_SRC_DIR)/%.has $(ASM_STAMP) | $(BUILD_DIR) check-has060
 	cd $(ASMSRC_DIR) && $(AS) $(ASFLAGS) src/$*.has -o $(notdir $@).tmp
 	x68k2elf.py $(ASMSRC_DIR)/$(notdir $@).tmp $@
 	rm $(ASMSRC_DIR)/$(notdir $@).tmp

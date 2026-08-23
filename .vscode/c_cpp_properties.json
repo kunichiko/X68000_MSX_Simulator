@@ -5,15 +5,15 @@
             "includePath": [
                 ".",
                 "${workspaceFolder}/**",
-                "/opt/homebrew/Cellar/elf2x68k/20240716/m68k-elf/include",
-                "/opt/homebrew/Cellar/elf2x68k/20240716/m68k-elf/include/**",
-                "/opt/homebrew/Cellar/elf2x68k/20240716/**"
+                "/opt/homebrew/opt/elf2x68k/m68k-elf/include",
+                "/opt/homebrew/opt/elf2x68k/m68k-elf/include/**",
+                "/opt/homebrew/opt/elf2x68k/**"
             ],
             "defines": [],
             "macFrameworkPath": [
                 "/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX.sdk/System/Library/Frameworks"
             ],
-            "compilerPath": "/opt/homebrew/Cellar/elf2x68k/20240716/bin/m68k-xelf-gcc",
+            "compilerPath": "/opt/homebrew/opt/elf2x68k/bin/m68k-xelf-gcc",
             "cStandard": "gnu23",
             "cppStandard": "c++17",
             "intelliSenseMode": "${default}",
@@ -28,7 +28,7 @@
         {
             "name": "Mac",
             "includePath": [
-                "/Users/ohnaka/work/X68000/X68000_MSX_Simulator/**"
+                "${workspaceFolder}/**"
             ],
             "defines": [],
             "macFrameworkPath": [
@@ -42,7 +42,7 @@
             "configurationProvider": "elf2x68k",
             "browse": {
                 "path": [
-                    "/Users/ohnaka/work/X68000/X68000_MSX_Simulator/**",
+                    "${workspaceFolder}/**",
                     "${workspaceFolder}"
                 ],
                 "limitSymbolsToIncludedHeaders": true

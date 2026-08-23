@@ -1,6 +1,7 @@
 *.o
 build
-exe/ms.x.elf
-exe/ms_debug.x.elf
+local.mk
+# .elf にはビルドしたマシンの絶対パスがデバッグ情報として埋め込まれるため
+# リポジトリには含めない
+*.x.elf
 test/z80test/exe/log*.txt
-

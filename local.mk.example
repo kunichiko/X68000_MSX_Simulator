@@ -1,0 +1,22 @@
+# 環境依存の設定のサンプル。
+# このファイルを local.mk にコピーして、自分の環境に合わせて書き換える。
+# (local.mk は .gitignore 済み)
+#
+# ここに書かずに、環境変数や make の引数で渡すこともできる。
+#   > HAS060=/path/to/HAS060.X make
+#   > make HAS060=/path/to/HAS060.X
+#
+# マシン共通の設定にしたい場合は ~/.human68k.mk に書いてもよい。
+
+# アセンブラ HAS060.X の場所。
+# ライセンス上リポジトリに同梱できないため、各自で用意する必要がある。
+HAS060 = $(HOME)/work/XEiJ/HFS/prog/HAS/HAS060.X
+
+# ビルドした .x を追加でコピーしたい場所 (任意)。
+# XEiJ の HFS フォルダなどを指定しておくと、make するだけで反映される。
+# 未設定なら exe/ にコピーするだけで何もしない。
+#INSTALL_DIR = $(HOME)/work/XEiJ/HFS/MS.X
+
+# make sd で exe/*.x を書き込む SD カードのボリューム (任意)。
+# 書き込んだあと自動的にアンマウントされる。
+#SD_VOLUME = /Volumes/MSX

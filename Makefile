@@ -10,10 +10,27 @@ ASMINC_DIR = $(SRC_DIR)/include
 BUILD_DIR = build
 EXE_DIR = exe
 
+# 環境依存の設定は以下の順で読み込む。いずれも任意で、環境変数や
+# make HAS060=... でも上書きできる (?= を使っているため)。
+#   ~/.human68k.mk : マシン共通のツールチェーン設定
+#   local.mk       : このリポジトリ固有の設定 (.gitignore 済み)
+# 設定例は local.mk.example を参照。
+-include $(HOME)/.human68k.mk
+-include local.mk
+
+# HAS060.X は同梱できないので、各自の環境に合わせてパスを指定する
+HAS060 ?= $(HOME)/work/XEiJ/HFS/prog/HAS/HAS060.X
+
+# ビルド結果を追加でコピーしたい場所 (XEiJ の HFS フォルダなど)。空ならコピーしない
+INSTALL_DIR ?=
+
+# make sd の転送先になる SD カードのボリューム
+SD_VOLUME ?=
+
 CROSS = m68k-xelf-
 CC = $(CROSS)gcc
 #AS = $(CROSS)as
-AS = run68 /Users/ohnaka/work/XEiJ/HFS/prog/HAS/HAS060.X
+AS = run68 $(HAS060)
 LD = $(CROSS)gcc
 
 CFLAGS = -g -std=gnu90 -c -m68000 -O3 -finput-charset=UTF-8 -fexec-charset=CP932 -I${UTHASH_DIR}
@@ -23,9 +40,7 @@ LDFLAGS = src/disk/9scdrv/_X_KPCHK_elf.o -lm -lbas -liocs -ldos -Wl,-e,msboot_st
 #GCC_OPTS = -c -O -g -finput-charset=UTF-8 -fexec-charset=CP932
 
 #LD = m68k-xelf-ld.x
-#LD_OPTS = -L /Users/ohnaka/work/XEiJ/HFS/XGCC/LIB/
-
--include ~/.human68k.mk
+#LD_OPTS = -L $(HOME)/work/XEiJ/HFS/XGCC/LIB/
 
 ASFLAGS = -i $(SRC_DIR) -i $(ASMINC_DIR) -i $(VDP_DIR) -i $(MEMMAP_DIR) -i ${DISK_DIR} -i ${PERIPHERAL_DIR} -w0
 ASFLAGS_DEBUG = -d -s DEBUG $(ASFLAGS)
@@ -192,12 +207,12 @@ copy_to_target_all: copy_to_target copy_to_target_debug
 copy_to_target: ${BUILD_DIR} ${BUILD_DIR}/ms.x
 	cp ${BUILD_DIR}/ms.x ${EXE_DIR}/
 	cp ${BUILD_DIR}/ms.x.elf ${EXE_DIR}/
-	cp ${BUILD_DIR}/ms.x /Users/ohnaka/work/XEiJ/HFS/MS.X/
+	$(if $(INSTALL_DIR),cp ${BUILD_DIR}/ms.x $(INSTALL_DIR)/)
 
 copy_to_target_debug: ${BUILD_DIR} ${BUILD_DIR}/ms_debug.x
 	cp ${BUILD_DIR}/ms_debug.x ${EXE_DIR}/
 	cp ${BUILD_DIR}/ms_debug.x.elf ${EXE_DIR}/
-	cp ${BUILD_DIR}/ms_debug.x /Users/ohnaka/work/XEiJ/HFS/MS.X/
+	$(if $(INSTALL_DIR),cp ${BUILD_DIR}/ms_debug.x $(INSTALL_DIR)/)
 
 $(SRC_DIR)/ms.h: $(SRC_DIR)/../version.h
 	touch $(SRC_DIR)/ms.h
@@ -226,16 +241,42 @@ $(ASM_STAMP): $(ASM_SOURCES)
 	@mkdir -p $(ASMSRC_DIR)
 	@touch $@
 
+# HAS060.X のパスが違うと HAS の usage が延々流れるだけで原因が分かりにくいため、
+# アセンブルの前に存在確認する
+.PHONY: check-has060
+check-has060:
+	@test -f "$(HAS060)" || { \
+		echo "エラー: HAS060.X が見つかりません: $(HAS060)"; \
+		echo "       local.mk (local.mk.example を参照) か環境変数 HAS060 で指定してください"; \
+		exit 1; \
+	}
+
 # シャドウツリー内でアセンブルする (cd するので include の相対解決も従来どおり)
-${BUILD_DIR}/%_mac.o: %.has $(ASM_STAMP)
+${BUILD_DIR}/%_mac.o: %.has $(ASM_STAMP) | check-has060
 	cd $(ASMSRC_DIR) && $(AS) $(ASFLAGS) $< -o $(notdir $@).tmp
 	x68k2elf.py $(ASMSRC_DIR)/$(notdir $@).tmp $@
 	rm $(ASMSRC_DIR)/$(notdir $@).tmp
 
-${BUILD_DIR}/%_mac_d.o: %.has $(ASM_STAMP)
+${BUILD_DIR}/%_mac_d.o: %.has $(ASM_STAMP) | check-has060
 	cd $(ASMSRC_DIR) && $(AS) $(ASFLAGS_DEBUG) $< -o $(notdir $@).tmp
 	x68k2elf.py $(ASMSRC_DIR)/$(notdir $@).tmp $@
 	rm $(ASMSRC_DIR)/$(notdir $@).tmp
+
+# exe/ の .x を SD カードにコピーして取り出す (転送先は local.mk の SD_VOLUME)
+.PHONY: sd
+sd:
+	@test -n "$(SD_VOLUME)" || { \
+		echo "エラー: SD_VOLUME が設定されていません"; \
+		echo "       local.mk (local.mk.example を参照) で指定してください"; \
+		exit 1; \
+	}
+	@test -d "$(SD_VOLUME)" || { \
+		echo "エラー: ボリュームが見つかりません: $(SD_VOLUME)"; \
+		exit 1; \
+	}
+	cp $(EXE_DIR)/ms.x "$(SD_VOLUME)"
+	cp $(EXE_DIR)/ms_debug.x "$(SD_VOLUME)"
+	diskutil eject "$(SD_VOLUME)"
 
 # Test program
 test/z80test/exe/ms_z80_tests.x:
