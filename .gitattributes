@@ -1,5 +1,15 @@
-# .c/.h は UTF-8 で管理する (コンパイル時に gcc の -fexec-charset=CP932 で
-# 文字列リテラルのみ SJIS に変換される)。
-# アセンブラ (.has/.mac) は HAS060 が SJIS 前提のため SJIS のまま管理する。
-*.has diff=sjis
-*.mac diff=sjis
+# ソース・ドキュメントは UTF-8 で管理する。
+# .c/.h はコンパイル時に gcc の -fexec-charset=CP932 で文字列リテラルのみ
+# SJIS に変換される。アセンブラ (.has/.mac) も UTF-8 に移行済み。
+#
+# 以下は例外的に SJIS のまま管理しているファイル。
+#   - exe/ms.ini      : X68000 実機上で読み込まれる設定ファイル
+#   - test/ 配下の一部 : UTF-8 への移行対象外のテスト用ソース
+# git diff で読めるようにするため、あらかじめ以下の設定が必要。
+#   > git config --global diff.sjis.textconv "iconv -f sjis -t utf-8"
+exe/ms.ini diff=sjis
+test/misc/*.has diff=sjis
+test/misc/*.zms diff=sjis
+test/z80test/*.has diff=sjis
+test/z80test/ms_z80_cmptests.c diff=sjis
+test/z80test/ms_z80_tests_cmp.c diff=sjis

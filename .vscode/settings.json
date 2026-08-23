@@ -24,16 +24,16 @@
 		"__locale": "c",
 		"cstring": "c"
 	},
-	"files.encoding": "shiftjis",
+	// ソース・ドキュメントは UTF-8 で管理している。
+	// 例外として exe/ms.ini と test/ 配下の一部ファイルは SJIS のままなので、
+	// それらを編集するときは「エンコード付きで再度開く」で SJIS を選ぶ。
+	"files.encoding": "utf8",
 	"editor.detectIndentation": false,
 	"editor.renderWhitespace": "all",
 	"editor.insertSpaces": false,
 	"[platformio-debug.asm]": {
 		"editor.detectIndentation": false,
 		"editor.tabSize": 8
-	},
-	"[markdown]": {
-		"files.encoding": "utf8"
 	},
 	"formatFiles.excludedFolders": [
 		"node_modules",
