@@ -1,3 +1,4 @@
+	.cpu 68000
 *
 *	Ｍｓｘ Ｓｉｍｕｌａｔｅｒ
 *
@@ -39,7 +40,6 @@
 	.xdef	_ms_peripherals_led_caps
 	.xdef	_ms_peripherals_led_kana
 
-	.68000
 
 USART_data	equ	$e8802f		* USART データポート
 

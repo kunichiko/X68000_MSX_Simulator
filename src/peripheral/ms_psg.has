@@ -1,3 +1,4 @@
+	.cpu 68000
 *
 *	Ｍｓｘ Ｓｉｍｕｌａｔｅｒ
 *
@@ -18,6 +19,7 @@
 	.xdef	r_port_A0		* アドレスセット
 	.xdef	r_port_A2		* レジスタリード
 
+	.xref	emu_counter
 	.xdef	w_port_A0
 	.xdef	w_port_A1
 
@@ -35,25 +37,28 @@
 
 	.xref	ms_psg_port_sel
 
+OPMDUMMY	equ	8		* OPM 書き込み前のダミーアクセス回数
 OPM_regset	equ	$e90001		* ＯＰＭアクセスレジスタ設定ポート
 OPM_port	equ	$e90003		* ＯＰＭアクセスポート
 
 
-	.68000
 
 ***************************************************************
 *       OPMレジスタ書き込みマクロ
 ***************************************************************
 w_OPM	macro	val,regnum
 
-	tst.b	OPM_regset		* ダミーアクセス
-9:	tst.b	OPM_port		* ウェイト
-	bmi	9b
-	move.b	regnum,OPM_regset
-	tst.b	OPM_regset		* ダミーアクセス
-9:	tst.b	OPM_port		* ウェイト
-	bmi	9b
-	move.b	val,OPM_port
+*	OPM への書き込みは opm_write に一本化する。
+*	同じ値の書き込みは省く（BUSY 待ちを丸ごと節約できる）。
+
+*	regnum には d0 / d1 が、val には d1 / d2 / メモリが渡される。
+*	val に d0 を渡す箇所は無いので、regnum を先に d0 へ取れば
+*	どの組み合わせでも元の値を壊さずに済む。
+	movem.l	d0/d1,-(sp)
+	move.b	regnum,d0		* 先にレジスタ番号（val が d0 を参照する箇所は無い）
+	move.b	val,d1			* val が d1 を参照していてもこの時点では無事
+	bsr	opm_write
+	movem.l	(sp)+,d0/d1
 
 	endm
 ***************************************************************
@@ -266,6 +271,13 @@ ms_psg_init_mac:
 	w_OPM	#$01,#$11			* 143*16μｓごとに割り込み
 
 	w_OPM	#%00000101,#$14			* 割り込み開始
+
+	lea.l	opm_shadow,a0		* 影を「未書き込み」で埋める
+	move.w	#256-1,d0
+opm_shadow_fill:
+	move.w	#$ffff,(a0)+
+	dbra	d0,opm_shadow_fill
+	move.b	#1,opm_filter_on	* ここから同値の書き込みを省く
 
 	movem.l	(sp)+,d3-d7/a0-a5
 	unlk	a6
@@ -490,6 +502,44 @@ r_PSG_R13:
 *	d1.b ・・・ 書き込む値
 *
 ***************************************************************
+*
+*	OPM への書き込み
+*
+*	 d0.b ・・・ レジスタ番号
+*	 d1.b ・・・ 書き込む値
+*
+*	$20 以降は状態レジスタなので、前回と同じ値なら書かずに帰る。
+*	$20 未満（キーオン・タイマ・LFO など）は副作用があるので必ず書く。
+*
+opm_write:
+	move.l	a2,-(sp)
+	andi.w	#$00ff,d0
+	andi.w	#$00ff,d1		* 影はワードで比べるので上位を落とす
+	cmpi.w	#$20,d0
+	blo	1f			* $20 未満は副作用があるので素通し
+	add.w	d0,d0			* 影は 1 レジスタ 1 ワード（$ffff ＝ 未書き込み）
+	lea.l	opm_shadow,a2
+	tst.b	opm_filter_on
+	beq	2f			* 初期化中は省かない
+	cmp.w	(a2,d0.w),d1
+	beq	8f			* 同じ値なので書かない
+2:	move.w	d1,(a2,d0.w)		* 影は初期化中も必ず更新する
+	lsr.w	#1,d0
+1:
+	tst.b	OPM_regset		* ダミーアクセス
+3:	tst.b	OPM_port		* BUSY が下りるまで待つ
+	bpl	4f
+	bra	3b
+4:	move.b	d0,OPM_regset
+	tst.b	OPM_regset		* ダミーアクセス
+5:	tst.b	OPM_port
+	bpl	6f
+	bra	5b
+6:	move.b	d1,OPM_port
+8:
+9:	move.l	(sp)+,a2
+	rts
+
 w_port_A0:
 	move.l	4(sp),d1
 	andi.w	#$0f,d1
@@ -506,6 +556,16 @@ w_port_A1:
 	jmp	(a0)
 
 	.data
+
+	.even
+	.xdef	opm_filter_on, opm_shadow
+opm_filter_on:
+	.dc.b	0		* 初期化が済むまでは素通しする
+	.even
+opm_shadow:
+	.ds.w	256
+	.even
+
 
 w_psg_reg_jpt:
 	.dc.l	w_PSG_R00

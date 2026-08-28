@@ -1,0 +1,363 @@
+	.cpu 68000
+
+	.include	iocscall.mac
+	.include	doscall.mac
+
+	.xdef	ms_install_traps
+	.xdef	ms_remove_traps
+	.xdef	ms_trap_selftest
+	.xdef	do_report		* 相対PCの基準としてリンクマップに載せる
+
+*
+*	例外ベクタを捕捉し、発生位置とレジスタの内容を表示する。
+*	表示後は元のハンドラへ制御を渡すため、OS標準の中断処理も行われる。
+*
+*	捕捉するのは 2(バスエラー) / 3(アドレスエラー) / 4(不当命令) の 3 つに限る。
+*	これらは 68000 での動作検証に必要な最小限であり、
+*	68020以降の命令も 68000では不当命令として捕捉できる。
+*
+*	5-15 を捕捉してはならない。11(Line-F)は Human68k の DOSコールそのものであり、
+*	12-15 も OS が内部で使用しているため、奪うと IOCS/DOS が動かなくなる。
+*	32-47(TRAP)も IOCS等が使用する。
+*
+
+NVEC	equ	3			* 捕捉するベクタの数
+
+	.text
+	.even
+
+*******************************************************************
+*	void ms_trap_selftest(void);
+*
+*	捕捉機構が機能しているかを確かめるため、意図的にアドレスエラーを起こす。
+*	動作確認専用であり、通常の実行経路からは呼ばない。
+*******************************************************************
+ms_trap_selftest:
+	movea.l	#3,a0			* 奇数番地
+	move.l	(a0),d0			* ロング読み出し → アドレスエラー
+	rts
+
+*******************************************************************
+*	void ms_install_traps(void);
+*
+*	IOCS _B_INTVCS は割り込みベクタ用で例外ベクタには効かないため、
+*	スーパーバイザモードでベクタテーブルを直接書き換える。
+*******************************************************************
+ms_install_traps:
+	movem.l	d0-d2/a0-a2,-(sp)
+
+	clr.l	-(sp)			* スーパーバイザモードへ
+	DOS	__SUPER
+	addq.l	#4,sp
+	move.l	d0,saved_usp
+
+	lea.l	vec_table,a1
+	lea.l	saved_vec,a2
+	moveq.l	#NVEC-1,d2
+1:	move.w	(a1)+,d0		* ベクタ番号
+	move.l	(a1)+,d1		* 新しいハンドラ
+	lsl.w	#2,d0
+	movea.w	d0,a0			* d0.w は 8～60。上位ワードには __SUPER の戻り値が残る			* a0 = ベクタテーブル上の位置
+	move.l	(a0),(a2)+		* 元のハンドラを保存
+	move.l	d1,(a0)
+	dbra	d2,1b
+
+	move.l	saved_usp,d0		* 元がスーパーバイザなら -1 が返る
+	bmi	@f			* その場合はモードを戻さない
+	move.l	d0,-(sp)
+	DOS	__SUPER
+	addq.l	#4,sp
+@@:
+	move.w	#1,traps_installed
+	lea.l	msg_installed,a1
+	IOCS	__B_PRINT
+	movem.l	(sp)+,d0-d2/a0-a2
+	rts
+
+*******************************************************************
+*	void ms_remove_traps(void);
+*******************************************************************
+ms_remove_traps:
+	tst.w	traps_installed
+	beq	9f
+	movem.l	d0-d2/a0-a2,-(sp)
+
+	clr.l	-(sp)
+	DOS	__SUPER
+	addq.l	#4,sp
+	move.l	d0,saved_usp
+
+	lea.l	vec_table,a1
+	lea.l	saved_vec,a2
+	moveq.l	#NVEC-1,d2
+1:	move.w	(a1)+,d0
+	addq.l	#4,a1
+	lsl.w	#2,d0
+	movea.w	d0,a0			* d0.w は 8～60。上位ワードには __SUPER の戻り値が残る
+	move.l	(a2)+,(a0)
+	dbra	d2,1b
+
+	move.l	saved_usp,d0		* 元がスーパーバイザなら -1 が返る
+	bmi	@f			* その場合はモードを戻さない
+	move.l	d0,-(sp)
+	DOS	__SUPER
+	addq.l	#4,sp
+@@:
+	clr.w	traps_installed
+	movem.l	(sp)+,d0-d2/a0-a2
+9:	rts
+
+*******************************************************************
+*	例外ハンドラ
+*
+*	スタックの例外フレームは保持したまま報告し、
+*	最後に元のハンドラへジャンプする。
+*
+*	ベクタ2,3(バスエラー/アドレスエラー)は14バイト、
+*	それ以外は6バイトのフレームを積む。
+*******************************************************************
+trap_v2:	movem.l	d0-d7/a0-a6,regsave
+		moveq.l	#0,d0
+		bra	frame14
+trap_v3:	movem.l	d0-d7/a0-a6,regsave
+		moveq.l	#1,d0
+		bra	frame14
+trap_v4:	movem.l	d0-d7/a0-a6,regsave
+		moveq.l	#2,d0
+		bra	frame6
+trap_v5:	movem.l	d0-d7/a0-a6,regsave
+		moveq.l	#3,d0
+		bra	frame6
+trap_v6:	movem.l	d0-d7/a0-a6,regsave
+		moveq.l	#4,d0
+		bra	frame6
+trap_v7:	movem.l	d0-d7/a0-a6,regsave
+		moveq.l	#5,d0
+		bra	frame6
+trap_v8:	movem.l	d0-d7/a0-a6,regsave
+		moveq.l	#6,d0
+		bra	frame6
+trap_v9:	movem.l	d0-d7/a0-a6,regsave
+		moveq.l	#7,d0
+		bra	frame6
+trap_v10:	movem.l	d0-d7/a0-a6,regsave
+		moveq.l	#8,d0
+		bra	frame6
+trap_v12:	movem.l	d0-d7/a0-a6,regsave
+		moveq.l	#9,d0
+		bra	frame6
+trap_v13:	movem.l	d0-d7/a0-a6,regsave
+		moveq.l	#10,d0
+		bra	frame6
+trap_v14:	movem.l	d0-d7/a0-a6,regsave
+		moveq.l	#11,d0
+		bra	frame6
+trap_v15:	movem.l	d0-d7/a0-a6,regsave
+		moveq.l	#12,d0
+		bra	frame6
+
+*	共通処理。d0 = 種別番号
+frame14:
+	move.w	d0,trap_kind
+	move.w	(sp),trap_ssw		* 特殊ステータスワード
+	move.l	2(sp),trap_access	* アクセスしようとしたアドレス
+	move.w	6(sp),trap_ir		* 命令レジスタ
+	move.w	8(sp),trap_sr		* ステータスレジスタ
+	move.l	10(sp),trap_pc		* プログラムカウンタ
+	bra	do_report
+
+frame6:
+	move.w	d0,trap_kind
+	clr.w	trap_ssw
+	clr.l	trap_access
+	clr.w	trap_ir
+	move.w	(sp),trap_sr
+	move.l	2(sp),trap_pc
+	bra	do_report
+
+*******************************************************************
+*	報告（スーパーバイザモードのまま IOCSで表示する）
+*******************************************************************
+do_report:
+*	報告処理中に再び例外が起きた場合は、そのまま元のハンドラへ渡す
+*	（無限再帰で SSP を溢れさせないため）
+	tst.w	in_report
+	bne	chain_to_original
+	move.w	#1,in_report
+	ori.w	#$0700,sr		* 報告中は割り込みを止める
+
+*	テキスト画面へ戻して報告が読めるようにする
+	move.w	#$10,d1
+	IOCS	__CRTMOD
+	IOCS	__OS_CURON
+
+	move.w	trap_kind,d0
+	add.w	d0,d0
+	add.w	d0,d0
+	lea.l	kind_table,a0
+	movea.l	(a0,d0.w),a1
+	IOCS	__B_PRINT
+
+	move.l	trap_access,d0
+	lea.l	buf_access,a0
+	bsr	hex8
+	move.l	trap_pc,d0
+	lea.l	buf_pc,a0
+	bsr	hex8
+
+*	この関数の実行時アドレスを基準にした相対PCを求める。
+*	リンクマップ上の do_report のオフセットを足せば真のオフセットになる。
+	lea.l	do_report(pc),a1
+	move.l	trap_pc,d0
+	sub.l	a1,d0
+	lea.l	buf_rel,a0
+	bsr	hex8
+
+	move.w	trap_ir,d0
+	lea.l	buf_ir,a0
+	bsr	hex4
+	move.w	trap_ssw,d0
+	lea.l	buf_ssw,a0
+	bsr	hex4
+	move.w	trap_sr,d0
+	lea.l	buf_sr,a0
+	bsr	hex4
+
+*	R/W の別（特殊ステータスワードのbit4が1で読み込み）
+	move.b	#'W',d0
+	btst.b	#4,trap_ssw+1
+	beq	@f
+	move.b	#'R',d0
+@@:	move.b	d0,buf_rw
+
+*	d0-d7 を書き出す
+	lea.l	regsave,a1
+	lea.l	buf_dregs,a0
+	moveq.l	#8-1,d3
+@@:	move.l	(a1)+,d0
+	bsr	hex8
+	addq.l	#1,a0			* 区切りの空白を飛ばす
+	dbra	d3,@b
+
+*	a0-a6 を書き出す
+	lea.l	buf_aregs,a0
+	moveq.l	#7-1,d3
+@@:	move.l	(a1)+,d0
+	bsr	hex8
+	addq.l	#1,a0
+	dbra	d3,@b
+
+	lea.l	msg_body,a1
+	IOCS	__B_PRINT
+
+*	元のハンドラへ制御を渡す（例外フレームはそのまま）
+chain_to_original:
+	move.w	trap_kind,d0
+	add.w	d0,d0
+	add.w	d0,d0
+	lea.l	saved_vec,a0
+	movea.l	(a0,d0.w),a0
+	jmp	(a0)
+
+*******************************************************************
+*	d0.l を a0 の指す8文字に16進で書き出す
+*	d0.w を a0 の指す4文字に16進で書き出す
+*
+*	（破壊）d0,d1,d2  a0は書き出した直後を指す
+*******************************************************************
+hex8:
+	moveq.l	#8-1,d1
+	bra	hexloop
+hex4:
+	swap	d0
+	moveq.l	#4-1,d1
+hexloop:
+	rol.l	#4,d0
+	move.w	d0,d2
+	andi.w	#$000f,d2
+	move.b	hextab(pc,d2.w),(a0)+
+	dbra	d1,hexloop
+	rts
+
+hextab:	.dc.b	'0123456789ABCDEF'
+
+	.data
+	.even
+
+*	捕捉するベクタ番号と、対応するハンドラ
+vec_table:
+	.dc.w	2
+	.dc.l	trap_v2
+	.dc.w	3
+	.dc.l	trap_v3
+	.dc.w	4
+	.dc.l	trap_v4
+
+kind_table:
+	.dc.l	msg_v2, msg_v3, msg_v4, msg_v5, msg_v6, msg_v7, msg_v8
+	.dc.l	msg_v9, msg_v10, msg_v12, msg_v13, msg_v14, msg_v15
+
+msg_installed:	.dc.b	$0d,$0a,'[ms_trap: vec 2,3,4 installed]',$0d,$0a,$00
+msg_v2:		.dc.b	$0d,$0a,'*** VEC2 BUS ERROR ***',$0d,$0a,$00
+msg_v3:		.dc.b	$0d,$0a,'*** VEC3 ADDRESS ERROR ***',$0d,$0a,$00
+msg_v4:		.dc.b	$0d,$0a,'*** VEC4 ILLEGAL INSTRUCTION ***',$0d,$0a,$00
+msg_v5:		.dc.b	$0d,$0a,'*** VEC5 DIVIDE BY ZERO ***',$0d,$0a,$00
+msg_v6:		.dc.b	$0d,$0a,'*** VEC6 CHK ***',$0d,$0a,$00
+msg_v7:		.dc.b	$0d,$0a,'*** VEC7 TRAPV ***',$0d,$0a,$00
+msg_v8:		.dc.b	$0d,$0a,'*** VEC8 PRIVILEGE VIOLATION ***',$0d,$0a,$00
+msg_v9:		.dc.b	$0d,$0a,'*** VEC9 TRACE ***',$0d,$0a,$00
+msg_v10:	.dc.b	$0d,$0a,'*** VEC10 LINE-A ***',$0d,$0a,$00
+msg_v12:	.dc.b	$0d,$0a,'*** VEC12 ***',$0d,$0a,$00
+msg_v13:	.dc.b	$0d,$0a,'*** VEC13 COPROCESSOR ***',$0d,$0a,$00
+msg_v14:	.dc.b	$0d,$0a,'*** VEC14 FORMAT ERROR ***',$0d,$0a,$00
+msg_v15:	.dc.b	$0d,$0a,'*** VEC15 UNINITIALIZED INTERRUPT ***',$0d,$0a,$00
+
+	.even
+msg_body:
+	.dc.b	' access = '
+buf_access:
+	.dc.b	'--------'
+	.dc.b	'  ('
+buf_rw:
+	.dc.b	'-'
+	.dc.b	')',$0d,$0a
+	.dc.b	' pc     = '
+buf_pc:
+	.dc.b	'--------'
+	.dc.b	'   pc-do_report = '
+buf_rel:
+	.dc.b	'--------'
+	.dc.b	$0d,$0a
+	.dc.b	' ir     = '
+buf_ir:
+	.dc.b	'----'
+	.dc.b	'   ssw = '
+buf_ssw:
+	.dc.b	'----'
+	.dc.b	'   sr  = '
+buf_sr:
+	.dc.b	'----'
+	.dc.b	$0d,$0a
+	.dc.b	' d0-d7  = '
+buf_dregs:
+	.dc.b	'-------- -------- -------- -------- -------- -------- -------- --------'
+	.dc.b	$0d,$0a
+	.dc.b	' a0-a6  = '
+buf_aregs:
+	.dc.b	'-------- -------- -------- -------- -------- -------- --------'
+	.dc.b	$0d,$0a,$00
+
+	.even
+traps_installed:	.dc.w	0
+trap_kind:		.dc.w	0
+in_report:		.dc.w	0
+trap_ssw:		.dc.w	0
+trap_ir:		.dc.w	0
+trap_sr:		.dc.w	0
+saved_usp:		.dc.l	0
+trap_access:		.dc.l	0
+trap_pc:		.dc.l	0
+saved_vec:		.ds.l	NVEC
+regsave:		.ds.l	15
+
+	.end

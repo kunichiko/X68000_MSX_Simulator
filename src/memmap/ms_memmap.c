@@ -41,6 +41,8 @@ ms_memmap_t* ms_memmap_shared_instance() {
     // メンバの初期化
     _shared->update_page_pointer = _update_page_pointer;
     _shared->current_ptr = ms_memmap_current_ptr;
+    _shared->current_rptr = ms_memmap_current_rptr;
+    _shared->current_wptr = ms_memmap_current_wptr;
 
     _shared->mainram_driver = ms_memmap_MAINRAM_alloc();
     if (_shared->mainram_driver == NULL) {
@@ -205,12 +207,23 @@ int ms_memmap_did_pause(ms_memmap_t* memmap) {
  */
 static void _update_page_pointer(ms_memmap_t* memmap, ms_memmap_driver_t* driver, int page8k) {
     // CPUが見ているページを更新
-    uint8_t* ptr = memmap->current_driver[page8k / 2]->page8k_pointers[page8k];
-    if (ptr != NULL) {
-        memmap->current_ptr[page8k] = ptr;
-    } else {
-        memmap->current_ptr[page8k] = ff_buffer;
+    ms_memmap_driver_t* cur = memmap->current_driver[page8k / 2];
+    uint8_t* ptr = cur->page8k_pointers[page8k];
+    if (ptr == NULL) {
+        ptr = ff_buffer;
     }
+    memmap->current_ptr[page8k] = ptr;
+
+    // データアクセス高速パス用のポインタ
+    // そのドライバの read8 / write8 が純粋なバイトアクセスと等価なページだけを許可する
+    // 16bit アドレスをそのまま添字にできるよう、符号付きで見たページ先頭を引いておく
+    int32_t page_top = page8k * 0x2000;
+    if (page_top >= 0x8000) {
+        page_top -= 0x10000;
+    }
+    uint8_t* fast = ptr - page_top;
+    memmap->current_rptr[page8k] = (cur->direct_read_mask & (1 << page8k)) ? fast : NULL;
+    memmap->current_wptr[page8k] = (cur->direct_write_mask & (1 << page8k)) ? fast : NULL;
 
     // CPU側に通知
     ms_cpu_needs_refresh_PC = 1;

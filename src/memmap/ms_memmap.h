@@ -25,6 +25,9 @@
 #define MS_MEMMAP_NUM_SEGMENTS 4
 
 extern uint8_t** ms_memmap_current_ptr;
+// データアクセス高速パス用のポインタ配列（NULL のページは C のドライバを経由する）
+extern uint8_t** ms_memmap_current_rptr;
+extern uint8_t** ms_memmap_current_wptr;
 
 typedef struct ms_memmap_driver ms_memmap_driver_t;
 typedef struct ms_memmap ms_memmap_t;
@@ -72,6 +75,9 @@ typedef struct ms_memmap {
 
     // CPU側と共有しているポインタの配列へのポインタ
     uint8_t** current_ptr;
+    // データ読み出し／書き込みの高速パス用。NULL = そのページは C のドライバを経由する
+    uint8_t** current_rptr;
+    uint8_t** current_wptr;
 } ms_memmap_t;
 
 /*

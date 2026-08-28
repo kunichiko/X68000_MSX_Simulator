@@ -44,6 +44,12 @@ void ms_exit_failure(void);
 uint8_t load_user_param();
 int ms_system_file_open(const char* filename, int flag);
 
+#ifdef DEBUG
+// 例外ベクタの捕捉 (ms_trap.has)
+void ms_install_traps(void);
+void ms_remove_traps(void);
+#endif
+
 // 現在の設定ログレベル
 // デバッグテキスト画面が出ている時だけこのログレベルになる
 static int _debug_log_level = MS_LOG_INFO;
@@ -244,6 +250,7 @@ char* separate_diskif(char* path, int* diskif) {
 */
 int main(int argc, char* argv[]) {
 #ifdef DEBUG
+    ms_install_traps();
     debug_log_level = MS_LOG_DEBUG;
 #else
     debug_log_level = MS_LOG_INFO;
@@ -288,10 +295,6 @@ int main(int argc, char* argv[]) {
     printf("[[ MSX Simulator MS.X %s]]\n", MS_dot_X_VERSION);
 
     unsigned int mpu_type = _iocs_mpu_stat();
-    if ((mpu_type & 0xf) < 3) {
-        printf("MS.X の動作には 68030以上が必要です\n");
-        ms_exit_failure();
-    }
     printf("MPU type: %04X\n", mpu_type);
 
     // デフォルトの初期化
@@ -777,6 +780,7 @@ int main(int argc, char* argv[]) {
         MS_LOG(MS_LOG_DEBUG, "VSYNC回数は %d です\n", end - start);
     }
 
+
     // 	全ページの スロットを０で初期化
     write_port_A8(0);
 
@@ -793,6 +797,10 @@ int main(int argc, char* argv[]) {
 }
 
 void _ms_exit(int status) {
+#ifdef DEBUG
+    ms_remove_traps();
+#endif
+
     _iocs_crtmod(0x10);
 
     if (disk_container != NULL) {
@@ -829,6 +837,9 @@ void _ms_exit(int status) {
 
 void ms_exit_failure() {
     // エラー終了
+#ifdef DEBUG
+    ms_remove_traps();
+#endif
     printf("Press any key to exit\n");
     getchar();
     _exit(EXIT_FAILURE);
@@ -1126,6 +1137,10 @@ int emuLoopImpl(unsigned int pc, unsigned int counter) {
         framerate /= ms_vdp_vsync_rate;
         int frac = 60 / ms_vdp_vsync_rate;
         printf("loop=%08d [%d/%d]\ncycle=%08ld wait=%ld\n", emuLoopCounter, framerate, frac, cpu_cycle_last, cpu_cycle_wait);
+        {
+            extern volatile unsigned char cpu_fast_enabled;
+            printf("cpu=%s\n", cpu_fast_enabled ? "FAST" : "safe");
+        }
         printf("COUNTER=%08x, inttick=%08d\n", counter, ms_vsync_interrupt_tick);
         dump(pc >> 16, pc & 0x1fff);
     }

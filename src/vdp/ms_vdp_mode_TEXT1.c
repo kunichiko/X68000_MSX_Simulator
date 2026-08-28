@@ -7,6 +7,7 @@
 int init_TEXT1(ms_vdp_t* vdp);
 uint8_t read_vram_TEXT1(ms_vdp_t* vdp);
 void write_vram_TEXT1(ms_vdp_t* vdp, uint8_t data);
+void w_TEXT1_c(ms_vdp_t* vdp, uint8_t data);
 void update_palette_TEXT1(ms_vdp_t* vdp);
 void update_pnametbl_baddr_TEXT1(ms_vdp_t* vdp);
 void update_colortbl_baddr_TEXT1(ms_vdp_t* vdp);
@@ -22,8 +23,9 @@ ms_vdp_mode_t ms_vdp_TEXT1 = {
     init_TEXT1,
     // uint8_t read_vram_TEXT1(ms_vdp_t* vdp);
     read_vram_TEXT1,
-    // void write_vram_TEXT1(ms_vdp_t* vdp, uint8_t data);
-    write_vram_TEXT1,
+    /* VRAM 書き込み。write_vdp_0 はレジスタ渡しで呼ぶので、
+       Ｃの引数へ積み直す橋渡しを経由する */
+    w_TEXT1_c,
     // void (*update_palette)(ms_vdp_t* vdp);
     update_palette_TEXT1,
     // void update_pnametbl_baddr_TEXT1(ms_vdp_t* vdp);

@@ -267,12 +267,35 @@ int lastused_sp_pat_buf = 0;
 /*
  スプライトの初期化
  */
+/*
+        スプライト定義メモリ（PCG）への書き込み
+
+        X68000 のスプライト定義メモリは表示期間中に触ると CPU が待たされるため、
+        1 ワードの書き込みが非常に高い。直前に書いた内容を覚えておき、
+        同じ値なら書かずに済ませる。
+ */
+static uint32_t pcg_shadow[NUM_SP_PAT_BUF * PCG_SIZE];
+
+static inline void pcg_write(int index, uint32_t value) {
+    if (pcg_shadow[index] != value) {
+        pcg_shadow[index] = value;
+        X68_PCG[index] = value;
+    }
+}
+
 void init_sprite(ms_vdp_t* vdp) {
     int i;
 
     // PCGバッファの初期化
     for (i = 0; i < 256 * PCG_BUF_UNIT_D4X; i++) {
         vdp->x68_pcg_buffer[i] = 0;
+    }
+
+    // スプライト定義メモリと、その影を 0 で揃える
+    // ここは影を通さず直接書く（影の初期値と一致して素通りしてしまうため）
+    for (i = 0; i < NUM_SP_PAT_BUF * PCG_SIZE; i++) {
+        X68_PCG[i] = 0;
+        pcg_shadow[i] = 0;
     }
     vdp->last_visible_sprite_planes = 0;
     vdp->last_visible_sprite_size = 0;
@@ -511,15 +534,15 @@ void refresh_sprite_256_mode1(ms_vdp_t* vdp, int plNum) {
     if (vdp->sprite_size == 0) {
         // 8x8
         for (i = 0; i < 8; i++) {
-            X68_PCG[plNum * PCG_UNIT + i] = x68_pcg_buffer[ptNum * PCG_BUF_UNIT_D1X + i] & colorex;
+            pcg_write(plNum * PCG_UNIT + i, x68_pcg_buffer[ptNum * PCG_BUF_UNIT_D1X + i] & colorex);
         }
         for (; i < 32; i++) {
-            X68_PCG[plNum * PCG_UNIT + i] = 0;
+            pcg_write(plNum * PCG_UNIT + i, 0);
         }
     } else {
         // 16x16
         for (i = 0; i < 32; i++) {
-            X68_PCG[plNum * PCG_UNIT + i] = x68_pcg_buffer[ptNum * PCG_BUF_UNIT_D1X + i] & colorex;
+            pcg_write(plNum * PCG_UNIT + i, x68_pcg_buffer[ptNum * PCG_BUF_UNIT_D1X + i] & colorex);
         }
     }
 }
@@ -731,8 +754,8 @@ void refresh_sprite_256_mode2(ms_vdp_t* vdp) {
                 while (j <= m) {
                     if (j == m) {
                         // 1ライン合成終了
-                        X68_PCG[pat_num * PCG_SIZE + yybase + 8 * 0] = pattern0;
-                        X68_PCG[pat_num * PCG_SIZE + yybase + 8 * 2] = (lrmax == 2) ? pattern1 : 0;
+                        pcg_write(pat_num * PCG_SIZE + yybase + 8 * 0, pattern0);
+                        pcg_write(pat_num * PCG_SIZE + yybase + 8 * 2, (lrmax == 2) ? pattern1 : 0);
                         i = j + 1;
                         break;
                     }
@@ -755,8 +778,8 @@ void refresh_sprite_256_mode2(ms_vdp_t* vdp) {
         for (; y < 16; y++) {
             int yybase = y;
             i = plNum;
-            X68_PCG[pat_num * PCG_SIZE + yybase + 8 * 0] = 0;
-            X68_PCG[pat_num * PCG_SIZE + yybase + 8 * 2] = 0;
+            pcg_write(pat_num * PCG_SIZE + yybase + 8 * 0, 0);
+            pcg_write(pat_num * PCG_SIZE + yybase + 8 * 2, 0);
         }
 
         // 次のプレーンへ
@@ -838,32 +861,28 @@ void refresh_sprite_512_mode2(ms_vdp_t* vdp) {
                 j = i;
                 while (j <= m) {
                     if (j == m) {
-                        X68_PCG[i * PCG_UNIT + yybase + 8 * 0 + 0] = pattern0;
-                        X68_PCG[i * PCG_UNIT + yybase + 8 * 0 + 1] = pattern0;  // 奇数ラインも同じものになる(yyは必ず偶数)
-                        X68_PCG[i * PCG_UNIT + yybase + 8 * 2 + 0] = pattern1;
-                        X68_PCG[i * PCG_UNIT + yybase + 8 * 2 + 1] = pattern1;  // 奇数ラインも同じものになる(yyは必ず偶数)
-                        X68_PCG[i * PCG_UNIT + yybase + 8 * 8 + 0] = (lrmax == 4) ? pattern2 : 0;
-                        X68_PCG[i * PCG_UNIT + yybase + 8 * 8 + 1] =
-                            (lrmax == 4) ? pattern2 : 0;  // 奇数ラインも同じものになる(yyは必ず偶数)
-                        X68_PCG[i * PCG_UNIT + yybase + 8 * 10 + 0] = (lrmax == 4) ? pattern3 : 0;
-                        X68_PCG[i * PCG_UNIT + yybase + 8 * 10 + 1] =
-                            (lrmax == 4) ? pattern3 : 0;  // 奇数ラインも同じものになる(yyは必ず偶数)
+                        pcg_write(i * PCG_UNIT + yybase + 8 * 0 + 0, pattern0);
+                        pcg_write(i * PCG_UNIT + yybase + 8 * 0 + 1, pattern0);  // 奇数ラインも同じものになる(yyは必ず偶数)
+                        pcg_write(i * PCG_UNIT + yybase + 8 * 2 + 0, pattern1);
+                        pcg_write(i * PCG_UNIT + yybase + 8 * 2 + 1, pattern1);  // 奇数ラインも同じものになる(yyは必ず偶数)
+                        pcg_write(i * PCG_UNIT + yybase + 8 * 8 + 0, (lrmax == 4) ? pattern2 : 0);
+                        pcg_write(i * PCG_UNIT + yybase + 8 * 8 + 1, (lrmax == 4) ? pattern2 : 0);  // 奇数ラインも同じものになる(yyは必ず偶数)
+                        pcg_write(i * PCG_UNIT + yybase + 8 * 10 + 0, (lrmax == 4) ? pattern3 : 0);
+                        pcg_write(i * PCG_UNIT + yybase + 8 * 10 + 1, (lrmax == 4) ? pattern3 : 0);  // 奇数ラインも同じものになる(yyは必ず偶数)
                         i = j + 1;
                         break;
                     }
                     j++;  // j==mを先に判定しているので、i+1がmをオーバーすることはない
                     if ((sprite_cc_flags[j] & ccmask) == 0) {
                         // CC=0に遭遇したら、それ以降は合成しない
-                        X68_PCG[i * PCG_UNIT + yybase + 8 * 0 + 0] = pattern0;
-                        X68_PCG[i * PCG_UNIT + yybase + 8 * 0 + 1] = pattern0;  // 奇数ラインも同じものになる(yyは必ず偶数)
-                        X68_PCG[i * PCG_UNIT + yybase + 8 * 2 + 0] = pattern1;
-                        X68_PCG[i * PCG_UNIT + yybase + 8 * 2 + 1] = pattern1;  // 奇数ラインも同じものになる(yyは必ず偶数)
-                        X68_PCG[i * PCG_UNIT + yybase + 8 * 8 + 0] = (lrmax == 4) ? pattern2 : 0;
-                        X68_PCG[i * PCG_UNIT + yybase + 8 * 8 + 1] =
-                            (lrmax == 4) ? pattern2 : 0;  // 奇数ラインも同じものになる(yyは必ず偶数)
-                        X68_PCG[i * PCG_UNIT + yybase + 8 * 10 + 0] = (lrmax == 4) ? pattern3 : 0;
-                        X68_PCG[i * PCG_UNIT + yybase + 8 * 10 + 1] =
-                            (lrmax == 4) ? pattern3 : 0;  // 奇数ラインも同じものになる(yyは必ず偶数)
+                        pcg_write(i * PCG_UNIT + yybase + 8 * 0 + 0, pattern0);
+                        pcg_write(i * PCG_UNIT + yybase + 8 * 0 + 1, pattern0);  // 奇数ラインも同じものになる(yyは必ず偶数)
+                        pcg_write(i * PCG_UNIT + yybase + 8 * 2 + 0, pattern1);
+                        pcg_write(i * PCG_UNIT + yybase + 8 * 2 + 1, pattern1);  // 奇数ラインも同じものになる(yyは必ず偶数)
+                        pcg_write(i * PCG_UNIT + yybase + 8 * 8 + 0, (lrmax == 4) ? pattern2 : 0);
+                        pcg_write(i * PCG_UNIT + yybase + 8 * 8 + 1, (lrmax == 4) ? pattern2 : 0);  // 奇数ラインも同じものになる(yyは必ず偶数)
+                        pcg_write(i * PCG_UNIT + yybase + 8 * 10 + 0, (lrmax == 4) ? pattern3 : 0);
+                        pcg_write(i * PCG_UNIT + yybase + 8 * 10 + 1, (lrmax == 4) ? pattern3 : 0);  // 奇数ラインも同じものになる(yyは必ず偶数)
                         i = j;
                         break;
                     }
@@ -890,15 +909,15 @@ void refresh_sprite_512_mode2(ms_vdp_t* vdp) {
                          (y & 0x4) / 4 * 1 * 8 +  // 中の上段下段
                          (y & 0x3) * 2;           // 512モードの場合、1ラインが2ラインになる
             i = plNum;
-            X68_PCG[i * PCG_UNIT + yybase + 8 * 0 + 0] = 0;
-            X68_PCG[i * PCG_UNIT + yybase + 8 * 0 + 1] = 0;
-            X68_PCG[i * PCG_UNIT + yybase + 8 * 2 + 0] = 0;
-            X68_PCG[i * PCG_UNIT + yybase + 8 * 2 + 1] = 0;
-            X68_PCG[i * PCG_UNIT + yybase + 8 * 8 + 0] = 0;
-            X68_PCG[i * PCG_UNIT + yybase + 8 * 8 + 0] = 0;
-            X68_PCG[i * PCG_UNIT + yybase + 8 * 8 + 1] = 0;
-            X68_PCG[i * PCG_UNIT + yybase + 8 * 10 + 0] = 0;
-            X68_PCG[i * PCG_UNIT + yybase + 8 * 10 + 1] = 0;
+            pcg_write(i * PCG_UNIT + yybase + 8 * 0 + 0, 0);
+            pcg_write(i * PCG_UNIT + yybase + 8 * 0 + 1, 0);
+            pcg_write(i * PCG_UNIT + yybase + 8 * 2 + 0, 0);
+            pcg_write(i * PCG_UNIT + yybase + 8 * 2 + 1, 0);
+            pcg_write(i * PCG_UNIT + yybase + 8 * 8 + 0, 0);
+            pcg_write(i * PCG_UNIT + yybase + 8 * 8 + 0, 0);
+            pcg_write(i * PCG_UNIT + yybase + 8 * 8 + 1, 0);
+            pcg_write(i * PCG_UNIT + yybase + 8 * 10 + 0, 0);
+            pcg_write(i * PCG_UNIT + yybase + 8 * 10 + 1, 0);
         }
 
         // 次のプレーンへ

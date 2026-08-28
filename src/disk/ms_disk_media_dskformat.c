@@ -36,6 +36,7 @@ int ms_disk_media_dskformat_init(THIS* instance, char* file_path) {
 
     // プロパティの初期化
     instance->file_path = file_path;
+    instance->cached_track = -1;
     int attr = _dos_chmod(file_path, -1);  // ファイル属性を取得
     if (attr == -1) {
         printf("ファイルが存在しません. %s\n", file_path);
@@ -80,9 +81,29 @@ void ms_disk_media_dskformat_deinit(THIS* instance) {
 static void _read_sector(ms_disk_media_t* instance, uint32_t sector_id, ms_sector_t* sector) {
     int index = sector_id - 1;
     THIS* dsk = (THIS*)instance;
-    uint32_t offset = index * 512;
-    lseek(dsk->file_handle, offset, SEEK_SET);
-    read(dsk->file_handle, sector, 512);
+    int32_t track = index / MS_DSK_SECTORS_PER_TRACK;
+    int offset_in_track = (index % MS_DSK_SECTORS_PER_TRACK) * 512;
+    int i;
+
+    if (dsk->cached_track != track) {
+        int got;
+        lseek(dsk->file_handle, (uint32_t)track * (MS_DSK_SECTORS_PER_TRACK * 512), SEEK_SET);
+        got = read(dsk->file_handle, dsk->track_buf, MS_DSK_SECTORS_PER_TRACK * 512);
+        if (got < 0) {
+            got = 0;
+        }
+        for (i = got; i < MS_DSK_SECTORS_PER_TRACK * 512; i++) {
+            dsk->track_buf[i] = 0;   /* 最終トラックの欠けは 0 で埋める */
+        }
+        dsk->cached_track = track;
+    }
+    {
+        uint8_t* src = dsk->track_buf + offset_in_track;
+        uint8_t* dst = (uint8_t*)sector;
+        for (i = 0; i < 512; i++) {
+            dst[i] = src[i];
+        }
+    }
 }
 
 static void _write_sector(ms_disk_media_t* instance, uint32_t sector_id, ms_sector_t* sector) {
@@ -92,6 +113,7 @@ static void _write_sector(ms_disk_media_t* instance, uint32_t sector_id, ms_sect
     int index = sector_id - 1;
     THIS* dsk = (THIS*)instance;
     uint32_t offset = index * 512;
+    dsk->cached_track = -1;   /* 書き込んだら貯めたものは捨てる */
     lseek(dsk->file_handle, offset, SEEK_SET);
     if (write(dsk->file_handle, sector, 512) != 512) {
         MS_LOG(MS_LOG_ERROR, "セクタの書き込みに失敗しました. %s\n", dsk->file_path);

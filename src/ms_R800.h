@@ -49,6 +49,9 @@ extern uint32_t cpu_cycle_last;
 extern uint32_t cpu_cycle_wait;
 extern uint16_t cpu_in_interrupt;
 
+/* I/O ハンドラはレジスタ渡しで呼ばれる。d0.b がポート番号、d1.b が書き込む値。
+ * C で書いた関数を表に置くときは、引数を積み替えるアセンブラの中継
+ * （ms_iomap.has の io_default_in / io_default_out）を経由させること。 */
 typedef unsigned char (*ms_io_input_func_ptr)(unsigned char port);
 typedef void (*ms_io_output_func_ptr)(unsigned char port, unsigned char data);
 

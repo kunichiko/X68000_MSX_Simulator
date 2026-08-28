@@ -7,6 +7,7 @@
 int init_DEFAULT(ms_vdp_t* vdp);
 uint8_t read_vram_DEFAULT(ms_vdp_t* vdp);
 void write_vram_DEFAULT(ms_vdp_t* vdp, uint8_t data);
+void w_DEFAULT_c(ms_vdp_t* vdp, uint8_t data);
 void update_palette_DEFAULT(ms_vdp_t* vdp);
 void update_pnametbl_baddr_DEFAULT(ms_vdp_t* vdp);
 void update_colortbl_baddr_DEFAULT(ms_vdp_t* vdp);
@@ -21,8 +22,9 @@ ms_vdp_mode_t ms_vdp_DEFAULT = {
     init_DEFAULT,
     // uint8_t read_vram_DEFAULT(ms_vdp_t* vdp);
     read_vram_DEFAULT,
-    // void write_vram_DEFAULT(ms_vdp_t* vdp, uint8_t data);
-    write_vram_DEFAULT,
+    /* VRAM 書き込み。write_vdp_0 はレジスタ渡しで呼ぶので、
+       Ｃの引数へ積み直す橋渡しを経由する */
+    w_DEFAULT_c,
     // void (*update_palette)(ms_vdp_t* vdp);
     update_palette_DEFAULT,
     // void update_pnametbl_baddr_DEFAULT(ms_vdp_t* vdp);
@@ -58,12 +60,15 @@ int init_DEFAULT(ms_vdp_t* vdp) {
 uint8_t read_vram_DEFAULT(ms_vdp_t* vdp) {
     uint8_t ret = vdp->vram[vdp->vram_addr];
     vdp->vram_addr = (vdp->vram_addr + 1) & 0x1ffff;
+    /* vram_addr を進めたので gram_addr を引き直す。書き込み側は自ら維持している */
+    ms_vdp_update_gram_addr();
     return ret;
 }
 
 void write_vram_DEFAULT(ms_vdp_t* vdp, uint8_t data) {
     vdp->vram[vdp->vram_addr] = data;
     vdp->vram_addr = (vdp->vram_addr + 1) & 0x1ffff;
+    ms_vdp_update_gram_addr();
 }
 
 /*

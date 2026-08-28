@@ -1,3 +1,4 @@
+	.cpu 68000
 ;
 ;  MSXのI/Oポートマッピングを行うためのファイルです。
 ;  
@@ -7,7 +8,6 @@
 ;  CPUコアのテストプログラムや、MSX以外の環境でのエミュレーションの時は、このファイルを
 ;  適切な処理に書き換えることで、I/Oポートの処理を変更することができます。
 
-	.cpu 68030
 
 	.include	iocscall.mac
 	.include	doscall.mac
@@ -36,6 +36,27 @@
 
 	.xref	HEX
 
+	.text
+
+*
+*	既定ハンドラ（C の ms_iomap_in / ms_iomap_out）への中継
+*
+*	I/O ハンドラは d0＝ポート番号、d1＝書き込む値のレジスタ渡しで呼ばれる。
+*	C の関数はスタック渡しなので、ここで積み替える。
+*
+io_default_in:
+	move.l	d0,-(sp)
+	jsr	ms_iomap_in
+	lea	4(sp),sp
+	rts
+
+io_default_out:
+	move.l	d1,-(sp)
+	move.l	d0,-(sp)
+	jsr	ms_iomap_out
+	lea	8(sp),sp
+	rts
+
 	.data
 
 	.quad
@@ -43,166 +64,166 @@
 ; ****************************************************************************
 ms_io_input_table:
 *	0
-	.dc.l	ms_iomap_in,	ms_iomap_in,	ms_iomap_in,	ms_iomap_in
-	.dc.l	ms_iomap_in,	ms_iomap_in,	ms_iomap_in,	ms_iomap_in
-	.dc.l	ms_iomap_in,	ms_iomap_in,	ms_iomap_in,	ms_iomap_in
-	.dc.l	ms_iomap_in,	ms_iomap_in,	ms_iomap_in,	ms_iomap_in
+	.dc.l	io_default_in,	io_default_in,	io_default_in,	io_default_in
+	.dc.l	io_default_in,	io_default_in,	io_default_in,	io_default_in
+	.dc.l	io_default_in,	io_default_in,	io_default_in,	io_default_in
+	.dc.l	io_default_in,	io_default_in,	io_default_in,	io_default_in
 *	1
-	.dc.l	ms_iomap_in,	ms_iomap_in,	ms_iomap_in,	ms_iomap_in
-	.dc.l	ms_iomap_in,	ms_iomap_in,	ms_iomap_in,	ms_iomap_in
-	.dc.l	ms_iomap_in,	ms_iomap_in,	ms_iomap_in,	ms_iomap_in
-	.dc.l	ms_iomap_in,	ms_iomap_in,	ms_iomap_in,	ms_iomap_in
+	.dc.l	io_default_in,	io_default_in,	io_default_in,	io_default_in
+	.dc.l	io_default_in,	io_default_in,	io_default_in,	io_default_in
+	.dc.l	io_default_in,	io_default_in,	io_default_in,	io_default_in
+	.dc.l	io_default_in,	io_default_in,	io_default_in,	io_default_in
 *	2
-	.dc.l	ms_iomap_in,	ms_iomap_in,	ms_iomap_in,	ms_iomap_in
-	.dc.l	ms_iomap_in,	ms_iomap_in,	ms_iomap_in,	ms_iomap_in
-	.dc.l	ms_iomap_in,	ms_iomap_in,	ms_iomap_in,	ms_iomap_in
-	.dc.l	ms_iomap_in,	ms_iomap_in,	ms_iomap_in,	ms_iomap_in
+	.dc.l	io_default_in,	io_default_in,	io_default_in,	io_default_in
+	.dc.l	io_default_in,	io_default_in,	io_default_in,	io_default_in
+	.dc.l	io_default_in,	io_default_in,	io_default_in,	io_default_in
+	.dc.l	io_default_in,	io_default_in,	io_default_in,	io_default_in
 *	3
-	.dc.l	ms_iomap_in,	ms_iomap_in,	ms_iomap_in,	ms_iomap_in
-	.dc.l	ms_iomap_in,	ms_iomap_in,	ms_iomap_in,	ms_iomap_in
-	.dc.l	ms_iomap_in,	ms_iomap_in,	ms_iomap_in,	ms_iomap_in
-	.dc.l	ms_iomap_in,	ms_iomap_in,	ms_iomap_in,	ms_iomap_in
+	.dc.l	io_default_in,	io_default_in,	io_default_in,	io_default_in
+	.dc.l	io_default_in,	io_default_in,	io_default_in,	io_default_in
+	.dc.l	io_default_in,	io_default_in,	io_default_in,	io_default_in
+	.dc.l	io_default_in,	io_default_in,	io_default_in,	io_default_in
 *	4
-	.dc.l	ms_iomap_in,	ms_iomap_in,	ms_iomap_in,	ms_iomap_in
-	.dc.l	ms_iomap_in,	ms_iomap_in,	ms_iomap_in,	ms_iomap_in
-	.dc.l	ms_iomap_in,	ms_iomap_in,	ms_iomap_in,	ms_iomap_in
-	.dc.l	ms_iomap_in,	ms_iomap_in,	ms_iomap_in,	ms_iomap_in
+	.dc.l	io_default_in,	io_default_in,	io_default_in,	io_default_in
+	.dc.l	io_default_in,	io_default_in,	io_default_in,	io_default_in
+	.dc.l	io_default_in,	io_default_in,	io_default_in,	io_default_in
+	.dc.l	io_default_in,	io_default_in,	io_default_in,	io_default_in
 *	5
-	.dc.l	ms_iomap_in,	ms_iomap_in,	ms_iomap_in,	ms_iomap_in
-	.dc.l	ms_iomap_in,	ms_iomap_in,	ms_iomap_in,	ms_iomap_in
-	.dc.l	ms_iomap_in,	ms_iomap_in,	ms_iomap_in,	ms_iomap_in
-	.dc.l	ms_iomap_in,	ms_iomap_in,	ms_iomap_in,	ms_iomap_in
+	.dc.l	io_default_in,	io_default_in,	io_default_in,	io_default_in
+	.dc.l	io_default_in,	io_default_in,	io_default_in,	io_default_in
+	.dc.l	io_default_in,	io_default_in,	io_default_in,	io_default_in
+	.dc.l	io_default_in,	io_default_in,	io_default_in,	io_default_in
 *	6
-	.dc.l	ms_iomap_in,	ms_iomap_in,	ms_iomap_in,	ms_iomap_in
-	.dc.l	ms_iomap_in,	ms_iomap_in,	ms_iomap_in,	ms_iomap_in
-	.dc.l	ms_iomap_in,	ms_iomap_in,	ms_iomap_in,	ms_iomap_in
-	.dc.l	ms_iomap_in,	ms_iomap_in,	ms_iomap_in,	ms_iomap_in
+	.dc.l	io_default_in,	io_default_in,	io_default_in,	io_default_in
+	.dc.l	io_default_in,	io_default_in,	io_default_in,	io_default_in
+	.dc.l	io_default_in,	io_default_in,	io_default_in,	io_default_in
+	.dc.l	io_default_in,	io_default_in,	io_default_in,	io_default_in
 *	7
-	.dc.l	ms_iomap_in,	ms_iomap_in,	ms_iomap_in,	ms_iomap_in
-	.dc.l	ms_iomap_in,	ms_iomap_in,	ms_iomap_in,	ms_iomap_in
-	.dc.l	ms_iomap_in,	ms_iomap_in,	ms_iomap_in,	ms_iomap_in
-	.dc.l	ms_iomap_in,	ms_iomap_in,	ms_iomap_in,	ms_iomap_in
+	.dc.l	io_default_in,	io_default_in,	io_default_in,	io_default_in
+	.dc.l	io_default_in,	io_default_in,	io_default_in,	io_default_in
+	.dc.l	io_default_in,	io_default_in,	io_default_in,	io_default_in
+	.dc.l	io_default_in,	io_default_in,	io_default_in,	io_default_in
 *	8
-	.dc.l	ms_iomap_in,	ms_iomap_in,	ms_iomap_in,	ms_iomap_in
-	.dc.l	ms_iomap_in,	ms_iomap_in,	ms_iomap_in,	ms_iomap_in
+	.dc.l	io_default_in,	io_default_in,	io_default_in,	io_default_in
+	.dc.l	io_default_in,	io_default_in,	io_default_in,	io_default_in
 	.dc.l	read_vdp_0,	read_vdp_1,	read_vdp_2,	read_vdp_3
-	.dc.l	ms_iomap_in,	ms_iomap_in,	ms_iomap_in,	ms_iomap_in
+	.dc.l	io_default_in,	io_default_in,	io_default_in,	io_default_in
 *	9
-	.dc.l	r_port_90,	ms_iomap_in,	ms_iomap_in,	ms_iomap_in
-	.dc.l	ms_iomap_in,	ms_iomap_in,	ms_iomap_in,	ms_iomap_in
+	.dc.l	r_port_90,	io_default_in,	io_default_in,	io_default_in
+	.dc.l	io_default_in,	io_default_in,	io_default_in,	io_default_in
 	.dc.l	read_vdp_0,	read_vdp_1,	read_vdp_2,	read_vdp_3
-	.dc.l	ms_iomap_in,	ms_iomap_in,	ms_iomap_in,	ms_iomap_in
+	.dc.l	io_default_in,	io_default_in,	io_default_in,	io_default_in
 *	a
-	.dc.l	ms_iomap_in,	ms_iomap_in,	ms_iomap_in,	ms_iomap_in
-	.dc.l	ms_iomap_in,	ms_iomap_in,	ms_iomap_in,	ms_iomap_in
+	.dc.l	io_default_in,	io_default_in,	io_default_in,	io_default_in
+	.dc.l	io_default_in,	io_default_in,	io_default_in,	io_default_in
 	.dc.l	r_port_A8,	r_port_A9,	r_port_AA,	r_port_AB
-	.dc.l	ms_iomap_in,	ms_iomap_in,	ms_iomap_in,	ms_iomap_in
+	.dc.l	io_default_in,	io_default_in,	io_default_in,	io_default_in
 *	b
-	.dc.l	ms_iomap_in,	ms_iomap_in,	ms_iomap_in,	ms_iomap_in
-	.dc.l	ms_iomap_in,	ms_iomap_in,	ms_iomap_in,	ms_iomap_in
-	.dc.l	ms_iomap_in,	ms_iomap_in,	ms_iomap_in,	ms_iomap_in
-	.dc.l	ms_iomap_in,	ms_iomap_in,	ms_iomap_in,	ms_iomap_in
+	.dc.l	io_default_in,	io_default_in,	io_default_in,	io_default_in
+	.dc.l	io_default_in,	io_default_in,	io_default_in,	io_default_in
+	.dc.l	io_default_in,	io_default_in,	io_default_in,	io_default_in
+	.dc.l	io_default_in,	io_default_in,	io_default_in,	io_default_in
 *	c
-	.dc.l	ms_iomap_in,	ms_iomap_in,	ms_iomap_in,	ms_iomap_in
-	.dc.l	ms_iomap_in,	ms_iomap_in,	ms_iomap_in,	ms_iomap_in
-	.dc.l	ms_iomap_in,	ms_iomap_in,	ms_iomap_in,	ms_iomap_in
-	.dc.l	ms_iomap_in,	ms_iomap_in,	ms_iomap_in,	ms_iomap_in
+	.dc.l	io_default_in,	io_default_in,	io_default_in,	io_default_in
+	.dc.l	io_default_in,	io_default_in,	io_default_in,	io_default_in
+	.dc.l	io_default_in,	io_default_in,	io_default_in,	io_default_in
+	.dc.l	io_default_in,	io_default_in,	io_default_in,	io_default_in
 *	d
-	.dc.l	ms_iomap_in,	ms_iomap_in,	ms_iomap_in,	ms_iomap_in
-	.dc.l	ms_iomap_in,	ms_iomap_in,	ms_iomap_in,	ms_iomap_in
-	.dc.l	ms_iomap_in,	ms_iomap_in,	ms_iomap_in,	ms_iomap_in
-	.dc.l	ms_iomap_in,	ms_iomap_in,	ms_iomap_in,	ms_iomap_in
+	.dc.l	io_default_in,	io_default_in,	io_default_in,	io_default_in
+	.dc.l	io_default_in,	io_default_in,	io_default_in,	io_default_in
+	.dc.l	io_default_in,	io_default_in,	io_default_in,	io_default_in
+	.dc.l	io_default_in,	io_default_in,	io_default_in,	io_default_in
 *	e
-	.dc.l	ms_iomap_in,	ms_iomap_in,	ms_iomap_in,	ms_iomap_in
-	.dc.l	ms_iomap_in,	ms_iomap_in,	ms_iomap_in,	ms_iomap_in
-	.dc.l	ms_iomap_in,	ms_iomap_in,	ms_iomap_in,	ms_iomap_in
-	.dc.l	ms_iomap_in,	ms_iomap_in,	ms_iomap_in,	ms_iomap_in
+	.dc.l	io_default_in,	io_default_in,	io_default_in,	io_default_in
+	.dc.l	io_default_in,	io_default_in,	io_default_in,	io_default_in
+	.dc.l	io_default_in,	io_default_in,	io_default_in,	io_default_in
+	.dc.l	io_default_in,	io_default_in,	io_default_in,	io_default_in
 *	f
-	.dc.l	ms_iomap_in,	ms_iomap_in,	ms_iomap_in,	ms_iomap_in
-	.dc.l	ms_iomap_in,	ms_iomap_in,	ms_iomap_in,	ms_iomap_in
-	.dc.l	ms_iomap_in,	ms_iomap_in,	ms_iomap_in,	ms_iomap_in
+	.dc.l	io_default_in,	io_default_in,	io_default_in,	io_default_in
+	.dc.l	io_default_in,	io_default_in,	io_default_in,	io_default_in
+	.dc.l	io_default_in,	io_default_in,	io_default_in,	io_default_in
 	.dc.l	r_port_FC,	r_port_FD,	r_port_FE,	r_port_FF
 
 ; ****************************************************************************
 ms_io_output_table:
 *	0
-	.dc.l	ms_iomap_out,	ms_iomap_out,	ms_iomap_out,	ms_iomap_out
-	.dc.l	ms_iomap_out,	ms_iomap_out,	ms_iomap_out,	ms_iomap_out
-	.dc.l	ms_iomap_out,	ms_iomap_out,	ms_iomap_out,	ms_iomap_out
-	.dc.l	ms_iomap_out,	ms_iomap_out,	ms_iomap_out,	ms_iomap_out
+	.dc.l	io_default_out,	io_default_out,	io_default_out,	io_default_out
+	.dc.l	io_default_out,	io_default_out,	io_default_out,	io_default_out
+	.dc.l	io_default_out,	io_default_out,	io_default_out,	io_default_out
+	.dc.l	io_default_out,	io_default_out,	io_default_out,	io_default_out
 *	1
-	.dc.l	ms_iomap_out,	ms_iomap_out,	ms_iomap_out,	ms_iomap_out
-	.dc.l	ms_iomap_out,	ms_iomap_out,	ms_iomap_out,	ms_iomap_out
-	.dc.l	ms_iomap_out,	ms_iomap_out,	ms_iomap_out,	ms_iomap_out
-	.dc.l	ms_iomap_out,	ms_iomap_out,	ms_iomap_out,	ms_iomap_out
+	.dc.l	io_default_out,	io_default_out,	io_default_out,	io_default_out
+	.dc.l	io_default_out,	io_default_out,	io_default_out,	io_default_out
+	.dc.l	io_default_out,	io_default_out,	io_default_out,	io_default_out
+	.dc.l	io_default_out,	io_default_out,	io_default_out,	io_default_out
 *	2
-	.dc.l	ms_iomap_out,	ms_iomap_out,	ms_iomap_out,	ms_iomap_out
-	.dc.l	ms_iomap_out,	ms_iomap_out,	ms_iomap_out,	ms_iomap_out
-	.dc.l	ms_iomap_out,	ms_iomap_out,	ms_iomap_out,	ms_iomap_out
-	.dc.l	ms_iomap_out,	ms_iomap_out,	ms_iomap_out,	ms_iomap_out
+	.dc.l	io_default_out,	io_default_out,	io_default_out,	io_default_out
+	.dc.l	io_default_out,	io_default_out,	io_default_out,	io_default_out
+	.dc.l	io_default_out,	io_default_out,	io_default_out,	io_default_out
+	.dc.l	io_default_out,	io_default_out,	io_default_out,	io_default_out
 *	3
-	.dc.l	ms_iomap_out,	ms_iomap_out,	ms_iomap_out,	ms_iomap_out
-	.dc.l	ms_iomap_out,	ms_iomap_out,	ms_iomap_out,	ms_iomap_out
-	.dc.l	ms_iomap_out,	ms_iomap_out,	ms_iomap_out,	ms_iomap_out
-	.dc.l	ms_iomap_out,	ms_iomap_out,	ms_iomap_out,	ms_iomap_out
+	.dc.l	io_default_out,	io_default_out,	io_default_out,	io_default_out
+	.dc.l	io_default_out,	io_default_out,	io_default_out,	io_default_out
+	.dc.l	io_default_out,	io_default_out,	io_default_out,	io_default_out
+	.dc.l	io_default_out,	io_default_out,	io_default_out,	io_default_out
 *	4
-	.dc.l	ms_iomap_out,	ms_iomap_out,	ms_iomap_out,	ms_iomap_out
-	.dc.l	ms_iomap_out,	ms_iomap_out,	ms_iomap_out,	ms_iomap_out
-	.dc.l	ms_iomap_out,	ms_iomap_out,	ms_iomap_out,	ms_iomap_out
-	.dc.l	ms_iomap_out,	ms_iomap_out,	ms_iomap_out,	ms_iomap_out
+	.dc.l	io_default_out,	io_default_out,	io_default_out,	io_default_out
+	.dc.l	io_default_out,	io_default_out,	io_default_out,	io_default_out
+	.dc.l	io_default_out,	io_default_out,	io_default_out,	io_default_out
+	.dc.l	io_default_out,	io_default_out,	io_default_out,	io_default_out
 *	5
-	.dc.l	ms_iomap_out,	ms_iomap_out,	ms_iomap_out,	ms_iomap_out
-	.dc.l	ms_iomap_out,	ms_iomap_out,	ms_iomap_out,	ms_iomap_out
-	.dc.l	ms_iomap_out,	ms_iomap_out,	ms_iomap_out,	ms_iomap_out
-	.dc.l	ms_iomap_out,	ms_iomap_out,	ms_iomap_out,	ms_iomap_out
+	.dc.l	io_default_out,	io_default_out,	io_default_out,	io_default_out
+	.dc.l	io_default_out,	io_default_out,	io_default_out,	io_default_out
+	.dc.l	io_default_out,	io_default_out,	io_default_out,	io_default_out
+	.dc.l	io_default_out,	io_default_out,	io_default_out,	io_default_out
 *	6
-	.dc.l	ms_iomap_out,	ms_iomap_out,	ms_iomap_out,	ms_iomap_out
-	.dc.l	ms_iomap_out,	ms_iomap_out,	ms_iomap_out,	ms_iomap_out
-	.dc.l	ms_iomap_out,	ms_iomap_out,	ms_iomap_out,	ms_iomap_out
-	.dc.l	ms_iomap_out,	ms_iomap_out,	ms_iomap_out,	ms_iomap_out
+	.dc.l	io_default_out,	io_default_out,	io_default_out,	io_default_out
+	.dc.l	io_default_out,	io_default_out,	io_default_out,	io_default_out
+	.dc.l	io_default_out,	io_default_out,	io_default_out,	io_default_out
+	.dc.l	io_default_out,	io_default_out,	io_default_out,	io_default_out
 *	7
-	.dc.l	ms_iomap_out,	ms_iomap_out,	ms_iomap_out,	ms_iomap_out
-	.dc.l	ms_iomap_out,	ms_iomap_out,	ms_iomap_out,	ms_iomap_out
-	.dc.l	ms_iomap_out,	ms_iomap_out,	ms_iomap_out,	ms_iomap_out
-	.dc.l	ms_iomap_out,	ms_iomap_out,	ms_iomap_out,	ms_iomap_out
+	.dc.l	io_default_out,	io_default_out,	io_default_out,	io_default_out
+	.dc.l	io_default_out,	io_default_out,	io_default_out,	io_default_out
+	.dc.l	io_default_out,	io_default_out,	io_default_out,	io_default_out
+	.dc.l	io_default_out,	io_default_out,	io_default_out,	io_default_out
 *	8
-	.dc.l	ms_iomap_out,	ms_iomap_out,	ms_iomap_out,	ms_iomap_out
-	.dc.l	ms_iomap_out,	ms_iomap_out,	ms_iomap_out,	ms_iomap_out
-	.dc.l	ms_iomap_out,	ms_iomap_out,	ms_iomap_out,	ms_iomap_out
-	.dc.l	ms_iomap_out,	ms_iomap_out,	ms_iomap_out,	ms_iomap_out
+	.dc.l	io_default_out,	io_default_out,	io_default_out,	io_default_out
+	.dc.l	io_default_out,	io_default_out,	io_default_out,	io_default_out
+	.dc.l	io_default_out,	io_default_out,	io_default_out,	io_default_out
+	.dc.l	io_default_out,	io_default_out,	io_default_out,	io_default_out
 *	9
-	.dc.l	w_port_90,	w_port_91,	ms_iomap_out,	ms_iomap_out
-	.dc.l	ms_iomap_out,	ms_iomap_out,	ms_iomap_out,	ms_iomap_out
+	.dc.l	w_port_90,	w_port_91,	io_default_out,	io_default_out
+	.dc.l	io_default_out,	io_default_out,	io_default_out,	io_default_out
 	.dc.l	write_vdp_0,	write_vdp_1,	write_vdp_2,	write_vdp_3
-	.dc.l	ms_iomap_out,	ms_iomap_out,	ms_iomap_out,	ms_iomap_out
+	.dc.l	io_default_out,	io_default_out,	io_default_out,	io_default_out
 *	a
-	.dc.l	ms_iomap_out,	ms_iomap_out,	ms_iomap_out,	ms_iomap_out
-	.dc.l	ms_iomap_out,	ms_iomap_out,	ms_iomap_out,	ms_iomap_out
-	.dc.l	w_port_A8,	ms_iomap_out,	w_port_AA,	ms_iomap_out
-	.dc.l	ms_iomap_out,	ms_iomap_out,	ms_iomap_out,	ms_iomap_out
+	.dc.l	io_default_out,	io_default_out,	io_default_out,	io_default_out
+	.dc.l	io_default_out,	io_default_out,	io_default_out,	io_default_out
+	.dc.l	w_port_A8,	io_default_out,	w_port_AA,	io_default_out
+	.dc.l	io_default_out,	io_default_out,	io_default_out,	io_default_out
 *	b
-	.dc.l	ms_iomap_out,	ms_iomap_out,	ms_iomap_out,	ms_iomap_out
-	.dc.l	ms_iomap_out,	ms_iomap_out,	ms_iomap_out,	ms_iomap_out
-	.dc.l	ms_iomap_out,	ms_iomap_out,	ms_iomap_out,	ms_iomap_out
-	.dc.l	ms_iomap_out,	ms_iomap_out,	ms_iomap_out,	ms_iomap_out
+	.dc.l	io_default_out,	io_default_out,	io_default_out,	io_default_out
+	.dc.l	io_default_out,	io_default_out,	io_default_out,	io_default_out
+	.dc.l	io_default_out,	io_default_out,	io_default_out,	io_default_out
+	.dc.l	io_default_out,	io_default_out,	io_default_out,	io_default_out
 *	c
-	.dc.l	ms_iomap_out,	ms_iomap_out,	ms_iomap_out,	ms_iomap_out
-	.dc.l	ms_iomap_out,	ms_iomap_out,	ms_iomap_out,	ms_iomap_out
-	.dc.l	ms_iomap_out,	ms_iomap_out,	ms_iomap_out,	ms_iomap_out
-	.dc.l	ms_iomap_out,	ms_iomap_out,	ms_iomap_out,	ms_iomap_out
+	.dc.l	io_default_out,	io_default_out,	io_default_out,	io_default_out
+	.dc.l	io_default_out,	io_default_out,	io_default_out,	io_default_out
+	.dc.l	io_default_out,	io_default_out,	io_default_out,	io_default_out
+	.dc.l	io_default_out,	io_default_out,	io_default_out,	io_default_out
 *	d
-	.dc.l	ms_iomap_out,	ms_iomap_out,	ms_iomap_out,	ms_iomap_out
-	.dc.l	ms_iomap_out,	ms_iomap_out,	ms_iomap_out,	ms_iomap_out
-	.dc.l	ms_iomap_out,	ms_iomap_out,	ms_iomap_out,	ms_iomap_out
-	.dc.l	ms_iomap_out,	ms_iomap_out,	ms_iomap_out,	ms_iomap_out
+	.dc.l	io_default_out,	io_default_out,	io_default_out,	io_default_out
+	.dc.l	io_default_out,	io_default_out,	io_default_out,	io_default_out
+	.dc.l	io_default_out,	io_default_out,	io_default_out,	io_default_out
+	.dc.l	io_default_out,	io_default_out,	io_default_out,	io_default_out
 *	e
-	.dc.l	ms_iomap_out,	ms_iomap_out,	ms_iomap_out,	ms_iomap_out
-	.dc.l	ms_iomap_out,	ms_iomap_out,	ms_iomap_out,	ms_iomap_out
-	.dc.l	ms_iomap_out,	ms_iomap_out,	ms_iomap_out,	ms_iomap_out
-	.dc.l	ms_iomap_out,	ms_iomap_out,	ms_iomap_out,	ms_iomap_out
+	.dc.l	io_default_out,	io_default_out,	io_default_out,	io_default_out
+	.dc.l	io_default_out,	io_default_out,	io_default_out,	io_default_out
+	.dc.l	io_default_out,	io_default_out,	io_default_out,	io_default_out
+	.dc.l	io_default_out,	io_default_out,	io_default_out,	io_default_out
 *	f
-	.dc.l	ms_iomap_out,	ms_iomap_out,	ms_iomap_out,	ms_iomap_out
-	.dc.l	ms_iomap_out,	ms_iomap_out,	ms_iomap_out,	ms_iomap_out
-	.dc.l	ms_iomap_out,	ms_iomap_out,	ms_iomap_out,	ms_iomap_out
+	.dc.l	io_default_out,	io_default_out,	io_default_out,	io_default_out
+	.dc.l	io_default_out,	io_default_out,	io_default_out,	io_default_out
+	.dc.l	io_default_out,	io_default_out,	io_default_out,	io_default_out
 	.dc.l	w_port_FC,	w_port_FD,	w_port_FE,	w_port_FF
 

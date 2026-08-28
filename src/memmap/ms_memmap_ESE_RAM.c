@@ -53,6 +53,9 @@ void ms_memmap_ESE_RAM_init(THIS* instance, ms_memmap_t* memmap, uint8_t* buffer
     instance->base.will_detach = _will_detach;
     instance->base.did_pause = _did_pause;
     instance->base.did_update_memory_mapper = _did_update_memory_mapper;
+    // 直接アクセス可否（書き込みはバンク切り替え）
+    instance->base.direct_read_mask = 0xff;
+    instance->base.direct_write_mask = 0x00;
     instance->base.read8 = _read8;
     instance->base.read16 = _read16;
     instance->base.write8 = _write8;

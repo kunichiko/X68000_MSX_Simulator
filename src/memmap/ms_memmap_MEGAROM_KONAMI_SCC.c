@@ -7,7 +7,7 @@
 #include <stdlib.h>
 
 #include "../ms.h"
-#include "../peripheral/ms_SCC.h"
+#include "../peripheral/ms_scc.h"
 #include "ms_memmap.h"
 
 #define THIS ms_memmap_driver_MEGAROM_KONAMI_SCC_t
@@ -52,6 +52,9 @@ void ms_memmap_MEGAROM_KONAMI_SCC_init(THIS* instance, ms_memmap_t* memmap, uint
     instance->base.did_attach = _did_attach;
     instance->base.will_detach = _will_detach;
     instance->base.did_update_memory_mapper = _did_update_memory_mapper;
+    // 直接アクセス可否（書き込みはバンク切り替えと SCC レジスタ）
+    instance->base.direct_read_mask = 0xff;
+    instance->base.direct_write_mask = 0x00;
     instance->base.read8 = _read8;
     instance->base.read16 = _read16;
     instance->base.write8 = _write8;

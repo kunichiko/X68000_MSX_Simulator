@@ -53,6 +53,12 @@ typedef struct ms_memmap_driver {
     uint8_t* buffer;
     uint32_t buffer_length;
 
+    // 8Kページごとに、read8 / write8 が「page8k_pointers[n] への純粋なバイトアクセス」と
+    // 等価であるかどうかを示すビットマスク。bit n が 1 なら page8k n は直接アクセスして良い。
+    // 既定値は 0（= 必ずドライバ経由）であり、各ドライバが init で明示的に許可する。
+    uint8_t direct_read_mask;
+    uint8_t direct_write_mask;
+
 } ms_memmap_driver_t;
 
 // ms_memmap_driver_t* ms_memmap_driver_alloc(); // abstract classなのdでallocは不要

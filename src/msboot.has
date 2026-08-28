@@ -1,3 +1,4 @@
+	.cpu 68000
 	.include	doscall.mac
 	
 	.xref	__start

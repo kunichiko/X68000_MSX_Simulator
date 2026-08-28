@@ -15,7 +15,9 @@
 
 int init_GRAPHIC5(ms_vdp_t* vdp);
 uint8_t read_vram_GRAPHIC5(ms_vdp_t* vdp);
-void write_vram_GRAPHIC5(ms_vdp_t* vdp, uint8_t data);
+/* VRAM 書き込み。引数はレジスタで渡す（a5＝ms_vdp_t、d1＝書き込む値）。
+   write_vdp_0 からのみ呼ばれる。C から呼んではならない。 */
+void w_GRAPHIC5_mac(ms_vdp_t* vdp, uint8_t data);
 void update_palette_GRAPHIC5(ms_vdp_t* vdp);
 void update_pnametbl_baddr_GRAPHIC5(ms_vdp_t* vdp);
 void update_colortbl_baddr_GRAPHIC5(ms_vdp_t* vdp);
@@ -34,8 +36,8 @@ ms_vdp_mode_t ms_vdp_GRAPHIC5 = {
     init_GRAPHIC5,
     // uint8_t read_vram_GRAPHIC5(ms_vdp_t* vdp);
     read_vram_GRAPHIC5,
-    // void write_vram_GRAPHIC5(ms_vdp_t* vdp, uint8_t data);
-    write_vram_GRAPHIC5,
+    // void w_GRAPHIC5_mac(ms_vdp_t* vdp, uint8_t data);
+    w_GRAPHIC5_mac,
     // void (*update_palette)(ms_vdp_t* vdp);
     update_palette_GRAPHIC5,
     // void update_pnametbl_baddr_GRAPHIC5(ms_vdp_t* vdp);
@@ -77,10 +79,6 @@ int init_GRAPHIC5(ms_vdp_t* vdp) {
 
 uint8_t read_vram_GRAPHIC5(ms_vdp_t* vdp) {
     return read_vram_DEFAULT(vdp);
-}
-
-void write_vram_GRAPHIC5(ms_vdp_t* vdp, uint8_t data) {
-    w_GRAPHIC5_mac(data);
 }
 
 void update_palette_GRAPHIC5(ms_vdp_t* vdp) {

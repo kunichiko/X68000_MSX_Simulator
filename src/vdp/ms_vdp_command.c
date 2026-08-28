@@ -1,6 +1,7 @@
 /*
         VDP コマンド実装
 */
+
 #include <stddef.h>
 #include <stdint.h>
 #include <stdio.h>
@@ -142,6 +143,14 @@ inline uint16_t* to_gram(ms_vdp_t* vdp, uint32_t vaddr, int mod) {
     }
 }
 
+/*
+        GRAPHIC5 と GRAPHIC6 は X68000 の 512 ドットモードへ縦 2 倍で表示するため、
+        to_gram() が返す位置は 1 ラインおきになる。隙間の 1 ライン下も埋める必要がある。
+ */
+inline int gram_line_double(ms_vdp_t* vdp) {
+    return (vdp->crt_mode == CRT_MODE_GRAPHIC5) || (vdp->crt_mode == CRT_MODE_GRAPHIC6);
+}
+
 inline uint8_t logical_operation(uint8_t dst, uint8_t src, uint8_t logiop) {
     switch (logiop) {
     case 0x0:  // IMP
@@ -241,6 +250,7 @@ void cmd_PSET_exe(ms_vdp_t* vdp, uint16_t x, uint16_t y, uint8_t color, uint8_t 
         uint16_t* gram = to_gram(vdp, vaddr, vamod);
         gram[0] = dst;
         if (vdp->ms_vdp_current_mode->crt_width == 256) gram[256 * 512] = dst;
+        if (gram_line_double(vdp)) gram[512] = dst;
     }
 }
 
@@ -357,6 +367,10 @@ void cmd_LMMV(ms_vdp_t* vdp, uint8_t cmd, uint8_t logiop) {
     }
 
     int crt_width = vdp->ms_vdp_current_mode->crt_width;
+    /* 256 ドットモードは横 2 倍、512 ドットモードは縦 2 倍で表示する。
+       どちらも「もう 1 か所へ同じ値を書く」動作なので、書き先の差分を先に求めておく。
+       こうすると内側のループから分岐が消える。 */
+    int dup = (crt_width == 256) ? (256 * 512) : (gram_line_double(vdp) ? 512 : 0);
     int dots_per_byte = vdp->ms_vdp_current_mode->dots_per_byte;
     int bits_per_dot = vdp->ms_vdp_current_mode->bits_per_dot;
     uint8_t DIX = vdp->arg & 0x04;
@@ -372,13 +386,19 @@ void cmd_LMMV(ms_vdp_t* vdp, uint8_t cmd, uint8_t logiop) {
     uint32_t dst_vram_addr_mod = dst_vram_addr * dots_per_byte + dst_mod;
 
     int x, y, i;
+    // dots_per_byte は 2 か 4（2 の冪）なので、除算と剰余はシフトとマスクで済む。
+    // 68000 の DIVU は 1 回で 140 サイクル前後かかり、それを 1 ドットあたり 2 回呼んでいた。
+    int dpb_shift = (dots_per_byte == 2) ? 1 : (dots_per_byte == 4) ? 2 : (dots_per_byte == 8) ? 3 : 0;
+    uint32_t dpb_mask = (uint32_t)dots_per_byte - 1;
+    // コマンドの間ずっと同じ値は、先に取り出しておく
+    int is256 = (crt_width == 256);
     for (y = 0; y < ny; y++) {
-        dst_vram_addr = dst_vram_addr_mod / dots_per_byte;
-        dst_mod = dst_vram_addr_mod % dots_per_byte;
+        dst_vram_addr = dst_vram_addr_mod >> dpb_shift;
+        dst_mod = dst_vram_addr_mod & dpb_mask;
         uint16_t* gram = to_gram(vdp, dst_vram_addr, dst_mod);
         for (x = 0; x < nx; x += 1) {  // 1ドットずつ処理
-            dst_vram_addr = dst_vram_addr_mod / dots_per_byte;
-            dst_mod = dst_vram_addr_mod % dots_per_byte;
+            dst_vram_addr = dst_vram_addr_mod >> dpb_shift;
+            dst_mod = dst_vram_addr_mod & dpb_mask;
             // VRAMからデータを読み出す
             uint8_t dst = read_vram_logical(vdp, dst_vram_addr, dst_mod);
             // 論理演算実行
@@ -387,7 +407,7 @@ void cmd_LMMV(ms_vdp_t* vdp, uint8_t cmd, uint8_t logiop) {
             if (write_vram_logical(vdp, dst_vram_addr, dst_mod, dst)) {
                 // GRAMに書き込む
                 *gram = dst;
-                if (crt_width == 256) gram[256 * 512] = dst;
+                gram[dup] = dst;  /* dup==0 なら同じ場所へ二度書くだけで無害 */
             }
             // DIXに従ってVRAMアドレスを更新
             if (DIX == 0) {
@@ -427,6 +447,10 @@ void cmd_LMMM(ms_vdp_t* vdp, uint8_t cmd, uint8_t logiop) {
     }
 
     int crt_width = vdp->ms_vdp_current_mode->crt_width;
+    /* 256 ドットモードは横 2 倍、512 ドットモードは縦 2 倍で表示する。
+       どちらも「もう 1 か所へ同じ値を書く」動作なので、書き先の差分を先に求めておく。
+       こうすると内側のループから分岐が消える。 */
+    int dup = (crt_width == 256) ? (256 * 512) : (gram_line_double(vdp) ? 512 : 0);
     int dots_per_byte = vdp->ms_vdp_current_mode->dots_per_byte;
     int bits_per_dot = vdp->ms_vdp_current_mode->bits_per_dot;
 
@@ -440,15 +464,23 @@ void cmd_LMMM(ms_vdp_t* vdp, uint8_t cmd, uint8_t logiop) {
     uint32_t dst_vram_addr_mod = dst_vram_addr * dots_per_byte + dst_mod;
 
     int x, y, i;
+    // dots_per_byte は 2 か 4（2 の冪）なので、除算と剰余はシフトとマスクで済む。
+    // 68000 の DIVU は 1 回で 140 サイクル前後かかり、それを 1 ドットあたり 4 回呼んでいた。
+    int dpb_shift = (dots_per_byte == 2) ? 1 : (dots_per_byte == 4) ? 2 : (dots_per_byte == 8) ? 3 : 0;
+    uint32_t dpb_mask = (uint32_t)dots_per_byte - 1;
+    // コマンドの間ずっと同じ値は、先に取り出しておく
+    int is256 = (vdp->ms_vdp_current_mode->crt_width == 256);
+    int dstep = ((vdp->cmd_arg & 0x04) == 0) ? 1 : -1;
+
     for (y = 0; y < vdp->ny; y++) {
-        dst_vram_addr = dst_vram_addr_mod / dots_per_byte;
-        dst_mod = dst_vram_addr_mod % dots_per_byte;
+        dst_vram_addr = dst_vram_addr_mod >> dpb_shift;
+        dst_mod = dst_vram_addr_mod & dpb_mask;
         uint16_t* gram = to_gram(vdp, dst_vram_addr, dst_mod);
         for (x = 0; x < vdp->nx; x += 1) {  // 1ドットずつ処理
-            src_vram_addr = src_vram_addr_mod / dots_per_byte;
-            dst_vram_addr = dst_vram_addr_mod / dots_per_byte;
-            src_mod = src_vram_addr_mod % dots_per_byte;
-            dst_mod = dst_vram_addr_mod % dots_per_byte;
+            src_vram_addr = src_vram_addr_mod >> dpb_shift;
+            dst_vram_addr = dst_vram_addr_mod >> dpb_shift;
+            src_mod = src_vram_addr_mod & dpb_mask;
+            dst_mod = dst_vram_addr_mod & dpb_mask;
             // VRAMからデータを読み出す
             uint8_t src = read_vram_logical(vdp, src_vram_addr, src_mod);
             uint8_t dst = read_vram_logical(vdp, dst_vram_addr, dst_mod);
@@ -458,20 +490,12 @@ void cmd_LMMM(ms_vdp_t* vdp, uint8_t cmd, uint8_t logiop) {
             if (write_vram_logical(vdp, dst_vram_addr, dst_mod, dst)) {
                 // GRAMに書き込む
                 *gram = dst;
-                if (vdp->ms_vdp_current_mode->crt_width == 256) gram[256 * 512] = dst;
+                gram[dup] = dst;  /* dup==0 なら同じ場所へ二度書くだけで無害 */
             }
-            // DIXに従ってVRAMアドレスを更新
-            if ((vdp->cmd_arg & 0x04) == 0) {
-                // DIX=0の時
-                src_vram_addr_mod += 1;
-                dst_vram_addr_mod += 1;
-                gram++;
-            } else {
-                // DIX=1の時
-                src_vram_addr_mod -= 1;
-                dst_vram_addr_mod -= 1;
-                gram--;
-            }
+            // VRAMアドレスを更新（歩幅は DIX から求めてある）
+            src_vram_addr_mod += dstep;
+            dst_vram_addr_mod += dstep;
+            gram += dstep;
         }
         if ((vdp->cmd_arg & 0x4) == 0) {  // DIX
             src_vram_addr_mod -= vdp->nx;
@@ -597,6 +621,10 @@ void cmd_HMMV(ms_vdp_t* vdp, uint8_t cmd) {
 
     // 高速化のためのキャッシュ
     int crt_width = vdp->ms_vdp_current_mode->crt_width;
+    /* 256 ドットモードは横 2 倍、512 ドットモードは縦 2 倍で表示する。
+       どちらも「もう 1 か所へ同じ値を書く」動作なので、書き先の差分を先に求めておく。
+       こうすると内側のループから分岐が消える。 */
+    int dup = (crt_width == 256) ? (256 * 512) : (gram_line_double(vdp) ? 512 : 0);
     int dots_per_byte = vdp->ms_vdp_current_mode->dots_per_byte;
     int bits_per_dot = vdp->ms_vdp_current_mode->bits_per_dot;
     uint8_t* vram = vdp->vram;
@@ -624,7 +652,7 @@ void cmd_HMMV(ms_vdp_t* vdp, uint8_t cmd) {
                 for (i = 0; i < dots_per_byte; i++) {
                     uint16_t dst = (data >> ((dots_per_byte - 1 - i) * bits_per_dot)) & ((1 << bits_per_dot) - 1);
                     gram[0 + i] = dst;
-                    if (crt_width == 256) gram[256 * 512 + i] = dst;
+                    gram[dup + i] = dst;  /* dup==0 なら同じ場所へ二度書くだけで無害 */
                 }
             }
             // DIXに従ってVRAMアドレスを更新
@@ -663,6 +691,10 @@ void cmd_YMMM(ms_vdp_t* vdp, uint8_t cmd) {
     }
     // 高速化のためのキャッシュ
     int crt_width = vdp->ms_vdp_current_mode->crt_width;
+    /* 256 ドットモードは横 2 倍、512 ドットモードは縦 2 倍で表示する。
+       どちらも「もう 1 か所へ同じ値を書く」動作なので、書き先の差分を先に求めておく。
+       こうすると内側のループから分岐が消える。 */
+    int dup = (crt_width == 256) ? (256 * 512) : (gram_line_double(vdp) ? 512 : 0);
     int dots_per_byte = vdp->ms_vdp_current_mode->dots_per_byte;
     int bits_per_dot = vdp->ms_vdp_current_mode->bits_per_dot;
     uint8_t* vram = vdp->vram;
@@ -691,7 +723,7 @@ void cmd_YMMM(ms_vdp_t* vdp, uint8_t cmd) {
                 for (i = 0; i < dots_per_byte; i++) {
                     uint16_t dst = (data >> ((dots_per_byte - 1 - i) * bits_per_dot)) & ((1 << bits_per_dot) - 1);
                     gram[0 + i] = dst;
-                    if (crt_width == 256) gram[256 * 512 + i] = dst;
+                    gram[dup + i] = dst;  /* dup==0 なら同じ場所へ二度書くだけで無害 */
                 }
             }
             // DIXに従ってVRAMアドレスを更新
@@ -802,6 +834,9 @@ int cmd_HMMM_exe(ms_vdp_t* vdp) {
 
     uint16_t start_dy = vdp->dy;  // dyは毎業更新されているので、この時点では今回のexeによる転送開始行になっている
     uint32_t byte_count = 0;
+    // DIX はコマンドの間ずっと同じなので、1 バイトごとに分岐せず歩幅にしておく
+    int step = (DIX == 0) ? 1 : -1;
+    int gstep = step * dots_per_byte;
     for (; y < ny; y++) {
         if (byte_count >= 0x100) {
             rewrite_sprite_if_needed(vdp, start_dy, y - context->y, DIY);
@@ -818,26 +853,24 @@ int cmd_HMMM_exe(ms_vdp_t* vdp) {
             if (vram[dst_vram_addr] != data) {
                 vram[dst_vram_addr] = data;
                 // GRAMに書き込む
-                for (i = dots_per_byte - 1; i >= 0; i--) {
-                    // uint16_t dst = (data >> ((dots_per_byte-1-i)*bits_per_dot)) & dotmask;
-                    uint16_t dst = data & dotmask;
-                    data >>= bits_per_dot;
-                    gram[0 + i] = dst;
-                    if (crt_width == 256) gram[256 * 512 + i] = dst;
+                if (dots_per_byte == 2) {
+                    // 4bit/ドット。上位・下位ニブルを取り出すだけなので、2 ドットを 32bit でまとめて書く
+                    uint32_t two = ((uint32_t)(data >> 4) << 16) | (uint32_t)(data & 0x0f);
+                    *(uint32_t*)gram = two;
+                    if (crt_width == 256) *(uint32_t*)(gram + 256 * 512) = two;
+                } else {
+                    for (i = dots_per_byte - 1; i >= 0; i--) {
+                        uint16_t dst = data & dotmask;
+                        data >>= bits_per_dot;
+                        gram[0 + i] = dst;
+                        if (crt_width == 256) gram[256 * 512 + i] = dst;
+                    }
                 }
             }
-            // DIXに従ってVRAMアドレスを更新
-            if (DIX == 0) {
-                // DIX=0の時
-                src_vram_addr += 1;
-                dst_vram_addr += 1;
-                gram += dots_per_byte;
-            } else {
-                // DIX=1の時
-                src_vram_addr -= 1;
-                dst_vram_addr -= 1;
-                gram -= dots_per_byte;
-            }
+            // VRAMアドレスを更新（歩幅は DIX から求めてある）
+            src_vram_addr += step;
+            dst_vram_addr += step;
+            gram += gstep;
         }
         if (DIX == 0) {
             src_vram_addr -= nxbyte;
@@ -917,6 +950,7 @@ void cmd_HMMC_exe(ms_vdp_t* vdp, uint8_t value) {
         uint16_t dst = (value >> ((dots_per_byte - 1 - i) * bits_per_dot)) & ((1 << bits_per_dot) - 1);
         gram[0] = dst;
         if (vdp->ms_vdp_current_mode->crt_width == 256) gram[256 * 512] = dst;
+        if (gram_line_double(vdp)) gram[512] = dst;
         gram++;
     }
 
