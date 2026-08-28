@@ -7,6 +7,7 @@
 int init_SCREEN12(ms_vdp_t* vdp);
 uint8_t read_vram_SCREEN12(ms_vdp_t* vdp);
 void write_vram_SCREEN12(ms_vdp_t* vdp, uint8_t data);
+void w_SCREEN12_c(ms_vdp_t* vdp, uint8_t data);
 void update_palette_SCREEN12(ms_vdp_t* vdp);
 void update_pnametbl_baddr_SCREEN12(ms_vdp_t* vdp);
 void update_colortbl_baddr_SCREEN12(ms_vdp_t* vdp);
@@ -25,8 +26,9 @@ ms_vdp_mode_t ms_vdp_SCREEN12 = {
     init_SCREEN12,
     // uint8_t read_vram_SCREEN12(ms_vdp_t* vdp);
     read_vram_SCREEN12,
-    // void write_vram_SCREEN12(ms_vdp_t* vdp, uint8_t data);
-    write_vram_SCREEN12,
+    /* VRAM 書き込み。write_vdp_0 はレジスタ渡しで呼ぶので、
+       Ｃの引数へ積み直す橋渡しを経由する */
+    w_SCREEN12_c,
     // void (*update_palette)(ms_vdp_t* vdp);
     update_palette_SCREEN12,
     // void update_pnametbl_baddr_SCREEN12(ms_vdp_t* vdp);

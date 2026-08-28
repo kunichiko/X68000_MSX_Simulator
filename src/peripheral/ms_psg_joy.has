@@ -1,3 +1,4 @@
+	.cpu 68000
 ;
 ;	MSX Simulator
 ;
@@ -11,7 +12,6 @@
 
 	.xref	ms_psg_port_sel
 
-	.68000
 
 portA_8255	equ	$e9a001
 portB_8255	equ	$e9a003

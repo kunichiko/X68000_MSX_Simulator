@@ -337,4 +337,10 @@ void ms_vdp_update_sprite_area(ms_vdp_t* vdp);
 void ms_vdp_sprite_vsync_draw(ms_vdp_t* vdp);
 
 void ms_vdp_force_512dot_mode();
+
+/*
+ * VRAM アドレスから GRAM アドレスを引き直す（ms_vdp.has）。
+ * VRAM の読み出しは vram_addr だけを進めるので、読み出した側から呼ぶ。
+ */
+void ms_vdp_update_gram_addr(void);
 #endif

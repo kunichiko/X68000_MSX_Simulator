@@ -1,4 +1,4 @@
-	.cpu 68030
+	.cpu 68000
 
 	.include	iocscall.mac
 	.include	doscall.mac
@@ -14,6 +14,8 @@
 	.xref	p_FD
 	.xref	p_FE
 	.xref	p_FF
+	.xref	refresh_PC_if_needed
+	.xref	ms_cpu_needs_refresh_PC
 	.xref	ms_memmap_read8
 	.xref	ms_memmap_write8
 	.xref	ms_memmap_read16
@@ -25,7 +27,7 @@
 	.xref	write_port_FE
 	.xref	write_port_FF
 
-	.xdef	ms_cpu_mem_ptr_array
+	.xref	ms_cpu_mem_ptr_array
 	.xdef	ms_memmap_current_ptr
 
 	.xdef	ms_read_mem_8
@@ -36,6 +38,8 @@
 	.xdef	r_port_A8
 	.xdef	w_port_A8
 	.xdef	w_port_FC,w_port_FD,w_port_FE,w_port_FF
+	.xref	ms_cpu_mem_rptr_array,ms_cpu_mem_wptr_array
+	.xdef	ms_memmap_current_rptr,ms_memmap_current_wptr
 
 headerlength	equ	8		* 各ページの情報を示したヘッダーの長さ
 slot_type	equ	0-headerlength
@@ -52,16 +56,58 @@ my_segment_num	equ	2-headerlength	* マッパＲＡＭなどの時の自分の�
 *（動作）
 *	d0.b にメモリから読み込んだ値が入る
 *
-*	d2 破壊
+*（レジスタ契約）
+*	保存される ・・・ d3-d7, a0, a2-a6
+*	破壊される ・・・ d0, d1, d2, a1
+*	★a1 は破壊してよい。ms_R800_00.has 中の a1 は全 34 箇所いずれも
+*	  メモリアクセス呼び出しをまたいで生存しない（debug_log_pc は呼び出し直後に
+*	  lea で張り直す）。この前提を崩す最適化を入れてはならない。
+*	書き込み系はさらに d7 / a4 が更新されうる
+*	  （低速パスが refresh_PC_if_needed を末尾呼び出しするため）
 *
 *******************************************************************
+*	（高速パス）rptr が非NULLのページは直接読む。
+*	d0 は低速パス分岐を通過するまで書き換えないこと。
 ms_read_mem_8:
-	movem.l	d3-d7/a0-a5,-(sp)
+	.ifdef	DEBUG
+*	不変条件: 高速パスに来た時点でリフレッシュ保留があってはならない。
+*	破られると CPU が古いページから命令を実行し続ける（例外は出ない）。
+*	ここで illegal を踏ませ、ms_trap.has に発生位置を報告させる。
+	tst.w	ms_cpu_needs_refresh_PC
+	beq	@f
+	illegal
+@@:
+	.endif
+	cmpi.w	#$ffff,d0		* 拡張スロット選択レジスタ
+	beq	rd8_slow
+	move.w	d0,d2
+	andi.w	#$e000,d2		* 下位11bitを0にする
+	rol.w	#5,d2			* ページ番号×4
+	lea	ms_cpu_mem_rptr_array,a1
+	move.l	(a1,d2.w),d2
+	beq	rd8_slow		* NULL = ドライバ経由
+	movea.l	d2,a1
+	move.b	(a1,d0.w),d0		* 表はページ先頭を引いた位置を指している
+	.ifdef	DEBUG
+	move.l	#$a5a5a5a5,d1		* 低速パスと契約を揃える（d1 は破壊される）
+	.endif
+	.ifdef	POISON_D3
+	move.l	#$5a5a5a5a,d3		* 検証用: 契約外レジスタを故意に破壊する
+	suba.l	a2,a2
+	.endif
+	rts
+
+rd8_slow:
+	movem.l	d3-d7/a0/a2-a5,-(sp)
 	andi.l	#$ffff,d0
 	move.l	d0,-(sp)
 	bsr	ms_memmap_read8
 	lea	4(sp),sp
-	movem.l	(sp)+,d3-d7/a0-a5
+	movem.l	(sp)+,d3-d7/a0/a2-a5
+	.ifdef	POISON_D3
+	move.l	#$5a5a5a5a,d3		* 検証用: 契約外レジスタを故意に破壊する
+	suba.l	a2,a2
+	.endif
 	rts
 
 *******************************************************************
@@ -73,19 +119,52 @@ ms_read_mem_8:
 *（動作）
 *	d0.w のアドレスに d1の値を書き込む。  
 *
-*	d2 破壊
+*（レジスタ契約）
+*	保存される ・・・ d3-d7, a0, a2-a6
+*	破壊される ・・・ d0, d1, d2, a1
+*	★a1 は破壊してよい。ms_R800_00.has 中の a1 は全 34 箇所いずれも
+*	  メモリアクセス呼び出しをまたいで生存しない（debug_log_pc は呼び出し直後に
+*	  lea で張り直す）。この前提を崩す最適化を入れてはならない。
+*	書き込み系はさらに d7 / a4 が更新されうる
+*	  （低速パスが refresh_PC_if_needed を末尾呼び出しするため）
 *
 *******************************************************************
+*	（高速パス）wptr が非NULLのページは直接書く。
+*	直接書き込みを許可しているのは MAINRAM のページだけであり、
+*	MAINRAM への書き込みはメモリマップを変更しないため
+*	高速パスでは refresh_PC_if_needed を呼ばない。
 ms_write_mem_8:
-	movem.l	d3-d7/a0-a5,-(sp)
+	.ifdef	DEBUG
+*	不変条件: 高速パスに来た時点でリフレッシュ保留があってはならない。
+*	破られると CPU が古いページから命令を実行し続ける（例外は出ない）。
+*	ここで illegal を踏ませ、ms_trap.has に発生位置を報告させる。
+	tst.w	ms_cpu_needs_refresh_PC
+	beq	@f
+	illegal
+@@:
+	.endif
+	cmpi.w	#$ffff,d0		* 拡張スロット選択レジスタ
+	beq	wr8_slow
+	move.w	d0,d2
+	andi.w	#$e000,d2
+	rol.w	#5,d2			* ページ番号×4
+	lea	ms_cpu_mem_wptr_array,a1
+	move.l	(a1,d2.w),d2
+	beq	wr8_slow		* NULL = ドライバ経由
+	movea.l	d2,a1
+	move.b	d1,(a1,d0.w)		* 表はページ先頭を引いた位置を指している
+	rts
+
+wr8_slow:
+	movem.l	d3-d7/a0/a2-a5,-(sp)
 	andi.l	#$ff,d1
 	move.l	d1,-(sp)
 	andi.l	#$ffff,d0
 	move.l	d0,-(sp)
 	bsr	ms_memmap_write8
 	lea	8(sp),sp
-	movem.l	(sp)+,d3-d7/a0-a5
-	rts
+	movem.l	(sp)+,d3-d7/a0/a2-a5
+	jmp	refresh_PC_if_needed	* 末尾呼び出し。ここのrtsで呼び出し元へ戻る
 
 
 *******************************************************************
@@ -96,16 +175,56 @@ ms_write_mem_8:
 *（動作）
 *	d0.w にメモリから読み込んだ値が入る
 *
-*	d2 破壊
+*（レジスタ契約）
+*	保存される ・・・ d3-d7, a0, a2-a6
+*	破壊される ・・・ d0, d1, d2, a1
+*	★a1 は破壊してよい。ms_R800_00.has 中の a1 は全 34 箇所いずれも
+*	  メモリアクセス呼び出しをまたいで生存しない（debug_log_pc は呼び出し直後に
+*	  lea で張り直す）。この前提を崩す最適化を入れてはならない。
+*	書き込み系はさらに d7 / a4 が更新されうる
+*	  （低速パスが refresh_PC_if_needed を末尾呼び出しするため）
 *
 *******************************************************************
+*	（高速パス）8Kページをまたぐ組（オフセット $1FFE/$1FFF）は低速パスへ落とす。
+*	メガロムでは隣接する8KがROMバッファ上で連続しないため、これは必須である。
+*	16ビットアクセスを move.w にしてはならない（奇数番地でアドレスエラーになる）。
 ms_read_mem_16:
-	movem.l	d3-d7/a0-a5,-(sp)
+	.ifdef	DEBUG
+*	不変条件: 高速パスに来た時点でリフレッシュ保留があってはならない。
+*	破られると CPU が古いページから命令を実行し続ける（例外は出ない）。
+*	ここで illegal を踏ませ、ms_trap.has に発生位置を報告させる。
+	tst.w	ms_cpu_needs_refresh_PC
+	beq	@f
+	illegal
+@@:
+	.endif
+	move.w	d0,d2
+	andi.w	#$e000,d2
+	rol.w	#5,d2			* ページ番号×4
+	lea	ms_cpu_mem_rptr_array,a1
+	move.l	(a1,d2.w),d2
+	beq	rd16_slow		* NULL = ドライバ経由
+	movea.l	d2,a1
+	move.w	d0,d2
+	andi.w	#$1fff,d2
+	cmpi.w	#$1ffe,d2		* 8Kページをまたぐ組か？
+	bcc	rd16_slow
+	adda.w	d0,a1			* 表がページ先頭を引いてあるので生アドレスを足す
+	move.b	1(a1),d0		* 上位バイト
+	ror.w	#8,d0
+	move.b	(a1),d0			* 下位バイト
+	.ifdef	DEBUG
+	move.l	#$a5a5a5a5,d1		* 低速パスと契約を揃える（d1 は破壊される）
+	.endif
+	rts
+
+rd16_slow:
+	movem.l	d3-d7/a0/a2-a5,-(sp)
 	andi.l	#$ffff,d0
 	move.l	d0,-(sp)
 	bsr	ms_memmap_read16
 	lea	4(sp),sp
-	movem.l	(sp)+,d3-d7/a0-a5
+	movem.l	(sp)+,d3-d7/a0/a2-a5
 	rts
 
 *******************************************************************
@@ -116,19 +235,57 @@ ms_read_mem_16:
 *（動作）
 *	d1.w の内容をメモリに書き込む
 *
-*	d2 破壊
+*（レジスタ契約）
+*	保存される ・・・ d3-d7, a0, a2-a6
+*	破壊される ・・・ d0, d1, d2, a1
+*	★a1 は破壊してよい。ms_R800_00.has 中の a1 は全 34 箇所いずれも
+*	  メモリアクセス呼び出しをまたいで生存しない（debug_log_pc は呼び出し直後に
+*	  lea で張り直す）。この前提を崩す最適化を入れてはならない。
+*	書き込み系はさらに d7 / a4 が更新されうる
+*	  （低速パスが refresh_PC_if_needed を末尾呼び出しするため）
 *
 *******************************************************************
+*	（高速パス）8Kページをまたぐ組は低速パスへ落とす（read16 と同じ理由）。
 ms_write_mem_16:
-	movem.l	d3-d7/a0-a5,-(sp)
+	.ifdef	DEBUG
+*	不変条件: 高速パスに来た時点でリフレッシュ保留があってはならない。
+*	破られると CPU が古いページから命令を実行し続ける（例外は出ない）。
+*	ここで illegal を踏ませ、ms_trap.has に発生位置を報告させる。
+	tst.w	ms_cpu_needs_refresh_PC
+	beq	@f
+	illegal
+@@:
+	.endif
+	move.w	d0,d2
+	andi.w	#$e000,d2
+	rol.w	#5,d2			* ページ番号×4
+	lea	ms_cpu_mem_wptr_array,a1
+	move.l	(a1,d2.w),d2
+	beq	wr16_slow		* NULL = ドライバ経由
+	movea.l	d2,a1
+	move.w	d0,d2
+	andi.w	#$1fff,d2
+	cmpi.w	#$1ffe,d2		* 8Kページをまたぐ組か？
+	bcc	wr16_slow
+	adda.w	d0,a1			* 表がページ先頭を引いてあるので生アドレスを足す
+	move.b	d1,(a1)			* 下位バイト
+	ror.w	#8,d1
+	move.b	d1,1(a1)		* 上位バイト
+	.ifdef	DEBUG
+	move.l	#$a5a5a5a5,d0		* 低速パスと契約を揃える（d0 は破壊される）
+	.endif
+	rts
+
+wr16_slow:
+	movem.l	d3-d7/a0/a2-a5,-(sp)
 	andi.l	#$ffff,d1
 	move.l	d1,-(sp)
 	andi.l	#$ffff,d0
 	move.l	d0,-(sp)
 	bsr	ms_memmap_write16
 	lea	8(sp),sp
-	movem.l	(sp)+,d3-d7/a0-a5
-	rts
+	movem.l	(sp)+,d3-d7/a0/a2-a5
+	jmp	refresh_PC_if_needed
 
 ;
 ; MSXのスロットマッピングに関する情報
@@ -137,20 +294,16 @@ ms_write_mem_16:
 	.data
 	.even
 
+	.even
+
 ms_memmap_current_ptr:
 	.dc.l	ms_cpu_mem_ptr_array		* Cから参照するためのポインタ
 
 
-; CPUから見える8Kバイト単位のメモリのポインタ配列
-ms_cpu_mem_ptr_array:
-	.dc.l	0
-	.dc.l	0
-	.dc.l	0
-	.dc.l	0
-	.dc.l	0
-	.dc.l	0
-	.dc.l	0
-	.dc.l	0
+ms_memmap_current_rptr:
+	.dc.l	ms_cpu_mem_rptr_array		* Cから参照するためのポインタ
+ms_memmap_current_wptr:
+	.dc.l	ms_cpu_mem_wptr_array		* Cから参照するためのポインタ
 
 	.text
 

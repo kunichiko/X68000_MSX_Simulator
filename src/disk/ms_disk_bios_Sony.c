@@ -37,6 +37,9 @@ void ms_disk_bios_Sony_init(THIS* instance, ms_memmap_t* memmap, uint8_t* buffer
     instance->base.did_attach = ms_memmap_did_attach_DISKBIOS_SONY;
     instance->base.will_detach = ms_memmap_will_detach_DISKBIOS_SONY;
     instance->base.did_update_memory_mapper = ms_memmap_did_update_memory_mapper_DISKBIOS_SONY;
+    // 直接アクセス可否（奇数 page8k の $3FF0-$3FFF が FDC レジスタ窓）
+    instance->base.direct_read_mask = 0x55;
+    instance->base.direct_write_mask = 0x00;
     instance->base.read8 = ms_memmap_read8_DISKBIOS_SONY;
     instance->base.read16 = ms_memmap_read16_DISKBIOS_SONY;
     instance->base.write8 = ms_memmap_write8_DISKBIOS_SONY;

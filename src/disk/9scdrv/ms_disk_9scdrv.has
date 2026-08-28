@@ -1,3 +1,4 @@
+	.cpu 68000
 	.include	iocscall.mac
 	.include	doscall.mac
 	.include	src/disk/9scdrv/9SCCALL.MAC

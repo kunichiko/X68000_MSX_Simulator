@@ -50,6 +50,9 @@ void ms_memmap_MAINRAM_init(THIS* instance, ms_memmap_t* memmap) {
     instance->base.did_attach = _did_attach;
     instance->base.will_detach = _will_detach;
     instance->base.did_update_memory_mapper = _did_update_memory_mapper;
+    // 直接アクセス可否（マッパRAM。読み書きとも純粋なバイトアクセス）
+    instance->base.direct_read_mask = 0xff;
+    instance->base.direct_write_mask = 0xff;
     instance->base.read8 = _read8;
     instance->base.read16 = _read16;
     instance->base.write8 = _write8;
@@ -64,7 +67,11 @@ void ms_memmap_MAINRAM_init(THIS* instance, ms_memmap_t* memmap) {
 
     int page8k;
     for (page8k = 0; page8k < 8; page8k++) {
-        instance->base.page8k_pointers[page8k] = instance->base.buffer + (page8k * 0x2000);
+        // selected_segment に合わせる。命令フェッチとデータアクセスで
+        // 別のセグメントを指してはならない
+        instance->base.page8k_pointers[page8k] =
+            instance->base.buffer + (instance->selected_segment[page8k / 2] * 0x4000) +
+            ((page8k & 1) * 0x2000);
     }
 
     return;

@@ -35,14 +35,19 @@ LD = $(CROSS)gcc
 
 CFLAGS = -g -std=gnu90 -c -m68000 -O3 -finput-charset=UTF-8 -fexec-charset=CP932 -I${UTHASH_DIR}
 CFLAGS_DEBUG = -g -std=gnu90 -c -m68000 -DDEBUG -finput-charset=UTF-8 -fexec-charset=CP932 -I${UTHASH_DIR}
-LDFLAGS = src/disk/9scdrv/_X_KPCHK_elf.o -lm -lbas -liocs -ldos -Wl,-e,msboot_start
+KPCHK_OBJ = $(DISK_9SCDRV_DIR)/_X_KPCHK_elf.o
+LDFLAGS = -lm -lbas -liocs -ldos -Wl,-e,msboot_start
 #LDFLAGS = src/disk/9scdrv/_X_KPCHK_elf.o -lm -lbas -liocs -ldos
 #GCC_OPTS = -c -O -g -finput-charset=UTF-8 -fexec-charset=CP932
 
 #LD = m68k-xelf-ld.x
 #LD_OPTS = -L $(HOME)/work/XEiJ/HFS/XGCC/LIB/
 
-ASFLAGS = -i $(SRC_DIR) -i $(ASMINC_DIR) -i $(VDP_DIR) -i $(MEMMAP_DIR) -i ${DISK_DIR} -i ${PERIPHERAL_DIR} -w0
+# 検証用の条件アセンブル指定を外から渡すための枠
+# 例: make ASEXTRA='-s EDGEALWAYS -s POISON_D3'
+ASEXTRA ?=
+
+ASFLAGS = -i $(SRC_DIR) -i $(ASMINC_DIR) -i $(VDP_DIR) -i $(MEMMAP_DIR) -i ${DISK_DIR} -i ${PERIPHERAL_DIR} -w0 $(ASEXTRA)
 ASFLAGS_DEBUG = -d -s DEBUG $(ASFLAGS)
 
 # ソースを探索するディレクトリ (vpath でサブフォルダごとの重複ルールを1組にまとめる)
@@ -65,8 +70,7 @@ ASM_STAMP = $(ASMSRC_DIR)/.stamp
 # オブジェクトファイルのリストを変数にまとめる
 OBJS =	$(BUILD_DIR)/msboot_mac.o \
 		$(BUILD_DIR)/ms.o \
-		$(BUILD_DIR)/ms_R800_30_mac.o \
-		$(BUILD_DIR)/ms_R800_flag_mac.o \
+		$(BUILD_DIR)/ms_R800_00_mac.o \
 		$(BUILD_DIR)/ms_iomap.o \
 		$(BUILD_DIR)/ms_iomap_mac.o \
 		$(BUILD_DIR)/ms_sysvalue_mac.o \
@@ -127,12 +131,12 @@ OBJS =	$(BUILD_DIR)/msboot_mac.o \
 
 OBJS_DEBUG = $(BUILD_DIR)/msboot_mac.o \
 		$(BUILD_DIR)/ms_d.o \
-		$(BUILD_DIR)/ms_R800_30_mac_d.o \
-		$(BUILD_DIR)/ms_R800_flag_mac_d.o \
+		$(BUILD_DIR)/ms_R800_00_mac_d.o \
 		$(BUILD_DIR)/ms_iomap_d.o \
 		$(BUILD_DIR)/ms_iomap_mac_d.o \
 		$(BUILD_DIR)/ms_sysvalue_mac_d.o \
 		$(BUILD_DIR)/ms_sub_mac_d.o \
+		$(BUILD_DIR)/ms_trap_mac_d.o \
 		$(BUILD_DIR)/ms_peripherals_mac_d.o \
 		$(BUILD_DIR)/ms_rtc_d.o \
 		$(BUILD_DIR)/ms_psg_d.o \
@@ -187,7 +191,20 @@ OBJS_DEBUG = $(BUILD_DIR)/msboot_mac.o \
 		$(BUILD_DIR)/ms_disk_9scdrv_d.o \
 		$(BUILD_DIR)/ms_disk_9scdrv_mac_d.o
 
-all: update_version copy_to_target_all 
+all: check-cpu update_version copy_to_target_all
+
+# 68020 以降の CPU 指定が .has に紛れ込んでいないことを検査する。
+# grep -a は必須。付けないと Shift-JIS ファイルがバイナリ扱いされ検出できない。
+check-cpu:
+	@ng=0; \
+	for f in `find $(SRC_DIR) -name '*.has' -not -path '*/experiment/*'`; do \
+	    grep -ail '\.cpu[[:space:]]*68000' $$f > /dev/null \
+	      || { echo "$$f : .cpu 68000 の指定がありません" ; ng=1 ; } ; \
+	    grep -ail -e '\.cpu[[:space:]]*680[1-9]0' -e '^[[:space:]]*\.680[1-9]0' $$f > /dev/null \
+	      && { echo "$$f : 68020以降のCPU指定が残っています" ; ng=1 ; } ; \
+	done ; \
+	[ $$ng -eq 0 ] || exit 1
+	@echo "CPU指定OK"
 
 update_version:
 	@./update_version.sh
@@ -217,10 +234,10 @@ copy_to_target_debug: ${BUILD_DIR} ${BUILD_DIR}/ms_debug.x
 $(SRC_DIR)/ms.h: $(SRC_DIR)/../version.h
 	touch $(SRC_DIR)/ms.h
 
-${BUILD_DIR}/ms.x: $(OBJS)
+${BUILD_DIR}/ms.x: $(OBJS) $(KPCHK_OBJ)
 	$(LD) -o $@ $^ $(LDFLAGS) 
 
-${BUILD_DIR}/ms_debug.x: $(OBJS_DEBUG)
+${BUILD_DIR}/ms_debug.x: $(OBJS_DEBUG) $(KPCHK_OBJ)
 	$(LD) -o $@ $^ $(LDFLAGS) 
 
 # --- C ソース (全サブフォルダ共通。vpath でソースを探索) ---
@@ -229,6 +246,10 @@ ${BUILD_DIR}/%.o: %.c $(HEADERS)
 
 ${BUILD_DIR}/%_d.o: %.c $(HEADERS)
 	$(CC) $(CFLAGS_DEBUG) $< -o $@
+
+# リンクに使う _X_KPCHK_elf.o は、同梱の X68000 形式オブジェクトから変換して作る
+$(KPCHK_OBJ): $(DISK_9SCDRV_DIR)/_X_KPCHK.O
+	x68k2elf.py $< $@
 
 # --- アセンブラソース (CP932 シャドウツリーを作ってからアセンブル) ---
 # 全アセンブラソースを CP932 に変換して $(ASMSRC_DIR)/ にツリー複製する

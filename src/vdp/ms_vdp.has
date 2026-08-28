@@ -1,3 +1,4 @@
+	.cpu 68000
 *
 *	Ｍｓｘ Ｓｉｍｕｌａｔｅｒ
 *
@@ -9,6 +10,13 @@
 	.include	iocscall.mac
 	.include	doscall.mac
 
+	.xref	force_yield_check	* 中断要求を立てたら次の命令で確認させる
+	.xref	_write_vram_TEXT1
+	.xref	_write_vram_TEXT2
+	.xref	_write_vram_MULTICOLOR
+	.xref	_write_vram_DEFAULT
+	.xref	_write_vram_SCREEN10
+	.xref	_write_vram_SCREEN12
 	.xref	_write_sprite_pattern
 	.xref	_write_sprite_attribute
 	.xref	_write_sprite_color
@@ -20,9 +28,11 @@
 	.xref	emu_yield
 	.xref	host_line
 	.xref	cpu_in_interrupt
+	.xref	vdp_draw_pending
 
 	.xref	emu_counter
 	.xref	emu_counter_latch
+	.xref	emu_counter_skew
 	.xref	framerate_control
 
 	.xref	ms_vdp_set_mode
@@ -47,6 +57,12 @@
 	.xdef	set_GRAPHIC6_mac
 	.xdef	set_GRAPHIC7_mac
 
+	.xdef	w_TEXT1_c
+	.xdef	w_TEXT2_c
+	.xdef	w_MULTICOLOR_c
+	.xdef	w_DEFAULT_c
+	.xdef	w_SCREEN10_c
+	.xdef	w_SCREEN12_c
 	.xdef	w_GRAPHIC1_mac
 	.xdef	w_GRAPHIC2_mac
 	.xdef	w_GRAPHIC3_mac
@@ -64,8 +80,10 @@
 	.xdef	read_vdp_1
 	.xdef	read_vdp_2
 	.xdef	read_vdp_3
+	.xdef	ms_vdp_update_gram_addr
 	.xdef	write_vdp_0
 	.xdef	write_vdp_1
+	.xdef	ms_vdp_draw_on_int_return
 	.xdef	write_vdp_2
 	.xdef	write_vdp_3
 
@@ -359,7 +377,6 @@ SPRITE_REFRESH_FLAG_FULL	equ	$10
 *	screen12		65536色	512*512
 *
 *
-	.68030
 
 	.text
 	.even
@@ -471,17 +488,34 @@ ms_vdp_init_mac:
 
 	rts
 
-VSYNCDEBUG	.equ	1		* 1: VSYNC割り込みのデバッグを有効にする
-RASTERDEBUG	.equ	1		* 1: ラスタ割り込みのデバッグを有効にする
-HSYNC_BACKLINES	.equ	140		* hsync_counterが0にリセットされてから0ライン目が表示されるまでの数
+VSYNCDEBUG	.equ	0		* 1: VSYNC割り込みのデバッグを有効にする（割り込み位置を色で見る開発用機能）
+RASTERDEBUG	.equ	0		* 1: ラスタ割り込みのデバッグを有効にする（同上）
+HSYNC_BACKLINES_192	.equ	140	* hsync_counterが0にリセットされてから0ライン目が表示されるまでの数
+HSYNC_BACKLINES_212	.equ	100	* 212ラインでは垂直映像期間が長いぶん短くなる
+					* 値は CRTC の R#4-(R#7-R#6)。crtc_values と対応する
 
 vsync_interrupt:
 	movem.l	d0/a0/a5,-(sp)
 	movea.l	ms_vdp_shared,a5
 	addq.w	#1,ms_vsync_interrupt_tick
 
+
 	; HSYNCカウンタを0に戻す
 	move.w	#0,hsync_counter
+	bsr	arm_raster_countdown
+
+	; 走査線割り込みを使わないフレームでは HSYNC 割り込みそのものを止める。
+	; 毎秒 31,910 回の割り込みが丸ごと消える。
+	cmp.b	#0,offset_ms_vdp_disablehsyncint(a5)
+	bne	9f
+	btst.b	#4,offset_ms_vdp_r00(a5)	* VDP IE1（R#0 bit4）
+	beq	9f
+	cmp.w	#$ffff,raster_interrupt_line
+	beq	9f
+	ori.b	#%10000000,IERA		* HSYNC 割り込みを許可
+	bra	8f
+9:	andi.b	#%01111111,IERA		* HSYNC 割り込みを禁止
+8:
 
 	; VDP再描画処理実行済みフラグをクリア
 	move.w	#0,vdp_vsync_draw_fired
@@ -516,6 +550,10 @@ vsync_interrupt:
 
 	; VSYNC割り込みをスキップする/しないに関わらず、cpu_yieldは 1/60秒ごとにセットする (ウェイトの計算などで実時間を知る必要があるため)
 	move.b	#$01,cpu_yield			* cpu_yield
+	; ホスト側の処理も 1/60秒ごとに起こす。画面更新は割り込み復帰の通知で行うので
+	; 特定の走査線を待つ必要はない
+	move.w	#$1,emu_yield
+	jsr	force_yield_check
 
 	; --framerate の指定によって、VSYNC割り込みをスキップするかどうかを決める
 	; $ffffffff : auto - 前の割り込み処理が終わっていない時は自動でスキップ
@@ -539,10 +577,12 @@ vsync_interrupt:
 1:	; 1 - 99999
 	; emu_counter の増加量が framerate_control に達していなかったら割り込みを一回スキップ(実験)
 	move.l	emu_counter,d0
+	sub.l	emu_counter_skew,d0	* 中断確認の前倒しで水増しした分を除く
 	sub.l	emu_counter_latch2,d0
 	cmp.l	framerate_control,d0
 	ble	9f	* 割り込みスキップ
-	move.l	emu_counter,emu_counter_latch2
+	add.l	emu_counter_latch2,d0	* d0 を補正後の emu_counter に戻す
+	move.l	d0,emu_counter_latch2
 	bra	8f	* 割り込みをかける
 
 8:	;	VDPの割り込み処理
@@ -558,8 +598,6 @@ vsync_interrupt:
 	rte
 
 hsync_interrupt:
-	movem.l	d0/a5,-(sp)
-	movea.l	ms_vdp_shared,a5
 
 	; どこでVSYNC割り込みがかかっているかを確認するためにテキストパレットの色を変えている場合
 	; ここで割り込み終了を判定してパレットを戻す
@@ -569,13 +607,10 @@ hsync_interrupt:
 		move.w	#%00000_00000_00000_0,t_palette
 @@:	.endif
 
-	; ラスタ割り込みの該当行に達したら、ラスタ割り込みをかける
-	move.w	hsync_counter,d0
-	cmp.w	raster_interrupt_line,d0
-	bne	@f
-	bsr	raster_interrupt		* ラスタ割り込み
-@@:	add.w	#1,d0
-	move.w	d0,hsync_counter
+	; 走査線割り込みまでの残りを数える。レジスタを使わないので退避が要らない
+	addq.w	#1,hsync_counter
+	subq.w	#1,hs_left_raster
+	beq	hs_raster
 
 	; VSYNCの代わりにHSYNCの最終行付近を使ってみる
 	; → やってみたが、最終表示ラインの直後にVSYNC割り込みがかかっているので効果はなかった
@@ -584,29 +619,11 @@ hsync_interrupt:
 ; 	bsr	vsync_interrupt_2
 ; @@:
 
-	; ホスト(X68000)側の処理を行うタイミングに達したら、emu_yieldをセット	
-	cmp.w	host_line,d0
-	bne	@f
-	move.w	#$1,emu_yield
-
-	; VSYNCの割り込みが終わったタイミングで、VDPの再描画処理を呼び出す
-@@:	move.w	cpu_in_interrupt_d,d0
-	beq	@f
-	move.w	cpu_in_interrupt,d0
-	bne	@f
-	; cpu_in_interrupt が1から0になった(falling edge)
- 	cmp.w	#0,vdp_vsync_draw_fired
-	bne	@f
-	move.w	#1,vdp_vsync_draw_fired
-	movem.l	d1-d7/a0-a4,-(sp)
- 	move.l	ms_vdp_shared,-(sp)	* 構造体のアドレスを引数に
-	jsr	ms_vdp_vsync_draw
- 	lea	4(sp),sp
-	movem.l	(sp)+,d1-d7/a0-a4
-@@:	move.w	cpu_in_interrupt,cpu_in_interrupt_d
+	; 画面更新は Z80 が割り込みから戻る時に通知されるので、ここでは見ない
+hs_2:
 
 ; 	; VDPコマンドの時分割実行
-; @@:	move.w	hsync_counter,d0
+; 	move.w	hsync_counter,d0
 ; 	andi.w	#3,d0
 ; 	bne	@f
 ; 	btst.b	#0,offset_ms_vdp_s02(a5)
@@ -617,11 +634,33 @@ hsync_interrupt:
 ; 	lea	4(sp),sp
 ; 	movem.l	(sp)+,d1-d7/a0-a4
 	;
-@@:	movem.l	(sp)+,d0/a5	
+hs_exit:
 	rte
 
+hs_raster:
+	move.w	#$7fff,hs_left_raster	* このフレームではもう来ない
+	bsr	raster_interrupt		* ラスタ割り込み
+	bra	hs_exit
+
+
+*
+*	Z80 が割り込み処理から戻ったときに呼ぶ。1 フレームに 1 回だけ画面を更新する。
+*	C の ABI に従うので d2-d7 / a2-a6 は呼ばれた側が守る。
+*
+ms_vdp_draw_on_int_return:
+	tst.w	vdp_vsync_draw_fired
+	bne	9f
+	move.w	#1,vdp_vsync_draw_fired
+	movem.l	d1-d7/a0-a4,-(sp)
+	move.l	ms_vdp_shared,-(sp)	* 構造体のアドレスを引数に
+	jsr	ms_vdp_vsync_draw
+	lea	4(sp),sp
+	movem.l	(sp)+,d1-d7/a0-a4
+9:	rts
+
 raster_interrupt:
-	movem.l	d0/a0,-(sp)
+	movem.l	d0/a0/a5,-(sp)
+	movea.l	ms_vdp_shared,a5
 	cmp.b	#0,offset_ms_vdp_disablehsyncint(a5)
 	bne	9f				* HSYNC割り込みが禁止されている場合は何もしない
 	btst.b	#4,offset_ms_vdp_r00(a5)	* VDP IE1 (R#0のbit4) をみて、HSYNC割り込みが許可されているかを調べる
@@ -630,6 +669,7 @@ raster_interrupt:
 	bset.b	#0,offset_ms_vdp_s01(a5)	* VDP S#1の bit0に、HSYNC割り込み発生フラグを立てる。これとS#0の VSYNC割り込みがZ80のINT端子の状態を表している。
 	bset.b	#1,ms_vdp_int			* HSYNC割り込み要求フラグを立てる
 	move.b	#$01,sub_yield			* sub_yield 
+	jsr	force_yield_check
 
 	; どこでラスタ割り込みがかかっているかを確認するためにテキストパレットの色を変える
 	.if 	RASTERDEBUG=1
@@ -641,7 +681,7 @@ raster_interrupt:
 		move.w	d0,raster_debug
 @@:	.endif
 
-9:	movem.l	(sp)+,d0/a0
+9:	movem.l	(sp)+,d0/a0/a5
 	rts
 
 raster_debug:
@@ -649,13 +689,23 @@ raster_debug:
 
 	.data
 
+
+	.even
+vram_kind:			* 128 バイトごとの書き込み先種別。0 は該当なし
+	.ds.b	1024
+	.even
+
 emu_counter_latch2:
 	.dc.l	0
 
 hsync_vec_original:
 	.dc.l	0
+hs_left_raster:
+	.dc.w	$7fff
+
 hsync_counter:
 	.dc.w	0
+
 
 vdp_vsync_draw_fired:
 	.dc.w	0
@@ -664,6 +714,7 @@ frame_counter:
 	.dc.b	0
 framerate_count:
 	.dc.b	0
+	.even
 framerate_count_his:
 	.dc.l	$3c3c3c3c	; all 60fps
 
@@ -716,8 +767,6 @@ errms_raster_in_use:
 	.dc.b	'ラスタ割り込みは使用中です',0,0
 
 	.even
-cpu_in_interrupt_d:		* エッジ検出用
-	.dc.w	0
 
 	.text
 
@@ -804,19 +853,22 @@ r_SReg_1:
 	rts
 
 r_SReg_2:
+	btst.b	#0,offset_ms_vdp_s02(a5)	* 実行中のコマンドが無ければ時分割実行は不要
+	beq	1f
  	movem.l	d1-d7/a0-a4,-(sp)
  	move.l	a5,-(sp)	* 構造体のアドレスを引数に
  	jsr	ms_vdp_slice_exec
  	lea	4(sp),sp
  	movem.l	(sp)+,d1-d7/a0-a4
+1:
 
 	move.b	offset_ms_vdp_s02(a5),d0
 	move.b	GPIP,d1			* いったんレジスタに読む
-	; VDP S#2 b6:垂直帰線期間(0:帰線期間,1:表示期間) の設定
+	; VDP S#2 b6(VR):垂直帰線期間中に 1、表示期間中に 0
 	btst.l	#4,d1			* GPIP b4:垂直帰線期間かどうか (0:垂直帰線期間 1:垂直帰線期間外(表示期間))
 	beq	_rs2_vsync
 _rs2_vdisp:
-	ori.b	#%01000000,d0
+	andi.b	#%10111111,d0		* 表示期間なので VR は 0
 	; 表示期間の時は、水平帰線期間かどうかも設定
 	; TODO: 31kHzで表示してせいで水平帰線期間が2倍になるので、その対策が必要(ポーリングされると困る)
 	btst.l	#7,d1			* GPIP b7:水平帰線期間かどうか (0:水平同期期間外(表示期間) 1:水平同期期間)
@@ -826,7 +878,7 @@ _rs2_vdisp:
 1:	andi.b	#%11011111,d0		* VDP S#2 b5:水平帰線期間(0:帰線期間,1:表示期間)
 	bra	@f
 _rs2_vsync:
-	andi.b	#%10111111,d0
+	ori.b	#%01000000,d0		* 垂直帰線期間なので VR は 1
 	ori.b	#%00100000,d0		* VDP S#2 b5:水平帰線期間(0:帰線期間,1:表示期間)
 
 @@:	move.b	d0,offset_ms_vdp_s02(a5) * 一応書き戻し
@@ -878,16 +930,32 @@ read_vdp_3:
 *	d1.b ・・・ 書き込む値
 *
 ***************************************************************
+
+
+*
+*	VRAM アドレスから GRAM アドレスを引き直す
+*
+*	VRAM の読み出しは vram_addr を進めるが gram_addr は動かさないため、
+*	読み出した側から呼んで整合を取る。書き込み側は末尾で自ら維持している。
+*	C から呼ばれるので d2-d7 / a2-a5 を保存する。
+*
+ms_vdp_update_gram_addr:
+	movem.l	d2-d3/a2-a5,-(sp)
+	movea.l	ms_vdp_shared,a0
+	move.l	offset_ms_vdp_vram_addr(a0),d1
+	movea.l	set_gram_add_rot,a0
+	jsr	(a0)
+	movem.l	(sp)+,d2-d3/a2-a5
+	rts
+
 write_vdp_0:				* VRAM への書き込み
 	; 画面モードごとのVRAM書き込み処理を呼び出す
-	andi.l	#$000000ff,d1
-	move.l	d1,-(sp)		* 書き込む値を引数2に
+	; d1 は呼び出し元の output が $ff でマスク済み
 	movea.l	ms_vdp_shared,a5	* ms_vdp_t へのポインタを取得
-	move.l	a5,-(sp)		* 構造体のアドレスを引数1に
 	movea.l	offset_ms_vdp_current_mode(a5),a0
 	movea.l	offset_ms_vdp_write_vram(a0),a0
-	jsr	(a0)
-	lea.l	8(sp),sp
+*	全モードがレジスタ渡しになったので、引数も戻り番地も積まずに直接跳ぶ
+	jmp	(a0)
 	rts
 
 
@@ -1198,6 +1266,7 @@ update_pnametbl_baddr:
 	movea.l	offset_ms_vdp_update_pnametbl_baddr(a0),a0
 	jsr	(a0)
 	lea.l	8(sp),sp
+	bsr	vram_kind_build	* 番地の表を作り直す
 	rts
 
 
@@ -1225,6 +1294,7 @@ update_colortbl_baddr:
 	movea.l	offset_ms_vdp_update_colortbl_baddr(a0),a0
 	jsr	(a0)
 	lea.l	8(sp),sp
+	bsr	vram_kind_build	* 番地の表を作り直す
 	rts
 	
 *
@@ -1239,6 +1309,7 @@ w_R4:	move.b	d1,offset_ms_vdp_r04_(a5)
 	movea.l	offset_ms_vdp_update_pgentbl_baddr(a0),a0
 	jsr	(a0)
 	lea.l	8(sp),sp
+	bsr	vram_kind_build	* 番地の表を作り直す
 	rts
 
 *
@@ -1262,6 +1333,7 @@ update_spriteattrtbl_baddr:
 	movea.l	offset_ms_vdp_update_sprattrtbl_baddr(a0),a0
 	jsr	(a0)
 	lea.l	8(sp),sp
+	bsr	vram_kind_build	* 番地の表を作り直す
 	rts
 *
 *	スプライトパターンジェネレータテーブルの設定
@@ -1276,6 +1348,7 @@ w_R6:	move.b	d1,offset_ms_vdp_r06_(a5)
 	movea.l	offset_ms_vdp_update_sprpgentbl_baddr(a0),a0
 	jsr	(a0)
 	lea.l	8(sp),sp
+	bsr	vram_kind_build	* 番地の表を作り直す
 	rts
 
 *
@@ -1406,7 +1479,8 @@ w_R18:
 	rts
 
 ; R#19 はラスタ割り込み番号の指定
-w_R19:	move.b	d1,offset_ms_vdp_r19(a5)
+w_R19:
+	move.b	d1,offset_ms_vdp_r19(a5)
 	bsr	update_raster_interrupt_line
 	rts
 
@@ -1421,19 +1495,38 @@ update_raster_interrupt_line:
 	btst.b	#7,offset_ms_vdp_r09(a5)	* R#9の bit7 が画面のライン数
 	beq	1f
 	; 212ラインの時
-	cmpi.w	#212,d0
+	cmp.w	#212,d1
+	bcc	@f			* 画面外なので割り込みをかけない
+	add.w	d1,d1
+	addi.w	#HSYNC_BACKLINES_212,d1
 	bra	2f
 1:	; 192ラインの時
-	cmpi.w	#192,d0
-2:	bge	@f
-	; 画面内なので割り込みをかける
+	cmp.w	#192,d1
+	bcc	@f			* 画面外なので割り込みをかけない
 	add.w	d1,d1
-	addi.w	#HSYNC_BACKLINES,d1	; hsync_counterが0にリセットされてから0ライン目が表示されるまでの差を補正
-	move.w	d1,raster_interrupt_line
-	rts
+	addi.w	#HSYNC_BACKLINES_192,d1
+2:	move.w	d1,raster_interrupt_line
+	bra	arm_raster_countdown
 @@:	; 画面外なので割り込みをかけない
 	move.w	#$ffff,raster_interrupt_line
-	rts	
+	move.w	#$7fff,hs_left_raster
+	rts
+
+*
+*	ラスタ割り込みまでの残り走査線数を求める。d1 を壊す。
+*
+arm_raster_countdown:
+	move.l	d1,-(sp)		* 割り込み中から呼ばれるので壊さない
+	move.w	raster_interrupt_line,d1
+	cmp.w	#$ffff,d1
+	beq	1f
+	addq.w	#1,d1			* 加算前の値と比べていたので 1 ずらす
+	sub.w	hsync_counter,d1
+	bgt	2f
+1:	move.w	#$7fff,d1		* 割り込み無し、またはすでに過ぎている
+2:	move.w	d1,hs_left_raster
+	move.l	(sp)+,d1
+	rts
 
 ; R#23 は縦スクロール
 w_R23:					
@@ -1584,6 +1677,7 @@ set_MULTICOLOR_mac:
 	bsr	ms_vdp_update_visibility_mac
 
 	move.l	#s_MULTICOLOR,set_gram_add_rot
+	bsr	ms_vdp_update_gram_addr	* 換算式が変わったので引き直す
 
 	rts
 
@@ -1602,11 +1696,13 @@ set_GRAPHIC1_mac:
 	bsr	ms_vdp_update_visibility_mac
 
 	move.l	#s_GRAPHIC1,set_gram_add_rot
+	bsr	ms_vdp_update_gram_addr	* 換算式が変わったので引き直す
 
 	rts
 
 set_GRAPHIC2_mac:
 	movea.l	ms_vdp_shared,a5		* ms_vdp_t へのポインタを取得
+	bsr	vram_kind_build		* 番地の表を作り直す
 
 	move.w	CRTR_20,d0			* CRT レジスタの設定
 	andi.w	#%11111000_11111111,d0		* 16色モードに
@@ -1619,6 +1715,7 @@ set_GRAPHIC2_mac:
 	bsr	ms_vdp_update_visibility_mac
 
 	move.l	#s_GRAPHIC2,set_gram_add_rot
+	bsr	ms_vdp_update_gram_addr	* 換算式が変わったので引き直す
 
 	rts
 
@@ -1643,6 +1740,7 @@ set_GRAPHIC4_mac:
 	bsr	ms_vdp_update_visibility_mac
 
 	move.l	#s_GRAPHIC4,set_gram_add_rot
+	bsr	ms_vdp_update_gram_addr	* 換算式が変わったので引き直す
 
 	rts
 
@@ -1666,6 +1764,7 @@ set_GRAPHIC5_mac:
 	bsr	ms_vdp_update_visibility_mac
 
 	move.l	#s_GRAPHIC5,set_gram_add_rot
+	bsr	ms_vdp_update_gram_addr	* 換算式が変わったので引き直す
 
 	rts
 
@@ -1688,6 +1787,7 @@ set_GRAPHIC6_mac:
 	bsr	ms_vdp_update_visibility_mac
 
 	move.l	#s_GRAPHIC6,set_gram_add_rot
+	bsr	ms_vdp_update_gram_addr	* 換算式が変わったので引き直す
 
 	rts
 
@@ -1712,6 +1812,7 @@ set_GRAPHIC7_mac:
 	bsr	ms_vdp_update_visibility_mac
 
 	move.l	#s_GRAPHIC7,set_gram_add_rot
+	bsr	ms_vdp_update_gram_addr	* 換算式が変わったので引き直す
 
 	rts
 
@@ -2167,20 +2268,63 @@ w_p_name_tx2_mac:
 	move.l	(sp)+,d4
 	rts
 
-w_GRAPHIC1_mac:
-	link	a6,#-4
-	movem.l	d1-d3/a0-a5,-(sp)
+*
+*	Ｃで書かれた画面モードの VRAM 書き込みへの橋渡し。
+*	write_vdp_0 は全モードをレジスタ渡し（a5 ＝ ms_vdp_t、d1.b ＝ 書き込む値）で呼ぶ。
+*	ここでＣの引数をスタックへ積み直す。
+*
+w_TEXT1_c:
+	move.l	d1,-(sp)		* 第2引数 書き込む値
+	move.l	a5,-(sp)		* 第1引数 構造体のアドレス
+	jsr	_write_vram_TEXT1
+	lea.l	8(sp),sp
+	rts
 
-	move.l	8(a6),d1
-	movea.l	ms_vdp_shared,a5		* ms_vdp_t へのポインタを取得
+w_TEXT2_c:
+	move.l	d1,-(sp)		* 第2引数 書き込む値
+	move.l	a5,-(sp)		* 第1引数 構造体のアドレス
+	jsr	_write_vram_TEXT2
+	lea.l	8(sp),sp
+	rts
+
+w_MULTICOLOR_c:
+	move.l	d1,-(sp)		* 第2引数 書き込む値
+	move.l	a5,-(sp)		* 第1引数 構造体のアドレス
+	jsr	_write_vram_MULTICOLOR
+	lea.l	8(sp),sp
+	rts
+
+w_DEFAULT_c:
+	move.l	d1,-(sp)		* 第2引数 書き込む値
+	move.l	a5,-(sp)		* 第1引数 構造体のアドレス
+	jsr	_write_vram_DEFAULT
+	lea.l	8(sp),sp
+	rts
+
+w_SCREEN10_c:
+	move.l	d1,-(sp)		* 第2引数 書き込む値
+	move.l	a5,-(sp)		* 第1引数 構造体のアドレス
+	jsr	_write_vram_SCREEN10
+	lea.l	8(sp),sp
+	rts
+
+w_SCREEN12_c:
+	move.l	d1,-(sp)		* 第2引数 書き込む値
+	move.l	a5,-(sp)		* 第1引数 構造体のアドレス
+	jsr	_write_vram_SCREEN12
+	lea.l	8(sp),sp
+	rts
+
+*
+*	SCREEN 1 の VRAM 書き込み
+*
+*	引数はレジスタで渡す。a5 ＝ ms_vdp_t へのポインタ、d1.b ＝ 書き込む値。
+*	write_vdp_0 からのみ呼ばれるため、d0-d3 / a0-a2 / a5 を壊してよい。
+*
+w_GRAPHIC1_mac:
 	movea.l	offset_ms_vdp_vram(a5),a0
 	move.l	offset_ms_vdp_vram_addr(a5),d0	* D0 ・・書き込むVRAMアドレス
-	.if DIFFDRAW=1 ;差分描画の実験
-	move.b	0(a0,d0.l),d2
-	sub.b	d1,d2
-	move.b	d2,-2(a6)			* 差分フラグをセット
-	.endif
-	move.b	(a0,d0.l),-4(a6)		* 以前の値を保存
+	move.b	(a0,d0.l),d3			* 以前の値を保存
 	move.b	d1,(a0,d0.l)			* VRAM へ書き込み
 
 ; colortbl_baddrと一致していたらカラーテーブルへの書き込み
@@ -2191,28 +2335,26 @@ w_GRAPHIC1_mac:
 	bne	@f
 
 	.if DIFFDRAW=1 ;差分がある時のみ書き込み
-	cmp.b	#0,-2(a6)			* 差分フラグをチェック
+	cmp.b	d1,d3				* 以前の値と同じなら描き直さない
 	beq	9f
 	.endif
 
-	move.b	-4(a6),d0			* 以前の値を取得
+	move.b	d3,d0				* 以前の値を取得
 	bsr	w_color_GR1			* カラーテーブルへの書き込み
 
 	bra	9f	; テーブルが重なっている場合もありうるので本当はスキップしてはいけないのだが……
 
 ; sprattrtbl_baddrと一致していたらスプライトアトリビュートテーブルへの書き込み
 @@:	andi.w	#%11111111_10000000,d0		* 下位7ビットをクリア
-	move.l	offset_ms_vdp_sprattrtbl_baddr(a5),d2
-	andi.w	#%11111111_10000000,d2
-	cmp.l	d2,d0
+	cmp.l	offset_ms_vdp_sprattrtbl_baddr(a5),d0	* 表の番地は整列済みなのでマスクは要らない
 	bne	@f
 
 	.if DIFFDRAW=1 ;差分がある時のみ書き込み
-	cmp.b	#0,-2(a6)			* 差分フラグをチェック
+	cmp.b	d1,d3				* 以前の値と同じなら描き直さない
 	beq	9f
 	.endif
 
-	move.b	-4(a6),d0			* 以前の値を取得
+	move.b	d3,d0				* 以前の値を取得
 	bsr	w_SP_attr			* スプライトアトリビュートテーブルへの書き込み
 
 	bra	9f	; テーブルが重なっている場合もありうるので本当はスキップしてはいけないのだが……
@@ -2225,20 +2367,18 @@ w_GRAPHIC1_mac:
 	bne	@f
 
 	.if DIFFDRAW=1 ;差分描画の実験
-	cmp.b	#0,-2(a6)			* 差分フラグをチェック
+	cmp.b	d1,d3				* 以前の値と同じなら描き直さない
 	beq	@f
 	.endif
 
-	move.b	-4(a6),d0			* 以前の値を取得
+	move.b	d3,d0				* 以前の値を取得
 	bsr	w_p_name_GR1			* パターンネームテーブルへの書き込み
 
 	bra	9f	; テーブルが重なっている場合もありうるので本当はスキップしてはいけないのだが……
 
 ; sprpatgentbl_baddrと一致していたらスプライトパターンジェネレータテーブルへの書き込み
 @@:	andi.w	#%11111000_00000000,d0		* 下位11ビットをクリア
-	move.l	offset_ms_vdp_sprpgentbl_baddr(a5),d2
-	andi.w	#%11111000_00000000,d2
-	cmp.l	d2,d0
+	cmp.l	offset_ms_vdp_sprpgentbl_baddr(a5),d0	* 表の番地は整列済みなのでマスクは要らない
 	bne	@f
 	movem.l	d0-d1,-(sp)
 	bsr	w_SP_p_gene			* スプライトパターンジェネレータテーブルへの書き込み
@@ -2254,11 +2394,11 @@ w_GRAPHIC1_mac:
 	bne	@f
 
 	.if DIFFDRAW=1 ;差分描画の実験
-	cmp.b	#0,-2(a6)			* 差分フラグをチェック
+	cmp.b	d1,d3				* 以前の値と同じなら描き直さない
 	beq	@f
 	.endif
 
-	move.b	-4(a6),d0			* 以前の値を取得
+	move.b	d3,d0				* 以前の値を取得
 	bsr	w_p_gene_GR1			* パターンジェネレータテーブルへの書き込み
 
 @@:	* VRAM書き込みアドレスをインクリメント
@@ -2270,8 +2410,6 @@ w_GRAPHIC1_mac:
 	or.w	d2,d0
 	move.l	d0,offset_ms_vdp_vram_addr(a5)
 
-	movem.l	(sp)+,d1-d3/a0-a5
-	unlk	a6
 	rts
 
 w_color_GR1:
@@ -2314,9 +2452,11 @@ w_p_gene_GR1:
 	andi.w	#%00000000_00011111,d2
 	lsr.w	#5,d1
 	lea.l	rewrite_f_0,a0
-	move.l	0(a0,d1.w*4),d0		* rewrite_f_n を読み込み
+	add.w	d1,d1
+	add.w	d1,d1
+	move.l	0(a0,d1.w),d0		* rewrite_f_n を読み込み
 	bset.l	d2,d0
-	move.l	d0,0(a0,d1.w*4)		* rewrite_f_n へ書き込み
+	move.l	d0,0(a0,d1.w)		* rewrite_f_n へ書き込み
 	rts	
 
 *
@@ -2387,115 +2527,174 @@ w_p_name_GR1:
 	rts
 
 
-w_GRAPHIC2_mac:
-	link	a6,#-4
-	movem.l	d1-d3/a0-a5,-(sp)
+*
+*	VRAM の番地から書き込み先のテーブル種別を一発で引く表を作る。
+*	128 バイトごとに 1 バイト。0 は「どのテーブルでもない」。
+*	優先順位の低いものから書くので、重なった場合は優先順位の高いものが残る。
+*	w_GRAPHIC2_mac の比較の並び順（属性→ネーム→SPパターン→パターン→カラー）と一致する。
+*	破壊: d0-d3 / a0-a1
+*
+VK_ATTR	equ	1
+VK_NAME	equ	2
+VK_SPPG	equ	3
+VK_PGEN	equ	4
+VK_COLOR	equ	5
 
-	move.l	8(a6),d1
-	movea.l	ms_vdp_shared,a5		* ms_vdp_t へのポインタを取得
-	movea.l	offset_ms_vdp_vram(a5),a0
-	move.l	offset_ms_vdp_vram_addr(a5),d0			* D0 ・・書き込むアドレス
-	.if DIFFDRAW=1 ;差分描画の実験
-	move.b	0(a0,d0.l),d2
-	sub.b	d1,d2
-	move.b	d2,-2(a6)			* 差分フラグをセット
+vram_kind_build:
+	movea.l	ms_vdp_shared,a5
+	lea.l	vram_kind,a0
+	move.w	#1024/4-1,d0
+	movea.l	a0,a1
+@@:	clr.l	(a1)+
+	dbra	d0,@b
+*	カラー（8KB 単位）
+	move.l	offset_ms_vdp_colortbl_baddr(a5),d0
+	moveq.l	#VK_COLOR,d1
+	move.w	#8192/128-1,d2
+	bsr	vram_kind_fill
+*	パターンジェネレータ（8KB 単位）
+	move.l	offset_ms_vdp_pgentbl_baddr(a5),d0
+	moveq.l	#VK_PGEN,d1
+	move.w	#8192/128-1,d2
+	bsr	vram_kind_fill
+*	スプライトパターンジェネレータ（2KB 単位）
+	move.l	offset_ms_vdp_sprpgentbl_baddr(a5),d0
+	moveq.l	#VK_SPPG,d1
+	move.w	#2048/128-1,d2
+	bsr	vram_kind_fill
+*	パターンネーム（1KB 単位）
+	move.l	offset_ms_vdp_pnametbl_baddr(a5),d0
+	moveq.l	#VK_NAME,d1
+	move.w	#1024/128-1,d2
+	bsr	vram_kind_fill
+*	スプライト属性（128 バイト単位）
+	move.l	offset_ms_vdp_sprattrtbl_baddr(a5),d0
+	moveq.l	#VK_ATTR,d1
+	move.w	#1-1,d2
+	bsr	vram_kind_fill
+	rts
+
+*	d0 ＝ テーブルの先頭番地／d1 ＝ 種別／d2 ＝ 埋めるブロック数-1（2 の冪-1）
+vram_kind_fill:
+	andi.l	#$0001ffff,d0
+	lsr.l	#7,d0			* 128 バイト単位のブロック番号
+*	旧来の比較は番地を領域の大きさで切り下げてから突き合わせている。
+*	個数-1 がそのまま下位ビットのマスクになるので、それで切り下げる。
+	move.w	d2,d3
+	not.w	d3
+	and.w	d3,d0
+	lea.l	vram_kind,a0
+	adda.w	d0,a0
+@@:	move.b	d1,(a0)+
+	dbra	d2,@b
+	rts
+
+	.ifdef	CHECKVKIND
+*
+*	検証用: 表引きの答え（d2）が、旧来の比較の並びと一致するか確かめる。
+*	d0 ＝ VRAM の番地。レジスタは壊さない。
+*
+vram_kind_verify:
+	movem.l	d0-d3/a0-a1,-(sp)
+	movea.l	d0,a0			* 番地を退避
+	moveq.l	#0,d3			* 期待する種別
+	andi.w	#%11111111_10000000,d0
+	cmp.l	offset_ms_vdp_sprattrtbl_baddr(a5),d0
+	bne	@f
+	moveq.l	#VK_ATTR,d3
+	bra	8f
+@@:	move.l	a0,d0
+	andi.w	#%11111100_00000000,d0
+	move.l	offset_ms_vdp_pnametbl_baddr(a5),d1
+	andi.w	#%11111100_00000000,d1
+	cmp.l	d1,d0
+	bne	@f
+	moveq.l	#VK_NAME,d3
+	bra	8f
+@@:	move.l	a0,d0
+	andi.w	#%11111000_00000000,d0
+	cmp.l	offset_ms_vdp_sprpgentbl_baddr(a5),d0
+	bne	@f
+	moveq.l	#VK_SPPG,d3
+	bra	8f
+@@:	move.l	a0,d0
+	andi.w	#%11100000_00000000,d0
+	move.l	offset_ms_vdp_pgentbl_baddr(a5),d1
+	andi.w	#%11100000_00000000,d1
+	cmp.l	d1,d0
+	bne	@f
+	moveq.l	#VK_PGEN,d3
+	bra	8f
+@@:	move.l	offset_ms_vdp_colortbl_baddr(a5),d1
+	andi.w	#%11100000_00000000,d1
+	cmp.l	d1,d0
+	bne	8f
+	moveq.l	#VK_COLOR,d3
+8:	cmp.b	11(sp),d3		* 表引きの答えと突き合わせる
+*	68000 はビッグエンディアンなので、退避した d2 の最下位バイトは 11(sp)
+	beq	9f
+	illegal
+9:	movem.l	(sp)+,d0-d3/a0-a1
+	rts
 	.endif
-	move.b	(a0,d0.l),-4(a6)		* 以前の値を保存
+
+*
+*	SCREEN 2 / SCREEN 4 の VRAM 書き込み
+*
+*	引数はレジスタで渡す。a5 ＝ ms_vdp_t へのポインタ、d1.b ＝ 書き込む値。
+*	write_vdp_0 からのみ呼ばれるため、d0-d3 / a0-a2 / a5 を壊してよい。
+*
+w_GRAPHIC2_mac:
+	movea.l	offset_ms_vdp_vram(a5),a0
+	move.l	offset_ms_vdp_vram_addr(a5),d0	* D0 ・・書き込むアドレス
+	move.b	(a0,d0.l),d3			* 以前の値を保存
 	move.b	d1,(a0,d0.l)			* VRAM へ書き込み
 
-; sprattrtbl_baddrと一致していたらスプライトアトリビュートテーブルへの書き込み
-	andi.w	#%11111111_10000000,d0		* 下位7ビットをクリア
-	move.l	offset_ms_vdp_sprattrtbl_baddr(a5),d2
-	andi.w	#%11111111_10000000,d2
-	cmp.l	d2,d0
-	bne	@f
+*	番地から書き込み先の種別を一発で引く。9 割はここで終わる。
+	move.l	d0,d2
+	lsr.l	#7,d2			* 128 バイト単位のブロック番号
+	andi.w	#1023,d2
+	lea.l	vram_kind,a1
+	move.b	0(a1,d2.w),d2
+	.ifdef	CHECKVKIND
+	bsr	vram_kind_verify	* 検証用: 旧経路と答えが一致するか
+	tst.b	d2			* bsr がフラグを壊すので引き直す
+	.endif
+	beq	9f			* どのテーブルでもない
 
 	.if DIFFDRAW=1 ;差分がある時のみ書き込み
-	cmp.b	#0,-2(a6)			* 差分フラグをチェック
+	cmp.b	d1,d3			* 以前の値と同じなら描き直さない
 	beq	9f
 	.endif
 
-	move.b	-4(a6),d0			* 以前の値を取得
-	bsr	w_SP_attr			* スプライトアトリビュートテーブルへの書き込み
+	move.b	d3,d0			* 以前の値を取得
+	subq.b	#VK_ATTR,d2
+	bne	1f
+	bsr	w_SP_attr		* スプライトアトリビュートテーブルへの書き込み
+	bra	9f
+1:	subq.b	#VK_NAME-VK_ATTR,d2
+	bne	1f
+	bsr	w_p_name_GR2		* パターンネームテーブルへの書き込み
+	bra	9f
+1:	subq.b	#VK_SPPG-VK_NAME,d2
+	bne	1f
+	bsr	w_SP_p_gene		* スプライトパターンジェネレータテーブルへの書き込み
+	bra	9f
+1:	subq.b	#VK_PGEN-VK_SPPG,d2
+	bne	1f
+	bsr	w_p_gene_GR2		* パターンジェネレータテーブルへの書き込み
+	bra	9f
+1:	bsr	w_color_GR2		* カラーテーブルへの書き込み
 
-	bra	9f	; テーブルが重なっている場合もありうるので本当はスキップしてはいけないのだが……
-
-; offset_ms_vdp_pnametbl_baddr(a5)と一致していたらパターンネームテーブルへの書き込み
-@@:	andi.w	#%11111100_00000000,d0		* 下位10ビットをクリア
-	move.l	offset_ms_vdp_pnametbl_baddr(a5),d2
-	andi.w	#%11111100_00000000,d2
-	cmp.l	d2,d0
-	bne	@f
-
-	.if DIFFDRAW=1 ;差分がある時のみ書き込み
-	cmp.b	#0,-2(a6)			* 差分フラグをチェック
-	beq	9f
-	.endif
-
-	move.b	-4(a6),d0			* 以前の値を取得
-	bsr	w_p_name_GR2			* パターンネームテーブルへの書き込み
-
-	bra	9f	; テーブルが重なっている場合もありうるので本当はスキップしてはいけないのだが……
-
-; sprpatgentbl_baddrと一致していたらスプライトパターンジェネレータテーブルへの書き込み
-@@:	andi.w	#%11111000_00000000,d0		* 下位11ビットをクリア
-	move.l	offset_ms_vdp_sprpgentbl_baddr(a5),d2
-	andi.w	#%11111000_00000000,d2
-	cmp.l	d2,d0
-	bne	@f
-
-	.if DIFFDRAW=1 ;差分がある時のみ書き込み
-	cmp.b	#0,-2(a6)			* 差分フラグをチェック
-	beq	9f
-	.endif
-
-	move.b	-4(a6),d0			* 以前の値を取得
-	bsr	w_SP_p_gene			* スプライトパターンジェネレータテーブルへの書き込み
-
-	bra	9f	; テーブルが重なっている場合もありうるので本当はスキップしてはいけないのだが……
-
-; pgentbl_baddr と一致していたらパターンジェネレータテーブルへの書き込み
-@@:	andi.w	#%11100000_00000000,d0		* 下位13ビットをクリア
-	move.l	offset_ms_vdp_pgentbl_baddr(a5),d2
-	andi.w	#%11100000_00000000,d2
-	cmp.l	d2,d0
-	bne	@f
-
-	.if DIFFDRAW=1 ;差分がある時のみ書き込み
-	cmp.b	#0,-2(a6)			* 差分フラグをチェック
-	beq	9f
-	.endif
-
-	move.b	-4(a6),d0			* 以前の値を取得
-	bsr	w_p_gene_GR2			* パターンジェネレータテーブルへの書き込み
-
-	bra	9f	; テーブルが重なっている場合もありうるので本当はスキップしてはいけないのだが……
-
-; colortbl_baddrと一致していたらカラーテーブルへの書き込み
-@@:	move.l	offset_ms_vdp_colortbl_baddr(a5),d2
-	andi.w	#%11100000_00000000,d2
-	cmp.l	d2,d0
-	bne	@f
-
-	.if DIFFDRAW=1 ;差分がある時のみ書き込み
-	cmp.b	#0,-2(a6)			* 差分フラグをチェック
-	beq	9f
-	.endif
-
-	move.b	-4(a6),d0			* 以前の値を取得
-	bsr	w_color_GR2			* カラーテーブルへの書き込み
-
-@@:	* VRAM書き込みアドレスをインクリメント
-9:	move.l	offset_ms_vdp_vram_addr(a5),d0
+9:	* VRAM書き込みアドレスをインクリメント
+	move.l	offset_ms_vdp_vram_addr(a5),d0
 	move.w	d0,d2
-	addq.w	#1,d2				* 上位ワードは変化しないからワードでＯＫ
+	addq.w	#1,d2			* 上位ワードは変化しないからワードでＯＫ
 	andi.w	#%00111111_11111111,d2
 	andi.w	#%11000000_00000000,d0
 	or.w	d2,d0
 	move.l	d0,offset_ms_vdp_vram_addr(a5)
 
-	movem.l	(sp)+,d1-d3/a0-a5
-	unlk	a6
 	rts
 
 * スプライトアトリビュートテーブルへの書き込み
@@ -2570,9 +2769,11 @@ w_color_GR2:
 	andi.l	#%00000000_00011111,d2
 	lsr.w	#5,d1
 	lea.l	rewrite_f_0,a0
-	move.l	(a0,d1.w*4),d0		* rewrite_f_n を読み込み
+	add.w	d1,d1
+	add.w	d1,d1
+	move.l	(a0,d1.w),d0		* rewrite_f_n を読み込み
 	bset.l	d2,d0
-	move.l	d0,(a0,d1.w*4)		* rewrite_f_n へ書き込み
+	move.l	d0,(a0,d1.w)		* rewrite_f_n へ書き込み
 @@:	rts	
 
 w_p_gene_GR2:
@@ -2589,9 +2790,11 @@ w_p_gene_GR2:
 	andi.l	#%00000000_00011111,d2
 	lsr.w	#5,d1
 	lea.l	rewrite_f_0,a0
-	move.l	0(a0,d1.w*4),d0		* rewrite_f_n を読み込み
+	add.w	d1,d1
+	add.w	d1,d1
+	move.l	0(a0,d1.w),d0		* rewrite_f_n を読み込み
 	bset.l	d2,d0
-	move.l	d0,0(a0,d1.w*4)		* rewrite_f_n へ書き込み
+	move.l	d0,0(a0,d1.w)		* rewrite_f_n へ書き込み
 @@:	rts	
 
 *
@@ -2674,28 +2877,24 @@ w_GRAPHIC3_mac:
 	bra	w_GRAPHIC2_mac
 
 
+*
+*	SCREEN 5 の VRAM 書き込み
+*
+*	引数はレジスタで渡す。a5 ＝ ms_vdp_t へのポインタ、d1.b ＝ 書き込む値。
+*	write_vdp_0 からのみ呼ばれるため、d0-d3 / a0-a2 / a5 を壊してよい。
+*
 w_GRAPHIC4_mac:
-	link	a6,#-4
-	movem.l	d1-d3/a0-a5,-(sp)
-
-	movea.l	ms_vdp_shared,a5		* ms_vdp_t へのポインタを取得
-
-	; GRAMアドレス再計算 （デバッグ用）
-	move.l	offset_ms_vdp_vram_addr(a5),d1
-	bsr	s_GRAPHIC4
-
-	move.l	8(a6),d1			* d1 : 引数(書き込む値)を取得
-
 	movea.l	offset_ms_vdp_vram(a5),a0
 	move.l	offset_ms_vdp_vram_addr(a5),d0	* D0 ・・書き込むアドレス
-	move.b	(a0,d0.l),d2
+	move.b	(a0,d0.l),d3			* 以前の値を保存
 	.if DIFFDRAW=1 ;差分描画の実験
-	cmp.b	d1,d2
+	cmp.b	d1,d3
 	bne	@f
+	movea.l	offset_ms_vdp_gram_addr(a5),a0	* a0 を GRAM ポインタへ持ち替える
 	lea	4(a0),a0			* GRAMアドレスインクリメント
 	bra	8f
 	.endif
-@@:	move.b	d2,-4(a6)		* 以前の値を保存
+@@:
 
 ; GRAM書き換え
 	move.b	d1,(a0,d0.l)			* VRAM へ書き込み
@@ -2703,51 +2902,47 @@ w_GRAPHIC4_mac:
 	move.b	d1,d2
 	lsr.w	#4,d2
 	move.w	d2,(a0)				* 上位4ビット
-	move.w	d2,1024*256(a0)			* 円筒スクロール対応
+	movea.l	a0,a1
+	adda.l	#1024*256,a1
+	move.w	d2,(a1)					* 円筒スクロール対応
 	move.w	d1,2(a0)			* 下位4ビット
-	move.w	d1,1024*256+2(a0)		* 円筒スクロール対応
+	move.w	d1,2(a1)				* 円筒スクロール対応
 
 @@:	lea	4(a0),a0			* GRAMアドレスインクリメント
-	move.l	a0,-(sp)
+	movea.l	a0,a2
 
 ; sprattrtbl_baddrと一致していたらスプライトアトリビュートテーブルへの書き込み
 	andi.w	#%11111111_10000000,d0		* 下位7ビットをクリア
-	move.l	offset_ms_vdp_sprattrtbl_baddr(a5),d2
-	andi.w	#%11111111_10000000,d2
-	cmp.l	d2,d0
+	cmp.l	offset_ms_vdp_sprattrtbl_baddr(a5),d0	* 表の番地は整列済みなのでマスクは要らない
 	bne	@f
 
-	move.b	-4(a6),d0			* 以前の値を取得
+	move.b	d3,d0				* 以前の値を取得
 	bsr	w_SP_attr			* スプライトアトリビュートテーブルへの書き込み
 
 	bra	9f	; テーブルが重なっている場合もありうるので本当はスキップしてはいけないのだが……
 
 ; sprcolrtbl_baddrと一致していたらスプライトカラーテーブルへの書き込み
 @@:	andi.w	#%11111110_00000000,d0		* 下位9ビットをクリア
-	move.l	offset_ms_vdp_sprcolrtbl_baddr(a5),d2
-	andi.w	#%11111110_00000000,d2
-	cmp.l	d2,d0
+	cmp.l	offset_ms_vdp_sprcolrtbl_baddr(a5),d0	* 表の番地は整列済みなのでマスクは要らない
 	bne	@f
 
-	move.b	-4(a6),d0			* 以前の値を取得
+	move.b	d3,d0				* 以前の値を取得
 	bsr	w_SP_color			* スプライトカラーテーブルへの書き込み
 
 	bra	9f	; テーブルが重なっている場合もありうるので本当はスキップしてはいけないのだが……
 
 ; sprpatgentbl_baddrと一致していたらスプライトパターンジェネレータテーブルへの書き込み
 @@:	andi.w	#%11111000_00000000,d0		* 下位11ビットをクリア
-	move.l	offset_ms_vdp_sprpgentbl_baddr(a5),d2
-	andi.w	#%11111000_00000000,d2
-	cmp.l	d2,d0
+	cmp.l	offset_ms_vdp_sprpgentbl_baddr(a5),d0	* 表の番地は整列済みなのでマスクは要らない
 	bne	@f
 
-	move.b	-4(a6),d0			* 以前の値を取得
+	move.b	d3,d0				* 以前の値を取得
 	bsr	w_SP_p_gene			* スプライトパターンジェネレータテーブルへの書き込み
 
 	bra	9f	; テーブルが重なっている場合もありうるので本当はスキップしてはいけないのだが……
 
 @@:	* VRAM書き込みアドレスをインクリメント
-9:	move.l	(sp)+,a0
+9:	movea.l	a2,a0
 
 8:	move.l	offset_ms_vdp_vram_addr(a5),d1
 	addq.l	#1,d1				* インクリメント	
@@ -2758,35 +2953,24 @@ w_GRAPHIC4_mac:
 	lea.l	512*2-256*2(a0),a0		* 次のラインへ
 @@:	move.l	a0,offset_ms_vdp_gram_addr(a5)
 
-	movem.l	(sp)+,d1-d3/a0-a5
-	unlk	a6
 	rts
 
+*
+*	SCREEN 6 の VRAM 書き込み
+*
+*	引数はレジスタで渡す。a5 ＝ ms_vdp_t へのポインタ、d1.b ＝ 書き込む値。
+*	write_vdp_0 からのみ呼ばれるため、d0-d3 / a0-a2 / a5 を壊してよい。
+*
 w_GRAPHIC5_mac:
-	link	a6,#-4
-	movem.l	d1-d3/a0-a5,-(sp)
-
-	movea.l	ms_vdp_shared,a5		* ms_vdp_t へのポインタを取得
-	; GRAMアドレス再計算 （デバッグ用）
-	move.l	offset_ms_vdp_vram_addr(a5),d1
-	bsr	s_GRAPHIC5
-
-	move.l	8(a6),d1			* d1 : 引数(書き込む値)を取得
-
 	movea.l	offset_ms_vdp_vram(a5),a0
 	move.l	offset_ms_vdp_vram_addr(a5),d0	* D0 ・・書き込むアドレス
-	.if DIFFDRAW=1 ;差分描画の実験
-	move.b	(a0,d0.l),d2
-	sub.b	d1,d2
-	move.b	d2,-2(a6)			* 差分フラグをセット
-	.endif
-	move.b	(a0,d0.l),-4(a6)		* 以前の値を保存
+	move.b	(a0,d0.l),d3			* 以前の値を保存
 	move.b	d1,(a0,d0.l)			* VRAM へ書き込み
 
 ; GRAM書き換え
 	movea.l	offset_ms_vdp_gram_addr(a5),a0
 	.if DIFFDRAW=1 ;差分がある時のみ書き込み
-	cmp.b	#0,-2(a6)			* 差分フラグをチェック
+	cmp.b	d1,d3				* 以前の値と同じなら書き換えない
 	beq	@f
 	.endif
 
@@ -2794,77 +2978,75 @@ w_GRAPHIC5_mac:
 	andi.w	#%11000000,d2
 	lsr.w	#6,d2
 	move.w	d2,(a0)
+	move.w	d2,1024(a0)		* 縦2倍。1ライン下も埋める
 
 	move.b	d1,d2
 	andi.w	#%00110000,d2
 	lsr.w	#4,d2
 	move.w	d2,2(a0)
+	move.w	d2,1026(a0)
 
 	move.b	d1,d2
 	andi.w	#%00001100,d2
 	lsr.w	#2,d2
 	move.w	d2,4(a0)
+	move.w	d2,1028(a0)
 
 	move.b	d1,d2
 	andi.w	#%00000011,d2
 	move.w	d2,6(a0)
+	move.w	d2,1030(a0)
 
 @@:	lea	8(a0),a0			* GRAMアドレスインクリメント
-	move.l	a0,-(sp)
+	movea.l	a0,a2
 
 ; sprattrtbl_baddrと一致していたらスプライトアトリビュートテーブルへの書き込み
 	andi.w	#%11111111_10000000,d0		* 下位7ビットをクリア
-	move.l	offset_ms_vdp_sprattrtbl_baddr(a5),d2
-	andi.w	#%11111111_10000000,d2
-	cmp.l	d2,d0
+	cmp.l	offset_ms_vdp_sprattrtbl_baddr(a5),d0	* 表の番地は整列済みなのでマスクは要らない
 	bne	@f
 
 	.if DIFFDRAW=1 ;差分がある時のみ書き込み
-	cmp.b	#0,-2(a6)			* 差分フラグをチェック
+	cmp.b	d1,d3				* 以前の値と同じなら書き換えない
 	beq	9f
 	.endif
 
-	move.b	-4(a6),d0			* 以前の値を取得
+	move.b	d3,d0				* 以前の値を取得
 	bsr	w_SP_attr			* スプライトアトリビュートテーブルへの書き込み
 
 	bra	9f	; テーブルが重なっている場合もありうるので本当はスキップしてはいけないのだが……
 
 ; sprcolrtbl_baddrと一致していたらスプライトカラーテーブルへの書き込み
 @@:	andi.w	#%11111110_00000000,d0		* 下位9ビットをクリア
-	move.l	offset_ms_vdp_sprcolrtbl_baddr(a5),d2
-	andi.w	#%11111110_00000000,d2
-	cmp.l	d2,d0
+	cmp.l	offset_ms_vdp_sprcolrtbl_baddr(a5),d0	* 表の番地は整列済みなのでマスクは要らない
 	bne	@f
 
 	.if DIFFDRAW=1 ;差分がある時のみ書き込み
-	cmp.b	#0,-2(a6)			* 差分フラグをチェック
+	cmp.b	d1,d3				* 以前の値と同じなら書き換えない
 	beq	9f
 	.endif
 
-	move.b	-4(a6),d0			* 以前の値を取得
+	move.b	d3,d0				* 以前の値を取得
 	bsr	w_SP_color			* スプライトカラーテーブルへの書き込み
 
 	bra	9f	; テーブルが重なっている場合もありうるので本当はスキップしてはいけないのだが……
 
 ; sprpatgentbl_baddrと一致していたらスプライトパターンジェネレータテーブルへの書き込み
 @@:	andi.w	#%11111000_00000000,d0		* 下位11ビットをクリア
-	move.l	offset_ms_vdp_sprpgentbl_baddr(a5),d2
-	andi.w	#%11111000_00000000,d2
-	cmp.l	d2,d0
+	cmp.l	offset_ms_vdp_sprpgentbl_baddr(a5),d0	* 表の番地は整列済みなのでマスクは要らない
 	bne	@f
 
 	.if DIFFDRAW=1 ;差分がある時のみ書き込み
-	cmp.b	#0,-2(a6)			* 差分フラグをチェック
+	cmp.b	d1,d3				* 以前の値と同じなら書き換えない
 	beq	9f
 	.endif
 
-	move.b	-4(a6),d0			* 以前の値を取得
+	move.b	d3,d0				* 以前の値を取得
 	bsr	w_SP_p_gene			* スプライトパターンジェネレータテーブルへの書き込み
 
 	bra	9f	; テーブルが重なっている場合もありうるので本当はスキップしてはいけないのだが……
 
 @@:	* VRAM書き込みアドレスをインクリメント
-9:	move.l	(sp)+,a0
+9:	movea.l	a2,a0
 
 	move.l	offset_ms_vdp_vram_addr(a5),d1
 	addq.l	#1,d1				* インクリメント	
@@ -2875,100 +3057,84 @@ w_GRAPHIC5_mac:
 	lea.l	1024(a0),a0			* 一ライン飛ばす
 @@:	move.l	a0,offset_ms_vdp_gram_addr(a5)
 
-	movem.l	(sp)+,d1-d3/a0-a5
-	unlk	a6
 	rts
 
+*
+*	SCREEN 7 の VRAM 書き込み
+*
+*	引数はレジスタで渡す。a5 ＝ ms_vdp_t へのポインタ、d1.b ＝ 書き込む値。
+*	write_vdp_0 からのみ呼ばれるため、d0-d3 / a0-a2 / a5 を壊してよい。
+*
 w_GRAPHIC6_mac:
-	link	a6,#-4
-	movem.l	d1-d3/a0-a5,-(sp)
-
-	movea.l	ms_vdp_shared,a5		* ms_vdp_t へのポインタを取得
-
-	; GRAMアドレス再計算 （デバッグ用）
-	move.l	offset_ms_vdp_vram_addr(a5),d1
-	bsr	s_GRAPHIC6
-
-	move.l	8(a6),d1			* d1 : 引数(書き込む値)を取得
-
 	movea.l	offset_ms_vdp_vram(a5),a0
 	move.l	offset_ms_vdp_vram_addr(a5),d0	* D0 ・・書き込むアドレス
-	.if DIFFDRAW=1 ;差分描画の実験
-	move.b	(a0,d0.l),d2
-	sub.b	d1,d2
-	move.b	d2,-2(a6)			* 差分フラグをセット
-	.endif
-	move.b	(a0,d0.l),-4(a6)		* 以前の値を保存
+	move.b	(a0,d0.l),d3			* 以前の値を保存
 	move.b	d1,(a0,d0.l)			* VRAM へ書き込み
 
 ; GRAM書き換え
 	movea.l	offset_ms_vdp_gram_addr(a5),a0
 	.if DIFFDRAW=1 ;差分がある時のみ書き込み
-	cmp.b	#0,-2(a6)			* 差分フラグをチェック
+	cmp.b	d1,d3				* 以前の値と同じなら書き換えない
 	beq	@f
 	.endif
 
 	move.b	d1,d2
 	lsr.w	#4,d2
 	move.w	d2,0(a0)			* 上位4ビット(左側ピクセル)の書き込み
+	move.w	d2,1024(a0)		* 縦2倍。1ライン下も埋める
 	move.w	d1,2(a0)			* 下位4ビット(右側ピクセル)の書き込み
+	move.w	d1,1026(a0)
 
 @@:	lea	4(a0),a0			* GRAMアドレスインクリメント
-	move.l	a0,-(sp)
+	movea.l	a0,a2
 
 ; sprattrtbl_baddrと一致していたらスプライトアトリビュートテーブルへの書き込み
 	andi.w	#%11111111_10000000,d0		* 下位7ビットをクリア
-	move.l	offset_ms_vdp_sprattrtbl_baddr(a5),d2
-	andi.w	#%11111111_10000000,d2
-	cmp.l	d2,d0
+	cmp.l	offset_ms_vdp_sprattrtbl_baddr(a5),d0	* 表の番地は整列済みなのでマスクは要らない
 	bne	@f
 
 	.if DIFFDRAW=1 ;差分がある時のみ書き込み
-	cmp.b	#0,-2(a6)			* 差分フラグをチェック
+	cmp.b	d1,d3				* 以前の値と同じなら書き換えない
 	beq	9f
 	.endif
 
-	move.b	-4(a6),d0			* 以前の値を取得
+	move.b	d3,d0				* 以前の値を取得
 	bsr	w_SP_attr			* スプライトアトリビュートテーブルへの書き込み
 
 	bra	9f	; テーブルが重なっている場合もありうるので本当はスキップしてはいけないのだが……
 
 ; sprcolrtbl_baddrと一致していたらスプライトカラーテーブルへの書き込み
 @@:	andi.w	#%11111110_00000000,d0		* 下位9ビットをクリア
-	move.l	offset_ms_vdp_sprcolrtbl_baddr(a5),d2
-	andi.w	#%11111110_00000000,d2
-	cmp.l	d2,d0
+	cmp.l	offset_ms_vdp_sprcolrtbl_baddr(a5),d0	* 表の番地は整列済みなのでマスクは要らない
 	bne	@f
 
 	.if DIFFDRAW=1 ;差分がある時のみ書き込み
-	cmp.b	#0,-2(a6)			* 差分フラグをチェック
+	cmp.b	d1,d3				* 以前の値と同じなら書き換えない
 	beq	9f
 	.endif
 
-	move.b	-4(a6),d0			* 以前の値を取得
+	move.b	d3,d0				* 以前の値を取得
 	bsr	w_SP_color			* スプライトカラーテーブルへの書き込み
 
 	bra	9f	; テーブルが重なっている場合もありうるので本当はスキップしてはいけないのだが……
 
 ; sprpatgentbl_baddrと一致していたらスプライトパターンジェネレータテーブルへの書き込み
 @@:	andi.w	#%11111000_00000000,d0		* 下位11ビットをクリア
-	move.l	offset_ms_vdp_sprpgentbl_baddr(a5),d2
-	andi.w	#%11111000_00000000,d2
-	cmp.l	d2,d0
+	cmp.l	offset_ms_vdp_sprpgentbl_baddr(a5),d0	* 表の番地は整列済みなのでマスクは要らない
 	bne	@f
 
 	.if DIFFDRAW=1 ;差分がある時のみ書き込み
-	cmp.b	#0,-2(a6)			* 差分フラグをチェック
+	cmp.b	d1,d3				* 以前の値と同じなら書き換えない
 	beq	9f
 	.endif
 
-	move.b	-4(a6),d0			* 以前の値を取得
+	move.b	d3,d0				* 以前の値を取得
 	bsr	w_SP_p_gene			* スプライトパターンジェネレータテーブルへの書き込み
 
 	bra	9f	; テーブルが重なっている場合もありうるので本当はスキップしてはいけないのだが……
 
 @@:	* VRAM書き込みアドレスをインクリメント
-9:	move.l	(sp)+,a0
+9:	movea.l	a2,a0
 
 	move.l	offset_ms_vdp_vram_addr(a5),d1
 	addq.l	#1,d1				* インクリメント	
@@ -2979,97 +3145,81 @@ w_GRAPHIC6_mac:
 	lea.l	1024(a0),a0			* 一ライン飛ばす
 @@:	move.l	a0,offset_ms_vdp_gram_addr(a5)
 
-	movem.l	(sp)+,d1-d3/a0-a5
-	unlk	a6
 	rts
 	
+*
+*	SCREEN 8 の VRAM 書き込み
+*
+*	引数はレジスタで渡す。a5 ＝ ms_vdp_t へのポインタ、d1.b ＝ 書き込む値。
+*	write_vdp_0 からのみ呼ばれるため、d0-d3 / a0-a2 / a5 を壊してよい。
+*
 w_GRAPHIC7_mac:
-	link	a6,#-4
-	movem.l	d1-d3/a0-a5,-(sp)
-
-	movea.l	ms_vdp_shared,a5		* ms_vdp_t へのポインタを取得
-
-	; GRAMアドレス再計算 （デバッグ用）
-	move.l	offset_ms_vdp_vram_addr(a5),d1
-	bsr	s_GRAPHIC7
-
-	move.l	8(a6),d1			* d1 : 引数(書き込む値)を取得
-
 	movea.l	offset_ms_vdp_vram(a5),a0
 	move.l	offset_ms_vdp_vram_addr(a5),d0	* D0 ・・書き込むアドレス
-	.if DIFFDRAW=1 ;差分描画の実験
-	move.b	(a0,d0.l),d2
-	sub.b	d1,d2
-	move.b	d2,-2(a6)			* 差分フラグをセット
-	.endif
-	move.b	(a0,d0.l),-4(a6)		* 以前の値を保存
+	move.b	(a0,d0.l),d3			* 以前の値を保存
 	move.b	d1,(a0,d0.l)			* VRAM へ書き込み
 
 ; GRAM書き換え
 	movea.l	offset_ms_vdp_gram_addr(a5),a0
 	.if DIFFDRAW=1 ;差分がある時のみ書き込み
-	cmp.b	#0,-2(a6)			* 差分フラグをチェック
+	cmp.b	d1,d3				* 以前の値と同じなら書き換えない
 	beq	@f
 	.endif
 	move.w	d1,0(a0)
-	move.w	d1,1024*256(a0)			* 円筒スクロール対応
+	movea.l	a0,a1
+	adda.l	#1024*256,a1
+	move.w	d1,(a1)					* 円筒スクロール対応
 
 @@:	lea	2(a0),a0			* GRAMアドレスインクリメント
-	move.l	a0,-(sp)
+	movea.l	a0,a2
 
 ; sprattrtbl_baddrと一致していたらスプライトアトリビュートテーブルへの書き込み
 	andi.w	#%11111111_10000000,d0		* 下位7ビットをクリア
-	move.l	offset_ms_vdp_sprattrtbl_baddr(a5),d2
-	andi.w	#%11111111_10000000,d2
-	cmp.l	d2,d0
+	cmp.l	offset_ms_vdp_sprattrtbl_baddr(a5),d0	* 表の番地は整列済みなのでマスクは要らない
 	bne	@f
 
 	.if DIFFDRAW=1 ;差分がある時のみ書き込み
-	cmp.b	#0,-2(a6)			* 差分フラグをチェック
+	cmp.b	d1,d3				* 以前の値と同じなら書き換えない
 	beq	9f
 	.endif
 
-	move.b	-4(a6),d0			* 以前の値を取得
+	move.b	d3,d0				* 以前の値を取得
 	bsr	w_SP_attr			* スプライトアトリビュートテーブルへの書き込み
 
 	bra	9f	; テーブルが重なっている場合もありうるので本当はスキップしてはいけないのだが……
 
 ; sprcolrtbl_baddrと一致していたらスプライトカラーテーブルへの書き込み
 @@:	andi.w	#%11111110_00000000,d0		* 下位9ビットをクリア
-	move.l	offset_ms_vdp_sprcolrtbl_baddr(a5),d2
-	andi.w	#%11111110_00000000,d2
-	cmp.l	d2,d0
+	cmp.l	offset_ms_vdp_sprcolrtbl_baddr(a5),d0	* 表の番地は整列済みなのでマスクは要らない
 	bne	@f
 
 	.if DIFFDRAW=1 ;差分がある時のみ書き込み
-	cmp.b	#0,-2(a6)			* 差分フラグをチェック
+	cmp.b	d1,d3				* 以前の値と同じなら書き換えない
 	beq	9f
 	.endif
 
-	move.b	-4(a6),d0			* 以前の値を取得
+	move.b	d3,d0				* 以前の値を取得
 	bsr	w_SP_color			* スプライトカラーテーブルへの書き込み
 
 	bra	9f	; テーブルが重なっている場合もありうるので本当はスキップしてはいけないのだが……
 
 ; sprpatgentbl_baddrと一致していたらスプライトパターンジェネレータテーブルへの書き込み
 @@:	andi.w	#%11111000_00000000,d0		* 下位11ビットをクリア
-	move.l	offset_ms_vdp_sprpgentbl_baddr(a5),d2
-	andi.w	#%11111000_00000000,d2
-	cmp.l	d2,d0
+	cmp.l	offset_ms_vdp_sprpgentbl_baddr(a5),d0	* 表の番地は整列済みなのでマスクは要らない
 	bne	@f
 
 	.if DIFFDRAW=1 ;差分がある時のみ書き込み
-	cmp.b	#0,-2(a6)			* 差分フラグをチェック
+	cmp.b	d1,d3				* 以前の値と同じなら書き換えない
 	beq	9f
 	.endif
 
-	move.b	-4(a6),d0			* 以前の値を取得
+	move.b	d3,d0				* 以前の値を取得
 	bsr	w_SP_p_gene			* スプライトパターンジェネレータテーブルへの書き込み
 
 	bra	9f	; テーブルが重なっている場合もありうるので本当はスキップしてはいけないのだが……
 
 @@:	* VRAM書き込みアドレスをインクリメント
-9:	move.l	(sp)+,a0
+9:	movea.l	a2,a0
 
 	move.l	offset_ms_vdp_vram_addr(a5),d1
 	addq.l	#1,d1				* インクリメント	
@@ -3080,8 +3230,6 @@ w_GRAPHIC7_mac:
 	lea.l	512*2-256*2(a0),a0		* 次のラインへ
 @@:	move.l	a0,offset_ms_vdp_gram_addr(a5)
 
-	movem.l	(sp)+,d1-d3/a0-a5
-	unlk	a6
 	rts
 	
 
@@ -3267,6 +3415,7 @@ DO_LMMC_G5:
 
 loop_x:	.dc.w	0
 loop_y:	.dc.w	0
+	.even
 g_add:	.dc.l	0
 g_add_2:
 	.dc.l	0			* Ｙ方向のループの時に使う
@@ -3524,6 +3673,7 @@ raster_interrupt_line:
 ms_vdp_rewrite_flag_tbl:
 		.dc.l	rewrite_f_0
 
+	.even
 rewrite_f_0:	.dc.l	0
 rewrite_f_1:	.dc.l	0
 rewrite_f_2:	.dc.l	0

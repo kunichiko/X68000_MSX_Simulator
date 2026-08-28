@@ -1,0 +1,9645 @@
+	.cpu 68000
+*
+*	Ｍｓｘ Ｓｉｍｕｌａｔｅｒ
+*
+*		[[[ Ｒ８００ Ｓｉｍｕｌａｔｅｒ ]]]		
+*			ＭＣ６８０３０以降専用バージョン
+*
+*				1995.9.24		by Kuni.
+*
+
+*	TODO:
+*	ＲＥＴＮとＲＥＴＩをちゃんとやってない
+
+; TODO lists
+;
+; # WZレジスタの実装
+; WZレジスタは、LD A,(nn) の nnの値など、内部的なメモリアクセスの際のアドレスを保持するためのレジスタです。
+; Z80の表面的なスペック上は見えませんが、F5,F3レジスタなどにこの値が反映されるケースがあるため、内部的には
+; WZレジスタの値も追従する必要があります。
+;
+; # iレジスタの正確な実装
+; iレジスタは、Mode2割り込みで使用される割り込みベクタの上位8ビットとして使用されます。
+; MSXでは Mode2割り込みは使わないため、正確に実装していません。
+;
+; # rレジスタの正確な実装
+; rレジスタはリフレッシュカウンタとして使われるレジスタのため、正確に実装していません。
+; ただ、稀に乱数のシードなどに使われるケースがあるので、定数だとまずいケースがあり、
+; 適当に実装しています。
+; 正確に実装するためには、後述のZ80のサイクルを正確にカウントする必要があります。
+; 
+; # サイクルカウントの正確な実装
+; Z80のサイクルカウントは、命令ごとに異なるサイクル数が必要です。
+; これを正確に実装するためには、命令ごとにサイクル数をカウントする必要があります。
+
+*	 31     16 15 8 7  0
+*	|         |    | A  |  d4	Ａレジスタ（bit8 以上は常に 0。表の添字に使える）
+*	|         |    | F  |  d6	Ｆレジスタ
+*	| PC page | PC (8k) |  d7
+*	|     registers     |  a3	a3 = レジスターの格納されているアドレス
+*	|    PC Base ADD    |  a4	a4 = PC
+*	|  operand pointer  |  a2	a2 = オペランド列へのポインタ
+*
+*	a2 は命令語長が2以上のときのみ有効で、1段目のオペコードの次のバイトを指す。
+*	ページ境界をまたぐ場合は a4 が operand_buffer を指し、そこに PC+1～PC+3 が複写されている。
+*
+*	【不変条件】
+*	・オペランドの読み出しは、メモリ書き込み・I/O出力・C関数呼び出しより
+*	  先に行う。呼び出し先はいずれも a4 を退避するが、
+*	  Z80の仕様（オペランドは実行前にフェッチ済み）に一致させるため順序を守る。
+*	・読み方は属するジャンプテーブルで決まる。
+*	    instructions      : 前置きで a4 を進めないので (a4)+ で順に読む
+*	    ED_JPT / DDFD_JPT : 前置きが a4 を命令末尾まで進めてあるので
+*	                        負のディスプレースメント -2(a4) / -1(a4) で読む
+*	    DDFD_CB_JPT       : 参照しない（d と OP CODE は DDFD_CB で取得済み）
+*
+*	PC Base ADD + PC(16k) = 実アドレス
+*
+*	PC page は PC(R800) の上位3ビットの値が入っている
+*	PC(8k)  は PC(R800) の下位13ビットの値
+*
+*		PC(R800)  $8100  =  %100____00001_00000000 
+*
+*		=> d7 %00000000_00000100_00000001_00000000
+*
+*	registers:
+*	a:	.dc.b	0	* Aレジスタは d4 を使うから使わない
+*	f:	.dc.b	0	* Fレジスタは d6 を使うから使わない
+*	b:	.dc.b	0
+*	c:	.dc.b	0
+*	d:	.dc.b	0
+*	e:	.dc.b	0
+*	h:	.dc.b	0
+*	l:	.dc.b	0
+*
+*	ix_h:	.dc.b	0
+*	ix_l:	.dc.b	0
+*	iy_h:	.dc.b	0
+*	iy_l:	.dc.b	0
+*
+*	s:	.dc.b	0
+*	p:	.dc.b	0
+*
+
+
+	.include	iocscall.mac
+	.include	doscall.mac
+	.include	ms.mac
+
+	.text
+	.even
+
+	.xref	ms_vdp_slice_exec
+	.xref	ms_vdp_draw_on_int_return
+	.xref	ms_vdp_shared
+offset_ms_vdp_s02		equ	50
+
+	; CPUから見える8Kバイト単位のメモリのポインタ配列。この中で定義する
+	.xdef	ms_cpu_mem_ptr_array
+
+	.xref	dumpsp_c
+
+	.xref	ms_read_mem_8
+	.xdef	ms_cpu_mem_rptr_array
+	.xdef	ms_cpu_mem_wptr_array
+	.xref	ms_read_mem_16
+	.xref	ms_write_mem_8
+	.xref	ms_write_mem_16
+
+	.xref	ms_io_input_table
+	.xref	ms_io_output_table
+
+	.xref	native_jpt_add		* ６８ネイティブルーチンのジャンプテーブル
+
+	; CPUコアに対する割り込み要求フラグ(実CPUのINT端子に相当する)
+	; この1バイトの値が1になるとCPUに対する割り込み要求となる
+	; このフラグ領域は本CPUコアは定義していないので、外部で定義する必要がある
+	; MSXの場合はVDPのステータスレジスタ0のbit7の値が割り込み要求フラグになる
+	.xref	ms_cpu_int
+
+	.xref	HEX
+	.xref	framerate_control
+
+	.xref	ms_vsync_interrupt_tick	; TODO VDP依存を除去
+
+
+	.xdef	f
+
+	.xdef	ms_cpu_emulate
+	.xdef	ms_cpu_step
+	.xdef	ms_cpu_step_break
+	.xdef	ms_instructions_ptr
+	.xdef	ms_cpu_registers_ptr
+	.xdef	ms_cpu_needs_refresh_PC
+
+	.xdef	emu_counter
+	.xdef	emu_counter_latch
+
+	;.xdef	cpu_main
+	.xdef	cpu_sub_emu_yield
+	.xdef	force_yield_check	* 中断要求を立てた側が呼ぶ
+	.xdef	emu_counter_skew	* 前倒しで水増しした分
+	.xdef	cpu_yield		* 一定周期(VSYNC)などで必ず呼び出される割り込み要求
+	.xdef	sub_yield		* その他の要因で呼ばれる割り込み要求
+	.xdef	emu_yield
+	.xdef	cpu_cycle_last
+	.xdef	cpu_cycle_wait
+	.xdef	debug_log_level
+	.xdef	int_skip_counter
+	.xdef	cpu_fast_enabled
+	.xdef	int_exec_counter
+	.xdef	interrupt_history_ptr
+	.xdef	interrupt_history_wr
+	.xdef	interrupt_history_rd
+	.xdef	cpu_in_interrupt
+	.xdef	vdp_draw_pending
+	.xdef	cpu_in_interrupt_d
+
+	.xdef	base
+	.xdef	refresh_PC_if_needed
+
+* レジスタは a3 からの差で引く。base の位置が変わっても追随するよう
+* registers-base を基準にする
+regs	equ	registers-base
+a	equ	regs+0
+f	equ	regs+1
+b	equ	regs+2
+c	equ	regs+3
+d	equ	regs+4
+e	equ	regs+5
+h	equ	regs+6
+l	equ	regs+7
+ix_h	equ	regs+8
+ix_l	equ	regs+9
+iy_h	equ	regs+10
+iy_l	equ	regs+11
+s	equ	regs+12
+p	equ	regs+13
+
+bc	equ	regs+2
+de	equ	regs+4
+hl	equ	regs+6
+ix	equ	regs+8
+iy	equ	regs+10
+sp_	equ	regs+12
+
+a_	equ	regs+14
+f_	equ	regs+15
+b_	equ	regs+16
+c_	equ	regs+17
+d_	equ	regs+18
+e_	equ	regs+19
+h_	equ	regs+20
+l_	equ	regs+21
+
+af_	equ	regs+14
+bc_	equ	regs+16
+de_	equ	regs+18
+hl_	equ	regs+20
+
+r	equ	r_-base
+i	equ	i_-base
+
+wz	equ	wz_-base
+w	equ	w_-base
+z	equ	z_-base
+
+target_16 equ	target_16_-base
+target_8 equ	target_8_-base
+o_yield		equ	cpu_sub_emu_yield-base	* = -8
+o_emucnt	equ	emu_counter-base	* = -4
+* ページポインタ配列も a3 の負オフセットで引く。範囲外なら HAS がエラーを出す
+o_ptr		equ	ms_cpu_mem_ptr_array-base
+o_rptr		equ	ms_cpu_mem_rptr_array-base
+o_wptr		equ	ms_cpu_mem_wptr_array-base
+szp53p		equ	szp53p_tbl-base
+
+MS_LOG_FATAL	equ	1
+MS_LOG_ERROR	equ	2
+MS_LOG_INFO	equ	3
+MS_LOG_DEBUG	equ	4
+MS_LOG_FINE 	equ	5
+MS_LOG_TRACE	equ	6
+MS_LOG_CPUTRACE equ	7
+
+
+PC_page_inc	macro
+		swap	d7
+		addq.w	#1,d7
+		andi.w	#PAGENUMMASK,d7
+		add.w	d7,d7
+		add.w	d7,d7
+		movea.l	o_ptr(a3,d7.w),a4
+		lea.l	$2000(a4),a4		* ページ先頭+8192 を指す
+		lsr.w	#2,d7
+		swap	d7
+		ori.w	#$e000,d7		* 位置を -8192 基準に直す
+		adda.w	d7,a4			* a4 は現在位置を指す
+		endm
+
+PC_page_dec	macro
+		swap	d7
+		subq.w	#1,d7
+		andi.w	#PAGENUMMASK,d7
+		add.w	d7,d7
+		add.w	d7,d7
+		movea.l	o_ptr(a3,d7.w),a4
+		lea.l	$2000(a4),a4		* ページ先頭+8192 を指す
+		lsr.w	#2,d7
+		swap	d7
+		ori.w	#$e000,d7		* 位置を -8192 基準に直す
+		adda.w	d7,a4			* a4 は現在位置を指す
+		endm
+
+PC_page_set	macro			* JP命令等で PCが変わった時の処理
+		* d7.w に新しい PC が入っている。抜けた時は
+		*   d7 上位ワード ＝ ページ番号
+		*   d7 下位ワード ＝ ページ内の位置-8192（$E000～$FFFF）
+		*   a4 ＝ ページの先頭+8192
+		* 位置を負値で持つと、addq のあと 0 になったかどうかだけで
+		* 繰り上がりが分かり、毎命令のマスク 8 サイクルが要らなくなる
+		* d0 は壊す（全 14 箇所で使われていないことを確認済み）
+		move.w	d7,d0
+		andi.w	#$e000,d0
+		rol.w	#5,d0		* ページ番号×4。3 連シフトより 26 サイクル安い
+		ori.w	#$e000,d7		* 位置を -8192 基準にする
+		movea.l	o_ptr(a3,d0.w),a4
+		lea.l	$2000(a4),a4		* ページ先頭+8192 を指す
+		lsr.w	#2,d0		* ページ番号へ戻す
+		swap	d7
+		move.w	d0,d7
+		swap	d7
+		adda.w	d7,a4			* a4 は現在位置を指す
+		endm
+
+*
+*	メモリから 8bit 読む。d0.w のアドレスから読み、d0.b に返す。
+*	高速パスをその場に展開し、ドライバ経由のページと $FFFF の時だけ呼び出す。
+*	ラベルは呼び出し箇所ごとに違う名前を渡すこと。
+*
+read_mem_8	macro	lbl_fast, lbl_slow, lbl_end
+	cmpi.w	#$ffff,d0		* 拡張スロット選択レジスタ
+	bne	lbl_fast		* 低速パスを先に置き、高速パスから bra を外す
+lbl_slow:
+	jsr	ms_read_mem_8
+	bra	lbl_end
+lbl_fast:
+	move.w	d0,d2
+	and.w	d5,d2			* d5 ＝ $E000
+	rol.w	#5,d2			* ページ番号×4
+	move.l	o_rptr(a3,d2.w),d2
+	beq	lbl_slow		* NULL = ドライバ経由
+	movea.l	d2,a1
+	move.b	(a1,d0.w),d0
+lbl_end:
+	endm
+
+*
+*	メモリへ 8bit 書く。d0.w のアドレスへ d1.b を書く。
+*	高速パスをその場に展開し、ドライバ経由のページと $FFFF の時だけ呼び出す。
+*	呼び出した場合はページ切り替えの確認まで行われる。
+*	ラベルは呼び出し箇所ごとに違う名前を渡すこと。
+*
+write_mem_8	macro	lbl_fast, lbl_slow, lbl_end
+	cmpi.w	#$ffff,d0		* 拡張スロット選択レジスタ
+	bne	lbl_fast		* 低速パスを先に置き、高速パスから bra を外す
+lbl_slow:
+	jsr	ms_write_mem_8		* 内部でページ切り替えの確認まで行う
+	bra	lbl_end
+lbl_fast:
+	move.w	d0,d2
+	and.w	d5,d2			* d5 ＝ $E000
+	rol.w	#5,d2			* ページ番号×4
+	move.l	o_wptr(a3,d2.w),d2
+	beq	lbl_slow		* NULL = ドライバ経由
+	movea.l	d2,a1
+	move.b	d1,(a1,d0.w)
+lbl_end:
+	endm
+
+*
+*	メモリから 16bit 読む。d0.w のアドレスから読み、d0.w に返す。
+*	高速パスをその場に展開し、ドライバ経由のページとページ跨ぎの時だけ呼び出す。
+*	ラベルは呼び出し箇所ごとに違う名前を渡すこと。
+*
+read_mem_16	macro	lbl_fast, lbl_slow, lbl_end
+	move.w	d0,d2
+	and.w	d5,d2			* d5 ＝ $E000
+	rol.w	#5,d2			* ページ番号×4
+	move.l	o_rptr(a3,d2.w),d2
+	bne	lbl_fast		* 低速パスを先に置き、高速パスから bra を外す
+lbl_slow:
+	jsr	ms_read_mem_16
+	bra	lbl_end
+lbl_fast:
+	movea.l	d2,a1
+	move.w	d0,d2
+	andi.w	#$1fff,d2
+	cmpi.w	#$1ffe,d2		* 8Kページをまたぐ組か？
+	bcc	lbl_slow
+	adda.w	d0,a1			* 表がページ先頭を引いてあるので生アドレスを足す
+	move.b	1(a1),d0		* 上位バイト
+	ror.w	#8,d0
+	move.b	(a1),d0			* 下位バイト
+lbl_end:
+	endm
+
+*
+*	メモリへ 16bit 書く。d0.w のアドレスへ d1.w を書く。
+*	高速パスをその場に展開し、ドライバ経由のページとページ跨ぎの時だけ呼び出す。
+*	呼び出した場合はページ切り替えの確認まで行われる。
+*	ラベルは呼び出し箇所ごとに違う名前を渡すこと。
+*
+write_mem_16	macro	lbl_fast, lbl_slow, lbl_end
+	move.w	d0,d2
+	and.w	d5,d2			* d5 ＝ $E000
+	rol.w	#5,d2			* ページ番号×4
+	move.l	o_wptr(a3,d2.w),d2
+	bne	lbl_fast		* 低速パスを先に置き、高速パスから bra を外す
+lbl_slow:
+	jsr	ms_write_mem_16		* 内部でページ切り替えの確認まで行う
+	bra	lbl_end
+lbl_fast:
+	movea.l	d2,a1
+	move.w	d0,d2
+	andi.w	#$1fff,d2
+	cmpi.w	#$1ffe,d2		* 8Kページをまたぐ組か？
+	bcc	lbl_slow
+	adda.w	d0,a1			* 表がページ先頭を引いてあるので生アドレスを足す
+	move.b	d1,(a1)			* 下位バイト
+	ror.w	#8,d1
+	move.b	d1,1(a1)		* 上位バイト
+lbl_end:
+	endm
+
+	.text
+
+;
+;
+refresh_PC_if_needed:
+	tst.w	ms_cpu_needs_refresh_PC
+	beq	1f
+	move.w	#0,ms_cpu_needs_refresh_PC
+	swap	d7
+	lea	ms_cpu_mem_ptr_array,a4
+	add.w	d7,d7
+	add.w	d7,d7
+	movea.l	(a4,d7.w),a4
+	lea.l	$2000(a4),a4		* ページ先頭+8192 を指す
+	lsr.w	#2,d7
+	swap	d7
+	adda.w	d7,a4			* a4 は現在位置を指す
+1:	rts
+
+
+	.data
+
+; メモリ書き込みやI/Oポートへの書き込みをした後にこのフラグがセットされていたら、
+; エミュレータはPCを再読み込みする必要がある
+ms_cpu_needs_refresh_PC:
+	.dc.w	0
+
+; 中断確認を前倒しするために emu_counter へ水増しした分。繰り上がり時に差し引く
+	.even
+emu_counter_skew:
+	.dc.l	0
+
+; 中断確認の受け皿として選んだ cpu_main の入口
+	.even
+cpu_main_entry:
+	.dc.l	0
+
+; 選んだ入口が高速版なら 1
+cpu_fast_enabled:
+	.dc.b	0
+
+; EI の次の 1 命令で必ず中断確認へ落とすなら 1
+ei_force_always:
+	.dc.b	0
+
+; EI が実行された印。中断確認へ落ちた時点で写し取って落とす
+ei_pending:
+	.dc.b	0
+
+; 中断確認へ入った時点の ei_pending の写し
+ei_at_yield:
+	.dc.b	0
+
+; cpu_main_patch の元の 1 語と、書き換えて入れる 1 語
+	.even
+cpu_main_patch_org:
+	.dc.w	0
+cpu_main_patch_word:
+	.dc.w	0
+
+; ページ境界をまたぐ命令のオペランドを複写する領域
+	.even
+operand_buffer:
+	.ds.b	4
+
+	.even
+; エッジ処理のアドレス累算器。レジスタに置かない（呼び出し規約に依存しないため）
+edge_addr:
+	.dc.w	0
+edge_next:			* 命令語長ぶん進めた次の PC
+	.dc.w	0
+
+cpu_cycle:
+	.dc.l	0
+cpu_cycle_latch:		* クリアする前にラッチした値
+	.dc.l	0
+cpu_cycle_last:			* C側に見せている値(デバッグ表示中に重くなって値が変わるのを回避)
+	.dc.l	0
+cpu_cycle_wait:
+	.dc.l	0
+emu_counter_latch:
+	.dc.l	0
+emu_counter_latch_r:		* Rレジスタ用のラッチ
+	.dc.l	0
+cpu_cycle_latch_r:		* Rレジスタ用のラッチ（高速版はサイクル数から作る）
+	.dc.l	0
+int_skip_counter:
+	.dc.l	0
+int_exec_counter:
+	.dc.l	0
+emu_yield_div:
+	.dc.w	0
+
+interrupt_history_ptr:
+	.dc.l	interrupt_history
+interrupt_history:
+	; ロングワード*2 *32個のリングバッファ
+	; struct interrupt_history_st {
+	;    unsigned short int_tick;
+	;    unsigned short process_type;
+	;    unsigned long emu_counter;
+	; }
+	; int_tick はその時点の interrupt_tick の値
+	; reason は割り込みが発生した時にどう処理したかを示す
+	; 0x00: EI状態で、正常にZ80に割り込みがかかった
+	; 0x01: EIだったが、emu_counterが framerate_control に達していなかったのでスキップ
+	; 0x02: DI状態のため、Z80の割り込みがスキップされた
+	; emu_counterには、割り込み時の emu_counter - emu_counter_latch の値を格納
+
+	.ds.l	2*32
+interrupt_history_wr:
+	.dc.w	0
+interrupt_history_rd:
+	.dc.w	0
+
+	.text
+	.ifdef	FASTAUDIT
+*
+*	検証用: 旧述語と新述語が一致することを高速経路そのもので確かめる。
+*	bra.b の変位を食わないよう、書き換え語から遠い位置に置く。
+*	破壊: d0/d1/d2
+*
+ei_audit_check:
+	move.l	emu_counter,d0
+	sub.l	ei_at,d0
+	subq.l	#1,d0
+	seq	d1
+	tst.b	ei_at_yield
+	sne	d2
+	cmp.b	d1,d2
+	beq	@f
+	illegal
+@@:	rts
+	.endif
+
+*
+*	命令キャッシュを持たない MPU かどうかを調べる。
+*	IOCS ワークの MPU 種別は 0=68000 1=68010 3=68030 4=68040 6=68060。
+*	通すのは 0 と 1 だけで、それ以外は必ず 0 を返す。
+*	戻り値: d0.b  0 ＝ 通さない／1 ＝ 通す
+*
+cpu_has_no_icache:
+	move.l	a1,-(sp)
+	lea.l	$0cbc.w,a1
+	IOCS	__B_BPEEK
+	andi.l	#$000000ff,d0
+	cmpi.l	#2,d0
+	bcs	@f
+	moveq.l	#0,d0
+	movea.l	(sp)+,a1
+	rts
+@@:	moveq.l	#1,d0
+	movea.l	(sp)+,a1
+	rts
+
+*
+*	高速版を使えるかどうかを判定する。
+*	使えるときだけ a0 に高速版の入口を入れて帰る。
+*	破壊: d0/a0/a1
+*
+cpu_main_select:
+	lea.l	cpu_main_safe(pc),a0
+	.ifdef	NOFAST
+	rts
+	.endif
+	.ifdef	DEBUG
+	rts
+	.endif
+	tst.l	cpu_cycle_wait
+	bne	9f
+	move.l	framerate_control,d0
+	beq	1f			* none
+	addq.l	#1,d0
+	bne	9f			* 1〜99999 は命令数基準なので使えない
+1:
+	.ifndef	FORCEFAST
+	bsr	cpu_has_no_icache
+	tst.b	d0
+	beq	9f
+	.endif
+	lea.l	cpu_main_fast(pc),a0
+	lea.l	cpu_main_patch(pc),a1
+	.ifndef	FASTAUDIT
+	cmpa.l	a0,a1
+	bne	9f			* 入口と書き換え番地が一致しない版では使わない
+	.endif
+	move.l	a1,d0
+	btst.l	#0,d0
+	bne	9f			* 奇数番地では 1 語書き込みができない
+	move.w	(a1),d0
+	cmpi.w	#$4240,d0		* clr.w d0
+	bne	9f			* 想定した 1 語でなければ使わない
+	move.w	d0,cpu_main_patch_org
+	lea.l	cpu_main_fast_wrap(pc),a0
+	suba.l	a1,a0
+	move.l	a0,d0
+	subq.l	#2,d0			* bra.b の変位
+	cmpi.l	#-128,d0
+	blt	9f
+	cmpi.l	#127,d0
+	bgt	9f
+	tst.b	d0
+	beq	9f			* 変位 0 は bra.w になってしまう
+	andi.w	#$00ff,d0
+	ori.w	#$6000,d0
+	move.w	d0,cpu_main_patch_word
+	move.b	#1,cpu_fast_enabled
+	move.b	#1,ei_force_always
+	lea.l	cpu_main_fast(pc),a0
+	rts
+9:	clr.b	cpu_fast_enabled
+	lea.l	cpu_main_safe(pc),a0
+	rts
+
+*
+*	void ms_cpu_emulate(emu_loop_func, cpu_wait);
+*
+ms_cpu_emulate:
+	link	a6,#0
+	movem.l	d3-d7/a0-a5,-(sp)	* ※1 emu_endと対応
+	
+	move.l	8(a6),emu_loop_func	* 引数1のループ関数のポインタを保存しておく
+	move.l	12(a6),cpu_cycle_wait	* 引数2のCPUウエイトを保存しておく
+
+	lea.l	base,a3
+	clr.l	d4			* Ａレジスタ。bit8 以上を 0 にして表の添字に使えるようにする
+	move.l	#$0000e000,d5		* メモリアクセスで使うページ番号の取り出しマスク
+	clr.w	d7			* pc = 0
+	PC_page_set
+	clr.w	ms_cpu_needs_refresh_PC	* 実行開始時。PC_page_set がリフレッシュそのもの
+	clr.w	sp_(a3)			* sp = 0
+	move.b	#$00,interrupt_enable	* DI に
+	clr.b	interrupt_mode		* IM を０に
+
+	clr.l	emu_counter
+	suba.l	a5,a5			* cpu_cycle は a5 に持たせる
+	move.l	#-1,ei_at		* 最初の命令で EI 直後と誤判定しないように
+	clr.l	emu_counter_latch
+	clr.w	emu_yield_div
+	clr.w	interrupt_history_wr
+	clr.w	interrupt_history_rd
+	clr.b	cpu_fast_enabled
+	clr.b	ei_force_always
+	clr.b	ei_pending
+	clr.b	ei_at_yield
+	bsr	cpu_main_select		* ハンドラの戻り先を決める
+	move.l	a0,cpu_main_entry
+	movea.l	a0,a6
+	.ifdef	DEBUG
+	move.b	#1,ei_force_always	* 新旧の述語を毎回突き合わせるため
+	.endif
+	jmp	(a6)
+
+;
+;
+do_wait:
+	cmp.w	#0,interrupt_return		* 割り込み中はウエイトを入れない
+ 	beq	@f
+ 	rts
+@@:	move.l	cpu_cycle_wait,d0
+	bne	1f
+	rts
+	; 単純ループだとアクセラレータなどで負荷がかからないので、VRAMの読み込み&書き込みを行う
+1:	move.w	$C00000,d1
+	move.w	d1,$C00000
+	dbra	d0,1b
+	rts
+
+;
+;
+debug_log_pc:
+	cmp.w	#MS_LOG_CPUTRACE,debug_log_level
+	bge	@f				* ログレベルがCPUTRACEの時のみ
+	rts
+@@:	cmp.w	#0,cpu_in_interrupt		* 割り込み中はログを出力しない
+ 	beq	@f
+ 	rts
+@@:	link	a6,#-2
+	movem.l	d0-d7/a0-a6,-(sp)
+	move.l	d7,d0
+	move.l	d7,d1			* d1.w = 000?????_????????
+	andi.w	#PAGEADDRMASK,d1	* 位置は -8192 基準なので上位 3bit を落とす
+	lsr.l	#3,d0			* d0.w = ppp000??_????????
+	andi.w	#%11100000_00000000,d0	* d1.w = ppp00000_00000000
+	or.w	d1,d0			* d0.w = ppp?????_???????? = PC (R800)
+
+	move.w	d0,-2(a6)		* PCを保存
+
+	cmpi.w	#$0454,d0
+	blt	@f
+	cmpi.w	#$045d,d0
+	ble	9f
+
+@@:	cmpi.w	#$04b7,d0
+	blt	@f
+	cmpi.w	#$04c0,d0
+	ble	9f
+
+@@:	cmpi.w	#$0980,d0
+	blt	@f
+	cmpi.w	#$098f,d0
+	ble	9f
+
+@@:	cmpi.w	#$7b70,d0
+	blt	@f
+	cmpi.w	#$7b7f,d0
+	ble	9f
+
+@@:	cmpi.w	#$7d60,d0
+	blt	@f
+	cmpi.w	#$7d6f,d0
+	ble	9f
+
+@@:	lea.l	HEX,a0
+
+	; PC
+	lea.l	cpu_pc_msg_pc,a1
+	rol.w	#4,d0
+	move.w	d0,d1
+	andi.w	#$0f,d1
+	move.b	(a0,d1.w),(a1)+
+
+	rol.w	#4,d0
+	move.w	d0,d1
+	andi.w	#$0f,d1
+	move.b	(a0,d1.w),(a1)+
+
+	rol.w	#4,d0
+	move.w	d0,d1
+	andi.w	#$0f,d1
+	move.b	(a0,d1.w),(a1)+
+
+	rol.w	#4,d0
+	move.w	d0,d1
+	andi.w	#$0f,d1
+	move.b	(a0,d1.w),(a1)+
+
+	; OPCODE
+	move.w	-2(a6),d0
+	read_mem_16	rd16f1,rd16s1,rd16e1
+	ror.w	#8,d0			* エンディアンを逆にする
+
+	lea.l	HEX,a0
+	lea.l	cpu_pc_msg_opcode,a1
+	rol.w	#4,d0
+	move.w	d0,d1
+	andi.w	#$0f,d1
+	move.b	(a0,d1.w),(a1)+
+
+	rol.w	#4,d0
+	move.w	d0,d1
+	andi.w	#$0f,d1
+	move.b	(a0,d1.w),(a1)+
+
+	add.l	#1,a1
+
+	rol.w	#4,d0
+	move.w	d0,d1
+	andi.w	#$0f,d1
+	move.b	(a0,d1.w),(a1)+
+
+	rol.w	#4,d0
+	move.w	d0,d1
+	andi.w	#$0f,d1
+	move.b	(a0,d1.w),(a1)+
+
+
+	; SP
+	move.w	sp_(a3),d0
+	lea.l	cpu_pc_msg_sp,a1
+
+	rol.w	#4,d0
+	move.w	d0,d1
+	andi.w	#$0f,d1
+	move.b	(a0,d1.w),(a1)+
+
+	rol.w	#4,d0
+	move.w	d0,d1
+	andi.w	#$0f,d1
+	move.b	(a0,d1.w),(a1)+
+
+	rol.w	#4,d0
+	move.w	d0,d1
+	andi.w	#$0f,d1
+	move.b	(a0,d1.w),(a1)+
+
+	rol.w	#4,d0
+	move.w	d0,d1
+	andi.w	#$0f,d1
+	move.b	(a0,d1.w),(a1)+
+
+	; HL
+	move.w	hl(a3),d0
+	lea.l	cpu_pc_msg_hl,a1
+
+	rol.w	#4,d0
+	move.w	d0,d1
+	andi.w	#$0f,d1
+	move.b	(a0,d1.w),(a1)+
+
+	rol.w	#4,d0
+	move.w	d0,d1
+	andi.w	#$0f,d1
+	move.b	(a0,d1.w),(a1)+
+
+	rol.w	#4,d0
+	move.w	d0,d1
+	andi.w	#$0f,d1
+	move.b	(a0,d1.w),(a1)+
+
+	rol.w	#4,d0
+	move.w	d0,d1
+	andi.w	#$0f,d1
+	move.b	(a0,d1.w),(a1)+
+
+	; IX
+	move.w	ix(a3),d0
+	lea.l	cpu_pc_msg_ix,a1
+
+	rol.w	#4,d0
+	move.w	d0,d1
+	andi.w	#$0f,d1
+	move.b	(a0,d1.w),(a1)+
+
+	rol.w	#4,d0
+	move.w	d0,d1
+	andi.w	#$0f,d1
+	move.b	(a0,d1.w),(a1)+
+
+	rol.w	#4,d0
+	move.w	d0,d1
+	andi.w	#$0f,d1
+	move.b	(a0,d1.w),(a1)+
+
+	rol.w	#4,d0
+	move.w	d0,d1
+	andi.w	#$0f,d1
+	move.b	(a0,d1.w),(a1)+
+
+
+	pea.l	cpu_pc_msg
+	DOS	__PRINT
+	lea.l	4(sp),sp
+
+;	move.w	#$d,d1
+;	IOCS	__BITSNS
+	; BITSNSのワークエリアを直接参照
+	move.b	$80d,d0			* F6    : bit0
+	and.b	$80e,d0			* SHIFT : bit0
+	andi.b	#%00000001,d0		* F6とSHIFTの両方が押されているか？
+	move.b	cpu_pc_f6_flg,d1
+	lsl.b	#1,d1
+	or.b	d0,d1			* b1:前回、b0:今回
+	move.b	d1,cpu_pc_f6_flg
+	cmp.b	#%01,d1
+	bne	9f
+	* SHIFT+F6が押されたらこの場でログレベルを一つ戻す(ここで調べないと止まらなくなるため)
+	sub.w	#1,debug_log_level
+
+9:	movem.l	(sp)+,d0-d7/a0-a6
+	unlk	a6
+	rts
+
+	.data
+
+cpu_pc_f6_flg:
+	.dc.b	1
+
+cpu_pc_msg:
+	.dc.b	'PC:'
+cpu_pc_msg_pc:
+	.dc.b	'0000 '
+	.dc.b	'OP:'
+cpu_pc_msg_opcode:
+	.dc.b	'00,00 '
+	.dc.b	'SP:'
+cpu_pc_msg_sp:
+	.dc.b	'0000 '
+	.dc.b	'HL:'
+cpu_pc_msg_hl:
+	.dc.b	'0000 '
+	.dc.b	'IX:'
+cpu_pc_msg_ix:
+	.dc.b	'0000'
+	.dc.b	$0d,$0a,$00
+
+	.text
+	.even
+
+;---------------------------------------------------------------------------------------
+*
+*	yield フラグが立っているときだけ通る冷たい経路。
+*	cpu_main の直前に置く（bne が短分岐に収まるようにするため）。
+*
+*
+*	前倒しで落ちてきた時の後始末
+*
+*	水増しした分を戻す。下位バイトも元の位相に戻るので、
+*	自然な 256 回目の繰り上がりは狂わない。
+*	68000 は命令の途中で割り込まれないので、sub.l は競合しても安全。
+*
+cpu_main_forced:
+	move.w	sr,-(sp)
+	ori.w	#%00000111_00000000,sr	* 補正の途中で前倒しされないようにする
+	move.l	emu_counter_skew,d0	* マスクしてから読み直す
+	sub.l	d0,emu_counter
+	sub.l	d0,emu_counter_skew
+	move.w	(sp)+,sr
+	bra	cpu_main_checked
+
+*
+*	中断要求を立てた側が呼ぶ。次の命令で必ず cpu_main の繰り上がりへ落とす。
+*	emu_counter を水増しし、その分を emu_counter_skew に記録する。
+*	d0 と割り込みマスクは自分で退避する。
+*
+*
+*	割り込み処理から戻ったことを VDP 側へ知らせる。
+*	毎走査線で cpu_in_interrupt を見張る代わりに、下ろす側から通知する。
+*
+int_ret_notify:
+	tst.w	interrupt_return
+	beq	9f			* もともと 0 なら立ち下がりではない
+	move.w	#0,interrupt_return
+	move.w	#1,vdp_draw_pending
+	bra	force_yield_check	* 次の命令で cpu_main_wrap へ落とす
+9:	rts
+
+force_yield_check:
+	tst.b	cpu_fast_enabled
+	bne	9f
+	move.l	d0,-(sp)
+	move.w	sr,-(sp)
+	ori.w	#%00000111_00000000,sr	* 読んで書くまでの間に割り込ませない
+	moveq.l	#0,d0
+	move.b	emu_counter+3,d0
+	not.b	d0			* $ff - 現在値 ＝ 水増しする分
+	add.l	d0,emu_counter_skew
+	move.b	#$ff,emu_counter+3
+	move.w	(sp)+,sr
+	move.l	(sp)+,d0
+	rts
+*	高速版は入口の 1 語を書き換えて次の命令を落とす。
+*	1 語の書き込みは分割されず、値も冪等なので割り込みを塞ぐ必要がない。
+9:	move.w	cpu_main_patch_word,cpu_main_patch
+	rts
+
+cpu_main_yield:
+	bsr	check_yield
+
+	; VDPコマンドの時分割実行
+	;cmp.w	#0,cpu_in_interrupt		* 割り込み中は実行しない
+ 	;bne	cpu_main_next
+	movea.l	ms_vdp_shared,a0
+	btst.b	#0,offset_ms_vdp_s02(a0)
+	beq	cpu_main_yield_end
+	movem.l	d1-d7/a1-a5,-(sp)
+	move.l	a0,-(sp)	* 構造体のアドレスを引数に
+	jsr	ms_vdp_slice_exec
+	lea	4(sp),sp
+	movem.l	(sp)+,d1-d7/a1-a5
+
+	bra	cpu_main_yield_end
+
+cpu_main_yield_end:
+	tst.l	o_yield(a3)		* まだ残っているなら次の命令でも確認する
+	beq	cpu_main_next
+	bsr	force_yield_check
+	tst.b	cpu_fast_enabled
+	bne	cpu_exec_core		* 高速版は 1 命令実行してから落とす
+	bra	cpu_main_next
+
+*
+*	CPU メインループ。ハンドラは jmp (a6) でここへ戻る（a6 ＝ cpu_main）。
+*
+*
+*	ここへ来るのは 256 回に 1 回、または中断要求が前倒しした時。
+*	中断要求は毎命令調べない。立てた側が force_yield_check で
+*	最下位バイトを $FF にし、次の命令をここへ落とす。
+*
+*
+*	高速版で書き換えによって落ちてきた時の入口。
+*	先に元の 1 語へ戻してから、共通の後段へ合流する。
+*	この順序を入れ替えてはならない。状態を読んでから戻すと、
+*	その間に立った要求を消して永久に取りこぼす。
+*
+cpu_main_fast_wrap:
+	move.w	cpu_main_patch_org,cpu_main_patch
+	move.b	ei_pending,ei_at_yield
+	clr.b	ei_pending
+	.ifdef	FASTAUDIT
+	bsr	ei_audit_check
+	.endif
+	bra	cpu_main_checked
+
+cpu_main_wrap:
+	.ifdef	DEBUG
+	move.b	ei_pending,ei_at_yield
+	clr.b	ei_pending
+	.endif
+	add.l	#$100,emu_counter
+	move.l	emu_counter_skew,d0
+	bne	cpu_main_forced		* 前倒しされた時はウエイトを入れない
+	; このタイミングでちょっと重めの処理を入れると、影響が1/256になる
+	; ウエイトが必要な場合はウエイトを入れる
+	bsr	do_wait
+cpu_main_checked:
+	tst.w	vdp_draw_pending
+	bne	cpu_main_draw
+	tst.l	o_yield(a3)
+	bne	cpu_main_yield		* 後方短分岐
+	bra	cpu_main_next
+
+cpu_main_draw:
+	clr.w	vdp_draw_pending
+	jsr	ms_vdp_draw_on_int_return
+	tst.l	o_yield(a3)
+	bne	cpu_main_yield
+	bra	cpu_main_next
+
+cpu_main_safe:
+	.ifdef	CHECKMAIN
+*	検証用: 高速版を選んだ版がここへ来たら a6 の取り違えである
+	tst.b	cpu_fast_enabled
+	beq	@f
+	illegal
+@@:
+	.endif
+	addq.b	#1,(a3)			* emu_counter の最下位バイト
+	bcs	cpu_main_wrap		* 繰り上がった時だけ落ちる。255/256 は不成立の 8 サイクル
+cpu_main_next:
+cpu_main_fast:
+	.ifdef	FASTAUDIT
+*	検証用: 高速経路でも emu_counter を命令数として生かす。
+*	書き換えで飛ぶ命令ぶんも数えるため、書き換え語の手前に置く。
+	addq.l	#1,emu_counter
+	.endif
+	.ifdef	DEBUG
+	bsr	debug_log_pc
+	.endif
+*
+*	ここから下へ落ちて入る。戻りはハンドラ末尾の jmp (a6) だけで 8 サイクル。
+*
+cpu_dispatch:
+cpu_main_patch:				* 中断要求で書き換えられる 1 語
+	clr.w	d0			* d0 の上位ビットを０にクリア
+cpu_dispatch_body:
+	.ifdef	CHECKPC
+*	検証用: PC のページ内位置は常に $E000～$FFFF（位置-8192）でなければならない。
+*	外れていたら直前に実行した命令を d0 に載せて illegal で落とす。
+	cmpi.w	#$e000,d7
+	bcc	@f
+	moveq.l	#0,d0
+	move.b	last_opcode,d0
+	illegal
+@@:
+*	検証用: a4 は常に「現在のページの先頭＋位置」を指していなければならない。
+	movem.l	d0/a0,-(sp)
+	move.l	d7,d0
+	swap	d0			* d0.w = ページ番号
+	andi.w	#PAGENUMMASK,d0
+	add.w	d0,d0
+	add.w	d0,d0
+	movea.l	o_ptr(a3,d0.w),a0
+	lea.l	$2000(a0),a0
+	adda.w	d7,a0
+	cmpa.l	a0,a4
+	beq	9f
+	moveq.l	#0,d0
+	move.b	last_opcode,d0
+	illegal
+9:	movem.l	(sp)+,d0/a0
+	.endif
+	move.b	(a4)+,d0		* 命令を読み込む
+	.ifdef	CHECKPC
+	move.b	d0,last_opcode
+	.endif
+	.ifdef	DEBUG
+	move.b	d0,last_opcode		* 旧判定との照合用
+	moveq.l	#-1,d1			* 前置き方式ではハンドラへ d1/d2 を渡さない
+	moveq.l	#-1,d2
+	.endif
+	add.w	d0,d0
+	add.w	d0,d0
+	movea.l	instructions(pc,d0.w),a0	* 前置きの先頭を取得
+	addq.w	#1,d7			* PC をオペコードのぶんだけ進める。0 になったら境界
+	beq	cpu_page_inc_1		* 8192 回に 1 回だけ。常用経路は不成立の 8 サイクル
+ms_cpu_jmp:				* デバッガでBP設定する時用のラベル
+	.ifdef	CHECKA0
+*	検証用: 表から引いた飛び先が 0 なら、そこで止める
+	move.l	a0,-(sp)
+	tst.l	(sp)+
+	bne	@f
+	illegal
+@@:
+	.endif
+	jmp	(a0)
+
+cpu_page_inc_1:
+	PC_page_inc
+	jmp	(a0)
+
+*
+*	オペランドがページ境界をまたぐ命令の入口。命令語長ごとに用意する。
+*	a0 には前置きがハンドラ本体の先頭を積み直してある。
+*
+cpu_edge_2:
+	moveq.l	#2-1,d2
+	bra	cpu_exec_core_edge
+cpu_edge_3:
+	moveq.l	#3-1,d2
+	bra	cpu_exec_core_edge
+
+cpu_exec_core:				* none_DDFD / ms_cpu_step 用の入口
+	clr.w	d0
+	bra	cpu_dispatch_body
+
+	.even
+*******************************************************************
+*	基本命令ジャンプテーブル
+*	d8(PC,Xn) で引くため cpu_dispatch の近くに置かなければならない。
+*	変位は 8bit しかなく、届かなければ HAS がエラーを出す。
+*******************************************************************
+instructions:
+	.dc.l	nop_h				* $00
+	.dc.l	LD_BC_nn_h
+	.dc.l	LD_lBCl_A_h
+	.dc.l	INC_BC_h
+	.dc.l	INC_B_h
+	.dc.l	DEC_B_h
+	.dc.l	LD_B_n_h
+	.dc.l	RLCA_h
+	.dc.l	EX_AF_AFd_h			* $08
+	.dc.l	ADD_HL_BC_h
+	.dc.l	LD_A_lBCl_h
+	.dc.l	DEC_BC_h
+	.dc.l	INC_C_h
+	.dc.l	DEC_C_h
+	.dc.l	LD_C_n_h
+	.dc.l	RRCA_h				* $0f
+
+	.dc.l	DJNZ_h				* $10
+	.dc.l	LD_DE_nn_h
+	.dc.l	LD_lDEl_A_h
+	.dc.l	INC_DE_h
+	.dc.l	INC_D_h
+	.dc.l	DEC_D_h
+	.dc.l	LD_D_n_h
+	.dc.l	RLA_h
+	.dc.l	JR_h				* $18
+	.dc.l	ADD_HL_DE_h
+	.dc.l	LD_A_lDEl_h
+	.dc.l	DEC_DE_h
+	.dc.l	INC_E_h
+	.dc.l	DEC_E_h
+	.dc.l	LD_E_n_h
+	.dc.l	RRA_h				* $1f
+
+	.dc.l	JR_NZ_h				* $20
+	.dc.l	LD_HL_nn_h
+	.dc.l	LD_lnnl_HL_h
+	.dc.l	INC_HL_h
+	.dc.l	INC_H_h
+	.dc.l	DEC_H_h
+	.dc.l	LD_H_n_h
+	.dc.l	DAA_h
+	.dc.l	JR_Z_h				* $28
+	.dc.l	ADD_HL_HL_h
+	.dc.l	LD_HL_lnnl_h
+	.dc.l	DEC_HL_h
+	.dc.l	INC_L_h
+	.dc.l	DEC_L_h
+	.dc.l	LD_L_n_h
+	.dc.l	CPL_h				* $2f
+
+	.dc.l	JR_NC_h				* $30
+	.dc.l	LD_SP_nn_h
+	.dc.l	LD_lnnl_A_h
+	.dc.l	INC_SP_h
+	.dc.l	INC_lHLl_h
+	.dc.l	DEC_lHLl_h
+	.dc.l	LD_lHLl_n_h
+	.dc.l	SCF_h
+	.dc.l	JR_C_h				* $38
+	.dc.l	ADD_HL_SP_h
+	.dc.l	LD_A_lnnl_h
+	.dc.l	DEC_SP_h
+	.dc.l	INC_A_h
+	.dc.l	DEC_A_h
+	.dc.l	LD_A_n_h
+	.dc.l	CCF_h				* $3f
+
+	.dc.l	LD_B_B_h				* 0
+	.dc.l	LD_B_C_h
+	.dc.l	LD_B_D_h
+	.dc.l	LD_B_E_h
+	.dc.l	LD_B_H_h
+	.dc.l	LD_B_L_h
+	.dc.l	LD_B_lHLl_h
+	.dc.l	LD_B_A_h
+	.dc.l	LD_C_B_h				* $08
+	.dc.l	LD_C_C_h
+	.dc.l	LD_C_D_h
+	.dc.l	LD_C_E_h
+	.dc.l	LD_C_H_h
+	.dc.l	LD_C_L_h
+	.dc.l	LD_C_lHLl_h
+	.dc.l	LD_C_A_h				* $0f
+
+	.dc.l	LD_D_B_h				* $50
+	.dc.l	LD_D_C_h
+	.dc.l	LD_D_D_h
+	.dc.l	LD_D_E_h
+	.dc.l	LD_D_H_h
+	.dc.l	LD_D_L_h
+	.dc.l	LD_D_lHLl_h
+	.dc.l	LD_D_A_h
+	.dc.l	LD_E_B_h				* $58
+	.dc.l	LD_E_C_h
+	.dc.l	LD_E_D_h
+	.dc.l	LD_E_E_h
+	.dc.l	LD_E_H_h
+	.dc.l	LD_E_L_h
+	.dc.l	LD_E_lHLl_h
+	.dc.l	LD_E_A_h				* $5f
+
+	.dc.l	LD_H_B_h				* $60
+	.dc.l	LD_H_C_h
+	.dc.l	LD_H_D_h
+	.dc.l	LD_H_E_h
+	.dc.l	LD_H_H_h
+	.dc.l	LD_H_L_h
+	.dc.l	LD_H_lHLl_h
+	.dc.l	LD_H_A_h
+	.dc.l	LD_L_B_h				* $68
+	.dc.l	LD_L_C_h
+	.dc.l	LD_L_D_h
+	.dc.l	LD_L_E_h
+	.dc.l	LD_L_H_h
+	.dc.l	LD_L_L_h
+	.dc.l	LD_L_lHLl_h
+	.dc.l	LD_L_A_h				* $6f
+
+	.dc.l	LD_lHLl_B_h			* $70
+	.dc.l	LD_lHLl_C_h
+	.dc.l	LD_lHLl_D_h
+	.dc.l	LD_lHLl_E_h
+	.dc.l	LD_lHLl_H_h
+	.dc.l	LD_lHLl_L_h
+	.dc.l	HALT_h
+	.dc.l	LD_lHLl_A_h
+	.dc.l	LD_A_B_h				* $78
+	.dc.l	LD_A_C_h
+	.dc.l	LD_A_D_h
+	.dc.l	LD_A_E_h
+	.dc.l	LD_A_H_h
+	.dc.l	LD_A_L_h
+	.dc.l	LD_A_lHLl_h
+	.dc.l	LD_A_A_h				* $7f
+
+	.dc.l	ADD_A_B_h				* $80
+	.dc.l	ADD_A_C_h
+	.dc.l	ADD_A_D_h
+	.dc.l	ADD_A_E_h
+	.dc.l	ADD_A_H_h
+	.dc.l	ADD_A_L_h
+	.dc.l	ADD_A_lHLl_h
+	.dc.l	ADD_A_A_h
+	.dc.l	ADC_A_B_h				* $88
+	.dc.l	ADC_A_C_h
+	.dc.l	ADC_A_D_h
+	.dc.l	ADC_A_E_h
+	.dc.l	ADC_A_H_h
+	.dc.l	ADC_A_L_h
+	.dc.l	ADC_A_lHLl_h
+	.dc.l	ADC_A_A_h				* $8f
+
+	.dc.l	SUB_B_h				* $90
+	.dc.l	SUB_C_h
+	.dc.l	SUB_D_h
+	.dc.l	SUB_E_h
+	.dc.l	SUB_H_h
+	.dc.l	SUB_L_h
+	.dc.l	SUB_lHLl_h
+	.dc.l	SUB_A_h
+	.dc.l	SBC_A_B_h				* $98
+	.dc.l	SBC_A_C_h
+	.dc.l	SBC_A_D_h
+	.dc.l	SBC_A_E_h
+	.dc.l	SBC_A_H_h
+	.dc.l	SBC_A_L_h
+	.dc.l	SBC_A_lHLl_h
+	.dc.l	SBC_A_A_h				* $9f
+
+	.dc.l	AND_B_h				* $A0
+	.dc.l	AND_C_h
+	.dc.l	AND_D_h
+	.dc.l	AND_E_h
+	.dc.l	AND_H_h
+	.dc.l	AND_L_h
+	.dc.l	AND_lHLl_h
+	.dc.l	AND_A_h
+	.dc.l	XOR_B_h				* $A8
+	.dc.l	XOR_C_h
+	.dc.l	XOR_D_h
+	.dc.l	XOR_E_h
+	.dc.l	XOR_H_h
+	.dc.l	XOR_L_h
+	.dc.l	XOR_lHLl_h
+	.dc.l	XOR_A_h				* $Af
+
+	.dc.l	OR_B_h				* $B0
+	.dc.l	OR_C_h
+	.dc.l	OR_D_h
+	.dc.l	OR_E_h
+	.dc.l	OR_H_h
+	.dc.l	OR_L_h
+	.dc.l	OR_lHLl_h
+	.dc.l	OR_A_h
+	.dc.l	CP_B_h				* $B8
+	.dc.l	CP_C_h
+	.dc.l	CP_D_h
+	.dc.l	CP_E_h
+	.dc.l	CP_H_h
+	.dc.l	CP_L_h
+	.dc.l	CP_lHLl_h
+	.dc.l	CP_A_h				* $Bf
+
+	.dc.l	RET_NZ_h				* $C0
+	.dc.l	POP_BC_h
+	.dc.l	JP_NZ_h
+	.dc.l	JP_h
+	.dc.l	CALL_NZ_h
+	.dc.l	PUSH_BC_h
+	.dc.l	ADD_A_n_h
+	.dc.l	RST_00H_h
+	.dc.l	RET_Z_h				* $C8
+	.dc.l	RET_h
+	.dc.l	JP_Z_h
+	.dc.l	CB_h				* $CB ライン命令
+	.dc.l	CALL_Z_h
+	.dc.l	CALL_h
+	.dc.l	ADC_A_n_h
+	.dc.l	RST_08H_h				* $Cf
+
+	.dc.l	RET_NC_h				* $D0
+	.dc.l	POP_DE_h
+	.dc.l	JP_NC_h
+	.dc.l	OUT_n_A_h
+	.dc.l	CALL_NC_h
+	.dc.l	PUSH_DE_h
+	.dc.l	SUB_n_h
+	.dc.l	RST_10H_h
+	.dc.l	RET_C_h				* $D8
+	.dc.l	EXX_h
+	.dc.l	JP_C_h
+	.dc.l	IN_A_n_h
+	.dc.l	CALL_C_h
+	.dc.l	DD_h				* $DD ライン命令
+	.dc.l	SBC_A_n_h
+	.dc.l	RST_18H_h				* $Df
+
+	.dc.l	RET_PO_h				* $E0
+	.dc.l	POP_HL_h
+	.dc.l	JP_PO_h
+	.dc.l	EX_lSPl_HL_h
+	.dc.l	CALL_PO_h
+	.dc.l	PUSH_HL_h
+	.dc.l	AND_n_h
+	.dc.l	RST_20H_h
+	.dc.l	RET_PE_h				* $E8
+	.dc.l	JP_lHLl_h
+	.dc.l	JP_PE_h
+	.dc.l	EX_DE_HL_h
+	.dc.l	CALL_PE_h
+	.dc.l	ED_h				* $ED ライン命令
+	.dc.l	XOR_n_h
+	.dc.l	RST_28H_h				* $Ef
+
+	.dc.l	RET_P_h				* $F0
+	.dc.l	POP_AF_h
+	.dc.l	JP_P_h
+	.dc.l	DI_h
+	.dc.l	CALL_P_h
+	.dc.l	PUSH_AF_h
+	.dc.l	OR_n_h
+	.dc.l	RST_30H_h
+	.dc.l	RET_M_h				* $F8
+	.dc.l	LD_SP_HL_h
+	.dc.l	JP_M_h
+	.dc.l	EI_h
+	.dc.l	CALL_M_h
+	.dc.l	FD_h				* $FD ライン命令
+	.dc.l	CP_n_h
+	.dc.l	RST_38H_h				* $ff
+
+* オペランドがページ境界をまたぐ命令はここが扱う（コールドパス）。
+*	d2 ＝ 命令語長-1 / a0 ＝ ハンドラ本体 / d7・a4 ＝ オペコードの次の位置
+* このルーチンは ms_read_mem_8 の呼び出し規約に一切依存しない形で書いてある。
+* 復帰後に保証されるのは d7 / a3 / a4 だけであると仮定している。
+* アドレス累算器は edge_addr、書き込み先は絶対アドレス、a0 はスタックに退避する。
+* ここをレジスタ渡しに戻してはならない。
+cpu_exec_core_edge:
+	move.l	a0,-(sp)		* ハンドラを保存
+	; d7 と上位ワードのページ番号から R800 の 16bit アドレスを組み立てる
+	move.l	d7,d0
+	lsr.l	#3,d0			* d0 = ppp000??_????????
+	andi.w	#%11100000_00000000,d0	* d0 = ppp00000_00000000
+	move.w	d7,d1
+	andi.w	#PAGEADDRMASK,d1	* 位置は -8192 基準なので上位 3bit を落とす
+	or.w	d1,d0			* d0.w = オペランド列の先頭
+	move.w	d0,edge_addr		* ここでレジスタ依存を切る
+	add.w	d2,d0			* 語長-1 を足すと次の命令の先頭
+	move.w	d0,edge_next
+	; オペランドを 3 バイト読み直す
+	move.w	edge_addr,d0
+	read_mem_8	rd8f2,rd8s2,rd8e2
+	move.b	d0,operand_buffer+0
+	move.w	edge_addr,d0
+	addq.w	#1,d0
+	read_mem_8	rd8f3,rd8s3,rd8e3
+	move.b	d0,operand_buffer+1
+	move.w	edge_addr,d0
+	addq.w	#2,d0
+	read_mem_8	rd8f4,rd8s4,rd8e4
+	move.b	d0,operand_buffer+2
+	; PC を命令語長ぶん進めた位置へ張り直す
+	move.w	edge_next,d7
+	PC_page_set
+	lea.l	operand_buffer,a4	* (a4)+ で読むハンドラのために a4 も向ける
+	lea.l	cpu_main_after_edge(pc),a6	* 戻り先を差し替える
+	movea.l	(sp)+,a0
+	jmp	(a0)
+
+*	エッジ経路から戻ってきた時だけ通る。ハンドラが PC を変えた場合もあるので
+*	a4 は控えから戻さず d7 から作り直す。
+cpu_main_after_edge:
+	movea.l	cpu_main_entry,a6
+	move.l	d7,d0
+	swap	d0			* d0.w = ページ番号
+	andi.w	#PAGENUMMASK,d0
+	add.w	d0,d0
+	add.w	d0,d0
+	movea.l	o_ptr(a3,d0.w),a4
+	lea.l	$2000(a4),a4
+	adda.w	d7,a4
+	jmp	(a6)
+
+
+;---------------------------------------------------------------------------------------
+
+
+*
+*	次に実行する命令が EI の直後かどうかを返す。
+*	Z=1 のとき EI の直後。
+*	破壊: d0
+*
+ei_just_executed:
+	tst.b	cpu_fast_enabled
+	bne	1f
+	move.l	emu_counter,d0
+	sub.l	ei_at,d0
+	subq.l	#1,d0			* EI の次の命令なら 0
+	rts
+1:	move.b	ei_at_yield,d0
+	subq.b	#1,d0			* 1 なら 0
+	rts
+
+; cpu_yield, sub_yield, emu_yieldのいずれかが0でない場合の中断処理
+check_yield:
+	move.w	sr,d0
+	move.w	d0,-(sp)
+	or.w	#%00000111_00000000,d0	* 一時的に割り込み禁止
+	move.w	d0,sr
+
+	; cpu_yieldの処理
+	cmpi.b	#0,cpu_yield
+	beq	next_sub_yield
+	subq.b	#1,cpu_yield
+	bne	next_sub_yield
+	bra	next_cpu_yield
+
+next_sub_yield:
+	; sub_yieldの処理
+	cmpi.b	#0,sub_yield
+	beq	next_emu_yield
+	subq.b	#1,sub_yield
+	bne	next_emu_yield
+	; sub_yieldが1→0になったので、走査線割り込み処理
+	cmpi.b	#0,interrupt_enable
+	beq	next_emu_yield	* DIなら割り込まない
+	; EI = 1だった場合、割り込みを処理するが、
+	; EIの実行直後の場合は割り込みをスキップする
+	.ifdef	DEBUG
+	; 新旧の述語が一致することを確かめる
+	move.l	emu_counter,d0
+	sub.l	ei_at,d0
+	subq.l	#1,d0
+	seq	d1			* 旧述語
+	tst.b	ei_at_yield
+	sne	d2			* 新述語
+	cmp.b	d1,d2
+	bne	ei_chk_ng1
+	cmpi.b	#$fb,last_opcode
+	seq	d2
+	cmp.b	d1,d2
+	beq	ei_chk_ok1
+ei_chk_ng1:
+	illegal
+ei_chk_ok1:
+	.endif
+	bsr	ei_just_executed
+	bne	@f
+	move.b	#1,sub_yield	; 1つ命令を実行した後にもう一度割り込みを確認するためにsub_yieldを1にする
+	bra	next_emu_yield
+@@:	; あらためて割り込み要求端子の値(ms_cpu_int)を見て割り込み要求があるかどうかを見る
+	cmpi.b	#0,ms_cpu_int
+	beq	next_emu_yield
+	bsr	INT
+	bra	check_yield_rts
+
+next_cpu_yield:
+	; cpu_yieldが1→0になったので、1/60ごとの定期処理を行う
+
+	; まずはCPUサイクル数の保存
+	move.l	a5,d0
+	move.l	d0,cpu_cycle_latch
+	suba.l	a5,a5
+
+	; 割り込み処理
+check_interrupt:
+	cmpi.b	#0,interrupt_enable
+	beq	skip_interrupt	* DIなら割り込まない
+	; EI = 1だった場合、割り込みを処理するが、
+	; EIの実行直後の場合は割り込みをスキップする
+	.ifdef	DEBUG
+	; 新旧の述語が一致することを確かめる
+	move.l	emu_counter,d0
+	sub.l	ei_at,d0
+	subq.l	#1,d0
+	seq	d1			* 旧述語
+	tst.b	ei_at_yield
+	sne	d2			* 新述語
+	cmp.b	d1,d2
+	bne	ei_chk_ng2
+	cmpi.b	#$fb,last_opcode
+	seq	d2
+	cmp.b	d1,d2
+	beq	ei_chk_ok2
+ei_chk_ng2:
+	illegal
+ei_chk_ok2:
+	.endif
+	bsr	ei_just_executed
+	bne	@f
+	move.b	#1,cpu_yield	; 1つ命令を実行した後にもう一度割り込みを確認するためにcpu_yieldを1にする
+	bra	skip_interrupt
+@@:	; あらためて割り込み要求端子の値(ms_cpu_int)を見て割り込み要求があるかどうかを見る
+	cmpi.b	#0,ms_cpu_int
+	beq	next_emu_yield			* 割り込み要求がない場合は次の処理へ
+	addq.l	#1,int_exec_counter
+	bsr	INT
+	move.w	#0,d0
+	bsr	add_interrupt_history
+	move.l	emu_counter,emu_counter_latch	* この時点の値を覚えておく
+	bra	check_yield_rts
+
+skip_interrupt:
+	move.w	#2,d0
+	bsr	add_interrupt_history
+	bra	next_emu_yield
+
+	; emu_yieldの処理
+next_emu_yield:
+	bsr	get_emu_yield_func
+	cmpi.l	#0,d0
+	beq	check_yield_rts
+	; C側の処理を呼び出す
+	movea.l	d0,a0
+	move.l	emu_counter,d0
+	sub.l	emu_counter_latch,d0
+	move.l	cpu_cycle_latch,cpu_cycle_last
+	move.w	(sp)+,sr			* ここで割り込み許可に戻す
+	movem.l	d1-d7/a0-a6,-(sp)
+	move.l	d0,-(sp)			* カウンタ差分を引数として渡す
+	move.l	d7,-(sp)			* PCを引数として渡す
+	jsr	(a0)
+	lea.l	8(sp),sp
+	movem.l	(sp)+,d1-d7/a0-a6
+
+	; C側がメモリマップを変更していた場合に備えて a4 を張り直す。
+	; write_mem_* マクロは refresh_PC_if_needed を呼ばないため、
+	; ここで張り直さないと古いページを指したまま実行が続く。
+	; d7 は上の movem で復元済みなので a4 を正しく再計算できる。
+	; 1/60秒に1回しか通らないコールドパスであり、速度への影響はない。
+	jsr	refresh_PC_if_needed
+	move.l	d0,d0
+	bne	@f
+	rts					* 割り込許可済みなのでそのままrts
+@@:	
+	; 0以外が帰ってきたのでエミュレータを終了
+	; サブルーチンを1段飛ばすために、SPをインクリメント
+	lea.l	4(sp),sp
+	bra	emu_end
+
+check_yield_rts:
+	move.w	(sp)+,sr			* ここで割り込み許可に戻す
+	rts
+
+; emu_yieldの処理
+;
+; 返り値: d0 : C側の処理ルーチンのアドレス(NULLなら何もしない)
+get_emu_yield_func:
+	cmpi.w	#0,emu_yield
+	bne	@f
+	clr.l	d0
+	rts
+@@:	subq.w	#1,emu_yield
+	beq	@f
+	clr.l	d0
+	rts
+
+	; emu_yieldが0になったので、C側の処理を呼び出す
+@@:	move.l	emu_loop_func,d0
+	rts
+
+emu_end:
+	move.l	a5,cpu_cycle		* a5 に持たせていた値をメモリ側へ戻す
+	movem.l	(sp)+,d3-d7/a0-a5
+	movea.l	(sp)+,a6		* a6 は cpu_main を指しているので unlk は使えない
+	moveq.l #-1,d0
+	rts
+dumpsp:
+	movem.l	d0-d7/a0-a6,-(sp)
+	move.l	d6,-(sp)
+	move.l	d4,-(sp)
+	move.l	d7,-(sp)
+	move.l	a4,-(sp)
+	move.l	a0,-(sp)
+	move.w	sp_(a3),-(sp)
+	move.w	#0,-(sp)
+	pea.l	registers
+	jsr	dumpsp_c
+	lea	28(sp),sp
+	movem.l	(sp)+,d0-d7/a0-a6
+	rts
+
+*
+*	void step(ms_cpu_state* context, int count);
+*
+ms_cpu_step_break:
+	.dc.l	0
+
+ms_cpu_step:
+	link	a6,#0
+	movem.l	d3-d7/a0-a5,-(sp)
+	
+	move.l	8(a6),a5	* 引数1のcpu contextへのポインタを取得
+	move.l	a5,step_ctx	* 実行中は a5 を cpu_cycle に使うので控えておく
+	move.l  12(a6),d0	* 引数2のステップ数を取得
+
+	move.l	d0,-(sp)
+
+;	 31     16 15 8 7  0
+;	|         |    | A  |  d4	Ａレジスタ
+;	|         |    | F  |  d6	Ｆレジスタ
+;	| PC page | PC (8k) |  d7
+;	|     registers     |  a3	a3 = レジスターの格納されているアドレス
+;	|    PC Base ADD    |  a4	a4 = PC
+;
+; struct ms_cpu_state {
+;	void* pc_base_addr;
+; 	uint16_t pc, sp, ix, iy;
+; 	uint8_t a, b, c, d, e, h, l;
+; 	uint8_t a_, b_, c_, d_, e_, h_, l_, f_;
+; 	uint8_t i, r;
+;
+; 	uint8_t f;
+;
+;	uint16_t wz;					// 30,31
+;
+; 	uint8_t iff_delay;
+; 	uint8_t interrupt_mode;  // 0: IM0, 1: IM1, 2: IM2
+;
+; 	uint8_t halted;	// 0: normal, 1: halted
+; };
+
+	clr.l	d4
+	move.l	#$0000e000,d5		* メモリアクセスで使うページ番号の取り出しマスク
+	clr.l	d6
+	clr.l	d7
+	lea.l	base,a3
+	;movea.l	(a5),a4			* PC Base ADD
+	move.w	4(a5),d7		* PC(64k)
+	PC_page_set			* 64kのPCをページ番号と16kのPCに分解
+	clr.w	ms_cpu_needs_refresh_PC	* 実行開始時。PC_page_set がリフレッシュそのもの
+	move.w	6(a5),sp_(a3)		* SP
+	move.w	8(a5),ix_h(a3)		* IX
+	move.w	10(a5),iy_h(a3)		* IY
+	move.b	12(a5),d4		* A register
+	move.b	d4,a(a3)		* f5,f3の値などはメモリ上に保持。その他フラグは各種レジスタに保持
+	move.b	13(a5),b(a3)		* B
+	move.b	14(a5),c(a3)		* C
+	move.b	15(a5),d(a3)		* D
+	move.b	16(a5),e(a3)		* E
+	move.b	17(a5),h(a3)		* H
+	move.b	18(a5),l(a3)		* L
+	move.b	19(a5),a_(a3)
+	move.b	20(a5),b_(a3)
+	move.b	21(a5),c_(a3)
+	move.b	22(a5),d_(a3)
+	move.b	23(a5),e_(a3)
+	move.b	24(a5),h_(a3)
+	move.b	25(a5),l_(a3)
+	move.b	26(a5),f_(a3)
+
+	move.b	27(a5),i(a3)
+	move.b	28(a5),r(a3)
+
+	; フラグのセット
+	clr.l	d6
+	move.b	29(a5),d6		* F
+
+	; WZレジスタのセット
+	move.w	30(a5),wz(a3)
+
+	; cycles
+	movea.l	36(a5),a5		* ここから a5 は cpu_cycle
+
+	;
+	;	d0個の命令を実行
+	clr.l	ms_cpu_step_break
+@@:
+	move.l	(sp)+,d0
+@@:	move.l	d0,-(sp)
+
+	lea.l	ms_cpu_step_ret(pc),a6	* ハンドラは jmp (a6) で帰るので継続先を渡す
+	bra	cpu_exec_core
+ms_cpu_step_ret:
+
+	;bsr	dumpsp
+
+	move.l	(sp)+,d0
+	tst.l	ms_cpu_step_break
+	bne	@f
+	subq.l	#1,d0
+	bne	@b
+
+@@:	
+	;	実行後の結果を書き戻す
+	move.l	a5,d0			* a5 に持たせていた cpu_cycle を退避
+	movea.l	step_ctx,a5		* a5 を context ポインタに戻す
+	move.l	d0,36(a5)		* cycles
+	;move.l	a4,(a5)			* PC Base ADD
+	move.l	d7,d0
+	andi.w	#PAGEADDRMASK,d0	* 位置は -8192 基準なので上位 3bit を落とす
+	swap	d7			* d7 = 00000000_00000ppp
+	ror.w	#PAGENUMBIT,d7		* d7 = ppp00000_00000000
+	or.w	d7,d0			* d0 = pppaaaaa_aaaaaaaa = PC (64k)
+	move.w	d0,4(a5)		* PC(64k)
+	move.w	sp_(a3),6(a5)		* SP
+	move.w	ix_h(a3),8(a5)		* IX
+	move.w	iy_h(a3),10(a5)		* IY	
+	move.b	d4,12(a5)		* A
+	move.b	b(a3),13(a5)		* B
+	move.b	c(a3),14(a5)		* C
+	move.b	d(a3),15(a5)		* D
+	move.b	e(a3),16(a5)		* E
+	move.b	h(a3),17(a5)		* H
+	move.b	l(a3),18(a5)		* L
+	move.b	a_(a3),19(a5)
+	move.b	b_(a3),20(a5)
+	move.b	c_(a3),21(a5)
+	move.b	d_(a3),22(a5)
+	move.b	e_(a3),23(a5)
+	move.b	h_(a3),24(a5)
+	move.b	l_(a3),25(a5)
+	move.b	f_(a3),26(a5)
+
+	move.b	i(a3),27(a5)
+	move.b	r(a3),28(a5)
+
+	; フラグの書き戻し処理
+@@:
+	move.b	d6,29(a5)
+
+	; WZレジスタの書き戻し処理
+	move.w	wz(a3),30(a5)
+
+	; cycles
+
+	movem.l	(sp)+,d3-d7/a0-a5
+	movea.l	(sp)+,a6		* a6 は継続先に使ったので unlk は使えない
+	moveq.l #0,d0
+	rts
+
+*
+* 割り込みヒストリに情報を追記します
+*	入力: d0.w	割り込みに対する対応の結果:
+*		 0: EI状態で割り込みがかかった
+*		 1: EIだったがスキップ
+*		 2: DI状態で割り込みがスキップ
+* 	破壊: a0, d0, d1
+*
+add_interrupt_history:
+	lea	interrupt_history,a0
+	move.w	interrupt_history_wr,d1
+	lsl.w	#3,d1
+	move.w	ms_vsync_interrupt_tick,(a0,d1.w)
+	move.w	d0,2(a0,d1.w)
+	move.l	emu_counter,d0
+	sub.l	emu_counter_latch,d0
+	move.l	d0,4(a0,d1.w)
+	lsr.w	#3,d1
+	addq.w	#1,d1				* wrを一つ進める
+	andi.w	#$1f,d1
+	move.w	interrupt_history_rd,d0
+	cmp.w	d0,d1
+	bne	history_not_full
+	; 履歴が一杯になったので、読み出し開始位置をずらず
+	addq.w	#1,d0				※ rdを一つ進める
+	andi.w	#$1f,d0
+history_not_full:
+	move.w	d1,interrupt_history_wr
+	move.w	d0,interrupt_history_rd
+
+	rts
+
+
+*******************************************************************
+* 基本命令ジャンプテーブル
+*******************************************************************
+
+	.data
+	.quad
+
+ms_instructions_ptr:
+	.dc.l	instructions
+
+	.text
+
+*	------ 割り込み処理 ------
+INT:	move.b	#0,interrupt_enable	* DI に
+	cmpi.b	#1,interrupt_mode	* 割り込みがかかった時の処理
+	bhi	mode2
+					* モード０割り込みは実現できない
+mode1:	move.l	d7,d1
+	andi.w	#PAGEADDRMASK,d1	* 位置は -8192 基準なので上位 3bit を落とす
+	swap	d7		* d7 = 00000000_00000ppp
+	ror.w	#PAGENUMBIT,d7	* d7 = ppp00000_00000000
+	or.w	d7,d1		* d1 = pppaaaaa_aaaaaaaa = PC (64k)
+	move.w	d1,interrupt_return	* 戻り先アドレスを保存
+	subq.w	#2,sp_(a3)	* PUSH	
+	move.w	sp_(a3),d0
+	write_mem_16	wr16f1,wr16s1,wr16e1
+
+	move.w	#$0038,d7
+	PC_page_set
+	rts
+
+mode2:	move.l	d7,d1
+	andi.w	#PAGEADDRMASK,d1	* 位置は -8192 基準なので上位 3bit を落とす
+	swap	d7		* d7 = 00000000_00000ppp
+	ror.w	#PAGENUMBIT,d7	* d7 = ppp00000_00000000
+	or.w	d7,d1		* d1 = pppaaaaa_aaaaaaaa = PC (64k)
+	subq.w	#2,sp_(a3)	* PUSH	
+	move.w	sp_(a3),d0
+	write_mem_16	wr16f2,wr16s2,wr16e2
+
+	move.b	i(a3),d0
+	lsl.w	#8,d0
+
+	read_mem_16	rd16f2,rd16s2,rd16e2
+	move.w	d0,d7
+	PC_page_set
+	rts
+
+
+nop_h:
+	addq.w	#4,a5
+nop:	jmp	(a6)
+
+*
+*	-------- ＬＤ --------
+*
+*	------ ＬＤ Ａ,？ ------
+LD_A_A_h:
+	addq.w	#4,a5
+LD_A_A:	jmp	(a6)
+
+LD_A_B_h:
+	addq.w	#4,a5
+LD_A_B:	move.b	b(a3),d4
+	jmp	(a6)
+
+LD_A_C_h:
+	addq.w	#4,a5
+LD_A_C:	move.b	c(a3),d4
+	jmp	(a6)
+
+LD_A_D_h:
+	addq.w	#4,a5
+LD_A_D:	move.b	d(a3),d4
+	jmp	(a6)
+
+LD_A_E_h:
+	addq.w	#4,a5
+LD_A_E:	move.b	e(a3),d4
+	jmp	(a6)
+
+LD_A_H_h:
+	addq.w	#4,a5
+LD_A_H:	move.b	h(a3),d4
+	jmp	(a6)
+
+LD_A_L_h:
+	addq.w	#4,a5
+LD_A_L:	move.b	l(a3),d4
+	jmp	(a6)
+
+LD_A_lHLl_h:
+	addq.w	#7,a5
+LD_A_lHLl:
+	move.w	hl(a3),d0
+	read_mem_8	rd8f5,rd8s5,rd8e5
+	move.b	d0,d4
+	jmp	(a6)
+
+LD_A_lBCl_h:
+	addq.w	#7,a5
+LD_A_lBCl:
+	move.w	bc(a3),d0
+	read_mem_8	rd8f6,rd8s6,rd8e6
+	move.b	d0,d4
+	jmp	(a6)
+
+LD_A_lDEl_h:
+	addq.w	#7,a5
+LD_A_lDEl:
+	move.w	de(a3),d0
+	read_mem_8	rd8f7,rd8s7,rd8e7
+	move.b	d0,d4
+	jmp	(a6)
+
+LD_A_lnnl_h:
+	lea.l	13(a5),a5
+	cmpi.w	#-4,d7	* オペランドがページ境界をまたぐか？
+	.ifdef	EDGEALWAYS
+	lea.l	LD_A_lnnl(pc),a0		* 検証用: 常にエッジ処理を通す
+	jmp	cpu_edge_3
+	.else
+	ble.s	LD_A_lnnl_o
+	lea.l	LD_A_lnnl(pc),a0		* コールドパス。本体の先頭を渡す
+	jmp	cpu_edge_3
+LD_A_lnnl_o:	addq.w	#2,d7			* 残りの PC 前進。a4 は (a4)+ で進む
+	.endif
+LD_A_lnnl:
+	* オペランド列からnnを取り出す
+	move.b	(a4)+,d0		* オペランドの下位バイト
+	move.b	(a4)+,d1		* オペランドの上位バイト
+	lsl.w	#8,d1			* 上位へ送る。下位バイトは 0 になる
+	move.b	d0,d1			* 下位バイトを入れる
+	move.w	d1,d0
+	read_mem_8	rd8f8,rd8s8,rd8e8
+	move.b	d0,d4
+	jmp	(a6)
+
+LD_A_n_h:
+	addq.w	#7,a5
+	cmpi.w	#-4,d7	* オペランドがページ境界をまたぐか？
+	.ifdef	EDGEALWAYS
+	lea.l	LD_A_n(pc),a0		* 検証用: 常にエッジ処理を通す
+	jmp	cpu_edge_2
+	.else
+	ble.s	LD_A_n_o
+	lea.l	LD_A_n(pc),a0		* コールドパス。本体の先頭を渡す
+	jmp	cpu_edge_2
+LD_A_n_o:	addq.w	#1,d7			* 残りの PC 前進。a4 は (a4)+ で進む
+	.endif
+LD_A_n:	* オペランド列からnを取り出す
+	move.b	(a4)+,d4
+	jmp	(a6)
+
+*	------ ＬＤ Ｂ,？ ------
+LD_B_A_h:
+	addq.w	#4,a5
+LD_B_A:	move.b	d4,b(a3)
+	jmp	(a6)
+
+LD_B_B_h:
+	addq.w	#4,a5
+LD_B_B:	jmp	(a6)
+
+LD_B_C_h:
+	addq.w	#4,a5
+LD_B_C:	move.b	c(a3),b(a3)
+	jmp	(a6)
+
+LD_B_D_h:
+	addq.w	#4,a5
+LD_B_D:	move.b	d(a3),b(a3)
+	jmp	(a6)
+
+LD_B_E_h:
+	addq.w	#4,a5
+LD_B_E:	move.b	e(a3),b(a3)
+	jmp	(a6)
+
+LD_B_H_h:
+	addq.w	#4,a5
+LD_B_H:	move.b	h(a3),b(a3)
+	jmp	(a6)
+
+LD_B_L_h:
+	addq.w	#4,a5
+LD_B_L:	move.b	l(a3),b(a3)
+	jmp	(a6)
+
+LD_B_lHLl_h:
+	addq.w	#7,a5
+LD_B_lHLl:
+	move.w	hl(a3),d0
+	read_mem_8	rd8f9,rd8s9,rd8e9
+	move.b	d0,b(a3)
+	jmp	(a6)
+
+LD_B_n_h:
+	addq.w	#7,a5
+	cmpi.w	#-4,d7	* オペランドがページ境界をまたぐか？
+	.ifdef	EDGEALWAYS
+	lea.l	LD_B_n(pc),a0		* 検証用: 常にエッジ処理を通す
+	jmp	cpu_edge_2
+	.else
+	ble.s	LD_B_n_o
+	lea.l	LD_B_n(pc),a0		* コールドパス。本体の先頭を渡す
+	jmp	cpu_edge_2
+LD_B_n_o:	addq.w	#1,d7			* 残りの PC 前進。a4 は (a4)+ で進む
+	.endif
+LD_B_n:	* オペランド列からnを取り出す
+	move.b	(a4)+,b(a3)
+	jmp	(a6)
+
+*	------ ＬＤ Ｃ,？ ------
+LD_C_A_h:
+	addq.w	#4,a5
+LD_C_A:	move.b	d4,c(a3)
+	jmp	(a6)
+
+LD_C_B_h:
+	addq.w	#4,a5
+LD_C_B:	move.b	b(a3),c(a3)
+	jmp	(a6)
+
+LD_C_C_h:
+	addq.w	#4,a5
+LD_C_C:	jmp	(a6)
+
+LD_C_D_h:
+	addq.w	#4,a5
+LD_C_D:	move.b	d(a3),c(a3)
+	jmp	(a6)
+
+LD_C_E_h:
+	addq.w	#4,a5
+LD_C_E:	move.b	e(a3),c(a3)
+	jmp	(a6)
+
+LD_C_H_h:
+	addq.w	#4,a5
+LD_C_H:	move.b	h(a3),c(a3)
+	jmp	(a6)
+
+LD_C_L_h:
+	addq.w	#4,a5
+LD_C_L:	move.b	l(a3),c(a3)
+	jmp	(a6)
+
+LD_C_lHLl_h:
+	addq.w	#7,a5
+LD_C_lHLl:
+	move.w	hl(a3),d0
+	read_mem_8	rd8f10,rd8s10,rd8e10
+	move.b	d0,c(a3)
+	jmp	(a6)
+
+LD_C_n_h:
+	addq.w	#7,a5
+	cmpi.w	#-4,d7	* オペランドがページ境界をまたぐか？
+	.ifdef	EDGEALWAYS
+	lea.l	LD_C_n(pc),a0		* 検証用: 常にエッジ処理を通す
+	jmp	cpu_edge_2
+	.else
+	ble.s	LD_C_n_o
+	lea.l	LD_C_n(pc),a0		* コールドパス。本体の先頭を渡す
+	jmp	cpu_edge_2
+LD_C_n_o:	addq.w	#1,d7			* 残りの PC 前進。a4 は (a4)+ で進む
+	.endif
+LD_C_n:	* オペランド列からnを取り出す
+	move.b	(a4)+,c(a3)
+	jmp	(a6)
+
+*	------ ＬＤ Ｄ,？ ------
+
+LD_D_A_h:
+	addq.w	#4,a5
+LD_D_A:	move.b	d4,d(a3)
+	jmp	(a6)
+
+LD_D_B_h:
+	addq.w	#4,a5
+LD_D_B:	move.b	b(a3),d(a3)
+	jmp	(a6)
+
+LD_D_C_h:
+	addq.w	#4,a5
+LD_D_C:	move.b	c(a3),d(a3)
+	jmp	(a6)
+
+LD_D_D_h:
+	addq.w	#4,a5
+LD_D_D:	jmp	(a6)
+
+LD_D_E_h:
+	addq.w	#4,a5
+LD_D_E:	move.b	e(a3),d(a3)
+	jmp	(a6)
+
+LD_D_H_h:
+	addq.w	#4,a5
+LD_D_H:	move.b	h(a3),d(a3)
+	jmp	(a6)
+
+LD_D_L_h:
+	addq.w	#4,a5
+LD_D_L:	move.b	l(a3),d(a3)
+	jmp	(a6)
+
+LD_D_lHLl_h:
+	addq.w	#7,a5
+LD_D_lHLl:
+	move.w	hl(a3),d0
+	read_mem_8	rd8f11,rd8s11,rd8e11
+	move.b	d0,d(a3)
+	jmp	(a6)
+
+LD_D_n_h:
+	addq.w	#7,a5
+	cmpi.w	#-4,d7	* オペランドがページ境界をまたぐか？
+	.ifdef	EDGEALWAYS
+	lea.l	LD_D_n(pc),a0		* 検証用: 常にエッジ処理を通す
+	jmp	cpu_edge_2
+	.else
+	ble.s	LD_D_n_o
+	lea.l	LD_D_n(pc),a0		* コールドパス。本体の先頭を渡す
+	jmp	cpu_edge_2
+LD_D_n_o:	addq.w	#1,d7			* 残りの PC 前進。a4 は (a4)+ で進む
+	.endif
+LD_D_n:	* オペランド列からnを取り出す
+	move.b	(a4)+,d(a3)
+	jmp	(a6)
+
+*	------ ＬＤ Ｅ,？ ------
+LD_E_A_h:
+	addq.w	#4,a5
+LD_E_A:	move.b	d4,e(a3)
+	jmp	(a6)
+
+LD_E_B_h:
+	addq.w	#4,a5
+LD_E_B:	move.b	b(a3),e(a3)
+	jmp	(a6)
+
+LD_E_C_h:
+	addq.w	#4,a5
+LD_E_C:	move.b	c(a3),e(a3)
+	jmp	(a6)
+
+LD_E_D_h:
+	addq.w	#4,a5
+LD_E_D:	move.b	d(a3),e(a3)
+	jmp	(a6)
+
+LD_E_E_h:
+	addq.w	#4,a5
+LD_E_E:	jmp	(a6)
+
+LD_E_H_h:
+	addq.w	#4,a5
+LD_E_H:	move.b	h(a3),e(a3)
+	jmp	(a6)
+
+LD_E_L_h:
+	addq.w	#4,a5
+LD_E_L:	move.b	l(a3),e(a3)
+	jmp	(a6)
+
+LD_E_lHLl_h:
+	addq.w	#7,a5
+LD_E_lHLl:
+	move.w	hl(a3),d0
+	read_mem_8	rd8f12,rd8s12,rd8e12
+	move.b	d0,e(a3)
+	jmp	(a6)
+
+LD_E_n_h:
+	addq.w	#7,a5
+	cmpi.w	#-4,d7	* オペランドがページ境界をまたぐか？
+	.ifdef	EDGEALWAYS
+	lea.l	LD_E_n(pc),a0		* 検証用: 常にエッジ処理を通す
+	jmp	cpu_edge_2
+	.else
+	ble.s	LD_E_n_o
+	lea.l	LD_E_n(pc),a0		* コールドパス。本体の先頭を渡す
+	jmp	cpu_edge_2
+LD_E_n_o:	addq.w	#1,d7			* 残りの PC 前進。a4 は (a4)+ で進む
+	.endif
+LD_E_n:	* オペランド列からnを取り出す
+	move.b	(a4)+,e(a3)
+	jmp	(a6)
+
+*	------ ＬＤ Ｈ,？ ------
+LD_H_A_h:
+	addq.w	#4,a5
+LD_H_A:	move.b	d4,h(a3)
+	jmp	(a6)
+
+LD_H_B_h:
+	addq.w	#4,a5
+LD_H_B:	move.b	b(a3),h(a3)
+	jmp	(a6)
+
+LD_H_C_h:
+	addq.w	#4,a5
+LD_H_C:	move.b	c(a3),h(a3)
+	jmp	(a6)
+
+LD_H_D_h:
+	addq.w	#4,a5
+LD_H_D:	move.b	d(a3),h(a3)
+	jmp	(a6)
+
+LD_H_E_h:
+	addq.w	#4,a5
+LD_H_E:	move.b	e(a3),h(a3)
+	jmp	(a6)
+
+LD_H_H_h:
+	addq.w	#4,a5
+LD_H_H:	jmp	(a6)
+
+LD_H_L_h:
+	addq.w	#4,a5
+LD_H_L:	move.b	l(a3),h(a3)
+	jmp	(a6)
+
+LD_H_lHLl_h:
+	addq.w	#7,a5
+LD_H_lHLl:
+	move.w	hl(a3),d0
+	read_mem_8	rd8f13,rd8s13,rd8e13
+	move.b	d0,h(a3)
+	jmp	(a6)
+
+LD_H_n_h:
+	addq.w	#7,a5
+	cmpi.w	#-4,d7	* オペランドがページ境界をまたぐか？
+	.ifdef	EDGEALWAYS
+	lea.l	LD_H_n(pc),a0		* 検証用: 常にエッジ処理を通す
+	jmp	cpu_edge_2
+	.else
+	ble.s	LD_H_n_o
+	lea.l	LD_H_n(pc),a0		* コールドパス。本体の先頭を渡す
+	jmp	cpu_edge_2
+LD_H_n_o:	addq.w	#1,d7			* 残りの PC 前進。a4 は (a4)+ で進む
+	.endif
+LD_H_n:	* オペランド列からnを取り出す
+	move.b	(a4)+,h(a3)
+	jmp	(a6)
+
+*	------ ＬＤ Ｌ,？ ------
+LD_L_A_h:
+	addq.w	#4,a5
+LD_L_A:	move.b	d4,l(a3)
+	jmp	(a6)
+
+LD_L_B_h:
+	addq.w	#4,a5
+LD_L_B:	move.b	b(a3),l(a3)
+	jmp	(a6)
+
+LD_L_C_h:
+	addq.w	#4,a5
+LD_L_C:	move.b	c(a3),l(a3)
+	jmp	(a6)
+
+LD_L_D_h:
+	addq.w	#4,a5
+LD_L_D:	move.b	d(a3),l(a3)
+	jmp	(a6)
+
+LD_L_E_h:
+	addq.w	#4,a5
+LD_L_E:	move.b	e(a3),l(a3)
+	jmp	(a6)
+
+LD_L_H_h:
+	addq.w	#4,a5
+LD_L_H:	move.b	h(a3),l(a3)
+	jmp	(a6)
+
+LD_L_L_h:
+	addq.w	#4,a5
+LD_L_L:	jmp	(a6)
+
+LD_L_lHLl_h:
+	addq.w	#7,a5
+LD_L_lHLl:
+	move.w	hl(a3),d0
+	read_mem_8	rd8f14,rd8s14,rd8e14
+	move.b	d0,l(a3)
+	jmp	(a6)
+
+LD_L_n_h:
+	addq.w	#7,a5
+	cmpi.w	#-4,d7	* オペランドがページ境界をまたぐか？
+	.ifdef	EDGEALWAYS
+	lea.l	LD_L_n(pc),a0		* 検証用: 常にエッジ処理を通す
+	jmp	cpu_edge_2
+	.else
+	ble.s	LD_L_n_o
+	lea.l	LD_L_n(pc),a0		* コールドパス。本体の先頭を渡す
+	jmp	cpu_edge_2
+LD_L_n_o:	addq.w	#1,d7			* 残りの PC 前進。a4 は (a4)+ で進む
+	.endif
+LD_L_n:	* オペランド列からnを取り出す
+	move.b	(a4)+,l(a3)
+	jmp	(a6)
+
+*	------ ＬＤ （ＨＬ）,？
+LD_lHLl_A_h:
+	addq.w	#7,a5
+LD_lHLl_A:
+	move.w	hl(a3),d0
+	move.b	d4,d1
+	write_mem_8	wr8f1,wr8s1,wr8e1
+	jmp	(a6)
+
+LD_lHLl_B_h:
+	addq.w	#7,a5
+LD_lHLl_B:
+	move.w	hl(a3),d0
+	move.b	b(a3),d1
+	write_mem_8	wr8f2,wr8s2,wr8e2
+	jmp	(a6)
+
+LD_lHLl_C_h:
+	addq.w	#7,a5
+LD_lHLl_C:
+	move.w	hl(a3),d0
+	move.b	c(a3),d1
+	write_mem_8	wr8f3,wr8s3,wr8e3
+	jmp	(a6)
+
+LD_lHLl_D_h:
+	addq.w	#7,a5
+LD_lHLl_D:
+	move.w	hl(a3),d0
+	move.b	d(a3),d1
+	write_mem_8	wr8f4,wr8s4,wr8e4
+	jmp	(a6)
+
+LD_lHLl_E_h:
+	addq.w	#7,a5
+LD_lHLl_E:
+	move.w	hl(a3),d0
+	move.b	e(a3),d1
+	write_mem_8	wr8f5,wr8s5,wr8e5
+	jmp	(a6)
+
+LD_lHLl_H_h:
+	addq.w	#7,a5
+LD_lHLl_H:
+	move.w	hl(a3),d0
+	move.b	h(a3),d1
+	write_mem_8	wr8f6,wr8s6,wr8e6
+	jmp	(a6)
+
+LD_lHLl_L_h:
+	addq.w	#7,a5
+LD_lHLl_L:
+	move.w	hl(a3),d0
+	move.b	l(a3),d1
+	write_mem_8	wr8f7,wr8s7,wr8e7
+	jmp	(a6)
+
+LD_lHLl_n_h:
+	lea.l	10(a5),a5
+	cmpi.w	#-4,d7	* オペランドがページ境界をまたぐか？
+	.ifdef	EDGEALWAYS
+	lea.l	LD_lHLl_n(pc),a0		* 検証用: 常にエッジ処理を通す
+	jmp	cpu_edge_2
+	.else
+	ble.s	LD_lHLl_n_o
+	lea.l	LD_lHLl_n(pc),a0		* コールドパス。本体の先頭を渡す
+	jmp	cpu_edge_2
+LD_lHLl_n_o:	addq.w	#1,d7			* 残りの PC 前進。a4 は (a4)+ で進む
+	.endif
+LD_lHLl_n:
+	move.w	hl(a3),d0
+	* オペランド列からnを取り出す
+	move.b	(a4)+,d1		* オペランドを取得
+	write_mem_8	wr8f8,wr8s8,wr8e8
+	jmp	(a6)
+
+LD_lBCl_A_h:
+	addq.w	#7,a5
+LD_lBCl_A:
+	move.w	bc(a3),d0
+	move.b	d4,d1
+	write_mem_8	wr8f9,wr8s9,wr8e9
+	jmp	(a6)
+
+LD_lDEl_A_h:
+	addq.w	#7,a5
+LD_lDEl_A:
+	move.w	de(a3),d0
+	move.b	d4,d1
+	write_mem_8	wr8f10,wr8s10,wr8e10
+	jmp	(a6)
+
+LD_lnnl_A_h:
+	lea.l	13(a5),a5
+	cmpi.w	#-4,d7	* オペランドがページ境界をまたぐか？
+	.ifdef	EDGEALWAYS
+	lea.l	LD_lnnl_A(pc),a0		* 検証用: 常にエッジ処理を通す
+	jmp	cpu_edge_3
+	.else
+	ble.s	LD_lnnl_A_o
+	lea.l	LD_lnnl_A(pc),a0		* コールドパス。本体の先頭を渡す
+	jmp	cpu_edge_3
+LD_lnnl_A_o:	addq.w	#2,d7			* 残りの PC 前進。a4 は (a4)+ で進む
+	.endif
+LD_lnnl_A:
+	* オペランド列からnnを取り出す
+	move.b	(a4)+,d0		* オペランドの下位バイト
+	move.b	(a4)+,d1		* オペランドの上位バイト
+	lsl.w	#8,d1			* 上位へ送る。下位バイトは 0 になる
+	move.b	d0,d1			* 下位バイトを入れる
+	move.w	d1,d0
+	move.b	d4,d1
+	write_mem_8	wr8f11,wr8s11,wr8e11
+	jmp	(a6)
+
+
+*	------ ＬＤ ＸＸ,nn ------
+LD_BC_nn_h:
+	lea.l	10(a5),a5
+	cmpi.w	#-4,d7	* オペランドがページ境界をまたぐか？
+	.ifdef	EDGEALWAYS
+	lea.l	LD_BC_nn(pc),a0		* 検証用: 常にエッジ処理を通す
+	jmp	cpu_edge_3
+	.else
+	ble.s	LD_BC_nn_o
+	lea.l	LD_BC_nn(pc),a0		* コールドパス。本体の先頭を渡す
+	jmp	cpu_edge_3
+LD_BC_nn_o:	addq.w	#2,d7			* 残りの PC 前進。a4 は (a4)+ で進む
+	.endif
+LD_BC_nn:
+	* オペランド列からnnを取り出す
+	move.b	(a4)+,d0		* オペランドの下位バイト
+	move.b	(a4)+,d1		* オペランドの上位バイト
+	lsl.w	#8,d1			* 上位へ送る。下位バイトは 0 になる
+	move.b	d0,d1			* 下位バイトを入れる
+	move.w	d1,bc(a3)
+	jmp	(a6)
+
+LD_DE_nn_h:
+	lea.l	10(a5),a5
+	cmpi.w	#-4,d7	* オペランドがページ境界をまたぐか？
+	.ifdef	EDGEALWAYS
+	lea.l	LD_DE_nn(pc),a0		* 検証用: 常にエッジ処理を通す
+	jmp	cpu_edge_3
+	.else
+	ble.s	LD_DE_nn_o
+	lea.l	LD_DE_nn(pc),a0		* コールドパス。本体の先頭を渡す
+	jmp	cpu_edge_3
+LD_DE_nn_o:	addq.w	#2,d7			* 残りの PC 前進。a4 は (a4)+ で進む
+	.endif
+LD_DE_nn:
+	* オペランド列からnnを取り出す
+	move.b	(a4)+,d0		* オペランドの下位バイト
+	move.b	(a4)+,d1		* オペランドの上位バイト
+	lsl.w	#8,d1			* 上位へ送る。下位バイトは 0 になる
+	move.b	d0,d1			* 下位バイトを入れる
+	move.w	d1,de(a3)
+	jmp	(a6)
+
+LD_HL_nn_h:
+	lea.l	10(a5),a5
+	cmpi.w	#-4,d7	* オペランドがページ境界をまたぐか？
+	.ifdef	EDGEALWAYS
+	lea.l	LD_HL_nn(pc),a0		* 検証用: 常にエッジ処理を通す
+	jmp	cpu_edge_3
+	.else
+	ble.s	LD_HL_nn_o
+	lea.l	LD_HL_nn(pc),a0		* コールドパス。本体の先頭を渡す
+	jmp	cpu_edge_3
+LD_HL_nn_o:	addq.w	#2,d7			* 残りの PC 前進。a4 は (a4)+ で進む
+	.endif
+LD_HL_nn:
+	* オペランド列からnnを取り出す
+	move.b	(a4)+,d0		* オペランドの下位バイト
+	move.b	(a4)+,d1		* オペランドの上位バイト
+	lsl.w	#8,d1			* 上位へ送る。下位バイトは 0 になる
+	move.b	d0,d1			* 下位バイトを入れる
+	move.w	d1,hl(a3)
+	jmp	(a6)
+
+LD_SP_nn_h:
+	lea.l	10(a5),a5
+	cmpi.w	#-4,d7	* オペランドがページ境界をまたぐか？
+	.ifdef	EDGEALWAYS
+	lea.l	LD_SP_nn(pc),a0		* 検証用: 常にエッジ処理を通す
+	jmp	cpu_edge_3
+	.else
+	ble.s	LD_SP_nn_o
+	lea.l	LD_SP_nn(pc),a0		* コールドパス。本体の先頭を渡す
+	jmp	cpu_edge_3
+LD_SP_nn_o:	addq.w	#2,d7			* 残りの PC 前進。a4 は (a4)+ で進む
+	.endif
+LD_SP_nn:
+	* オペランド列からnnを取り出す
+	move.b	(a4)+,d0		* オペランドの下位バイト
+	move.b	(a4)+,d1		* オペランドの上位バイト
+	lsl.w	#8,d1			* 上位へ送る。下位バイトは 0 になる
+	move.b	d0,d1			* 下位バイトを入れる
+	move.w	d1,sp_(a3)
+	jmp	(a6)
+
+LD_SP_HL_h:
+	addq.w	#6,a5
+LD_SP_HL:
+	move.w	hl(a3),sp_(a3)
+	jmp	(a6)
+
+
+*	------ ＬＤ ＨＬ,(nn) ------
+LD_HL_lnnl_h:
+	lea.l	16(a5),a5
+	cmpi.w	#-4,d7	* オペランドがページ境界をまたぐか？
+	.ifdef	EDGEALWAYS
+	lea.l	LD_HL_lnnl(pc),a0		* 検証用: 常にエッジ処理を通す
+	jmp	cpu_edge_3
+	.else
+	ble.s	LD_HL_lnnl_o
+	lea.l	LD_HL_lnnl(pc),a0		* コールドパス。本体の先頭を渡す
+	jmp	cpu_edge_3
+LD_HL_lnnl_o:	addq.w	#2,d7			* 残りの PC 前進。a4 は (a4)+ で進む
+	.endif
+LD_HL_lnnl:
+	* オペランド列からnnを取り出す
+	move.b	(a4)+,d0		* オペランドの下位バイト
+	move.b	(a4)+,d1		* オペランドの上位バイト
+	lsl.w	#8,d1			* 上位へ送る。下位バイトは 0 になる
+	move.b	d0,d1			* 下位バイトを入れる
+	move.w	d1,d0
+	read_mem_16	rd16f3,rd16s3,rd16e3
+	move.w	d0,hl(a3)
+	jmp	(a6)
+
+*	------ ＬＤ (nn),ＨＬ ------
+LD_lnnl_HL_h:
+	lea.l	16(a5),a5
+	cmpi.w	#-4,d7	* オペランドがページ境界をまたぐか？
+	.ifdef	EDGEALWAYS
+	lea.l	LD_lnnl_HL(pc),a0		* 検証用: 常にエッジ処理を通す
+	jmp	cpu_edge_3
+	.else
+	ble.s	LD_lnnl_HL_o
+	lea.l	LD_lnnl_HL(pc),a0		* コールドパス。本体の先頭を渡す
+	jmp	cpu_edge_3
+LD_lnnl_HL_o:	addq.w	#2,d7			* 残りの PC 前進。a4 は (a4)+ で進む
+	.endif
+LD_lnnl_HL:
+	* オペランド列からnnを取り出す
+	move.b	(a4)+,d0		* オペランドの下位バイト
+	move.b	(a4)+,d1		* オペランドの上位バイト
+	lsl.w	#8,d1			* 上位へ送る。下位バイトは 0 になる
+	move.b	d0,d1			* 下位バイトを入れる
+	move.w	d1,d0
+	move.w	hl(a3),d1
+	write_mem_16	wr16f3,wr16s3,wr16e3
+	jmp	(a6)
+
+*------ ＡＤＤ ------
+
+;---------------------------------------------------------------------------------------
+ADD_A_X macro
+* フラグを 8 つとも確定させる。ダーティビットは一つも立てない。
+*   H  ＝ (第1項 ^ 第2項 ^ 結果) の bit4
+*   C  ＝ 68000 の演算が立てる X（ANDI は X を変えないので roxl で拾える）
+*   P/V ＝ 68000 の演算が立てる V
+*   S・F5・F3 ＝ 結果のビットをそのまま取る
+*   Z  ＝ 結果がゼロか
+	move.b	d4,d1			* 第1項
+	eor.b	d0,d1			* 第1項 ^ 第2項
+	add.b	d0,d4			* 演算実行。C・V・X が確定する
+	svs	d3			* V を取り出す
+	andi.b	#%00000010,d3		* bit1 ＝ V。ANDI は X を変えない
+	roxl.b	#1,d3			* V→bit2、X(＝C)→bit0
+	eor.b	d4,d1			* 第1項 ^ 第2項 ^ 結果
+	andi.b	#%00010000,d1		* bit4 ＝ H
+	or.b	d3,d1			* H | P/V | C
+	move.b	d4,d0			* 結果
+	andi.b	#%10101000,d0		* S,F5,F3
+	tst.b	d4
+	bne	@f
+	ori.b	#%01000000,d0		* Z
+@@:	or.b	d0,d1
+	moveq.l	#0,d6			* ダーティも F も全部落とす（N=0）
+	move.b	d1,d6
+	endm
+;---------------------------------------------------------------------------------------
+
+ADD_A_A_h:
+	addq.w	#4,a5
+ADD_A_A:
+* A+A は H・C・P/V をその場で確定できるので、ADD_A_X を使わない。
+*   C ＝ bit7 からの桁上げ ＝ 元の A の bit7
+*   H ＝ bit3 からの桁上げ ＝ 元の A の bit3
+* Z80 の F は bit0 が C、bit4 が H なので、1 ビット左回転で両方が所定の位置に来る。
+*   P/V ＝ 符号付き桁溢れ。68000 の add.b が立てる V と一致する
+* S,Z,F5,F3 も結果から直接作る。
+	move.b	d4,d0			* 元の A
+	add.b	d0,d4			* 演算実行。ここで V が確定する
+	svs	d1			* V ＝ Z80 の P/V
+	rol.b	#1,d0			* bit7→bit0(C)、bit3→bit4(H)
+	andi.b	#%00010001,d0		* H と C だけ残す
+	andi.b	#%00000100,d1		* P/V だけ残す
+	or.b	d1,d0
+	move.b	d4,d1			* 結果
+	andi.b	#%10101000,d1		* S,F5,F3
+	tst.b	d4
+	bne	@f
+	ori.b	#%01000000,d1		* Z
+@@:	or.b	d1,d0
+	moveq.l	#0,d6			* ダーティも F も全部落とす（N=0）
+	move.b	d0,d6
+	jmp	(a6)
+
+ADD_A_B_h:
+	addq.w	#4,a5
+ADD_A_B:
+	move.b	b(a3),d0
+	ADD_A_X
+	jmp	(a6)
+
+ADD_A_C_h:
+	addq.w	#4,a5
+ADD_A_C:
+	move.b	c(a3),d0
+	ADD_A_X
+	jmp	(a6)
+
+ADD_A_D_h:
+	addq.w	#4,a5
+ADD_A_D:
+	move.b	d(a3),d0
+	ADD_A_X
+	jmp	(a6)
+
+ADD_A_E_h:
+	addq.w	#4,a5
+ADD_A_E:
+	move.b	e(a3),d0
+	ADD_A_X
+	jmp	(a6)
+
+ADD_A_H_h:
+	addq.w	#4,a5
+ADD_A_H:
+	move.b	h(a3),d0
+	ADD_A_X
+	jmp	(a6)
+
+ADD_A_L_h:
+	addq.w	#4,a5
+ADD_A_L:
+	move.b	l(a3),d0
+	ADD_A_X
+	jmp	(a6)
+
+ADD_A_lHLl_h:
+	addq.w	#7,a5
+ADD_A_lHLl:
+	move.w	hl(a3),d0
+	read_mem_8	rd8f15,rd8s15,rd8e15
+	ADD_A_X
+	jmp	(a6)
+
+ADD_A_n_h:
+	addq.w	#7,a5
+	cmpi.w	#-4,d7	* オペランドがページ境界をまたぐか？
+	.ifdef	EDGEALWAYS
+	lea.l	ADD_A_n(pc),a0		* 検証用: 常にエッジ処理を通す
+	jmp	cpu_edge_2
+	.else
+	ble.s	ADD_A_n_o
+	lea.l	ADD_A_n(pc),a0		* コールドパス。本体の先頭を渡す
+	jmp	cpu_edge_2
+ADD_A_n_o:	addq.w	#1,d7			* 残りの PC 前進。a4 は (a4)+ で進む
+	.endif
+ADD_A_n:
+	* オペランド列からnを取り出す
+	move.b	(a4)+,d0
+	ADD_A_X
+	jmp	(a6)
+
+;---------------------------------------------------------------------------------------
+; ADD HL,XX の挙動は以下の通り
+; * S : 変化しない
+; * Z : 変化しない
+; * F5: 上位8bitの加算の結果のbit5
+; * H : 上位8bitの加算の実行によるハーフキャリー
+; * F3: 上位8bitの加算の結果のbit5
+; * PV: 変化しない
+; * N : 0
+; * C : 上位8bitの加算の実行によるキャリー
+ADD_HL_XX macro
+* ADD HL,rr は S・Z・P/V を変えない。H・C・F5・F3 だけを組み立てる。
+*   H  ＝ bit11 からの桁上げ ＝ (第1項 ^ 第2項 ^ 結果) の上位バイトの bit4
+*   C  ＝ bit15 からの桁上げ
+*   F5・F3 ＝ 結果の上位バイト
+	move.b	l(a3),d0
+	add.b	target_16+1(a3),d0	* 下位バイトを加算。X に桁上げが残る
+	move.b	d0,l(a3)
+	move.b	h(a3),d1		* 上位バイト
+	move.b	target_16(a3),d2
+	move.b	d1,d3
+	eor.b	d2,d3			* 第1項 ^ 第2項（上位バイト）
+	addx.b	d2,d1			* 上位バイトを加算。C が確定する
+	scs	d2			* C を取り出す（Scc は CCR を変えない）
+	move.b	d1,h(a3)
+	eor.b	d1,d3			* ^ 結果 → bit4 が H
+	andi.b	#%00010000,d3
+	andi.b	#%00000001,d2
+	or.b	d2,d3
+	move.b	d1,d2			* 結果の上位バイト
+	andi.b	#%00101000,d2		* F5,F3
+	or.b	d2,d3
+	andi.b	#%11000100,d6		* S,Z,P/V だけ残す
+	or.b	d3,d6
+	endm
+;---------------------------------------------------------------------------------------
+
+ADD_HL_BC_h:
+	lea.l	11(a5),a5
+ADD_HL_BC:
+	move.w	bc(a3),target_16(a3)
+	ADD_HL_XX
+	jmp	(a6)
+
+ADD_HL_DE_h:
+	lea.l	11(a5),a5
+ADD_HL_DE:
+	move.w	de(a3),target_16(a3)
+	ADD_HL_XX
+	jmp	(a6)
+
+ADD_HL_HL_h:
+	lea.l	11(a5),a5
+ADD_HL_HL:
+	move.w	hl(a3),target_16(a3)
+	ADD_HL_XX
+	jmp	(a6)
+
+ADD_HL_SP_h:
+	lea.l	11(a5),a5
+ADD_HL_SP:
+	move.w	sp_(a3),target_16(a3)
+	ADD_HL_XX
+	jmp	(a6)
+
+
+*	------ ＡＤＣ ------
+;---------------------------------------------------------------------------------------
+ADC_A_X macro
+	move.w	d0,-(sp)
+@@:
+	move.w	(sp)+,d0
+	btst.l	#0,d6
+	beq	ADC_A_X_fallback	* Cy が０の時 ADD と同じ
+	; b1  : 加算なのでN=0
+* ADD と同じ手で 8 つとも確定させる。H の式は事前キャリーがあっても同じ
+	move.b	target_8(a3),d0		* 第2項
+	move.b	d4,d1
+	eor.b	d0,d1			* 第1項 ^ 第2項
+	or.b	#%00010000,ccr		* Xフラグをセット（事前キャリー）
+	addx.b	d0,d4			* 演算実行。C・V・X が確定する
+	svs	d3
+	andi.b	#%00000010,d3
+	roxl.b	#1,d3			* V→bit2、X(＝C)→bit0
+	eor.b	d4,d1			* ^ 結果 → bit4 が H
+	andi.b	#%00010000,d1
+	or.b	d3,d1
+	move.b	d4,d0			* 結果
+	andi.b	#%10101000,d0		* S,F5,F3
+	tst.b	d4
+	bne	@f
+	ori.b	#%01000000,d0		* Z
+@@:	or.b	d0,d1
+	moveq.l	#0,d6			* ダーティも F も全部落とす（N=0）
+	move.b	d1,d6
+	endm
+
+ADC_A_X_fallback:
+	move.b	target_8(a3),d0	* ADC/SBC は target_8 のまま渡してくる
+	ADD_A_X
+	jmp	(a6)
+;---------------------------------------------------------------------------------------
+
+ADC_A_A_h:
+	addq.w	#4,a5
+ADC_A_A:
+* A+A+C も H・C はその場で確定できるので、ADC_A_X を使わない。
+*   C ＝ bit7 からの桁上げ ＝ 元の A の bit7
+*   H ＝ bit3 からの桁上げ ＝ 元の A の bit3
+* 2A の bit0 は必ず 0 なので、事前キャリーを足しても桁上げの位置は変わらない。
+*   P/V ＝ 符号付き桁溢れ。68000 の addx.b が立てる V と一致する
+* S,Z,F5,F3 も結果から直接作る。
+	move.b	d4,d0			* 元の A
+	move.b	d6,d1			* Ｆ
+	lsr.b	#1,d1			* bit0(C) を X へ送る
+	addx.b	d0,d4			* 演算実行。ここで V が確定する
+	svs	d1			* V ＝ Z80 の P/V
+	rol.b	#1,d0			* bit7→bit0(C)、bit3→bit4(H)
+	andi.b	#%00010001,d0		* H と C だけ残す
+	andi.b	#%00000100,d1		* P/V だけ残す
+	or.b	d1,d0
+	move.b	d4,d1			* 結果
+	andi.b	#%10101000,d1		* S,F5,F3
+	tst.b	d4
+	bne	@f
+	ori.b	#%01000000,d1		* Z
+@@:	or.b	d1,d0
+	moveq.l	#0,d6			* ダーティも F も全部落とす（N=0）
+	move.b	d0,d6
+	jmp	(a6)
+
+ADC_A_B_h:
+	addq.w	#4,a5
+ADC_A_B:
+	move.b	b(a3),target_8(a3)
+	ADC_A_X
+	jmp	(a6)
+
+ADC_A_C_h:
+	addq.w	#4,a5
+ADC_A_C:
+	move.b	c(a3),target_8(a3)
+	ADC_A_X
+	jmp	(a6)
+
+ADC_A_D_h:
+	addq.w	#4,a5
+ADC_A_D:
+	move.b	d(a3),target_8(a3)
+	ADC_A_X
+	jmp	(a6)
+
+ADC_A_E_h:
+	addq.w	#4,a5
+ADC_A_E:
+	move.b	e(a3),target_8(a3)
+	ADC_A_X
+	jmp	(a6)
+
+ADC_A_H_h:
+	addq.w	#4,a5
+ADC_A_H:
+	move.b	h(a3),target_8(a3)
+	ADC_A_X
+	jmp	(a6)
+
+ADC_A_L_h:
+	addq.w	#4,a5
+ADC_A_L:
+	move.b	l(a3),target_8(a3)
+	ADC_A_X
+	jmp	(a6)
+
+ADC_A_lHLl_h:
+	addq.w	#7,a5
+ADC_A_lHLl:
+	move.w	hl(a3),d0
+	read_mem_8	rd8f16,rd8s16,rd8e16
+	move.b	d0,target_8(a3)
+	ADC_A_X
+	jmp	(a6)
+
+ADC_A_n_h:
+	addq.w	#7,a5
+	cmpi.w	#-4,d7	* オペランドがページ境界をまたぐか？
+	.ifdef	EDGEALWAYS
+	lea.l	ADC_A_n(pc),a0		* 検証用: 常にエッジ処理を通す
+	jmp	cpu_edge_2
+	.else
+	ble.s	ADC_A_n_o
+	lea.l	ADC_A_n(pc),a0		* コールドパス。本体の先頭を渡す
+	jmp	cpu_edge_2
+ADC_A_n_o:	addq.w	#1,d7			* 残りの PC 前進。a4 は (a4)+ で進む
+	.endif
+ADC_A_n:
+	* オペランド列からnを取り出す
+	move.b	(a4)+,target_8(a3)
+	ADC_A_X
+	jmp	(a6)
+
+*	------ ＳＵＢ ------
+;---------------------------------------------------------------------------------------
+SUB_A_X macro
+* フラグを 8 つとも確定させる。ダーティビットは一つも立てない。
+*   H  ＝ (第1項 ^ 第2項 ^ 結果) の bit4
+*   C  ＝ 68000 の演算が立てる X（ANDI は X を変えないので roxl で拾える）
+*   P/V ＝ 68000 の演算が立てる V
+*   S・F5・F3 ＝ 結果のビットをそのまま取る
+*   Z  ＝ 結果がゼロか
+	move.b	d4,d1			* 第1項
+	eor.b	d0,d1			* 第1項 ^ 第2項
+	sub.b	d0,d4			* 演算実行。C（借り）・V・X が確定する
+	svs	d3
+	andi.b	#%00000010,d3
+	roxl.b	#1,d3			* V→bit2、X(＝C)→bit0
+	eor.b	d4,d1
+	andi.b	#%00010000,d1		* bit4 ＝ H
+	or.b	d3,d1
+	move.b	d4,d0			* 結果
+	andi.b	#%10101000,d0		* S,F5,F3
+	tst.b	d4
+	bne	@f
+	ori.b	#%01000000,d0		* Z
+@@:	or.b	d0,d1
+	ori.b	#%00000010,d1		* N=1
+	moveq.l	#0,d6			* ダーティも F も全部落とす
+	move.b	d1,d6
+	endm
+;---------------------------------------------------------------------------------------
+
+SUB_A_h:
+	addq.w	#4,a5
+SUB_A:
+* A － A は必ず 0 になる。借りも桁溢れも起きないのでフラグは定数。
+	moveq.l	#0,d4			* A ＝ 0
+	moveq.l	#%01000010,d6		* Z=1, N=1。S,F5,F3,H,P/V,C は 0
+	jmp	(a6)
+
+SUB_B_h:
+	addq.w	#4,a5
+SUB_B:	move.b	b(a3),d0
+	SUB_A_X
+	jmp	(a6)
+
+SUB_C_h:
+	addq.w	#4,a5
+SUB_C:	move.b	c(a3),d0
+	SUB_A_X
+	jmp	(a6)
+
+SUB_D_h:
+	addq.w	#4,a5
+SUB_D:	move.b	d(a3),d0
+	SUB_A_X
+	jmp	(a6)
+
+SUB_E_h:
+	addq.w	#4,a5
+SUB_E:	move.b	e(a3),d0
+	SUB_A_X
+	jmp	(a6)
+
+SUB_H_h:
+	addq.w	#4,a5
+SUB_H:	move.b	h(a3),d0
+	SUB_A_X
+	jmp	(a6)
+
+SUB_L_h:
+	addq.w	#4,a5
+SUB_L:	move.b	l(a3),d0
+	SUB_A_X
+	jmp	(a6)
+
+SUB_lHLl_h:
+	addq.w	#7,a5
+SUB_lHLl:
+	move.w	hl(a3),d0
+	read_mem_8	rd8f17,rd8s17,rd8e17
+	SUB_A_X
+	jmp	(a6)
+
+SUB_n_h:
+	addq.w	#7,a5
+	cmpi.w	#-4,d7	* オペランドがページ境界をまたぐか？
+	.ifdef	EDGEALWAYS
+	lea.l	SUB_n(pc),a0		* 検証用: 常にエッジ処理を通す
+	jmp	cpu_edge_2
+	.else
+	ble.s	SUB_n_o
+	lea.l	SUB_n(pc),a0		* コールドパス。本体の先頭を渡す
+	jmp	cpu_edge_2
+SUB_n_o:	addq.w	#1,d7			* 残りの PC 前進。a4 は (a4)+ で進む
+	.endif
+SUB_n:
+	* オペランド列からnを取り出す
+	move.b	(a4)+,d0
+	SUB_A_X
+	jmp	(a6)
+
+*	------ ＳＢＣ ------
+;---------------------------------------------------------------------------------------
+SBC_A_X macro
+@@:
+	btst.l	#0,d6
+	beq	SBC_A_X_fallback		* Cy が０の時 SUB と同じ
+	; b1  : 減算なのでN=1
+* SUB と同じ手で 8 つとも確定させる。H の式は事前借りがあっても同じ
+	move.b	target_8(a3),d0		* 第2項
+	move.b	d4,d1
+	eor.b	d0,d1			* 第1項 ^ 第2項
+	or.b	#%00010000,ccr		* Xフラグをセット（事前借り）
+	subx.b	d0,d4			* 演算実行。C・V・X が確定する
+	svs	d3
+	andi.b	#%00000010,d3
+	roxl.b	#1,d3			* V→bit2、X(＝C)→bit0
+	eor.b	d4,d1			* ^ 結果 → bit4 が H
+	andi.b	#%00010000,d1
+	or.b	d3,d1
+	move.b	d4,d0			* 結果
+	andi.b	#%10101000,d0		* S,F5,F3
+	tst.b	d4
+	bne	@f
+	ori.b	#%01000000,d0		* Z
+@@:	or.b	d0,d1
+	ori.b	#%00000010,d1		* N=1
+	moveq.l	#0,d6			* ダーティも F も全部落とす
+	move.b	d1,d6
+	endm
+
+SBC_A_X_fallback:
+	move.b	target_8(a3),d0	* ADC/SBC は target_8 のまま渡してくる
+	SUB_A_X
+	jmp	(a6)
+;---------------------------------------------------------------------------------------
+
+SBC_A_A_h:
+	addq.w	#4,a5
+SBC_A_A:
+* A － A － C。結果は C が 0 なら $00、1 なら $FF で、A の値に依らない。
+* フラグもそれぞれ定数になる。
+	btst.l	#0,d6			* C
+	bne	SBC_A_A_c
+	moveq.l	#0,d4			* A ＝ $00
+	moveq.l	#%01000010,d6		* Z=1, N=1
+	jmp	(a6)
+SBC_A_A_c:
+	st.b	d4			* A ＝ $FF。上位バイトは変えない
+	moveq.l	#0,d6
+	move.b	#%10111011,d6		* S,F5,H,F3,N,C。moveq は符号拡張するので使えない
+	jmp	(a6)
+
+SBC_A_B_h:
+	addq.w	#4,a5
+SBC_A_B:
+	move.b	b(a3),target_8(a3)
+	SBC_A_X
+	jmp	(a6)
+
+SBC_A_C_h:
+	addq.w	#4,a5
+SBC_A_C:
+	move.b	c(a3),target_8(a3)
+	SBC_A_X
+	jmp	(a6)
+
+SBC_A_D_h:
+	addq.w	#4,a5
+SBC_A_D:
+	move.b	d(a3),target_8(a3)
+	SBC_A_X
+	jmp	(a6)
+
+SBC_A_E_h:
+	addq.w	#4,a5
+SBC_A_E:
+	move.b	e(a3),target_8(a3)
+	SBC_A_X
+	jmp	(a6)
+
+SBC_A_H_h:
+	addq.w	#4,a5
+SBC_A_H:
+	move.b	h(a3),target_8(a3)
+	SBC_A_X
+	jmp	(a6)
+
+SBC_A_L_h:
+	addq.w	#4,a5
+SBC_A_L:
+	move.b	l(a3),target_8(a3)
+	SBC_A_X
+	jmp	(a6)
+
+SBC_A_lHLl_h:
+	addq.w	#7,a5
+SBC_A_lHLl:
+	move.w	hl(a3),d0
+	read_mem_8	rd8f18,rd8s18,rd8e18
+	move.b	d0,target_8(a3)
+	SBC_A_X
+	jmp	(a6)
+
+SBC_A_n_h:
+	addq.w	#7,a5
+	cmpi.w	#-4,d7	* オペランドがページ境界をまたぐか？
+	.ifdef	EDGEALWAYS
+	lea.l	SBC_A_n(pc),a0		* 検証用: 常にエッジ処理を通す
+	jmp	cpu_edge_2
+	.else
+	ble.s	SBC_A_n_o
+	lea.l	SBC_A_n(pc),a0		* コールドパス。本体の先頭を渡す
+	jmp	cpu_edge_2
+SBC_A_n_o:	addq.w	#1,d7			* 残りの PC 前進。a4 は (a4)+ で進む
+	.endif
+SBC_A_n:
+	* オペランド列からnを取り出す
+	move.b	(a4)+,target_8(a3)
+	SBC_A_X
+	jmp	(a6)
+
+
+*	------ ＡＮＤ ------
+;---------------------------------------------------------------------------------------
+AND_X	macro
+	; b4  : AND演算時はH=1固定
+	; b1  : 論理演算時はN=0
+	; b0  : AND演算時はC=0固定
+* 論理演算のフラグはすべて結果だけから決まる。S,Z,F5,F3,P/V は szp53p_tbl を
+* 1 回引けば同時に得られ、H と C は固定値。
+	and.b	d0,d4			* 演算実行
+	moveq.l	#0,d6			* ダーティも F も全部落とす
+	move.b	szp53p(a3,d4.w),d6	* S,Z,F5,F3,P/V を一度に引く
+	ori.b	#%00010000,d6		* AND は H=1 固定（C=0、N=0）
+	endm
+;---------------------------------------------------------------------------------------
+
+AND_A_h:
+	addq.w	#4,a5
+AND_A:
+* A ＆ A は A のまま。フラグは結果だけから決まる。
+	moveq.l	#0,d6			* C=0、N=0
+	move.b	szp53p(a3,d4.w),d6	* S,Z,F5,F3,P/V を一度に引く
+	ori.b	#%00010000,d6		* AND は H=1 固定
+	jmp	(a6)
+
+AND_B_h:
+	addq.w	#4,a5
+AND_B:	move.b	b(a3),d0
+	AND_X
+	jmp	(a6)
+
+AND_C_h:
+	addq.w	#4,a5
+AND_C:	move.b	c(a3),d0
+	AND_X
+	jmp	(a6)
+
+AND_D_h:
+	addq.w	#4,a5
+AND_D:	move.b	d(a3),d0
+	AND_X
+	jmp	(a6)
+
+AND_E_h:
+	addq.w	#4,a5
+AND_E:	move.b	e(a3),d0
+	AND_X
+	jmp	(a6)
+
+AND_H_h:
+	addq.w	#4,a5
+AND_H:	move.b	h(a3),d0
+	AND_X
+	jmp	(a6)
+
+AND_L_h:
+	addq.w	#4,a5
+AND_L:	move.b	l(a3),d0
+	AND_X
+	jmp	(a6)
+
+AND_lHLl_h:
+	addq.w	#7,a5
+AND_lHLl:
+	move.w	hl(a3),d0
+	read_mem_8	rd8f19,rd8s19,rd8e19
+	AND_X
+	jmp	(a6)
+
+AND_n_h:
+	addq.w	#7,a5
+	cmpi.w	#-4,d7	* オペランドがページ境界をまたぐか？
+	.ifdef	EDGEALWAYS
+	lea.l	AND_n(pc),a0		* 検証用: 常にエッジ処理を通す
+	jmp	cpu_edge_2
+	.else
+	ble.s	AND_n_o
+	lea.l	AND_n(pc),a0		* コールドパス。本体の先頭を渡す
+	jmp	cpu_edge_2
+AND_n_o:	addq.w	#1,d7			* 残りの PC 前進。a4 は (a4)+ で進む
+	.endif
+AND_n:	* オペランド列からnを取り出す
+	move.b	(a4)+,d0
+	AND_X
+	jmp	(a6)
+
+*	------ ＸＯＲ ------
+;---------------------------------------------------------------------------------------
+_OR_X	macro	opname
+	; b4  : OR/XOR演算時はH=0固定
+	; b1  : 論理演算時はN=0
+	; b0  : AND演算時はC=0固定
+* 論理演算のフラグはすべて結果だけから決まる。S,Z,F5,F3,P/V は szp53p_tbl を
+* 1 回引けば同時に得られ、H と C は固定値。
+	opname.b	d0,d4			* 演算実行
+	moveq.l	#0,d6			* ダーティも F も全部落とす（H=0、C=0、N=0）
+	move.b	szp53p(a3,d4.w),d6	* S,Z,F5,F3,P/V を一度に引く
+	endm
+;---------------------------------------------------------------------------------------
+
+XOR_A_h:
+	addq.w	#4,a5
+XOR_A:
+* A ^ A は必ず 0 になる。フラグも定数で、szp53p_tbl の先頭と一致する。
+	moveq.l	#0,d4			* A ＝ 0
+	moveq.l	#%01000100,d6		* Z=1, P/V=1。S,F5,F3,H,N,C は 0
+	jmp	(a6)	
+
+XOR_B_h:
+	addq.w	#4,a5
+XOR_B:	move.b	b(a3),d0
+	_OR_X	eor
+	jmp	(a6)
+
+XOR_C_h:
+	addq.w	#4,a5
+XOR_C:	move.b	c(a3),d0
+	_OR_X	eor
+	jmp	(a6)
+
+XOR_D_h:
+	addq.w	#4,a5
+XOR_D:	move.b	d(a3),d0
+	_OR_X	eor
+	jmp	(a6)
+
+XOR_E_h:
+	addq.w	#4,a5
+XOR_E:	move.b	e(a3),d0
+	_OR_X	eor
+	jmp	(a6)
+
+XOR_H_h:
+	addq.w	#4,a5
+XOR_H:	move.b	h(a3),d0
+	_OR_X	eor
+	jmp	(a6)
+
+XOR_L_h:
+	addq.w	#4,a5
+XOR_L:	move.b	l(a3),d0
+	_OR_X	eor
+	jmp	(a6)
+
+XOR_lHLl_h:
+	addq.w	#7,a5
+XOR_lHLl:
+	move.w	hl(a3),d0
+	read_mem_8	rd8f20,rd8s20,rd8e20
+	_OR_X	eor
+	jmp	(a6)
+
+XOR_n_h:
+	addq.w	#7,a5
+	cmpi.w	#-4,d7	* オペランドがページ境界をまたぐか？
+	.ifdef	EDGEALWAYS
+	lea.l	XOR_n(pc),a0		* 検証用: 常にエッジ処理を通す
+	jmp	cpu_edge_2
+	.else
+	ble.s	XOR_n_o
+	lea.l	XOR_n(pc),a0		* コールドパス。本体の先頭を渡す
+	jmp	cpu_edge_2
+XOR_n_o:	addq.w	#1,d7			* 残りの PC 前進。a4 は (a4)+ で進む
+	.endif
+XOR_n:	* オペランド列からnを取り出す
+	move.b	(a4)+,d0
+	_OR_X	eor
+	jmp	(a6)
+
+*	------ ＯＲ ------
+OR_A_h:
+	addq.w	#4,a5
+OR_A:
+* A ｜ A は A のまま。フラグは結果だけから決まる。
+	moveq.l	#0,d6			* H=0、C=0、N=0
+	move.b	szp53p(a3,d4.w),d6	* S,Z,F5,F3,P/V を一度に引く
+	jmp	(a6)
+
+OR_B_h:
+	addq.w	#4,a5
+OR_B:	move.b	b(a3),d0
+	_OR_X	or
+	jmp	(a6)
+
+OR_C_h:
+	addq.w	#4,a5
+OR_C:	move.b	c(a3),d0
+	_OR_X	or
+	jmp	(a6)
+
+OR_D_h:
+	addq.w	#4,a5
+OR_D:	move.b	d(a3),d0
+	_OR_X	or
+	jmp	(a6)
+
+OR_E_h:
+	addq.w	#4,a5
+OR_E:	move.b	e(a3),d0
+	_OR_X	or
+	jmp	(a6)
+
+OR_H_h:
+	addq.w	#4,a5
+OR_H:	move.b	h(a3),d0
+	_OR_X	or
+	jmp	(a6)
+
+OR_L_h:
+	addq.w	#4,a5
+OR_L:	move.b	l(a3),d0
+	_OR_X	or
+	jmp	(a6)
+
+OR_lHLl_h:
+	addq.w	#7,a5
+OR_lHLl:
+	move.w	hl(a3),d0
+	read_mem_8	rd8f21,rd8s21,rd8e21
+	_OR_X	or
+	jmp	(a6)
+
+OR_n_h:
+	addq.w	#7,a5
+	cmpi.w	#-4,d7	* オペランドがページ境界をまたぐか？
+	.ifdef	EDGEALWAYS
+	lea.l	OR_n(pc),a0		* 検証用: 常にエッジ処理を通す
+	jmp	cpu_edge_2
+	.else
+	ble.s	OR_n_o
+	lea.l	OR_n(pc),a0		* コールドパス。本体の先頭を渡す
+	jmp	cpu_edge_2
+OR_n_o:	addq.w	#1,d7			* 残りの PC 前進。a4 は (a4)+ で進む
+	.endif
+OR_n:	* オペランド列からnを取り出す
+	move.b	(a4)+,d0
+	_OR_X	or
+	jmp	(a6)
+
+*	------ ＣＰ ------
+;---------------------------------------------------------------------------------------
+; CP X の挙動は以下の通り
+; * S : 結果の最上位ビット
+; * Z : 結果が0の時 1、それ以外の時 0
+; * F5: 引く n の bit5 (SUBとは動作が違う)
+; * H : 演算の結果
+; * F3: 引く n の bit3 (SUBとは動作が違う)
+; * PV: 演算の結果のオーバーフロー
+; * N : 1
+; * C : 演算の結果のキャリー
+CP_A_X	macro
+* フラグを 8 つとも確定させる。ダーティビットは一つも立てない。
+*   H  ＝ (第1項 ^ 第2項 ^ 結果) の bit4
+*   C  ＝ 68000 の演算が立てる X（ANDI は X を変えないので roxl で拾える）
+*   P/V ＝ 68000 の演算が立てる V
+*   S・F5・F3 ＝ 結果のビットをそのまま取る
+*   Z  ＝ 結果がゼロか
+* CP の F5・F3 は結果ではなく第2オペランドから取る（Z80 の仕様）。
+	move.b	d4,d1			* 第1項
+	eor.b	d0,d1			* 第1項 ^ 第2項
+	move.b	d4,d3			* A を d3 へ。結果はここだけに作る
+	sub.b	d0,d3			* 比較（A は壊さない）。C・V・X が確定する
+	svs	d2			* ★d2 は DD/FD の識別に使われるが、CP の呼び出し元では
+	andi.b	#%00000010,d2		*   すでに用済み（ix/iy を選び終えている）
+	roxl.b	#1,d2			* V→bit2、X(＝C)→bit0
+	eor.b	d3,d1
+	andi.b	#%00010000,d1		* bit4 ＝ H
+	or.b	d2,d1
+	andi.b	#%00101000,d0		* 第2オペランドの F5,F3（CP は結果から取らない）
+	or.b	d0,d1
+	move.b	d3,d2			* 結果
+	andi.b	#%10000000,d2		* S
+	tst.b	d3
+	bne	@f
+	ori.b	#%01000000,d2		* Z
+@@:	or.b	d2,d1
+	ori.b	#%00000010,d1		* N=1
+	moveq.l	#0,d6			* ダーティも F も全部落とす
+	move.b	d1,d6
+	endm
+;---------------------------------------------------------------------------------------
+
+CP_A_h:
+	addq.w	#4,a5
+CP_A:
+* A と A の比較なので結果は必ず 0。A は変わらない。
+* CP の F5,F3 は結果ではなく第2オペランド（＝A）から取る。
+	move.b	d4,d6			* d6 の bit8 以上は常に 0 なのでバイト転送でよい
+	andi.b	#%00101000,d6		* F5,F3
+	ori.b	#%01000010,d6		* Z=1, N=1
+	jmp	(a6)
+
+CP_B_h:
+	addq.w	#4,a5
+CP_B:	move.b	b(a3),d0
+	CP_A_X
+	jmp	(a6)
+
+CP_C_h:
+	addq.w	#4,a5
+CP_C:	move.b	c(a3),d0
+	CP_A_X
+	jmp	(a6)
+
+CP_D_h:
+	addq.w	#4,a5
+CP_D:	move.b	d(a3),d0
+	CP_A_X
+	jmp	(a6)
+
+CP_E_h:
+	addq.w	#4,a5
+CP_E:	move.b	e(a3),d0
+	CP_A_X
+	jmp	(a6)
+
+CP_H_h:
+	addq.w	#4,a5
+CP_H:	move.b	h(a3),d0
+	CP_A_X
+	jmp	(a6)
+
+CP_L_h:
+	addq.w	#4,a5
+CP_L:	move.b	l(a3),d0
+	CP_A_X
+	jmp	(a6)
+
+CP_lHLl_h:
+	addq.w	#7,a5
+CP_lHLl:
+	move.w	hl(a3),d0
+	read_mem_8	rd8f22,rd8s22,rd8e22
+	CP_A_X
+	jmp	(a6)
+
+CP_n_h:
+	addq.w	#7,a5
+	cmpi.w	#-4,d7	* オペランドがページ境界をまたぐか？
+	.ifdef	EDGEALWAYS
+	lea.l	CP_n(pc),a0		* 検証用: 常にエッジ処理を通す
+	jmp	cpu_edge_2
+	.else
+	ble.s	CP_n_o
+	lea.l	CP_n(pc),a0		* コールドパス。本体の先頭を渡す
+	jmp	cpu_edge_2
+CP_n_o:	addq.w	#1,d7			* 残りの PC 前進。a4 は (a4)+ で進む
+	.endif
+CP_n:	* オペランド列からnを取り出す
+	move.b	(a4)+,d0
+	CP_A_X
+	jmp	(a6)
+
+*	------ ＩＮＣ ------
+;---------------------------------------------------------------------------------------
+INC_X	macro
+* フラグをその場で組み立てる。C は変化しないので残す。
+*   H  ＝ (元の値 ^ 結果) の bit4（+1 の bit4 は 0 なので元 ^ 結果で出る）
+*   P/V ＝ 元が $7F のとき（符号付き桁溢れ）
+	move.b	target_8(a3),d0		* 元の値
+	move.b	d0,d1
+	addq.b	#1,d0			* 演算実行
+	eor.b	d0,d1			* 元 ^ 結果
+	andi.b	#%00010000,d1		* bit4 ＝ H
+	cmpi.b	#$80,d0			* 結果が $80 ＝ $7F からの桁溢れ
+	bne	@f
+	ori.b	#%00000100,d1		* P/V
+@@:	move.b	d0,d3
+	andi.b	#%10101000,d3		* S,F5,F3
+	tst.b	d0
+	bne	@f
+	ori.b	#%01000000,d3		* Z
+@@:	or.b	d3,d1
+	andi.b	#%00000001,d6		* Ｃ だけ残す
+	or.b	d1,d6
+	endm
+;---------------------------------------------------------------------------------------
+
+INC_A_h:
+	addq.w	#4,a5
+INC_A:	move.b	d4,target_8(a3)
+	INC_X
+	move.b	d0,d4			* 結果を反映
+	jmp	(a6)
+
+INC_B_h:
+	addq.w	#4,a5
+INC_B:	move.b	b(a3),target_8(a3)
+	INC_X
+	move.b	d0,b(a3)		* 結果を反映
+	jmp	(a6)
+
+INC_C_h:
+	addq.w	#4,a5
+INC_C:	move.b	c(a3),target_8(a3)
+	INC_X
+	move.b	d0,c(a3)		* 結果を反映
+	jmp	(a6)
+
+INC_D_h:
+	addq.w	#4,a5
+INC_D:	move.b	d(a3),target_8(a3)
+	INC_X
+	move.b	d0,d(a3)		* 結果を反映
+	jmp	(a6)
+
+INC_E_h:
+	addq.w	#4,a5
+INC_E:	move.b	e(a3),target_8(a3)
+	INC_X
+	move.b	d0,e(a3)		* 結果を反映
+	jmp	(a6)
+
+INC_H_h:
+	addq.w	#4,a5
+INC_H:	move.b	h(a3),target_8(a3)
+	INC_X
+	move.b	d0,h(a3)		* 結果を反映
+	jmp	(a6)
+
+INC_L_h:
+	addq.w	#4,a5
+INC_L:	move.b	l(a3),target_8(a3)
+	INC_X
+	move.b	d0,l(a3)		* 結果を反映
+	jmp	(a6)
+
+INC_lHLl_h:
+	lea.l	11(a5),a5
+INC_lHLl:
+	move.w	hl(a3),d0		* d0にHLの値をロード
+	read_mem_8	rd8f23,rd8s23,rd8e23
+	move.b	d0,target_8(a3)		* D0 には (HL)の値が入っている
+	INC_X
+	move.b	d0,d1			* インクリメントした結果が d0に入っているので d1 に退避
+	move.w	hl(a3),d0		* d0 には HL の値が入っている
+	write_mem_8	wr8f48,wr8s48,wr8e48	* (HL) に結果を書き込む
+	jmp	(a6)
+
+;---------------------------------------------------------------------------------------
+; INC_XX
+;---------------------------------------------------------------------------------------
+
+INC_BC_h:
+	addq.w	#6,a5
+INC_BC:	addq.w	#1,bc(a3)
+	jmp	(a6)
+
+INC_DE_h:
+	addq.w	#6,a5
+INC_DE:	addq.w	#1,de(a3)
+	jmp	(a6)
+
+INC_HL_h:
+	addq.w	#6,a5
+INC_HL:	addq.w	#1,hl(a3)
+	jmp	(a6)
+
+INC_SP_h:
+	addq.w	#6,a5
+INC_SP:	addq.w	#1,sp_(a3)
+	jmp	(a6)
+
+*	------ ＤＥＣ ------
+;---------------------------------------------------------------------------------------
+DEC_X	macro
+* INC_X と同じ理屈で即時化する。C は変化しないのでダーティビットごと残す。
+*   H  ＝ (元の値 ^ 結果) の bit4（借りの発生）
+*   P/V ＝ 元が $80 のとき（符号付き桁溢れ）
+	move.b	target_8(a3),d0		* 元の値
+	move.b	d0,d1
+	subq.b	#1,d0			* 演算実行
+	eor.b	d0,d1			* 元 ^ 結果
+	andi.b	#%00010000,d1		* bit4 ＝ H
+	cmpi.b	#$7f,d0			* 結果が $7F ＝ $80 からの桁溢れ
+	bne	@f
+	ori.b	#%00000100,d1		* P/V
+@@:	move.b	d0,d3
+	andi.b	#%10101000,d3		* S,F5,F3
+	tst.b	d0
+	bne	@f
+	ori.b	#%01000000,d3		* Z
+@@:	or.b	d3,d1
+	ori.b	#%00000010,d1		* N=1
+	andi.b	#%00000001,d6		* Ｃ だけ残す
+	or.b	d1,d6
+	endm
+;---------------------------------------------------------------------------------------
+
+DEC_A_h:
+	addq.w	#4,a5
+DEC_A:	move.b	d4,target_8(a3)
+	DEC_X
+	move.b	d0,d4			* 結果を反映
+	jmp	(a6)
+
+DEC_B_h:
+	addq.w	#4,a5
+DEC_B:	move.b	b(a3),target_8(a3)
+	DEC_X
+	move.b	d0,b(a3)		* 結果を反映
+	jmp	(a6)
+
+DEC_C_h:
+	addq.w	#4,a5
+DEC_C:	move.b	c(a3),target_8(a3)
+	DEC_X
+	move.b	d0,c(a3)		* 結果を反映
+	jmp	(a6)
+
+DEC_D_h:
+	addq.w	#4,a5
+DEC_D:	move.b	d(a3),target_8(a3)
+	DEC_X
+	move.b	d0,d(a3)		* 結果を反映
+	jmp	(a6)
+
+DEC_E_h:
+	addq.w	#4,a5
+DEC_E:	move.b	e(a3),target_8(a3)
+	DEC_X
+	move.b	d0,e(a3)		* 結果を反映
+	jmp	(a6)
+
+DEC_H_h:
+	addq.w	#4,a5
+DEC_H:	move.b	h(a3),target_8(a3)
+	DEC_X
+	move.b	d0,h(a3)		* 結果を反映
+	jmp	(a6)
+
+DEC_L_h:
+	addq.w	#4,a5
+DEC_L:	move.b	l(a3),target_8(a3)
+	DEC_X
+	move.b	d0,l(a3)		* 結果を反映
+	jmp	(a6)
+
+DEC_lHLl_h:
+	lea.l	11(a5),a5
+DEC_lHLl:
+	move.w	hl(a3),d0		* d0にHLの値をロード
+	read_mem_8	rd8f24,rd8s24,rd8e24
+	move.b	d0,target_8(a3)		* d0 には (HL)の値が入っている
+	DEC_X
+	move.b	d0,d1			* デクリメントした結果が d0に入っているので d1 に退避
+	move.w	hl(a3),d0		* d0 には HL の値が入っている
+	write_mem_8	wr8f49,wr8s49,wr8e49	* (HL) に結果を書き込む
+	jmp	(a6)
+
+;---------------------------------------------------------------------------------------
+; DEC_XX
+;---------------------------------------------------------------------------------------
+
+DEC_BC_h:
+	addq.w	#6,a5
+DEC_BC:	subq.w	#1,bc(a3)
+	jmp	(a6)
+
+DEC_DE_h:
+	addq.w	#6,a5
+DEC_DE:	subq.w	#1,de(a3)
+	jmp	(a6)
+
+DEC_HL_h:
+	addq.w	#6,a5
+DEC_HL:	subq.w	#1,hl(a3)
+	jmp	(a6)
+
+DEC_SP_h:
+	addq.w	#6,a5
+DEC_SP:	subq.w	#1,sp_(a3)
+	jmp	(a6)
+
+
+*	DAAの仕様は http://z80-heaven.wikidot.com/instructions-set:daa を参照
+*	これによると以下の動きをするらしい：
+*	* 直前の演算が加算の時(N=0の時):
+*	  1. 下位4ビットに9より大きな値(0xa-f)が入っているか、Hフラグが1の時、0x06を加算する
+*	  2. 上位4ビットに9より大きな値(0xa-f)が入っているか、Cフラグが1の時、0x60を加算する
+*	* 直前の演算が減算の時(N=1の時):
+*	  1. 下位4ビットに9より大きな値(0xa-f)が入っているか、Hフラグが1の時、0x06を減算する
+*	  2. 上位4ビットに9より大きな値(0xa-f)が入っているか、Cフラグが1の時、0x60を減算する
+*
+*	● フラグ変化:
+*	* S : 結果のAレジスタが、正なら0、負なら1
+*	* Z : 結果のAレジスタが、0なら1、それ以外なら0
+*	* F5: 結果のAレジスタの、bit5
+*	* H : (ちょっと複雑なので後述)
+*	* F3: 結果のAレジスタの、bit3
+*	* PV: 結果のAレジスタの、パリティが偶数なら1、奇数なら0)
+*	* N : 変化しない
+*	* C : 2の操作(0x60の加算or減算)が発生したら1、それ以外なら0
+*
+*	● Hフラグ変化:
+*	DAA後のHフラグは、直前の演算が加算の時(N=0の時)と、減算の時(N=1の時)で異なる。
+*	* 加算の時:
+*	  補正前に下位4ビットに9より大きな値(0xa-f)が入っていた場合に H フラグがセットされる
+*	  →これはBCDの補正処理(+6)によって、下位4ビットが一周する(キャリーが発生する)ことを意味する
+*	* 減算の時:
+*	  補正前に下位4ビットに6より小さい値(0x0-5)が入っていた場合かつ、Hフラグが立っていた時に H フラグがセットされる
+*	  →これはBCDの補正処理(-6)によって、下位4ビットが一周する(キャリーが発生する)ことを意味する
+*
+*	なので、全体をまとめると、以下のように実装すればいいことになる
+*	1. 補正係数を correct = 0とする
+*	2. 下位4ビットに9より大きな値(0xa-f)が入っているか、Hフラグが1の時、correct に 0x06 を加算する
+*	3. Aレジスタにに0x99より大きな値が入っているか、Cフラグが1の時、correct に 0x60 を加算する
+*	4. Nフラグを見て、Aレジスタにcorrectを加算 or 減算する(N=0なら加算、N=1なら減算)
+*       5. S,Z,F5,H,F3 は、Aレジスタとcorrectの ADD または SUB の結果と同じになる
+*       6. PVは演算結果のパリティになる
+*       7. Cは上位4ビットの補正があった場合に1、それ以外は0になる
+*
+*	------ ＤＡＡ ------
+DAA_h:
+	addq.w	#4,a5
+DAA:
+1:
+	clr.w	d0			* 補正係数を 0 に初期化
+	move.b	d4,d1
+	andi.b	#$0f,d1			* 下位4ビットを取り出す
+	cmpi.b	#$09,d1			* 下位4ビットが9より大きい？
+	bgt	2f
+	btst	#4,d6			* H フラグを調べる
+	beq	3f
+2:	moveq.l	#$06,d0			* 補正係数に 0x06
+3:	clr.w	d1
+	move.b	d4,d1
+	cmpi.w	#$99,d1			* 0x99より大きい？
+	bgt	4f
+	btst	#0,d6			* C フラグを調べる
+	beq	5f
+4:	addi.b	#$60,d0			* 補正係数に 0x60 を加算
+5:	move.b	d4,d1			* 補正前の Ａ
+	btst.l	#1,d6			* N フラグを調べる
+	bne	6f
+	add.b	d0,d4			* 補正係数を加算
+	bra	7f
+6:	sub.b	d0,d4			* 補正係数を減算
+7:	eor.b	d4,d1			* 補正前 ^ 補正後 → bit4 ＝ H
+	andi.b	#%00010000,d1
+	andi.b	#$f0,d0			* 上位4ビットの補正があったか
+	beq	8f
+	addq.b	#1,d1			* Ｃ をセット
+8:	or.b	szp53p(a3,d4.w),d1	* S,Z,F5,F3,P/V
+	andi.b	#%00000010,d6		* Ｎ だけ残す
+	or.b	d1,d6
+	jmp	(a6)
+
+
+*	------ ＪＰ ------
+JP_h:
+	lea.l	10(a5),a5
+	cmpi.w	#-4,d7	* オペランドがページ境界をまたぐか？
+	.ifdef	EDGEALWAYS
+	lea.l	JP(pc),a0		* 検証用: 常にエッジ処理を通す
+	jmp	cpu_edge_3
+	.else
+	ble.s	JP_o
+	lea.l	JP(pc),a0		* コールドパス。本体の先頭を渡す
+	jmp	cpu_edge_3
+JP_o:	addq.w	#2,d7			* 残りの PC 前進。a4 は (a4)+ で進む
+	.endif
+JP:	* オペランド列からnnを取り出す
+	move.b	(a4)+,d0		* オペランドの下位バイト
+	move.b	(a4)+,d1		* オペランドの上位バイト
+	lsl.w	#8,d1			* 上位へ送る。下位バイトは 0 になる
+	move.b	d0,d1			* 下位バイトを入れる
+	move.w	d1,d7
+	PC_page_set
+	jmp	(a6)
+
+JP_lHLl_h:
+	addq.w	#4,a5
+JP_lHLl:
+	move.w	hl(a3),d7
+	PC_page_set
+	jmp	(a6)
+
+JP_C_h:
+	lea.l	10(a5),a5
+	cmpi.w	#-4,d7	* オペランドがページ境界をまたぐか？
+	.ifdef	EDGEALWAYS
+	lea.l	JP_C(pc),a0		* 検証用: 常にエッジ処理を通す
+	jmp	cpu_edge_3
+	.else
+	ble.s	JP_C_o
+	lea.l	JP_C(pc),a0		* コールドパス。本体の先頭を渡す
+	jmp	cpu_edge_3
+JP_C_o:	addq.w	#2,d7			* 残りの PC 前進。a4 は (a4)+ で進む
+	.endif
+JP_C:
+@@:
+	btst.l	#0,d6		* Cフラグをテスト
+	bne	JP		* Cが１ならジャンプ
+	addq.w	#2,a4			* 分岐しない時はオペランドを読まないので進めておく
+	jmp	(a6)
+
+JP_NC_h:
+	lea.l	10(a5),a5
+	cmpi.w	#-4,d7	* オペランドがページ境界をまたぐか？
+	.ifdef	EDGEALWAYS
+	lea.l	JP_NC(pc),a0		* 検証用: 常にエッジ処理を通す
+	jmp	cpu_edge_3
+	.else
+	ble.s	JP_NC_o
+	lea.l	JP_NC(pc),a0		* コールドパス。本体の先頭を渡す
+	jmp	cpu_edge_3
+JP_NC_o:	addq.w	#2,d7			* 残りの PC 前進。a4 は (a4)+ で進む
+	.endif
+JP_NC:
+@@:
+	btst.l	#0,d6		* Cフラグをテスト
+	beq	JP		* Cが０ならジャンプ
+	addq.w	#2,a4			* 分岐しない時はオペランドを読まないので進めておく
+	jmp	(a6)
+
+JP_Z_h:
+	lea.l	10(a5),a5
+	cmpi.w	#-4,d7	* オペランドがページ境界をまたぐか？
+	.ifdef	EDGEALWAYS
+	lea.l	JP_Z(pc),a0		* 検証用: 常にエッジ処理を通す
+	jmp	cpu_edge_3
+	.else
+	ble.s	JP_Z_o
+	lea.l	JP_Z(pc),a0		* コールドパス。本体の先頭を渡す
+	jmp	cpu_edge_3
+JP_Z_o:	addq.w	#2,d7			* 残りの PC 前進。a4 は (a4)+ で進む
+	.endif
+JP_Z:
+@@:
+	btst.l	#6,d6		* Zフラグをテスト
+	bne	JP		* Zが1ならジャンプ
+	addq.w	#2,a4			* 分岐しない時はオペランドを読まないので進めておく
+	jmp	(a6)
+
+JP_NZ_h:
+	lea.l	10(a5),a5
+	cmpi.w	#-4,d7	* オペランドがページ境界をまたぐか？
+	.ifdef	EDGEALWAYS
+	lea.l	JP_NZ(pc),a0		* 検証用: 常にエッジ処理を通す
+	jmp	cpu_edge_3
+	.else
+	ble.s	JP_NZ_o
+	lea.l	JP_NZ(pc),a0		* コールドパス。本体の先頭を渡す
+	jmp	cpu_edge_3
+JP_NZ_o:	addq.w	#2,d7			* 残りの PC 前進。a4 は (a4)+ で進む
+	.endif
+JP_NZ:
+@@:
+	btst.l	#6,d6		* Zフラグをテスト
+	beq	JP		* Zが0ならジャンプ
+	addq.w	#2,a4			* 分岐しない時はオペランドを読まないので進めておく
+	jmp	(a6)
+
+JP_PE_h:
+	lea.l	10(a5),a5
+	cmpi.w	#-4,d7	* オペランドがページ境界をまたぐか？
+	.ifdef	EDGEALWAYS
+	lea.l	JP_PE(pc),a0		* 検証用: 常にエッジ処理を通す
+	jmp	cpu_edge_3
+	.else
+	ble.s	JP_PE_o
+	lea.l	JP_PE(pc),a0		* コールドパス。本体の先頭を渡す
+	jmp	cpu_edge_3
+JP_PE_o:	addq.w	#2,d7			* 残りの PC 前進。a4 は (a4)+ で進む
+	.endif
+JP_PE:
+	btst.l	#2,d6		* PVフラグをテスト
+	bne	JP		* PVが偶数(=1)ならジャンプ
+	addq.w	#2,a4			* 分岐しない時はオペランドを読まないので進めておく
+	jmp	(a6)
+
+JP_PO_h:
+	lea.l	10(a5),a5
+	cmpi.w	#-4,d7	* オペランドがページ境界をまたぐか？
+	.ifdef	EDGEALWAYS
+	lea.l	JP_PO(pc),a0		* 検証用: 常にエッジ処理を通す
+	jmp	cpu_edge_3
+	.else
+	ble.s	JP_PO_o
+	lea.l	JP_PO(pc),a0		* コールドパス。本体の先頭を渡す
+	jmp	cpu_edge_3
+JP_PO_o:	addq.w	#2,d7			* 残りの PC 前進。a4 は (a4)+ で進む
+	.endif
+JP_PO:
+	btst.l	#2,d6		* PVフラグをテスト
+	beq	JP		* PVが奇数(=0)ならジャンプ
+	addq.w	#2,a4			* 分岐しない時はオペランドを読まないので進めておく
+	jmp	(a6)
+
+JP_P_h:
+	lea.l	10(a5),a5
+	cmpi.w	#-4,d7	* オペランドがページ境界をまたぐか？
+	.ifdef	EDGEALWAYS
+	lea.l	JP_P(pc),a0		* 検証用: 常にエッジ処理を通す
+	jmp	cpu_edge_3
+	.else
+	ble.s	JP_P_o
+	lea.l	JP_P(pc),a0		* コールドパス。本体の先頭を渡す
+	jmp	cpu_edge_3
+JP_P_o:	addq.w	#2,d7			* 残りの PC 前進。a4 は (a4)+ で進む
+	.endif
+JP_P:
+@@:
+	btst.l	#7,d6		* Sフラグをテスト
+	beq	JP		* Sが0ならジャンプ
+	addq.w	#2,a4			* 分岐しない時はオペランドを読まないので進めておく
+	jmp	(a6)
+
+JP_M_h:
+	lea.l	10(a5),a5
+	cmpi.w	#-4,d7	* オペランドがページ境界をまたぐか？
+	.ifdef	EDGEALWAYS
+	lea.l	JP_M(pc),a0		* 検証用: 常にエッジ処理を通す
+	jmp	cpu_edge_3
+	.else
+	ble.s	JP_M_o
+	lea.l	JP_M(pc),a0		* コールドパス。本体の先頭を渡す
+	jmp	cpu_edge_3
+JP_M_o:	addq.w	#2,d7			* 残りの PC 前進。a4 は (a4)+ で進む
+	.endif
+JP_M:
+@@:
+	btst.l	#7,d6		* Sフラグをテスト
+	bne	JP		* Sが1ならジャンプ
+	addq.w	#2,a4			* 分岐しない時はオペランドを読まないので進めておく
+	jmp	(a6)
+
+*	------ ＪＲ ------
+JR_h:
+	lea.l	12(a5),a5
+	cmpi.w	#-4,d7	* オペランドがページ境界をまたぐか？
+	.ifdef	EDGEALWAYS
+	lea.l	JR(pc),a0		* 検証用: 常にエッジ処理を通す
+	jmp	cpu_edge_2
+	.else
+	ble.s	JR_o
+	lea.l	JR(pc),a0		* コールドパス。本体の先頭を渡す
+	jmp	cpu_edge_2
+JR_o:	addq.w	#1,d7			* 残りの PC 前進。a4 は (a4)+ で進む
+	.endif
+* 相対ジャンプの跳び先は、ほとんどが同じページ内に収まる。
+* 位置は -8192 基準（$E000～$FFFF）で持っているので、変位を足した結果が
+* その範囲に収まっていればページは変わらない。**16bit の PC を組み立て直す必要も、
+* PC_page_set でページを引き直す必要もない。**
+* 範囲判定は符号なし比較 1 つで足りる。
+*   足しすぎて $0000 台へ回り込んだ → $E000 未満
+*   戻しすぎて $DFxx へ下がった   → $E000 未満
+JR:	move.b	(a4)+,d1		* オペランドを取得
+	ext.w	d1			* ワードに符号拡張
+	add.w	d1,d7			* 位置に直接足す
+	adda.w	d1,a4
+	cmpi.w	#$e000,d7		* ページ内に収まったか
+	bcs	jr_cross		* 外れた時だけ張り直す
+	jmp	(a6)
+
+* ページをまたいだ時（コールドパス）。16bit のアドレスを組み立て直して張り直す。
+* d7.w は「位置-8192＋変位」なので、8192 を足すとページ先頭からの相対位置になる。
+* これにページ番号×8192 を足せば R800 の 16bit アドレスになる（桁上げも正しく伝わる）。
+jr_cross:
+	move.l	d7,d0
+	lsr.l	#3,d0			* d0 = ppp000??_????????
+	andi.w	#%11100000_00000000,d0	* d0 = ppp00000_00000000
+	addi.w	#$2000,d7		* 位置を -8192 基準から戻す
+	add.w	d0,d7			* d7 = PC (R800)
+	PC_page_set
+	jmp	(a6)
+
+JR_NZ_h:
+	lea.l	12(a5),a5
+	cmpi.w	#-4,d7	* オペランドがページ境界をまたぐか？
+	.ifdef	EDGEALWAYS
+	lea.l	JR_NZ(pc),a0		* 検証用: 常にエッジ処理を通す
+	jmp	cpu_edge_2
+	.else
+	ble.s	JR_NZ_o
+	lea.l	JR_NZ(pc),a0		* コールドパス。本体の先頭を渡す
+	jmp	cpu_edge_2
+JR_NZ_o:	addq.w	#1,d7			* 残りの PC 前進。a4 は (a4)+ で進む
+	.endif
+JR_NZ:
+@@:
+	btst.l	#6,d6		* Zフラグをテスト
+	beq	JR		* Zが0ならジャンプ
+	;　条件不成立時はサイクル数が7なので、5引く
+	addq.w	#1,a4			* 分岐しない時はオペランドを読まないので進めておく
+	subq.l	#5,a5
+	jmp	(a6)
+
+JR_Z_h:
+	lea.l	12(a5),a5
+	cmpi.w	#-4,d7	* オペランドがページ境界をまたぐか？
+	.ifdef	EDGEALWAYS
+	lea.l	JR_Z(pc),a0		* 検証用: 常にエッジ処理を通す
+	jmp	cpu_edge_2
+	.else
+	ble.s	JR_Z_o
+	lea.l	JR_Z(pc),a0		* コールドパス。本体の先頭を渡す
+	jmp	cpu_edge_2
+JR_Z_o:	addq.w	#1,d7			* 残りの PC 前進。a4 は (a4)+ で進む
+	.endif
+JR_Z:
+@@:
+	btst.l	#6,d6		* Zフラグをテスト
+	bne	JR		* Zが1ならジャンプ
+	;　条件不成立時はサイクル数が7なので、5引く
+	addq.w	#1,a4			* 分岐しない時はオペランドを読まないので進めておく
+	subq.l	#5,a5
+	jmp	(a6)
+
+JR_NC_h:
+	lea.l	12(a5),a5
+	cmpi.w	#-4,d7	* オペランドがページ境界をまたぐか？
+	.ifdef	EDGEALWAYS
+	lea.l	JR_NC(pc),a0		* 検証用: 常にエッジ処理を通す
+	jmp	cpu_edge_2
+	.else
+	ble.s	JR_NC_o
+	lea.l	JR_NC(pc),a0		* コールドパス。本体の先頭を渡す
+	jmp	cpu_edge_2
+JR_NC_o:	addq.w	#1,d7			* 残りの PC 前進。a4 は (a4)+ で進む
+	.endif
+JR_NC:
+@@:
+	btst.l	#0,d6		* Cフラグをテスト
+	beq	JR		* Cが０ならジャンプ
+	;　条件不成立時はサイクル数が7なので、5引く
+	addq.w	#1,a4			* 分岐しない時はオペランドを読まないので進めておく
+	subq.l	#5,a5
+	jmp	(a6)
+
+JR_C_h:
+	lea.l	12(a5),a5
+	cmpi.w	#-4,d7	* オペランドがページ境界をまたぐか？
+	.ifdef	EDGEALWAYS
+	lea.l	JR_C(pc),a0		* 検証用: 常にエッジ処理を通す
+	jmp	cpu_edge_2
+	.else
+	ble.s	JR_C_o
+	lea.l	JR_C(pc),a0		* コールドパス。本体の先頭を渡す
+	jmp	cpu_edge_2
+JR_C_o:	addq.w	#1,d7			* 残りの PC 前進。a4 は (a4)+ で進む
+	.endif
+JR_C:
+@@:
+	btst.l	#0,d6		* Cフラグをテスト
+	bne	JR		* Cが１ならジャンプ
+	;　条件不成立時はサイクル数が7なので、5引く
+	addq.w	#1,a4			* 分岐しない時はオペランドを読まないので進めておく
+	subq.l	#5,a5
+	jmp	(a6)
+
+*	------ ＣＡＬＬ ------
+CALL_h:
+	lea.l	17(a5),a5
+	cmpi.w	#-4,d7	* オペランドがページ境界をまたぐか？
+	.ifdef	EDGEALWAYS
+	lea.l	CALL(pc),a0		* 検証用: 常にエッジ処理を通す
+	jmp	cpu_edge_3
+	.else
+	ble.s	CALL_o
+	lea.l	CALL(pc),a0		* コールドパス。本体の先頭を渡す
+	jmp	cpu_edge_3
+CALL_o:	addq.w	#2,d7			* 残りの PC 前進。a4 は (a4)+ で進む
+	.endif
+CALL:	* オペランド列からnnを取り出す
+	move.b	(a4)+,d0		* オペランドの下位バイト
+	move.b	(a4)+,d1		* オペランドの上位バイト
+	lsl.w	#8,d1			* 上位へ送る。下位バイトは 0 になる
+	move.b	d0,d1			* 下位バイトを入れる
+	move.w	d1,-(sp)
+	; 戻り先アドレスを計算
+	; この時点でPC(d7)は次の命令の位置を指しているので、そこの絶対アドレスを計算し
+	; スタックに積む
+	move.l	d7,d0
+	move.w	d7,d1
+	andi.w	#PAGEADDRMASK,d1	* 位置は -8192 基準なので上位 3bit を落とす
+	lsr.l	#3,d0			* d0 = ppp000??_????????
+	andi.w	#%11100000_00000000,d0	* d0 = ppp00000_00000000
+	or.w	d0,d1			* d1 = PC (R800)
+	subq.w	#2,sp_(a3)		* PUSH	
+	move.w	sp_(a3),d0
+	write_mem_16	wr16f4,wr16s4,wr16e4
+	move.w 	(sp)+,d7
+	PC_page_set
+	jmp	(a6)
+
+CALL_C_h:
+	lea.l	17(a5),a5
+	cmpi.w	#-4,d7	* オペランドがページ境界をまたぐか？
+	.ifdef	EDGEALWAYS
+	lea.l	CALL_C(pc),a0		* 検証用: 常にエッジ処理を通す
+	jmp	cpu_edge_3
+	.else
+	ble.s	CALL_C_o
+	lea.l	CALL_C(pc),a0		* コールドパス。本体の先頭を渡す
+	jmp	cpu_edge_3
+CALL_C_o:	addq.w	#2,d7			* 残りの PC 前進。a4 は (a4)+ で進む
+	.endif
+CALL_C:
+@@:
+	btst.l	#0,d6		* Cフラグをテスト
+	bne	CALL		* Cが１ならコール
+	addq.w	#2,a4			* 分岐しない時はオペランドを読まないので進めておく
+	;　条件不成立時はサイクル数が10なので、7引く
+	subq.l	#7,a5
+	jmp	(a6)
+
+CALL_NC_h:
+	lea.l	17(a5),a5
+	cmpi.w	#-4,d7	* オペランドがページ境界をまたぐか？
+	.ifdef	EDGEALWAYS
+	lea.l	CALL_NC(pc),a0		* 検証用: 常にエッジ処理を通す
+	jmp	cpu_edge_3
+	.else
+	ble.s	CALL_NC_o
+	lea.l	CALL_NC(pc),a0		* コールドパス。本体の先頭を渡す
+	jmp	cpu_edge_3
+CALL_NC_o:	addq.w	#2,d7			* 残りの PC 前進。a4 は (a4)+ で進む
+	.endif
+CALL_NC:
+@@:
+	btst.l	#0,d6		* Cフラグをテスト
+	beq	CALL		* Cが０ならコール
+	addq.w	#2,a4			* 分岐しない時はオペランドを読まないので進めておく
+	;　条件不成立時はサイクル数が10なので、7引く
+	subq.l	#7,a5
+	jmp	(a6)
+
+CALL_Z_h:
+	lea.l	17(a5),a5
+	cmpi.w	#-4,d7	* オペランドがページ境界をまたぐか？
+	.ifdef	EDGEALWAYS
+	lea.l	CALL_Z(pc),a0		* 検証用: 常にエッジ処理を通す
+	jmp	cpu_edge_3
+	.else
+	ble.s	CALL_Z_o
+	lea.l	CALL_Z(pc),a0		* コールドパス。本体の先頭を渡す
+	jmp	cpu_edge_3
+CALL_Z_o:	addq.w	#2,d7			* 残りの PC 前進。a4 は (a4)+ で進む
+	.endif
+CALL_Z:
+@@:
+	btst.l	#6,d6		* Zフラグをテスト
+	bne	CALL		* Zが1ならコール
+	addq.w	#2,a4			* 分岐しない時はオペランドを読まないので進めておく
+	;　条件不成立時はサイクル数が10なので、7引く
+	subq.l	#7,a5
+	jmp	(a6)
+
+CALL_NZ_h:
+	lea.l	17(a5),a5
+	cmpi.w	#-4,d7	* オペランドがページ境界をまたぐか？
+	.ifdef	EDGEALWAYS
+	lea.l	CALL_NZ(pc),a0		* 検証用: 常にエッジ処理を通す
+	jmp	cpu_edge_3
+	.else
+	ble.s	CALL_NZ_o
+	lea.l	CALL_NZ(pc),a0		* コールドパス。本体の先頭を渡す
+	jmp	cpu_edge_3
+CALL_NZ_o:	addq.w	#2,d7			* 残りの PC 前進。a4 は (a4)+ で進む
+	.endif
+CALL_NZ:
+@@:
+	btst.l	#6,d6		* Zフラグをテスト
+	beq	CALL		* Zが0ならコール
+	addq.w	#2,a4			* 分岐しない時はオペランドを読まないので進めておく
+	;　条件不成立時はサイクル数が10なので、7引く
+	subq.l	#7,a5
+	jmp	(a6)
+
+CALL_PE_h:
+	lea.l	17(a5),a5
+	cmpi.w	#-4,d7	* オペランドがページ境界をまたぐか？
+	.ifdef	EDGEALWAYS
+	lea.l	CALL_PE(pc),a0		* 検証用: 常にエッジ処理を通す
+	jmp	cpu_edge_3
+	.else
+	ble.s	CALL_PE_o
+	lea.l	CALL_PE(pc),a0		* コールドパス。本体の先頭を渡す
+	jmp	cpu_edge_3
+CALL_PE_o:	addq.w	#2,d7			* 残りの PC 前進。a4 は (a4)+ で進む
+	.endif
+CALL_PE:
+	btst.l	#2,d6		* PVフラグをテスト
+	bne	CALL		* PVが偶数(=1)ならコール
+	addq.w	#2,a4			* 分岐しない時はオペランドを読まないので進めておく
+	;　条件不成立時はサイクル数が10なので、7引く
+	subq.l	#7,a5
+	jmp	(a6)
+
+CALL_PO_h:
+	lea.l	17(a5),a5
+	cmpi.w	#-4,d7	* オペランドがページ境界をまたぐか？
+	.ifdef	EDGEALWAYS
+	lea.l	CALL_PO(pc),a0		* 検証用: 常にエッジ処理を通す
+	jmp	cpu_edge_3
+	.else
+	ble.s	CALL_PO_o
+	lea.l	CALL_PO(pc),a0		* コールドパス。本体の先頭を渡す
+	jmp	cpu_edge_3
+CALL_PO_o:	addq.w	#2,d7			* 残りの PC 前進。a4 は (a4)+ で進む
+	.endif
+CALL_PO:
+	btst.l	#2,d6		* PVフラグをテスト
+	beq	CALL		* PVが奇数(=0)ならコール
+	addq.w	#2,a4			* 分岐しない時はオペランドを読まないので進めておく
+	;　条件不成立時はサイクル数が10なので、7引く
+	subq.l	#7,a5
+	jmp	(a6)
+
+CALL_P_h:
+	lea.l	17(a5),a5
+	cmpi.w	#-4,d7	* オペランドがページ境界をまたぐか？
+	.ifdef	EDGEALWAYS
+	lea.l	CALL_P(pc),a0		* 検証用: 常にエッジ処理を通す
+	jmp	cpu_edge_3
+	.else
+	ble.s	CALL_P_o
+	lea.l	CALL_P(pc),a0		* コールドパス。本体の先頭を渡す
+	jmp	cpu_edge_3
+CALL_P_o:	addq.w	#2,d7			* 残りの PC 前進。a4 は (a4)+ で進む
+	.endif
+CALL_P:
+@@:
+	btst.l	#7,d6		* Sフラグをテスト
+	beq	CALL		* Sが0ならコール
+	addq.w	#2,a4			* 分岐しない時はオペランドを読まないので進めておく
+	;　条件不成立時はサイクル数が10なので、7引く
+	subq.l	#7,a5
+	jmp	(a6)
+
+CALL_M_h:
+	lea.l	17(a5),a5
+	cmpi.w	#-4,d7	* オペランドがページ境界をまたぐか？
+	.ifdef	EDGEALWAYS
+	lea.l	CALL_M(pc),a0		* 検証用: 常にエッジ処理を通す
+	jmp	cpu_edge_3
+	.else
+	ble.s	CALL_M_o
+	lea.l	CALL_M(pc),a0		* コールドパス。本体の先頭を渡す
+	jmp	cpu_edge_3
+CALL_M_o:	addq.w	#2,d7			* 残りの PC 前進。a4 は (a4)+ で進む
+	.endif
+CALL_M:
+@@:
+	btst.l	#7,d6		* Sフラグをテスト
+	bne	CALL		* Sが1ならコール
+	addq.w	#2,a4			* 分岐しない時はオペランドを読まないので進めておく
+	;　条件不成立時はサイクル数が10なので、7引く
+	subq.l	#7,a5
+	jmp	(a6)
+
+*	------ ＲＥＴ ------
+RET_h:
+	lea.l	10(a5),a5
+RET:	move.w	sp_(a3),d0
+	read_mem_16	rd16f4,rd16s4,rd16e4
+	addq.w	#2,sp_(a3)
+	cmp.w	interrupt_return,d0	* 割り込み発生時にセットした戻り先アドレスに戻ったか？
+	bne	@f
+	bsr	int_ret_notify		* 割り込みから戻ったことを知らせる
+@@:	move.w	d0,d7
+	PC_page_set
+	jmp	(a6)
+
+RET_C_h:
+	lea.l	11(a5),a5
+RET_C:
+@@:
+	btst.l	#0,d6		* Ｃｙフラグをテスト
+	bne	RET		* Ｃｙが１ならリターン
+	;　条件不成立時はサイクル数が5なので、6引く
+	subq.l	#6,a5
+	jmp	(a6)
+	
+RET_NC_h:
+	lea.l	11(a5),a5
+RET_NC:
+@@:
+	btst.l	#0,d6		* Ｃｙフラグをテスト
+	beq	RET		* Ｃｙが０ならリターン
+	;　条件不成立時はサイクル数が5なので、6引く
+	subq.l	#6,a5
+	jmp	(a6)
+
+RET_Z_h:
+	lea.l	11(a5),a5
+RET_Z:
+@@:
+	btst.l	#6,d6		* Zフラグをテスト
+	bne	RET		* Zが1ならリターン
+	;　条件不成立時はサイクル数が5なので、6引く
+	subq.l	#6,a5
+	jmp	(a6)
+
+RET_NZ_h:
+	lea.l	11(a5),a5
+RET_NZ:
+@@:
+	btst.l	#6,d6		* Zフラグをテスト
+	beq	RET		* Zが0ならリターン
+	;　条件不成立時はサイクル数が5なので、6引く
+	subq.l	#6,a5
+	jmp	(a6)
+
+RET_M_h:
+	lea.l	11(a5),a5
+RET_M:
+@@:
+	btst.l	#7,d6		* Sフラグをテスト
+	bne	RET		* Sが1ならリターン
+	;　条件不成立時はサイクル数が5なので、6引く
+	subq.l	#6,a5
+	jmp	(a6)
+
+RET_P_h:
+	lea.l	11(a5),a5
+RET_P:
+@@:
+	btst.l	#7,d6		* Sフラグをテスト
+	beq	RET		* Sが0ならリターン
+	;　条件不成立時はサイクル数が5なので、6引く
+	subq.l	#6,a5
+	jmp	(a6)
+
+RET_PE_h:
+	lea.l	11(a5),a5
+RET_PE:
+	btst.l	#2,d6		* PVフラグをテスト
+	bne	RET		* PVが偶数(=1)ならリターン
+	;　条件不成立時はサイクル数が5なので、6引く
+	subq.l	#6,a5
+	jmp	(a6)
+
+RET_PO_h:
+	lea.l	11(a5),a5
+RET_PO:
+	btst.l	#2,d6		* PVフラグをテスト
+	beq	RET		* PVが奇数(=0)ならリターン
+	;　条件不成立時はサイクル数が5なので、6引く
+	subq.l	#6,a5
+	jmp	(a6)
+
+*	------ ＤＪＮＺ ------
+DJNZ_h:
+	lea.l	13(a5),a5
+	cmpi.w	#-4,d7	* オペランドがページ境界をまたぐか？
+	.ifdef	EDGEALWAYS
+	lea.l	DJNZ(pc),a0		* 検証用: 常にエッジ処理を通す
+	jmp	cpu_edge_2
+	.else
+	ble.s	DJNZ_o
+	lea.l	DJNZ(pc),a0		* コールドパス。本体の先頭を渡す
+	jmp	cpu_edge_2
+DJNZ_o:	addq.w	#1,d7			* 残りの PC 前進。a4 は (a4)+ で進む
+	.endif
+DJNZ:	subq.b	#1,b(a3)	* b = b-1
+	bne	JR		* b != 0 ならブランチ
+	;　ループしない時はサイクル数が8なので、5引く
+	addq.w	#1,a4			* 分岐しない時はオペランドを読まないので進めておく
+	subq.l	#5,a5
+	jmp	(a6)
+
+
+*	------ ＰＵＳＨ  ＰＯＰ ------
+;---------------------------------------------------------------------------------------
+PUSH_XX	macro	lbl_f, lbl_s, lbl_e
+	subq.w	#2,sp_(a3)		; スタックを2バイト減らす
+	move.w	sp_(a3),d0
+	move.w	target_16(a3),d1
+	write_mem_16	lbl_f,lbl_s,lbl_e	; スタックに書き込む
+	endm
+;---------------------------------------------------------------------------------------
+
+;---------------------------------------------------------------------------------------
+POP_XX	macro	lbl_f, lbl_s, lbl_e
+	move.w	sp_(a3),d0		; スタックから読み込む
+	read_mem_16	lbl_f,lbl_s,lbl_e
+	addq.w	#2,sp_(a3)		; スタックを2バイト増やす
+	endm
+;---------------------------------------------------------------------------------------
+
+PUSH_AF_h:
+	lea.l	11(a5),a5
+PUSH_AF:
+@@:
+	move.b	d4,d1
+	lsl.w	#8,d1
+	move.b	d6,d1
+	move.w	d1,target_16(a3)
+	PUSH_XX	pu1f,pu1s,pu1e
+	jmp	(a6)
+
+POP_AF_h:
+	lea.l	10(a5),a5
+POP_AF:
+	POP_XX	po1f,po1s,po1e
+	move.w	d0,d4			; Aレジスタのロード
+	lsr.w	#8,d4			; 位置合わせ
+	move.b	d0,d6			; フラグのロード
+	jmp	(a6)
+
+PUSH_BC_h:
+	lea.l	11(a5),a5
+PUSH_BC:
+	move.w	bc(a3),target_16(a3)
+	PUSH_XX	pu2f,pu2s,pu2e
+	jmp	(a6)
+
+POP_BC_h:
+	lea.l	10(a5),a5
+POP_BC:
+	POP_XX	po2f,po2s,po2e
+	move.w	d0,bc(a3)
+	jmp	(a6)
+
+PUSH_DE_h:
+	lea.l	11(a5),a5
+PUSH_DE:
+	move.w	de(a3),target_16(a3)
+	PUSH_XX	pu3f,pu3s,pu3e
+	jmp	(a6)
+
+POP_DE_h:
+	lea.l	10(a5),a5
+POP_DE:
+	POP_XX	po3f,po3s,po3e
+	move.w	d0,de(a3)
+	jmp	(a6)
+
+PUSH_HL_h:
+	lea.l	11(a5),a5
+PUSH_HL:
+	move.w	hl(a3),target_16(a3)
+	PUSH_XX	pu4f,pu4s,pu4e
+	jmp	(a6)
+
+POP_HL_h:
+	lea.l	10(a5),a5
+POP_HL:
+	POP_XX	po4f,po4s,po4e
+	move.w	d0,hl(a3)
+	jmp	(a6)
+
+*	------ ＥＸ ------
+EX_lSPl_HL_h:
+	lea.l	19(a5),a5
+EX_lSPl_HL:
+	move.w	sp_(a3),d0
+	read_mem_16	rd16f6,rd16s6,rd16e6
+	move.w	hl(a3),d1
+	move.w	d0,hl(a3)
+	move.w	sp_(a3),d0
+	write_mem_16	wr16f5,wr16s5,wr16e5
+	jmp	(a6)
+
+EXX_h:
+	addq.w	#4,a5
+EXX:	move.l	bc(a3),d0		* d0 = bc, de
+	move.w	hl(a3),d1
+
+	move.l	bc_(a3),bc(a3)
+	move.w	hl_(a3),hl(a3)
+
+	move.l	d0,bc_(a3)
+	move.w	d1,hl_(a3)
+
+	jmp	(a6)
+
+EX_DE_HL_h:
+	addq.w	#4,a5
+EX_DE_HL:
+	move.l	de(a3),d0
+	swap	d0
+	move.l	d0,de(a3)
+	jmp	(a6)
+
+EX_AF_AFd_h:
+	addq.w	#4,a5
+EX_AF_AFd:
+	move.b	d4,d1
+	move.b	a_(a3),d4
+	move.b	d1,a_(a3)
+@@:
+	move.b	d6,d1
+	move.b	f_(a3),d6
+	move.b	d1,f_(a3)
+
+	jmp	(a6)
+
+
+; CCFの挙動は以下の通り
+; * S : 変化しない
+; * Z : 変化しない
+; * F5: A レジスタの bit5
+; * H : 元のCフラグの値
+; * F3: A レジスタの bit3
+; * PV: 変化しない
+; * N : 0
+; * C : Cの反転
+CCF_h:
+	addq.w	#4,a5
+* CCF は元の C が要る。H と C だけ確定させれば足りる（全フラグは不要）
+CCF:
+@@:
+	move.b	d6,d0			* 元のCフラグの値を保存
+	andi.b	#%00000001,d0		* Cフラグのみを取得
+	lsl.b	#4,d0			* C→HCの位置に移動
+	move.b	d4,d1			* Aレジスタの値を取得
+	andi.b	#%00101000,d1		* AレジスタからF5,F3を取得
+	or.b	d1,d0			* F5,F3を混ぜる
+	andi.b	#%11000101,d6		* S,Z,P/V,Ｃ だけ残す
+	bchg	#0,d6			* Cフラグを反転
+	or.b	d0,d6			* F5,H,F3を反映
+	jmp	(a6)	
+
+; SCFの挙動は以下の通り
+; * S : 変化しない
+; * Z : 変化しない
+; * F5: A レジスタの bit5
+; * H : 0
+; * F3: A レジスタの bit3
+; * PV: 変化しない
+; * N : 0
+; * C : 1
+SCF_h:
+	addq.w	#4,a5
+SCF:	move.b	d4,d0			* Aレジスタの値を取得
+	andi.b	#%00101000,d0		* AレジスタからF5,F3を取得
+	ori.b	#%00000001,d0		* C=1
+* S,Z,PV は変わらないのでダーティビットごと残す。全フラグの強制確定が要らない
+	andi.b	#%11000100,d6		* S,Z,P/V だけ残す
+	or.b	d0,d6			* F5,F3,C を反映
+	;
+	jmp	(a6)
+
+; CPLの挙動は以下の通り
+; * A : 反転
+; * S : 変化しない
+; * Z : 変化しない
+; * F5: 反転後のA レジスタの bit5
+; * H : 1
+; * F3: 反転後のA レジスタの bit3
+; * PV: 変化しない
+; * N : 1
+; * C : 変化しない
+CPL_h:
+	addq.w	#4,a5
+CPL:	eori.b	#$ff,d4			* Aレジスタの値を反転
+	move.b	d4,d0			* 反転後のAレジスタの値を取得
+	andi.b	#%00101000,d0		* AレジスタからF5,F3を取得
+* S,Z,PV,C は変わらないのでダーティビットごと残す
+	andi.b	#%11000101,d6		* S,Z,P/V,Ｃ だけ残す
+	ori.b	#%00010010,d6		* N,Hを1に
+	or.b	d0,d6			* F5,F3を反映
+	;
+	jmp	(a6)
+
+DI_h:
+	addq.w	#4,a5
+DI:	move.b	#0,interrupt_enable
+	jmp	(a6)
+
+;
+; EIの挙動として、「次の命令までは割り込みがかからずに実行される」というものがあります。
+; 割り込み処理ルーチンの最後は通常以下のような並びになっていますが、
+;	EI
+;	RETI
+; この仕様のおかげで、割り込みが許可されるのは RETIによって元の処理に戻った後になります。
+; これを実現するためには、EIの命令の直後であることをなんらかのフラグで覚えておく必要があります。
+; 今は、「最後に実行したOPコード」を last_opcodeに覚えておくようにして対応しています。
+EI_h:
+	addq.w	#4,a5
+EI:	move.b	#1,interrupt_enable	* 割り込みを許可
+	move.l	emu_counter,ei_at	* 「直前の命令は EI だった」の印
+	move.b	#1,ei_pending
+	cmpi.b	#0,ms_cpu_int
+	beq	1f
+	move.w	#2,cpu_yield		* 外部割り込み要求がある場合は2サイクル後に割り込み判定をかける
+	bsr	force_yield_check	* 次の命令で中断確認へ落とす
+	bra	2f
+1:	tst.b	ei_force_always
+	beq	@f
+	bsr	force_yield_check	* 次の命令で必ず中断確認へ落とす
+*	高速版は入口そのものを書き換えるため、そのまま帰ると 1 命令も実行せずに
+*	中断確認へ落ちてしまう。EI の次の 1 命令は必ず実行されなければならない。
+2:	tst.b	cpu_fast_enabled
+	beq	@f
+	bra	cpu_exec_core		* 書き換え語を踏まずに 1 命令実行する
+@@:	jmp	(a6)
+
+;---------------------------------------------------------------------------------------
+RST_XXH	macro	value, lbl_f, lbl_s, lbl_e
+	;move.w	value,d0
+	;bsr	print_debug_rst
+	move.l	d7,d1
+	andi.w	#PAGEADDRMASK,d1	* 位置は -8192 基準なので上位 3bit を落とす
+	lsr.l	#3,d7			* d7 = ppp000??_????????
+	andi.w	#%11100000_00000000,d7	* d7 = ppp00000_00000000
+	or.w	d7,d1			* d1 = PC (R800) = next instruction
+	subq.w	#2,sp_(a3)		* PUSH	
+	move.w	sp_(a3),d0
+	write_mem_16	lbl_f,lbl_s,lbl_e
+	move.w	value,d7
+	PC_page_set
+	endm
+;---------------------------------------------------------------------------------------
+
+RST_00H_h:
+	lea.l	11(a5),a5
+RST_00H:
+	RST_XXH	#$0000,rf1s,rs1s,rs1e
+	jmp	(a6)
+
+RST_08H_h:
+	lea.l	11(a5),a5
+RST_08H:
+	RST_XXH	#$0008,rf2s,rs2s,rs2e
+	jmp	(a6)
+
+RST_10H_h:
+	lea.l	11(a5),a5
+RST_10H:
+	RST_XXH	#$0010,rf3s,rs3s,rs3e
+	jmp	(a6)
+
+RST_18H_h:
+	lea.l	11(a5),a5
+RST_18H:
+	RST_XXH	#$0018,rf4s,rs4s,rs4e
+	jmp	(a6)
+
+RST_20H_h:
+	lea.l	11(a5),a5
+RST_20H:
+	RST_XXH	#$0020,rf5s,rs5s,rs5e
+	jmp	(a6)
+
+RST_28H_h:
+	lea.l	11(a5),a5
+RST_28H:
+	RST_XXH	#$0028,rf6s,rs6s,rs6e
+	jmp	(a6)
+
+RST_30H_h:
+	lea.l	11(a5),a5
+RST_30H:
+	RST_XXH	#$0030,rf7s,rs7s,rs7e
+	jmp	(a6)
+
+RST_38H_h:
+	lea.l	11(a5),a5
+RST_38H:
+	RST_XXH	#$0038,rf8s,rs8s,rs8e
+	jmp	(a6)
+
+print_debug_rst:
+	cmp.w	#MS_LOG_TRACE,debug_log_level
+	bge	@f				* ログレベルが TRACE 以上の時
+	jmp	(a6)
+@@:	movem.l	d0-d3/a0-a3,-(sp)
+	move.w	d0,d1
+	lsr.w	#4,d0
+	lea.l	HEX,a0
+	move.b	(a0,d0.w),debug_rst_number+0
+	andi.w	#$0f,d1
+	move.b	(a0,d1.w),debug_rst_number+1
+
+	pea.l	debug_rst_msg
+	DOS	__PRINT
+	lea.l	4(sp),sp
+	movem.l	(sp)+,d0-d3/a0-a3
+	jmp	(a6)
+
+	.data
+
+debug_rst_msg:
+	.dc.b	'RST 0x'
+debug_rst_number:
+	.dc.b	'00'
+debug_rst_msg2:
+	.dc.b	'が呼ばれました'
+	.dc.b	0x0d,0x0a,0x00
+
+	.text
+
+*	------ ＲＬＣＡ ------
+*	------ ＲＬＡ ------
+*	------ ＲＲＣＡ ------
+*	------ ＲＲＡ ------
+
+;---------------------------------------------------------------------------------------
+RXXA	macro	isLeft, isCircular
+	.if isCircular=0
+	; キャリーを経由する形だけ、演算前の C が要る
+@@:
+	.endif
+	.if isCircular
+	  ; キャリーを経由せずにローテート
+	  .if isLeft
+	    rol.b	#1,d4
+	  .else
+	    ror.b	#1,d4
+	  .endif
+	.else
+	  ; キャリーを経由してローテート
+	  ; Xフラグにキャリーをセットし、rox命令を使う
+	  btst.l	#0,d6
+	  bne	1f
+	  andi.b	#%11101111,ccr	; Xフラグをリセット
+	  bra	2f
+1:  	  ori.b		#%00010000,ccr	; Xフラグをセット
+2:
+	  .if isLeft
+	    roxl.b	#1,d4
+	  .else
+	    roxr.b	#1,d4
+	  .endif
+	.endif
+	; S・Z・P/V は変化しないので残す。
+	; F5・F3 は結果から、C ははみ出したビットから組み立てる。
+	scs	d1			* C（Scc は CCR を変えない）
+	andi.b	#%00000001,d1
+	move.b	d4,d3			* 結果
+	andi.b	#%00101000,d3		* F5,F3
+	or.b	d3,d1
+	andi.b	#%11000100,d6		* S,Z,P/V だけ残す
+	or.b	d1,d6
+	endm
+;---------------------------------------------------------------------------------------
+
+RLCA_h:
+	addq.w	#4,a5
+RLCA:	RXXA	1, 1
+	jmp	(a6)
+
+RRCA_h:
+	addq.w	#4,a5
+RRCA:	RXXA	0, 1
+	jmp	(a6)
+
+RLA_h:
+	addq.w	#4,a5
+RLA:	RXXA	1, 0
+	jmp	(a6)
+
+RRA_h:
+	addq.w	#4,a5
+RRA:	RXXA	0, 0
+	jmp	(a6)
+
+*	------ ＨＡＬＴ ------
+HALT_h:
+	addq.w	#4,a5
+HALT:
+	; pea.l	halt_msg
+	; DOS	__PRINT
+	; lea.l	4(sp),sp
+9:	move.l	cpu_sub_emu_yield,d0	* X68000側の割り込みがかかるまで待機
+	beq	9b
+	; 一時的に割り込み禁止
+	move.w	sr,d0
+	move.w	d0,-(sp)
+	or.w	#%00000111_00000000,d0
+	move.w	d0,sr
+
+	cmpi.b	#0,interrupt_enable
+	beq	8f		* DIなら割り込まない(永遠に出られない？ NMIなら出られるようにすべき？)
+	; あらためて割り込み要求端子の値(ms_cpu_int)を見て割り込み要求があるかどうかを見る
+	cmpi.b	#0,ms_cpu_int
+	beq	8f
+	bsr	INT		* 割り込みがかかったので割り込み処理を実施
+	move.w	#0,d0
+	bsr	add_interrupt_history
+	move.l	emu_counter,emu_counter_latch	* この時点の値を覚えておく
+	move.w	(sp)+,sr	* ここで割り込み許可に戻す
+	jmp	(a6)			* HALT命令終了
+
+8:	; HALT中でも特殊キーの処理を回したいので、yieldチェック
+	add.l	#1,emu_counter
+	bsr	get_emu_yield_func
+	cmpi.l	#0,d0
+	bne	@f
+	move.w	(sp)+,sr		* ここで割り込み許可に戻す
+	bra	9b
+
+@@:	; タイミングが来たのでC側の処理を呼び出す
+	movea.l	d0,a0			* 処理ルーチンのアドレス
+	move.l	emu_counter,d0
+	sub.l	emu_counter_latch,d0
+	move.w	(sp)+,sr		* ここで割り込み許可に戻す
+	movem.l	d1-d7/a0-a6,-(sp)
+	move.l	d0,-(sp)		* カウンタ差分を引数として渡す
+	move.l	d7,-(sp)		* PCを引数として渡す
+	jsr	(a0)
+	lea.l	8(sp),sp
+	movem.l	(sp)+,d1-d7/a0-a6
+	move.l	d0,d0
+	beq	9b
+	; 0以外が帰ってきたのでエミュレータを終了
+	; ハンドラは戻り番地を積まれていないので、SP はそのまま
+	bra	emu_end
+
+halt_msg:
+	.dc.b	'HALT',0x0d,0x0a,0x00,0x00
+
+	.even
+
+*
+*	＄ＣＢライン命令
+*
+*	  c    b   
+*	%1100_1011_cccc_crrr
+*
+*		ccccc ・ 00000	RLC
+*			 00001	RRC
+*			 00010	RL
+*			 00011	RR
+*			 00100	SLA
+*			 00101	SRA
+*			 00110	SLI		* undifined instruction
+*			 00111	SRL
+*
+*			 01000
+*			   |	BIT 0～7
+*			 01111
+*
+*			 10000
+*			   |	RES 0～7
+*			 10111
+*
+*			 11000
+*			   |	SET 0～7
+*			 11111
+*
+*		rrr ・・ 000 - b
+*			 001 - c
+*			 010 - d
+*			 011 - e
+*			 100 - h
+*			 101 - l
+*			 110 - (hl)
+*			 111 - a
+*
+*
+;	CBラインのSET命令はほとんどサイクル数=8
+CB_h:
+	addq.w	#8,a5
+	cmpi.w	#-4,d7	* オペランドがページ境界をまたぐか？
+	.ifdef	EDGEALWAYS
+	lea.l	CB(pc),a0		* 検証用: 常にエッジ処理を通す
+	jmp	cpu_edge_2
+	.else
+	ble.s	CB_o
+	lea.l	CB(pc),a0		* コールドパス。本体の先頭を渡す
+	jmp	cpu_edge_2
+CB_o:	addq.w	#1,d7			* 残りの PC 前進。a4 は (a4)+ で進む
+	.endif
+CB:	* オペランド列から第二オペコードを取り出す
+	move.b	(a4)+,d0
+@@:
+	bclr.l	#7,d0			* ００Ｈ～７ＦＨの命令かどうか
+	beq	case2			* そうなら case2へ
+case1:
+	bclr.l	#6,d0
+	beq	RES			* ＲＥＳ命令
+
+;	------ ＳＥＴ ------
+SET:	move.b	d0,d1
+	andi.w	#%00000000_00111000,d0		* BIT_n_? の n を d0にロード
+	lsr.w	#3,d0
+
+	andi.w	#%00000000_00000111,d1		* レジスタの値をロード
+	addq.w	#2,d1
+	bclr.l	#3,d1
+	bne	SET_aorhl			* SET A, SET (HL)の時
+	bset.b	d0,a(a3,d1.w)			* レジスタの nビット目をセット
+	jmp	(a6)
+
+SET_aorhl:
+	tst.w	d1
+	beq	set_lhll
+	bset.l	d0,d4				* A レジスタの nビット目をセット
+	jmp	(a6)
+set_lhll
+	; (HL) の場合はサイクル数が15なので7を足す
+	addq.l	#7,a5
+	move.w	d0,-(sp)
+	move.w	hl(a3),d0
+	read_mem_8	rd8f25,rd8s25,rd8e25
+	move.w	(sp)+,d1
+	bset.l	d1,d0				* (HL)の nビット目をセット
+	move.b	d0,d1
+	move.w	hl(a3),d0
+	write_mem_8	wr8f12,wr8s12,wr8e12
+	jmp	(a6)
+
+;	------ ＲＥＳ ------
+RES:	move.b	d0,d1
+	andi.w	#%00000000_00111000,d0		* BIT_n_? の n を d0にロード
+	lsr.w	#3,d0
+
+	andi.w	#%00000000_00000111,d1		* レジスタの値をロード
+	addq.w	#2,d1
+	bclr.l	#3,d1
+	bne	RES_aorhl			* RES A, RES (HL)の時
+	bclr.b	d0,a(a3,d1.w)			* レジスタの nビット目をクリア
+	jmp	(a6)
+RES_aorhl:
+	tst.w	d1
+	beq	RES_lhll
+	bclr.l	d0,d4				* A レジスタの nビット目をクリア
+	jmp	(a6)
+RES_lhll
+	; (HL) の場合はサイクル数が15なので7を足す
+	addq.l	#7,a5
+	move.w	d0,-(sp)
+	move.w	hl(a3),d0
+	read_mem_8	rd8f26,rd8s26,rd8e26
+	move.w	(sp)+,d1
+	bclr.l	d1,d0				* (HL)の nビット目をセット
+	move.b	d0,d1
+	move.w	hl(a3),d0
+	write_mem_8	wr8f13,wr8s13,wr8e13
+	jmp	(a6)
+
+;	------ CASE2 ------
+case2:
+	bclr.l	#6,d0
+	beq	rot_sft			* ローテート、シフト関係の命令
+
+;	------ ＢＩＴ ------
+; ＢＩＴ命令の挙動は以下の通り
+; * S : BIT 7,?の時だけ、対象のbit7が1なら1。それ以外の時は0
+; * Z : 対象のbitが0なら1。それ以外の時は0
+; * F5: 対象のbit5
+; * H : 1
+; * F3: 対象のbit3
+; * PV: Zフラグと同じ
+; * N : 0
+; * C : 変化しない
+; ただし、対象が(HL)の場合だけ、F5,F3は内部のWZレジスタの上位8bitの値(bit13,11)が入るらしい
+BIT:	move.w	d0,-(sp)
+@@:
+	andi.b	#%00000001,d6		* Ｃ だけ残す
+	ori.b	#%00010000,d6		* H をセット
+	move.w	(sp)+,d0
+	move.w	d0,d1
+	andi.w	#%00000000_00111000,d0	* BIT_n_? の n を d0にロード
+	lsr.w	#3,d0
+	moveq.l	#1,d2
+	lsl	d0,d2			* 対象位置のビットをセット
+
+	andi.w	#%00000000_00000111,d1
+	addq.w	#2,d1
+	andi.w	#%00000111,d1
+	cmpi.w	#1,d1
+	beq	BIT_a			* BIT Aの時
+	blt	BIT_lhll		* BIT (HL)の時
+	move.b	a(a3,d1.w),d0		* B,C,D,E,H,Lのいずれかのレジスタの値をロード
+	move.b	d0,d1			* F5,F3に反映させるレジスタ値をd1にロード
+	bra	@f
+BIT_a:
+	move.b	d4,d0			* Aレジスタの値をロード
+	move.b	d0,d1			* F5,F3に反映させるレジスタ値をd1にロード
+	bra	@f
+BIT_lhll:
+	; (HL) の場合はサイクル数が12なので4を足す
+	addq.l	#4,a5
+	move.w	d2,-(sp)
+	move.w	hl(a3),d0
+	read_mem_8	rd8f27,rd8s27,rd8e27
+	move.w	(sp)+,d2
+	move.b	w(a3),d1		* F5,F3に反映させるレジスタ値をd1にロード  (hl)の時は wレジスタが使われるらしい
+@@:
+	andi.b	#%00101000,d1		* F5,F3を取得
+	or.b	d1,d6			* F5,F3をFレジスタに反映
+	and.b	d2,d0			* レジスタの nビット目をテストするためにマスク
+	bne	1f
+	ori.b	#%01000100,d6		* Z,P/V をセット
+1:	andi.b	#%10000000,d0		* bit7のみ残す
+	or.b	d0,d6			* bit7を Sフラグに反映
+	jmp	(a6)
+
+
+;	------ ローテート,シフト ------
+rot_sft:
+	andi.w	#%0000_0000_0011_1111,d0	* 命令にジャンプ
+	add.w	d0,d0
+	move.w	Rot_Sft_JPT(pc,d0.w),d0
+	jmp	Rot_Sft_JPT(pc,d0.w)
+
+Rot_Sft_JPT:
+	.dc.w	RLC_B-Rot_Sft_JPT	* $00
+	.dc.w	RLC_C-Rot_Sft_JPT
+	.dc.w	RLC_D-Rot_Sft_JPT
+	.dc.w	RLC_E-Rot_Sft_JPT
+	.dc.w	RLC_H-Rot_Sft_JPT
+	.dc.w	RLC_L-Rot_Sft_JPT
+	.dc.w	RLC_lHLl-Rot_Sft_JPT
+	.dc.w	RLC_A-Rot_Sft_JPT
+	.dc.w	RRC_B-Rot_Sft_JPT	* $08
+	.dc.w	RRC_C-Rot_Sft_JPT
+	.dc.w	RRC_D-Rot_Sft_JPT
+	.dc.w	RRC_E-Rot_Sft_JPT
+	.dc.w	RRC_H-Rot_Sft_JPT
+	.dc.w	RRC_L-Rot_Sft_JPT
+	.dc.w	RRC_lHLl-Rot_Sft_JPT
+	.dc.w	RRC_A-Rot_Sft_JPT	* $0f
+
+	.dc.w	RL_B-Rot_Sft_JPT	* $10
+	.dc.w	RL_C-Rot_Sft_JPT
+	.dc.w	RL_D-Rot_Sft_JPT
+	.dc.w	RL_E-Rot_Sft_JPT
+	.dc.w	RL_H-Rot_Sft_JPT
+	.dc.w	RL_L-Rot_Sft_JPT
+	.dc.w	RL_lHLl-Rot_Sft_JPT
+	.dc.w	RL_A-Rot_Sft_JPT
+	.dc.w	RR_B-Rot_Sft_JPT	* $18
+	.dc.w	RR_C-Rot_Sft_JPT
+	.dc.w	RR_D-Rot_Sft_JPT
+	.dc.w	RR_E-Rot_Sft_JPT
+	.dc.w	RR_H-Rot_Sft_JPT
+	.dc.w	RR_L-Rot_Sft_JPT
+	.dc.w	RR_lHLl-Rot_Sft_JPT
+	.dc.w	RR_A-Rot_Sft_JPT	* $1f
+
+	.dc.w	SLA_B-Rot_Sft_JPT	* $20
+	.dc.w	SLA_C-Rot_Sft_JPT
+	.dc.w	SLA_D-Rot_Sft_JPT
+	.dc.w	SLA_E-Rot_Sft_JPT
+	.dc.w	SLA_H-Rot_Sft_JPT
+	.dc.w	SLA_L-Rot_Sft_JPT
+	.dc.w	SLA_lHLl-Rot_Sft_JPT
+	.dc.w	SLA_A-Rot_Sft_JPT
+	.dc.w	SRA_B-Rot_Sft_JPT	* $28
+	.dc.w	SRA_C-Rot_Sft_JPT
+	.dc.w	SRA_D-Rot_Sft_JPT
+	.dc.w	SRA_E-Rot_Sft_JPT
+	.dc.w	SRA_H-Rot_Sft_JPT
+	.dc.w	SRA_L-Rot_Sft_JPT
+	.dc.w	SRA_lHLl-Rot_Sft_JPT
+	.dc.w	SRA_A-Rot_Sft_JPT	* $2f
+
+	.dc.w	SLI_B-Rot_Sft_JPT	* $30	SLI 未定義命令(Shift Left Increment)
+	.dc.w	SLI_C-Rot_Sft_JPT	*	ビット０に１が入る左シフト
+	.dc.w	SLI_D-Rot_Sft_JPT
+	.dc.w	SLI_E-Rot_Sft_JPT
+	.dc.w	SLI_H-Rot_Sft_JPT
+	.dc.w	SLI_L-Rot_Sft_JPT
+	.dc.w	SLI_lHLl-Rot_Sft_JPT
+	.dc.w	SLI_A-Rot_Sft_JPT
+	.dc.w	SRL_B-Rot_Sft_JPT	* $38
+	.dc.w	SRL_C-Rot_Sft_JPT
+	.dc.w	SRL_D-Rot_Sft_JPT
+	.dc.w	SRL_E-Rot_Sft_JPT
+	.dc.w	SRL_H-Rot_Sft_JPT
+	.dc.w	SRL_L-Rot_Sft_JPT
+	.dc.w	SRL_lHLl-Rot_Sft_JPT
+	.dc.w	SRL_A-Rot_Sft_JPT	* $3f
+
+;
+; RLC, RRC, RL, RR のローテーション(最後にAがついてない方)をまとめたマクロ
+;
+; フラグの挙動は以下の通り
+; * S : 結果の最上位ビット
+; * Z : 結果が0なら1。それ以外の時は0
+; * F5: 結果のbit5
+; * H : 0
+; * F3: 結果のbit3
+; * PV: 結果のパリティ
+; * N : 0
+; * C : ローテーションによってはみ出た値
+;
+RXX_	macro	isLeft, isCircular
+	.if isCircular=0
+	; キャリーを経由する形だけ、演算前の C が要る
+@@:
+	.endif
+	move.b	target_8(a3),d0
+	.if isCircular
+	  ; キャリーを経由せずにローテート
+	  .if isLeft
+	    rol.b	#1,d0
+	  .else
+	    ror.b	#1,d0
+	  .endif
+	.else
+	  ; キャリーを経由してローテート
+	  ; Xフラグにキャリーをセットし、rox命令を使う
+	  btst.l	#0,d6
+	  bne	1f
+	  andi.b	#%11101111,ccr	; Xフラグをリセット
+	  bra	2f
+1:  	  ori.b		#%00010000,ccr	; Xフラグをセット
+2:
+	  .if isLeft
+	    roxl.b	#1,d0
+	  .else
+	    roxr.b	#1,d0
+	  .endif
+	.endif
+	; はみ出したビットが C。S,Z,F5,F3,P/V は結果から表 1 回で引ける。H=0、N=0。
+	scs	d1			* C（Scc は CCR を変えない）
+	andi.b	#%00000001,d1
+	moveq.l	#0,d3
+	move.b	d0,d3			* 結果
+	move.b	szp53p(a3,d3.w),d3		* S,Z,F5,F3,P/V を一度に引く
+	or.b	d3,d1
+	moveq.l	#0,d6
+	move.b	d1,d6
+	endm
+
+*	------ ＲＬＣ ------
+RLC_A:	move.b	d4,target_8(a3)
+	RXX_	1, 1
+	move.b	d0,d4
+	jmp	(a6)
+RLC_B:	move.b	b(a3),target_8(a3)
+	RXX_	1, 1
+	move.b	d0,b(a3)
+	jmp	(a6)
+RLC_C:	move.b	c(a3),target_8(a3)
+	RXX_	1, 1
+	move.b	d0,c(a3)
+	jmp	(a6)
+RLC_D:	move.b	d(a3),target_8(a3)
+	RXX_	1, 1
+	move.b	d0,d(a3)
+	jmp	(a6)
+RLC_E:	move.b	e(a3),target_8(a3)
+	RXX_	1, 1
+	move.b	d0,e(a3)
+	jmp	(a6)
+RLC_H:	move.b	h(a3),target_8(a3)
+	RXX_	1, 1
+	move.b	d0,h(a3)
+	jmp	(a6)
+RLC_L:	move.b	l(a3),target_8(a3)
+	RXX_	1, 1
+	move.b	d0,l(a3)
+	jmp	(a6)
+RLC_lHLl:
+	; (HL) の場合はサイクル数が15なので7を足す
+	addq.l	#7,a5
+	move.w	hl(a3),d0
+	read_mem_8	rd8f28,rd8s28,rd8e28
+	move.b	d0,target_8(a3)
+	RXX_	1, 1
+	move.b	d0,d1
+	move.w	hl(a3),d0
+	write_mem_8	wr8f14,wr8s14,wr8e14
+	jmp	(a6)
+
+*	------ ＲＲＣ ------
+RRC_A:	move.b	d4,target_8(a3)
+	RXX_	0, 1
+	move.b	d0,d4
+	jmp	(a6)
+RRC_B:	move.b	b(a3),target_8(a3)
+	RXX_	0, 1
+	move.b	d0,b(a3)
+	jmp	(a6)
+RRC_C:	move.b	c(a3),target_8(a3)
+	RXX_	0, 1
+	move.b	d0,c(a3)
+	jmp	(a6)
+RRC_D:	move.b	d(a3),target_8(a3)
+	RXX_	0, 1
+	move.b	d0,d(a3)
+	jmp	(a6)
+RRC_E:	move.b	e(a3),target_8(a3)
+	RXX_	0, 1
+	move.b	d0,e(a3)
+	jmp	(a6)
+RRC_H:	move.b	h(a3),target_8(a3)
+	RXX_	0, 1
+	move.b	d0,h(a3)
+	jmp	(a6)
+RRC_L:	move.b	l(a3),target_8(a3)
+	RXX_	0, 1
+	move.b	d0,l(a3)
+	jmp	(a6)
+RRC_lHLl:
+	; (HL) の場合はサイクル数が15なので7を足す
+	addq.l	#7,a5
+	move.w	hl(a3),d0
+	read_mem_8	rd8f29,rd8s29,rd8e29
+	move.b	d0,target_8(a3)
+	RXX_	0, 1
+	move.b	d0,d1
+	move.w	hl(a3),d0
+	write_mem_8	wr8f15,wr8s15,wr8e15
+	jmp	(a6)
+
+*	------ ＲＬ ------
+RL_A:	move.b	d4,target_8(a3)
+	RXX_	1, 0
+	move.b	d0,d4
+	jmp	(a6)
+RL_B:	move.b	b(a3),target_8(a3)
+	RXX_	1, 0
+	move.b	d0,b(a3)
+	jmp	(a6)
+RL_C:	move.b	c(a3),target_8(a3)
+	RXX_	1, 0
+	move.b	d0,c(a3)
+	jmp	(a6)
+RL_D:	move.b	d(a3),target_8(a3)
+	RXX_	1, 0
+	move.b	d0,d(a3)
+	jmp	(a6)
+RL_E:	move.b	e(a3),target_8(a3)
+	RXX_	1, 0
+	move.b	d0,e(a3)
+	jmp	(a6)
+RL_H:	move.b	h(a3),target_8(a3)
+	RXX_	1, 0
+	move.b	d0,h(a3)
+	jmp	(a6)
+RL_L:	move.b	l(a3),target_8(a3)
+	RXX_	1, 0
+	move.b	d0,l(a3)
+	jmp	(a6)
+RL_lHLl:
+	; (HL) の場合はサイクル数が15なので7を足す
+	addq.l	#7,a5
+	move.w	hl(a3),d0
+	read_mem_8	rd8f30,rd8s30,rd8e30
+	move.b	d0,target_8(a3)
+	RXX_	1, 0
+	move.b	d0,d1
+	move.w	hl(a3),d0
+	write_mem_8	wr8f16,wr8s16,wr8e16
+	jmp	(a6)
+
+*	------ ＲＲ ------
+RR_A:	move.b	d4,target_8(a3)
+	RXX_	0, 0
+	move.b	d0,d4
+	jmp	(a6)
+RR_B:	move.b	b(a3),target_8(a3)
+	RXX_	0, 0
+	move.b	d0,b(a3)
+	jmp	(a6)
+RR_C:	move.b	c(a3),target_8(a3)
+	RXX_	0, 0
+	move.b	d0,c(a3)
+	jmp	(a6)
+RR_D:	move.b	d(a3),target_8(a3)
+	RXX_	0, 0
+	move.b	d0,d(a3)
+	jmp	(a6)
+RR_E:	move.b	e(a3),target_8(a3)
+	RXX_	0, 0
+	move.b	d0,e(a3)
+	jmp	(a6)
+RR_H:	move.b	h(a3),target_8(a3)
+	RXX_	0, 0
+	move.b	d0,h(a3)
+	jmp	(a6)
+RR_L:	move.b	l(a3),target_8(a3)
+	RXX_	0, 0
+	move.b	d0,l(a3)
+	jmp	(a6)
+RR_lHLl:
+	; (HL) の場合はサイクル数が15なので7を足す
+	addq.l	#7,a5
+	move.w	hl(a3),d0
+	read_mem_8	rd8f31,rd8s31,rd8e31
+	move.b	d0,target_8(a3)
+	RXX_	0, 0
+	move.b	d0,d1
+	move.w	hl(a3),d0
+	write_mem_8	wr8f17,wr8s17,wr8e17
+	jmp	(a6)
+
+;
+; SLA, SRA, SLI, SRL のシフトをまとめたマクロ
+;
+; フラグの挙動は以下の通り
+; * S : 結果の最上位ビット
+; * Z : 結果が0なら1。それ以外の時は0
+; * F5: 結果のbit5
+; * H : 0
+; * F3: 結果のbit3
+; * PV: 結果のパリティ
+; * N : 0
+; * C : 命令による(SLA:はみ出た値、SRA:はみ出た値、SLI:はみ出た値、SRL:はみ出た値)
+;
+; RXXほどの対称性はないのでちょっと分かりづらいが、以下のような動作をする
+; * SLA: 左に1ビットシフト、bit0には0が入る、はみ出た値は C フラグにセット
+; * SRA: 右に1ビットシフト、bit7は元の値の最上位ビット、はみ出た値は C フラグにセット
+; * SLI: 左に1ビットシフト、bit0には1が入る、はみ出た値は C フラグにセット(未定義命令)
+; * SRL: 右に1ビットシフト、bit7は0、はみ出た値は C フラグにセット
+;
+; 以上を１つのマクロで実現するため、isLeft, insert という２つの引数を使っている
+; * isLeft: 1の時は左シフト、0の時は右シフト
+; * insert : 0の時は0を挿入、1の時は1を挿入、2の時は 最上位ビットの値を挿入
+SXX	macro	isLeft, insert
+	; 差し込むのは 0／1／bit7 のいずれかで、演算前の C は要らない
+	move.b	target_8(a3),d0
+	.if insert=0
+	  andi.b	#%11101111,ccr	; Xフラグをリセット
+	.elseif insert=1
+	  ori.b		#%00010000,ccr	; Xフラグをセット
+	.else
+	  btst	#7,d0
+	  bne	1f
+	  andi.b	#%11101111,ccr	; Xフラグをリセット
+	  bra	2f
+1: 	  ori.b		#%00010000,ccr	; Xフラグをセット
+2:
+	.endif
+	.if isLeft
+	  roxl.b	#1,d0			; Xフラグを使えるのはローテートだけなのでローテートを使う
+	.else
+	  roxr.b	#1,d0			; Xフラグを使えるのはローテートだけなのでローテートを使う	
+	.endif
+
+	; はみ出したビットが C。S,Z,F5,F3,P/V は結果から表 1 回で引ける。H=0、N=0。
+	scs	d1			* C（Scc は CCR を変えない）
+	andi.b	#%00000001,d1
+	moveq.l	#0,d3
+	move.b	d0,d3			* 結果
+	move.b	szp53p(a3,d3.w),d3		* S,Z,F5,F3,P/V を一度に引く
+	or.b	d3,d1
+	moveq.l	#0,d6
+	move.b	d1,d6
+	endm
+
+*	------ ＳＬＡ ------
+SLA_A:
+	move.b	d4,target_8(a3)
+	SXX	1, 0
+	move.b	d0,d4
+	jmp	(a6)
+SLA_B:
+	move.b	b(a3),target_8(a3)
+	SXX	1, 0
+	move.b	d0,b(a3)
+	jmp	(a6)
+SLA_C:
+	move.b	c(a3),target_8(a3)
+	SXX	1, 0
+	move.b	d0,c(a3)
+	jmp	(a6)
+SLA_D:
+	move.b	d(a3),target_8(a3)
+	SXX	1, 0
+	move.b	d0,d(a3)
+	jmp	(a6)
+SLA_E:
+	move.b	e(a3),target_8(a3)
+	SXX	1, 0
+	move.b	d0,e(a3)
+	jmp	(a6)
+SLA_H:
+	move.b	h(a3),target_8(a3)
+	SXX	1, 0
+	move.b	d0,h(a3)
+	jmp	(a6)
+SLA_L:
+	move.b	l(a3),target_8(a3)
+	SXX	1, 0
+	move.b	d0,l(a3)
+	jmp	(a6)
+SLA_lHLl:
+	; (HL) の場合はサイクル数が15なので7を足す
+	addq.l	#7,a5
+	move.w	hl(a3),d0
+	read_mem_8	rd8f32,rd8s32,rd8e32
+	move.b	d0,target_8(a3)
+	SXX	1, 0
+	move.b	d0,d1
+	move.w	hl(a3),d0
+	write_mem_8	wr8f18,wr8s18,wr8e18
+	jmp	(a6)
+
+*	------ ＳＲＡ ------
+SRA_A:
+	move.b	d4,target_8(a3)
+	SXX	0, 2
+	move.b	d0,d4
+	jmp	(a6)
+SRA_B:
+	move.b	b(a3),target_8(a3)
+	SXX	0, 2
+	move.b	d0,b(a3)
+	jmp	(a6)
+SRA_C:
+	move.b	c(a3),target_8(a3)
+	SXX	0, 2
+	move.b	d0,c(a3)
+	jmp	(a6)
+SRA_D:
+	move.b	d(a3),target_8(a3)
+	SXX	0, 2
+	move.b	d0,d(a3)
+	jmp	(a6)
+SRA_E:
+	move.b	e(a3),target_8(a3)
+	SXX	0, 2
+	move.b	d0,e(a3)
+	jmp	(a6)
+SRA_H:
+	move.b	h(a3),target_8(a3)
+	SXX	0, 2
+	move.b	d0,h(a3)
+	jmp	(a6)
+SRA_L:
+	move.b	l(a3),target_8(a3)
+	SXX	0, 2
+	move.b	d0,l(a3)
+	jmp	(a6)
+SRA_lHLl:
+	; (HL) の場合はサイクル数が15なので7を足す
+	addq.l	#7,a5
+	move.w	hl(a3),d0
+	read_mem_8	rd8f33,rd8s33,rd8e33
+	move.b	d0,target_8(a3)
+	SXX	0, 2
+	move.b	d0,d1
+	move.w	hl(a3),d0
+	write_mem_8	wr8f19,wr8s19,wr8e19
+	jmp	(a6)
+
+*	------ ＳＲＬ ------
+SRL_A:
+	move.b	d4,target_8(a3)
+	SXX	0, 0
+	move.b	d0,d4
+	jmp	(a6)
+SRL_B:
+	move.b	b(a3),target_8(a3)
+	SXX	0, 0
+	move.b	d0,b(a3)
+	jmp	(a6)
+SRL_C:
+	move.b	c(a3),target_8(a3)
+	SXX	0, 0
+	move.b	d0,c(a3)
+	jmp	(a6)
+SRL_D:
+	move.b	d(a3),target_8(a3)
+	SXX	0, 0
+	move.b	d0,d(a3)
+	jmp	(a6)
+SRL_E:
+	move.b	e(a3),target_8(a3)
+	SXX	0, 0
+	move.b	d0,e(a3)
+	jmp	(a6)
+SRL_H:
+	move.b	h(a3),target_8(a3)
+	SXX	0, 0
+	move.b	d0,h(a3)
+	jmp	(a6)
+SRL_L:
+	move.b	l(a3),target_8(a3)
+	SXX	0, 0
+	move.b	d0,l(a3)
+	jmp	(a6)
+SRL_lHLl:
+	; (HL) の場合はサイクル数が15なので7を足す
+	addq.l	#7,a5
+	move.w	hl(a3),d0
+	read_mem_8	rd8f34,rd8s34,rd8e34
+	move.b	d0,target_8(a3)
+	SXX	0, 0
+	move.b	d0,d1
+	move.w	hl(a3),d0
+	write_mem_8	wr8f20,wr8s20,wr8e20
+	jmp	(a6)
+
+*	------ ＳＬＩ ------
+SLI_A:
+	move.b	d4,target_8(a3)
+	SXX	1, 1
+	move.b	d0,d4
+	jmp	(a6)
+SLI_B:
+	move.b	b(a3),target_8(a3)
+	SXX	1, 1
+	move.b	d0,b(a3)
+	jmp	(a6)
+SLI_C:
+	move.b	c(a3),target_8(a3)
+	SXX	1, 1
+	move.b	d0,c(a3)
+	jmp	(a6)
+SLI_D:
+	move.b	d(a3),target_8(a3)
+	SXX	1, 1
+	move.b	d0,d(a3)
+	jmp	(a6)
+SLI_E:
+	move.b	e(a3),target_8(a3)
+	SXX	1, 1
+	move.b	d0,e(a3)
+	jmp	(a6)
+SLI_H:
+	move.b	h(a3),target_8(a3)
+	SXX	1, 1
+	move.b	d0,h(a3)
+	jmp	(a6)
+SLI_L:
+	move.b	l(a3),target_8(a3)
+	SXX	1, 1
+	move.b	d0,l(a3)
+	jmp	(a6)
+SLI_lHLl:
+	; (HL) の場合はサイクル数が15なので7を足す
+	addq.l	#7,a5
+	move.w	hl(a3),d0
+	read_mem_8	rd8f35,rd8s35,rd8e35
+	move.b	d0,target_8(a3)
+	SXX	1, 1
+	move.b	d0,d1
+	move.w	hl(a3),d0
+	write_mem_8	wr8f21,wr8s21,wr8e21
+	jmp	(a6)
+
+********************************************************************
+*
+*	＄ＥＤライン命令
+*
+********************************************************************
+;	EDライン命令のサイクル数は不定なので0にしておき、各命令ごとに加算する
+;	EDラインの命令語長は2-4バイトなので、ここは2にしておき、各命令ごとに加算する
+*
+*	前置き ED。境界判定は「またがない」を不成立側にして、常用経路を 2 サイクル安くする。
+*	コールドパスは本体の手前へ出し、常用経路が本体へ落ちるようにする。
+*
+ED_edge:
+	lea.l	ED(pc),a0		* コールドパス。本体の先頭を渡す
+	jmp	cpu_edge_2
+
+ED_h:
+	cmpi.w	#-4,d7	* オペランドがページ境界をまたぐか？
+	.ifdef	EDGEALWAYS
+	bra	ED_edge			* 検証用: 常にエッジ処理を通す
+	.else
+	bgt	ED_edge
+	addq.w	#1,d7			* 残りの PC 前進。a4 は (a4)+ で進む
+	.endif
+ED:	* オペランド列から第二オペコードを取り出す
+	clr.w	d0
+	move.b	(a4)+,d0
+	subi.w	#$40,d0
+	bcs	other			* ＄３ｆ以下の時は特殊命令へ
+	add.w	d0,d0
+	add.w	d0,d0
+	movea.l	ED_JPT(pc,d0.w),a0	* 表は前置きの先頭を指している
+	jmp	(a0)
+ED_JPT:	.dc.l	IN_B_c_h			* $40
+	.dc.l	OUT_c_B_h
+	.dc.l	SBC_HL_BC_h
+	.dc.l	LD_lnnl_BC_h
+	.dc.l	NEG_h
+	.dc.l	RETN_h
+	.dc.l	IM_0_h
+	.dc.l	LD_I_A_h
+	.dc.l	IN_C_c_h			* $48
+	.dc.l	OUT_c_C_h
+	.dc.l	ADC_HL_BC_h
+	.dc.l	LD_BC_lnnl_h
+	.dc.l	none_ED_h
+	.dc.l	RETI_h
+	.dc.l	none_ED_h
+	.dc.l	LD_R_A_h			* $4f
+
+	.dc.l	IN_D_c_h			* $50
+	.dc.l	OUT_c_D_h
+	.dc.l	SBC_HL_DE_h
+	.dc.l	LD_lnnl_DE_h
+	.dc.l	none_ED_h
+	.dc.l	none_ED_h
+	.dc.l	IM_1_h
+	.dc.l	LD_A_I_h
+	.dc.l	IN_E_c_h			* $58
+	.dc.l	OUT_c_E_h
+	.dc.l	ADC_HL_DE_h
+	.dc.l	LD_DE_lnnl_h
+	.dc.l	none_ED_h
+	.dc.l	none_ED_h
+	.dc.l	IM_2_h
+	.dc.l	LD_A_R_h			* $5f
+
+	.dc.l	IN_H_c_h			* $60
+	.dc.l	OUT_c_H_h
+	.dc.l	SBC_HL_HL_h
+	.dc.l	LD_lnnl_HL_2_h
+	.dc.l	none_ED_h
+	.dc.l	none_ED_h
+	.dc.l	none_ED_h
+	.dc.l	RRD_lHLl_h
+	.dc.l	IN_L_c_h			* $68
+	.dc.l	OUT_c_L_h
+	.dc.l	ADC_HL_HL_h
+	.dc.l	LD_HL_lnnl_2_h
+	.dc.l	none_ED_h
+	.dc.l	none_ED_h
+	.dc.l	none_ED_h
+	.dc.l	RLD_lHLl_h		* $6f
+
+	.dc.l	IN_F_c_h			* $70
+	.dc.l	none_ED_h
+	.dc.l	SBC_HL_SP_h
+	.dc.l	LD_lnnl_SP_h
+	.dc.l	none_ED_h
+	.dc.l	none_ED_h
+	.dc.l	none_ED_h
+	.dc.l	none_ED_h
+	.dc.l	IN_A_c_h			* $78
+	.dc.l	OUT_c_A_h
+	.dc.l	ADC_HL_SP_h
+	.dc.l	LD_SP_lnnl_h
+	.dc.l	none_ED_h
+	.dc.l	none_ED_h
+	.dc.l	none_ED_h
+	.dc.l	none_ED_h			* $7f
+
+	.dc.l	none_ED_h			* $80
+	.dc.l	none_ED_h
+	.dc.l	none_ED_h
+	.dc.l	none_ED_h
+	.dc.l	none_ED_h
+	.dc.l	none_ED_h
+	.dc.l	none_ED_h
+	.dc.l	none_ED_h
+	.dc.l	none_ED_h			* $88
+	.dc.l	none_ED_h
+	.dc.l	none_ED_h
+	.dc.l	none_ED_h
+	.dc.l	none_ED_h
+	.dc.l	none_ED_h
+	.dc.l	none_ED_h
+	.dc.l	none_ED_h			* $8f
+
+	.dc.l	none_ED_h			* $90
+	.dc.l	none_ED_h
+	.dc.l	none_ED_h
+	.dc.l	none_ED_h
+	.dc.l	none_ED_h
+	.dc.l	none_ED_h
+	.dc.l	none_ED_h
+	.dc.l	none_ED_h
+	.dc.l	none_ED_h			* $98
+	.dc.l	none_ED_h
+	.dc.l	none_ED_h
+	.dc.l	none_ED_h
+	.dc.l	none_ED_h
+	.dc.l	none_ED_h
+	.dc.l	none_ED_h
+	.dc.l	none_ED_h			* $9f
+
+	.dc.l	LDI_dispatch_h			* $a0
+	.dc.l	CPI_dispatch_h
+	.dc.l	INI_dispatch_h
+	.dc.l	OUTI_dispatch_h
+	.dc.l	none_ED_h
+	.dc.l	none_ED_h
+	.dc.l	none_ED_h
+	.dc.l	none_ED_h
+	.dc.l	LDD_dispatch_h			* $a8
+	.dc.l	CPD_dispatch_h
+	.dc.l	IND_dispatch_h
+	.dc.l	OUTD_dispatch_h
+	.dc.l	none_ED_h
+	.dc.l	none_ED_h
+	.dc.l	none_ED_h
+	.dc.l	none_ED_h			* $af
+
+	.dc.l	LDIR_h			* $b0
+	.dc.l	CPIR_h
+	.dc.l	INIR_h
+	.dc.l	OTIR_h
+	.dc.l	none_ED_h
+	.dc.l	none_ED_h
+	.dc.l	none_ED_h
+	.dc.l	none_ED_h
+	.dc.l	LDDR_h			* $b8
+	.dc.l	CPDR_h
+	.dc.l	INDR_h
+	.dc.l	OTDR_h
+	.dc.l	none_ED_h
+	.dc.l	none_ED_h
+	.dc.l	none_ED_h
+	.dc.l	none_ED_h			* $bf
+
+	.dc.l	none_ED_h			* $c0
+	.dc.l	MULB_A_B_h
+	.dc.l	none_ED_h
+	.dc.l	MULW_HL_BC_h
+	.dc.l	none_ED_h
+	.dc.l	none_ED_h
+	.dc.l	none_ED_h
+	.dc.l	none_ED_h
+	.dc.l	none_ED_h			* $c8
+	.dc.l	MULB_A_C_h
+	.dc.l	none_ED_h
+	.dc.l	none_ED_h
+	.dc.l	none_ED_h
+	.dc.l	none_ED_h
+	.dc.l	none_ED_h
+	.dc.l	none_ED_h			* $cf
+
+	.dc.l	none_ED_h			* $d0
+	.dc.l	MULB_A_D_h
+	.dc.l	none_ED_h
+	.dc.l	MULW_HL_DE_h
+	.dc.l	none_ED_h
+	.dc.l	none_ED_h
+	.dc.l	none_ED_h
+	.dc.l	none_ED_h
+	.dc.l	none_ED_h			* $d8
+	.dc.l	MULB_A_E_h
+	.dc.l	none_ED_h
+	.dc.l	none_ED_h
+	.dc.l	none_ED_h
+	.dc.l	none_ED_h
+	.dc.l	none_ED_h
+	.dc.l	none_ED_h			* $df
+
+	.dc.l	none_ED_h			* $e0
+	.dc.l	MULB_A_H_h
+	.dc.l	none_ED_h
+	.dc.l	MULW_HL_HL_h
+	.dc.l	none_ED_h
+	.dc.l	none_ED_h
+	.dc.l	none_ED_h
+	.dc.l	none_ED_h
+	.dc.l	none_ED_h			* $e8
+	.dc.l	MULB_A_L_h
+	.dc.l	none_ED_h
+	.dc.l	none_ED_h
+	.dc.l	none_ED_h
+	.dc.l	none_ED_h
+	.dc.l	none_ED_h
+	.dc.l	none_ED_h			* $ef
+
+	.dc.l	none_ED_h			* $f0
+	.dc.l	none_ED_h
+	.dc.l	none_ED_h
+	.dc.l	MULW_HL_SP_h
+	.dc.l	none_ED_h
+	.dc.l	none_ED_h
+	.dc.l	none_ED_h
+	.dc.l	none_ED_h
+	.dc.l	none_ED_h			* $f8
+	.dc.l	MULB_A_A_h
+	.dc.l	none_ED_h
+	.dc.l	none_ED_h
+	.dc.l	none_ED_h
+	.dc.l	none_ED_h
+	.dc.l	none_ED_h
+	.dc.l	none_ED_h			* $ff
+
+none_ED_h:
+	lea.l	8(a5),a5
+none_ED:				* おかしな命令を実行しました
+	move.w	d0,d1
+	lsr.w	#4,d0
+	lea.l	HEX,a0
+	move.b	(a0,d0.w),number_ed+0
+	andi.w	#$0f,d1
+	move.b	(a0,d1.w),number_ed+1
+
+	pea.l	errms_ed
+	DOS	__PRINT
+	lea.l	4(sp),sp
+	move.b	#$ff,d0
+	jmp	(a6)
+
+errms_ed:
+	.dc.b	'おかしな命令を実行しました。0xed,0x'
+number_ed:
+	.dc.b	'00'
+	.dc.b	0x0d,0x0a,0x00
+
+	.even
+
+*
+*	６８０ｘ０ネイティブルーチンの呼びだし
+*
+*
+	.dc.w	0			* サイクル数
+	.dc.w	2-1			* 命令語長-1
+other:					* ＭＳ用に拡張した命令
+	; この時点の d0 には、0x00-0x3f の値に -0x40 した値が入っている
+	move.b	d0,-(sp)
+	move.l	native_jpt_add,d1
+	beq	none_ED			* ネイティブルーチンがセットされていなければ未定義エラー
+	;	AF レジスタをセット
+@@:
+	move.b	d4,a(a3)
+	move.b	d6,f(a3)
+
+	move.b	(sp)+,d0
+	add.w	#$20,d0			* 0x20を足してプラスの場合、つまり元々0x20-0x3fの時は CALL
+	bpl	CALL68
+
+JP68:	add.w	#$20,d0			* 0x20を足すと、元々の0x00-0x1fの値が得られる
+	lsl.w	#8,d0			* d0 = d0 * 256
+	move.b	(a4)+,d0		* d0 = ルーチン番号 (0x0000-0x1fff)
+	addq.w	#1,d7			* 0 になったらページ境界
+	bne	@f
+	PC_page_inc
+@@:
+	lsl.w	#2,d0			* d0 = d0 * 4
+	movea.l	native_jpt_add,a1
+	move.l	0(a1,d0.w),a1
+
+	movem.l	d4-d6/a3-a4,-(sp)
+	jsr	(a1)
+	movem.l	(sp)+,d4-d6/a3-a4
+
+	move.w	d0,d7			* d0.w に戻り先の番地が入っている
+	PC_page_set
+	bra	next_jp_call_68
+
+CALL68:	add.w	#$20,d0			* d0には、元々の0x20-0x3fが入っている
+	lsl.w	#8,d0			* d0 = d0 * 256
+	move.b	(a4)+,d0		* d0 = ルーチン番号 (0x2000-0x3fff)
+	addq.w	#1,d7			* 0 になったらページ境界
+	bne	@f
+	PC_page_inc
+@@:
+	lsl.w	#2,d0			* d0 = d0 * 4
+	lea.l	native_jpt_add,a1
+	move.l	0(a1,d0.w),a1
+
+	movem.l	d4-d6/a3-a4,-(sp)
+	jsr	(a1)
+	movem.l	(sp)+,d4-d6/a3-a4
+
+*
+*	フラグの描き戻しなどの後処理
+*
+next_jp_call_68:
+	move.b	a(a3),d4		* Aレジスタをセット
+	move.b	f(a3),d6		* フラグのロード
+	andi.l	#000_00000000_11111111,d6	* フラグのダーティビットをクリア
+	jmp	(a6)
+	
+
+
+*	------ ＲＬＤ,ＲＲＤ ------
+;
+; RLD, RRD の挙動は以下の通り
+; * S : 結果の最上位ビット
+; * Z : 結果が0なら1。それ以外の時は0
+; * F5: 結果のAレジスタのbit5
+; * H : 0
+; * F3: 結果のAレジスタのbit3
+; * PV: 結果のAレジスタのパリティ
+; * N : 0
+; * C : 変化しない
+RLD_lHLl_h:
+	lea.l	18(a5),a5
+RLD_lHLl:
+	move.w	hl(a3),d0		* d0.w = |00|00|(H|L)|
+	read_mem_8	rd8f36,rd8s36,rd8e36
+	andi.w	#%00000000_11111111,d0
+
+	lsl.w	#4,d0			* d0.w = |00|(H|L)|00|
+	move.b	d4,d1
+	andi.w 	#%00000000_00001111,d1
+	or.b	d0,d1			* d1.w = |00|(H|L)|Al|
+
+	andi.b	#%11110000,d4		* d4.b = |Ah|00|
+	lsr.w	#8,d0			* d0.b = |00|(H|
+	or.b	d0,d4			* d4.b = |Ah|(H|
+
+	move.w	hl(a3),d0
+	write_mem_8	wr8f22,wr8s22,wr8e22
+
+* S,Z,F5,F3,P/V は結果の A だけから決まる。H=0、N=0、C は変化しない
+	move.b	szp53p(a3,d4.w),d3		* S,Z,F5,F3,P/V を一度に引く
+	andi.b	#%00000001,d6		* Ｃ だけ残す
+	or.b	d3,d6
+	jmp	(a6)
+
+RRD_lHLl_h:
+	lea.l	18(a5),a5
+RRD_lHLl:
+	move.w	hl(a3),d0		* d0.w = |??|??|(H|L)|
+	read_mem_8	rd8f37,rd8s37,rd8e37
+
+	move.b	d4,d1
+	lsl.w	#8,d1			* d1.w = |Ah|Al|00|00|
+	move.b	d0,d1			* d1.w = |Ah|Al|(H|L)|
+
+	lsr.w	#4,d1			* d1.w = |00|Ah|Al|(H|
+	andi.w 	#%00000000_00001111,d0	
+					* d0.w = |00|00|00|L)| 
+	andi.b	#%11110000,d4		* d4.b =       |Ah|00|
+	or.b	d0,d4			* d4.b =       |Ah|L)|
+
+	move.w	hl(a3),d0
+	write_mem_8	wr8f23,wr8s23,wr8e23
+
+* S,Z,F5,F3,P/V は結果の A だけから決まる。H=0、N=0、C は変化しない
+	move.b	szp53p(a3,d4.w),d3		* S,Z,F5,F3,P/V を一度に引く
+	andi.b	#%00000001,d6		* Ｃ だけ残す
+	or.b	d3,d6
+
+	jmp	(a6)
+
+*	------ ＩＭ ------
+IM_0_h:
+	lea.l	8(a5),a5
+IM_0:	move.b	#0,interrupt_mode
+	jmp	(a6)
+
+IM_1_h:
+	lea.l	8(a5),a5
+IM_1:	move.b	#1,interrupt_mode
+	jmp	(a6)
+
+IM_2_h:
+	lea.l	8(a5),a5
+IM_2:	move.b	#2,interrupt_mode
+	jmp	(a6)
+
+*	------ ＬＤ ＸＸ,(nn) ------
+LD_BC_lnnl_h:
+	lea.l	20(a5),a5
+	addq.w	#2,d7			* オペランドのぶん PC を進める
+	addq.w	#2,a4
+	btst.l	#PAGEADDRBIT,d7		* 位置が負のままなら境界を越えていない
+	bne	LD_BC_lnnl_h9
+	PC_page_inc
+LD_BC_lnnl_h9:
+LD_BC_lnnl:
+	* オペランド列からnnを取り出す
+	move.b	-1(a4),d1		* オペランドの上位バイト
+	ror.w	#8,d1
+	move.b	-2(a4),d1		* オペランドの下位バイト
+	move.w	d1,d0			* d0.w = nn
+	read_mem_16	rd16f7,rd16s7,rd16e7
+	move.w	d0,bc(a3)
+	jmp	(a6)
+
+LD_DE_lnnl_h:
+	lea.l	20(a5),a5
+	addq.w	#2,d7			* オペランドのぶん PC を進める
+	addq.w	#2,a4
+	btst.l	#PAGEADDRBIT,d7		* 位置が負のままなら境界を越えていない
+	bne	LD_DE_lnnl_h9
+	PC_page_inc
+LD_DE_lnnl_h9:
+LD_DE_lnnl:
+	* オペランド列からnnを取り出す
+	move.b	-1(a4),d1		* オペランドの上位バイト
+	ror.w	#8,d1
+	move.b	-2(a4),d1		* オペランドの下位バイト
+	move.w	d1,d0			* d0.w = nn
+	read_mem_16	rd16f8,rd16s8,rd16e8
+	move.w	d0,de(a3)
+	jmp	(a6)
+
+LD_HL_lnnl_2_h:
+	lea.l	20(a5),a5
+	addq.w	#2,d7			* オペランドのぶん PC を進める
+	addq.w	#2,a4
+	btst.l	#PAGEADDRBIT,d7		* 位置が負のままなら境界を越えていない
+	bne	LD_HL_lnnl_2_h9
+	PC_page_inc
+LD_HL_lnnl_2_h9:
+LD_HL_lnnl_2:
+	* オペランド列からnnを取り出す
+	move.b	-1(a4),d1		* オペランドの上位バイト
+	ror.w	#8,d1
+	move.b	-2(a4),d1		* オペランドの下位バイト
+	move.w	d1,d0			* d0.w = nn
+	read_mem_16	rd16f9,rd16s9,rd16e9
+	move.w	d0,hl(a3)
+	jmp	(a6)
+
+LD_SP_lnnl_h:
+	lea.l	20(a5),a5
+	addq.w	#2,d7			* オペランドのぶん PC を進める
+	addq.w	#2,a4
+	btst.l	#PAGEADDRBIT,d7		* 位置が負のままなら境界を越えていない
+	bne	LD_SP_lnnl_h9
+	PC_page_inc
+LD_SP_lnnl_h9:
+LD_SP_lnnl:
+	* オペランド列からnnを取り出す
+	move.b	-1(a4),d1		* オペランドの上位バイト
+	ror.w	#8,d1
+	move.b	-2(a4),d1		* オペランドの下位バイト
+	move.w	d1,d0			* d0.w = nn
+	read_mem_16	rd16f10,rd16s10,rd16e10
+	move.w	d0,sp_(a3)
+	jmp	(a6)
+
+*	------ ＬＤ (nn),ＸＸ ------
+LD_lnnl_BC_h:
+	lea.l	20(a5),a5
+	addq.w	#2,d7			* オペランドのぶん PC を進める
+	addq.w	#2,a4
+	btst.l	#PAGEADDRBIT,d7		* 位置が負のままなら境界を越えていない
+	bne	LD_lnnl_BC_h9
+	PC_page_inc
+LD_lnnl_BC_h9:
+LD_lnnl_BC:
+	* オペランド列からnnを取り出す
+	move.b	-1(a4),d1		* オペランドの上位バイト
+	ror.w	#8,d1
+	move.b	-2(a4),d1		* オペランドの下位バイト
+	move.w	d1,d0			* d0.w = nn
+	move.w	bc(a3),d1
+	write_mem_16	wr16f7,wr16s7,wr16e7
+	jmp	(a6)
+
+LD_lnnl_DE_h:
+	lea.l	20(a5),a5
+	addq.w	#2,d7			* オペランドのぶん PC を進める
+	addq.w	#2,a4
+	btst.l	#PAGEADDRBIT,d7		* 位置が負のままなら境界を越えていない
+	bne	LD_lnnl_DE_h9
+	PC_page_inc
+LD_lnnl_DE_h9:
+LD_lnnl_DE:
+	* オペランド列からnnを取り出す
+	move.b	-1(a4),d1		* オペランドの上位バイト
+	ror.w	#8,d1
+	move.b	-2(a4),d1		* オペランドの下位バイト
+	move.w	d1,d0			* d0.w = nn
+	move.w	de(a3),d1
+	write_mem_16	wr16f8,wr16s8,wr16e8
+	jmp	(a6)
+
+LD_lnnl_HL_2_h:
+	lea.l	20(a5),a5
+	addq.w	#2,d7			* オペランドのぶん PC を進める
+	addq.w	#2,a4
+	btst.l	#PAGEADDRBIT,d7		* 位置が負のままなら境界を越えていない
+	bne	LD_lnnl_HL_2_h9
+	PC_page_inc
+LD_lnnl_HL_2_h9:
+LD_lnnl_HL_2:
+	* オペランド列からnnを取り出す
+	move.b	-1(a4),d1		* オペランドの上位バイト
+	ror.w	#8,d1
+	move.b	-2(a4),d1		* オペランドの下位バイト
+	move.w	d1,d0			* d0.w = nn
+	move.w	hl(a3),d1
+	write_mem_16	wr16f9,wr16s9,wr16e9
+	jmp	(a6)
+
+LD_lnnl_SP_h:
+	lea.l	20(a5),a5
+	addq.w	#2,d7			* オペランドのぶん PC を進める
+	addq.w	#2,a4
+	btst.l	#PAGEADDRBIT,d7		* 位置が負のままなら境界を越えていない
+	bne	LD_lnnl_SP_h9
+	PC_page_inc
+LD_lnnl_SP_h9:
+LD_lnnl_SP:
+	* オペランド列からnnを取り出す
+	move.b	-1(a4),d1		* オペランドの上位バイト
+	ror.w	#8,d1
+	move.b	-2(a4),d1		* オペランドの下位バイト
+	move.w	d1,d0			* d0.w = nn
+	move.w	sp_(a3),d1
+	write_mem_16	wr16f10,wr16s10,wr16e10
+	jmp	(a6)
+
+*	------ ＡＤＣ ------
+
+;---------------------------------------------------------------------------------------
+; ADC HL,XX の挙動は以下の通り
+; * S : 結果のHLのbit15
+; * Z : 結果のHLが0の時1、それ以外の時0
+; * F5: 上位8bitの加算の結果のbit5
+; * H : 上位8bitの加算の実行によるハーフキャリー
+; * F3: 上位8bitの加算の結果のbit5
+; * PV: 上位8bitの加算の実行によるオーバーフロー
+; * N : 0
+; * C : 上位8bitの加算の実行によるキャリー
+ADC_HL_XX macro
+* 16bit も 8bit と同じ手で 8 つとも確定させる。上位バイトの演算で得られる
+*   H  ＝ (第1項上位 ^ 第2項上位 ^ 結果上位) の bit4 ＝ bit11 からの桁上げ
+*   C  ＝ bit15 からの桁上げ / P/V ＝ 16bit の符号付き桁溢れ
+* Z だけは 16bit 全体を見る。
+	move.b	l(a3),d0
+	move.b	target_16+1(a3),d2
+	btst.l	#0,d6			* 演算前のキャリーを X へ
+	bne	1f
+	andi.b	#%11101111,ccr
+	bra	2f
+1:	ori.b	#%00010000,ccr
+2:	addx.b	d2,d0			* 下位バイト。X に桁上げが残る
+	move.b	d0,l(a3)
+	move.b	h(a3),d1		* 上位バイト
+	move.b	target_16(a3),d2
+	move.b	d1,d3
+	eor.b	d2,d3			* 第1項上位 ^ 第2項上位
+	addx.b	d2,d1			* 上位バイト。C・V・X が確定する
+	svs	d2
+	andi.b	#%00000010,d2
+	roxl.b	#1,d2			* V→bit2、X(＝C)→bit0
+	eor.b	d1,d3			* ^ 結果上位 → bit4 が H
+	andi.b	#%00010000,d3
+	or.b	d2,d3
+	move.b	d1,h(a3)
+	move.b	d1,d2			* 結果の上位バイト
+	andi.b	#%10101000,d2		* S,F5,F3
+	or.b	d2,d3
+	move.w	hl(a3),d2		* Z は 16bit 全体で見る
+	bne	@f
+	ori.b	#%01000000,d3		* Z
+@@:
+	moveq.l	#0,d6			* ダーティも F も全部落とす
+	move.b	d3,d6
+	endm
+;---------------------------------------------------------------------------------------
+
+ADC_HL_BC_h:
+	lea.l	15(a5),a5
+ADC_HL_BC:
+	move.w	bc(a3),target_16(a3)
+	ADC_HL_XX
+	jmp	(a6)
+
+ADC_HL_DE_h:
+	lea.l	15(a5),a5
+ADC_HL_DE:
+	move.w	de(a3),target_16(a3)
+	ADC_HL_XX
+	jmp	(a6)
+
+ADC_HL_HL_h:
+	lea.l	15(a5),a5
+ADC_HL_HL:
+	move.w	hl(a3),target_16(a3)
+	ADC_HL_XX
+	jmp	(a6)
+
+ADC_HL_SP_h:
+	lea.l	15(a5),a5
+ADC_HL_SP:
+	move.w	sp_(a3),target_16(a3)
+	ADC_HL_XX
+	jmp	(a6)
+
+*	------ ＳＢＣ ------
+
+;---------------------------------------------------------------------------------------
+; SBC HL,XX の挙動は以下の通り
+; * S : 結果のHLのbit15
+; * Z : 結果のHLが0の時1、それ以外の時0
+; * F5: 上位8bitの減算の結果のbit5
+; * H : 上位8bitの減算の実行によるハーフキャリー
+; * F3: 上位8bitの減算の結果のbit5
+; * PV: 上位8bitの減算の実行によるオーバーフロー
+; * N : 1
+; * C : 上位8bitの減算の実行によるキャリー
+SBC_HL_XX macro
+* 16bit も 8bit と同じ手で 8 つとも確定させる。上位バイトの演算で得られる
+*   H  ＝ (第1項上位 ^ 第2項上位 ^ 結果上位) の bit4 ＝ bit11 からの桁上げ
+*   C  ＝ bit15 からの桁上げ / P/V ＝ 16bit の符号付き桁溢れ
+* Z だけは 16bit 全体を見る。
+	move.b	l(a3),d0
+	move.b	target_16+1(a3),d2
+	btst.l	#0,d6			* 演算前のキャリーを X へ
+	bne	1f
+	andi.b	#%11101111,ccr
+	bra	2f
+1:	ori.b	#%00010000,ccr
+2:	subx.b	d2,d0			* 下位バイト。X に桁上げが残る
+	move.b	d0,l(a3)
+	move.b	h(a3),d1		* 上位バイト
+	move.b	target_16(a3),d2
+	move.b	d1,d3
+	eor.b	d2,d3			* 第1項上位 ^ 第2項上位
+	subx.b	d2,d1			* 上位バイト。C・V・X が確定する
+	svs	d2
+	andi.b	#%00000010,d2
+	roxl.b	#1,d2			* V→bit2、X(＝C)→bit0
+	eor.b	d1,d3			* ^ 結果上位 → bit4 が H
+	andi.b	#%00010000,d3
+	or.b	d2,d3
+	move.b	d1,h(a3)
+	move.b	d1,d2			* 結果の上位バイト
+	andi.b	#%10101000,d2		* S,F5,F3
+	or.b	d2,d3
+	move.w	hl(a3),d2		* Z は 16bit 全体で見る
+	bne	@f
+	ori.b	#%01000000,d3		* Z
+@@:
+	ori.b	#%00000010,d3		* N=1
+	moveq.l	#0,d6			* ダーティも F も全部落とす
+	move.b	d3,d6
+	endm
+;---------------------------------------------------------------------------------------
+
+SBC_HL_BC_h:
+	lea.l	15(a5),a5
+SBC_HL_BC:
+	move.w	bc(a3),target_16(a3)
+	SBC_HL_XX
+	jmp	(a6)
+
+SBC_HL_DE_h:
+	lea.l	15(a5),a5
+SBC_HL_DE:
+	move.w	de(a3),target_16(a3)
+	SBC_HL_XX
+	jmp	(a6)
+
+SBC_HL_HL_h:
+	lea.l	15(a5),a5
+SBC_HL_HL:
+	move.w	hl(a3),target_16(a3)
+	SBC_HL_XX
+	jmp	(a6)
+
+SBC_HL_SP_h:
+	lea.l	15(a5),a5
+SBC_HL_SP:
+	move.w	sp_(a3),target_16(a3)
+	SBC_HL_XX
+	jmp	(a6)
+
+*	------ ＬＤＩ ------
+; LDI の挙動は以下の通り
+; (de) <= (hl)
+; hl += 1, de += 1, bc -= 1
+; フラグ変化は以下の通り
+; * S : 変化しない
+; * Z : 変化しない
+; * F5: (転送された値にAレジスタを足した値)のbit1 (5ではなく1)
+; * H : 0
+; * F3: (転送された値にAレジスタを足した値)のbit3
+; * PV: bc が 0 の時0、それ以外の時1
+; * N : 0
+; * C : 変化しない
+LDI_dispatch_h:
+	lea.l	16(a5),a5
+LDI_dispatch:
+	bsr	LDI			* LDIR が部品として使うため LDI は rts のまま
+	jmp	(a6)
+
+	.dc.w	16			* サイクル数
+	.dc.w	2-1			* 命令語長-1
+LDI:	andi.b	#%11000001,d6		* S,Z,Ｃ だけ残す
+	move.w	hl(a3),d0
+	read_mem_8	rd8f38,rd8s38,rd8e38
+	move.b	d0,d1
+	add.b	d4,d0			* 転送値にAレジスタを足す
+	move.b	d0,d2
+	andi.b	#%00001000,d0
+	or.b	d0,d6			* F3をセット
+	andi.b	#%00000010,d2
+	lsl.b	#4,d2
+	or.b	d2,d6			* F5をセット
+	move.w	de(a3),d0
+	write_mem_8	wr8f24,wr8s24,wr8e24
+	addq.w	#1,hl(a3)
+	addq.w	#1,de(a3)
+	subq.w	#1,bc(a3)
+	beq	@f
+	ori.b	#%00000100,d6		* PVをセット
+@@:	rts
+
+
+; LDIR の挙動は以下の通り
+; LDI実行後、
+; if bc != 0 then
+;     PC -=2 (LDIRを繰り返す)
+; else
+;     終了
+;
+; LDIRの命令内で転送を繰り返すのではなく、PCを-2するというのがポイント
+; なのでLDIRの実行中に割り込みが入ることも想定される(はず)
+LDIR_h:
+	lea.l	21(a5),a5
+LDIR:
+	bsr	LDI
+	cmpi.w	#0,bc(a3)
+	bne	@f
+	; 最終の場合はサイクル数が16なので5サイクル引く
+	subq.l	#5,a5
+	jmp	(a6)
+@@:	subq.w	#2,d7
+	subq.w	#2,a4
+	btst.l	#PAGEADDRBIT,d7	* 位置が負のままなら境界を越えていない
+	bne	@f			* PC -2 でページ境界をまたいだか？
+	PC_page_dec			* またいだ時
+@@:	jmp	(a6)
+
+; LDD の挙動は以下の通り
+; (de) <= (hl)
+; hl -= 1, de -= 1, bc -= 1
+; フラグ変化は以下の通り
+; * S : 変化しない
+; * Z : 変化しない
+; * F5: (転送された値にAレジスタを足した値)のbit1 (5ではなく1)
+; * H : 0
+; * F3: (転送された値にAレジスタを足した値)のbit3
+; * PV: bc が 0 の時0、それ以外の時1
+; * N : 0
+; * C : 変化しない
+LDD_dispatch_h:
+	lea.l	16(a5),a5
+LDD_dispatch:
+	bsr	LDD			* LDDR が部品として使うため LDD は rts のまま
+	jmp	(a6)
+
+	.dc.w	16			* サイクル数
+	.dc.w	2-1			* 命令語長-1
+LDD:	andi.b	#%11000001,d6		* S,Z,Ｃ だけ残す
+	move.w	hl(a3),d0
+	read_mem_8	rd8f39,rd8s39,rd8e39
+	move.b	d0,d1
+	add.b	d4,d0			* 転送値にAレジスタを足す
+	move.b	d0,d2
+	andi.b	#%00001000,d0
+	or.b	d0,d6			* F3をセット
+	andi.b	#%00000010,d2
+	lsl.b	#4,d2
+	or.b	d2,d6			* F5をセット
+	move.w	de(a3),d0
+	write_mem_8	wr8f25,wr8s25,wr8e25
+	subq.w	#1,hl(a3)
+	subq.w	#1,de(a3)
+	subq.w	#1,bc(a3)
+	beq	@f
+	ori.b	#%00000100,d6		* PVをセット
+@@:	rts
+
+; LDDR の挙動は以下の通り
+; LDD実行後、
+; if bc != 0 then
+;     PC -=2 (LDDRを繰り返す)
+; else
+;     終了
+;
+; LDDRの命令内で転送を繰り返すのではなく、PCを-2するというのがポイント
+; なのでLDDRの実行中に割り込みが入ることも想定される(はず)
+LDDR_h:
+	lea.l	21(a5),a5
+LDDR:
+	bsr	LDD
+	cmpi.w	#0,bc(a3)
+	bne	@f
+	; 最終の場合はサイクル数が16なので5サイクル引く
+	subq.l	#5,a5
+	jmp	(a6)
+@@:	subq.w	#2,d7
+	subq.w	#2,a4
+	btst.l	#PAGEADDRBIT,d7	* 位置が負のままなら境界を越えていない
+	bne	@f			* PC -2 でページ境界をまたいだか？
+	PC_page_dec			* またいだ時
+@@:	jmp	(a6)
+
+
+*	------ ＣＰＩ ------
+; CPI の挙動は以下の通り
+; A - (HL) を実行した結果をフラグに反映(S,Z,HC)
+; hl += 1, bc -= 1
+; フラグ変化は以下の通り
+; * S : 結果のbit7
+; * Z : 結果が0の時1、それ以外の時0
+; * F5: (A - (HL) - HC)のbit1 (5ではなく1)
+; * H : 結果のハーフキャリー
+; * F3: (A - (HL) - HC)のbit3
+; * PV: BC が 0 の時0、それ以外の時1
+; * N : 1
+; * C : 変化しない
+CPI_dispatch_h:
+	lea.l	16(a5),a5
+CPI_dispatch:
+	bsr	CPI			* CPIR が部品として使うため CPI は rts のまま
+	jmp	(a6)
+
+	.dc.w	16			* サイクル数
+	.dc.w	2-1			* 命令語長-1
+CPI:
+1:
+	move.w	hl(a3),d0
+	read_mem_8	rd8f40,rd8s40,rd8e40
+	move.b	d4,d2
+	move.b	d2,d1
+	eor.b	d0,d1			* Ａ ^ 引く数
+	sub.b	d0,d2			* Ａ - 引く数
+	eor.b	d2,d1			* ^ 結果 → bit4 ＝ H
+	andi.b	#%00010000,d1
+	move.b	d2,d0
+	andi.b	#%10000000,d0		* S
+	or.b	d1,d0			* H
+	tst.b	d2
+	bne	2f
+	ori.b	#%01000000,d0		* Z
+2:	lsr.b	#4,d1			* H を 0/1 に
+	sub.b	d1,d2			* F5,F3 は H を引いた値から取る
+	move.b	d2,d1
+	andi.b	#%00001000,d1
+	or.b	d1,d0			* F3
+	andi.b	#%00000010,d2
+	lsl.b	#4,d2
+	or.b	d2,d0			* F5
+	ori.b	#%00000010,d0		* N
+	addq.w	#1,hl(a3)
+	subq.w	#1,bc(a3)
+	beq	3f
+	ori.b	#%00000100,d0		* PV
+3:	andi.b	#%00000001,d6		* Ｃ だけ残す
+	or.b	d0,d6
+	rts
+
+CPIR_h:
+	lea.l	21(a5),a5
+CPIR:	bsr	CPI
+	cmpi.w	#0,bc(a3)
+	bne	@f
+	; 最終の場合はサイクル数が16なので5サイクル引く
+	subq.l	#5,a5
+	jmp	(a6)
+@@:
+@@:
+	btst.l	#6,d6			* Zフラグを評価
+	beq	@f
+	; 最終の場合はサイクル数が16なので5サイクル引く
+	subq.l	#5,a5
+	jmp	(a6)
+@@:	subq.w	#2,d7
+	subq.w	#2,a4
+	btst.l	#PAGEADDRBIT,d7	* 位置が負のままなら境界を越えていない
+	bne	@f			* PC -2 でページ境界をまたいだか？
+	PC_page_dec			* またいだ時
+@@:	jmp	(a6)
+
+*	------ ＣＰＤ ------
+; CPD の挙動は以下の通り
+; A - (HL) を実行した結果をフラグに反映(S,Z,HC)
+; hl -= 1, bc -= 1
+; フラグ変化は以下の通り
+; * S : 結果のbit7
+; * Z : 結果が0の時1、それ以外の時0
+; * F5: (A - (HL) - HC)のbit1 (5ではなく1)
+; * H : 結果のハーフキャリー
+; * F3: (A - (HL) - HC)のbit3
+; * PV: BC が 0 の時0、それ以外の時1
+; * N : 1
+; * C : 変化しない
+CPD_dispatch_h:
+	lea.l	16(a5),a5
+CPD_dispatch:
+	bsr	CPD			* CPDR が部品として使うため CPD は rts のまま
+	jmp	(a6)
+
+	.dc.w	16			* サイクル数
+	.dc.w	2-1			* 命令語長-1
+CPD:
+1:
+	move.w	hl(a3),d0
+	read_mem_8	rd8f41,rd8s41,rd8e41
+	move.b	d4,d2
+	move.b	d2,d1
+	eor.b	d0,d1			* Ａ ^ 引く数
+	sub.b	d0,d2			* Ａ - 引く数
+	eor.b	d2,d1			* ^ 結果 → bit4 ＝ H
+	andi.b	#%00010000,d1
+	move.b	d2,d0
+	andi.b	#%10000000,d0		* S
+	or.b	d1,d0			* H
+	tst.b	d2
+	bne	2f
+	ori.b	#%01000000,d0		* Z
+2:	lsr.b	#4,d1			* H を 0/1 に
+	sub.b	d1,d2			* F5,F3 は H を引いた値から取る
+	move.b	d2,d1
+	andi.b	#%00001000,d1
+	or.b	d1,d0			* F3
+	andi.b	#%00000010,d2
+	lsl.b	#4,d2
+	or.b	d2,d0			* F5
+	ori.b	#%00000010,d0		* N
+	subq.w	#1,hl(a3)
+	subq.w	#1,bc(a3)
+	beq	3f
+	ori.b	#%00000100,d0		* PV
+3:	andi.b	#%00000001,d6		* Ｃ だけ残す
+	or.b	d0,d6
+	rts
+
+
+CPDR_h:
+	lea.l	21(a5),a5
+CPDR:	bsr	CPD
+	cmpi.w	#0,bc(a3)
+	bne	@f
+	; 最終の場合はサイクル数が16なので5サイクル引く
+	subq.l	#5,a5
+	jmp	(a6)
+@@:
+@@:
+	btst.l	#6,d6			* Zフラグを評価
+	beq	@f
+	; 最終の場合はサイクル数が16なので5サイクル引く
+	subq.l	#5,a5
+	jmp	(a6)
+@@:	subq.w	#2,d7
+	subq.w	#2,a4
+	btst.l	#PAGEADDRBIT,d7	* 位置が負のままなら境界を越えていない
+	bne	@f			* PC -2 でページ境界をまたいだか？
+	PC_page_dec			* またいだ時
+@@:	jmp	(a6)
+
+
+
+*	------ ＮＥＧ ------
+; NEG の挙動は以下の通り
+; A = 0 - A
+; フラグ変化は以下の通り
+; * S : 結果のbit7
+; * Z : 結果が0の時1、それ以外の時0
+; * F5: 結果のbit5
+; * H : 結果のハーフキャリー
+; * F3: 結果のbit3
+; * PV: 結果がオーバーフローした時1、それ以外の時0
+; * N : 1
+; * C : 結果がキャリーした時1、それ以外の時0
+NEG_h:
+	lea.l	8(a5),a5
+NEG:
+	; b1  : 減算なのでN=1
+* SUB と同じ手で 8 つとも確定させる。第1項は 0 なので
+* H ＝ (0 ^ A ^ 結果) の bit4、P/V は 68000 の V、C は借り。
+	move.b	d4,d1			* 第1項(0) ^ 第2項(A) ＝ A
+	moveq.l	#0,d0
+	sub.b	d4,d0			* 演算実行。C（借り）・V・X が確定する
+	svs	d3
+	andi.b	#%00000010,d3
+	roxl.b	#1,d3			* V→bit2、X(＝C)→bit0
+	eor.b	d0,d1			* ^ 結果 → bit4 が H
+	andi.b	#%00010000,d1
+	or.b	d3,d1
+	move.b	d0,d3			* 結果
+	andi.b	#%10101000,d3		* S,F5,F3
+	tst.b	d0
+	bne	@f
+	ori.b	#%01000000,d3		* Z
+@@:	or.b	d3,d1
+	ori.b	#%00000010,d1		* N=1
+	moveq.l	#0,d6			* ダーティも F も全部落とす
+	move.b	d1,d6
+	move.b	d0,d4			* 結果をAレジスタに保存
+	jmp	(a6)
+
+*	------ 掛け算命令 ------
+
+;---------------------------------------------------------------------------------------
+; MULB A,X の挙動は以下の通り https://www.msx.org/forum/development/msx-development/r800-multiply-instruction
+; HL <= A * X
+; ※ ただしXがb,c,d,eのとき以外は動作が保証されないという仕様がある
+; フラグ変化は以下の通り
+; * S : 0
+; * Z : 結果が0の時1、それ以外の時0
+; * F5: 変化しない
+; * H : 変化しない
+; * F3: 変化しない
+; * PV: 0
+; * N : 変化しない
+; * C : 掛け算の結果が8bitを超えた時1、それ以外の時0
+;
+MULB_A_X macro
+	andi.b	#%00111010,d6		* F5,H,F3,Ｎ だけ残す
+	clr.w	d0
+	andi.w	#$ff,d1		* 引数が d1 で渡ってくるので上位だけ落とす
+	move.b	d4,d0			* d0 <- A
+	mulu.w	d1,d0
+	bne	@f
+	ori.w	#%01000000,d6		* Zフラグをセット
+@@:	move.w	d0,hl(a3)		* 結果をHLに保存
+	andi.w	#$ff00,d0
+	beq	@f
+	ori.w	#%00000001,d6		* Cフラグをセット
+@@:
+	endm
+;---------------------------------------------------------------------------------------
+
+MULB_A_A_h:
+	lea.l	0(a5),a5
+MULB_A_A:
+	move.b	d4,d1
+	MULB_A_X
+	jmp	(a6)
+
+MULB_A_B_h:
+	lea.l	0(a5),a5
+MULB_A_B:
+	move.b	b(a3),d1
+	MULB_A_X
+	jmp	(a6)
+
+MULB_A_C_h:
+	lea.l	0(a5),a5
+MULB_A_C:
+	move.b	c(a3),d1
+	MULB_A_X
+	jmp	(a6)
+
+MULB_A_D_h:
+	lea.l	0(a5),a5
+MULB_A_D:
+	move.b	d(a3),d1
+	MULB_A_X
+	jmp	(a6)
+
+MULB_A_E_h:
+	lea.l	0(a5),a5
+MULB_A_E:
+	move.b	e(a3),d1
+	MULB_A_X
+	jmp	(a6)
+
+MULB_A_H_h:
+	lea.l	0(a5),a5
+MULB_A_H:
+	move.b	h(a3),d1
+	MULB_A_X
+	jmp	(a6)
+
+MULB_A_L_h:
+	lea.l	0(a5),a5
+MULB_A_L:
+	move.b	l(a3),d1
+	MULB_A_X
+	jmp	(a6)
+
+;---------------------------------------------------------------------------------------
+; MULW HL,XX の挙動は以下の通り https://www.msx.org/forum/development/msx-development/r800-multiply-instruction
+; DE:HL <= HL * XX
+; ※ ただしXがBC,SPのとき以外は動作が保証されないという仕様がある
+; フラグ変化は以下の通り
+; * S : 0
+; * Z : 結果が0の時1、それ以外の時0
+; * F5: 変化しない
+; * H : 変化しない
+; * F3: 変化しない
+; * PV: 0
+; * N : 変化しない
+; * C : 掛け算の結果が16bitを超えた時1、それ以外の時0
+MULW_HL_XX macro
+	andi.b	#%00111010,d6		* F5,H,F3,Ｎ だけ残す
+	move.w	hl(a3),d0		* d0 <- HL
+	move.w	target_16(a3),d1	* d1 <- target
+	mulu.w	d1,d0			* d0.l <= d0.w * d1.w (mulu.wは結果が32bitでd0に格納されるので注意)
+	bne	@f
+	ori.w	#%01000000,d6		* Zフラグをセット
+@@:	move.w	d0,hl(a3)		* 結果の下位16bitをHLに保存
+	swap	d0
+	move.w	d0,de(a3)		* 結果の上位16bitをDEに保存
+	beq	@f
+	ori.w	#%00000001,d6		* 上位16bitが0じゃない場合はCフラグをセット
+@@:
+	endm
+;---------------------------------------------------------------------------------------
+
+MULW_HL_BC_h:
+	lea.l	0(a5),a5
+MULW_HL_BC:
+	move.w	bc(a3),target_16(a3)
+	MULW_HL_XX
+	jmp	(a6)
+
+MULW_HL_DE_h:
+	lea.l	0(a5),a5
+MULW_HL_DE:
+	move.w	de(a3),target_16(a3)
+	MULW_HL_XX
+	jmp	(a6)
+
+MULW_HL_HL_h:
+	lea.l	0(a5),a5
+MULW_HL_HL:
+	move.w	hl(a3),target_16(a3)
+	MULW_HL_XX
+	jmp	(a6)
+
+MULW_HL_SP_h:
+	lea.l	0(a5),a5
+MULW_HL_SP:
+	move.w	sp_(a3),target_16(a3)
+	MULW_HL_XX
+	jmp	(a6)
+
+
+*	------ ＬＤ Ｒ ------
+*	RレジスタはM1サイクルごとにインクリメントされるレジスタ
+*	LD R,A で代入も可能。インクリメントされるのは下位7bit(Z80)のため、
+*	bit7は LR R,Aで代入した値がそのまま残る
+*	ms.x では、M1サイクルを正確に数えていないので、emu_counterで代用
+; LD A,R の挙動は以下の通り
+; * S : Rのbit7
+; * Z : Rが0の時1、それ以外の時0
+; * F5: 変化しない
+; * H : 0
+; * F3: 変化しない
+; * PV: IFF2の値
+; * N : 0
+; * C : 変化しない
+LD_A_R_h:
+	lea.l	9(a5),a5
+LD_A_R:
+@@:
+	andi.b	#%00101001,d6		* S,Z,H,P/V,Ｎ を落とす
+	move.b	r(a3),d4
+	; bit7はLD R,Aで代入した値がそのまま残る
+	andi.b	#%10000000,d4		* bit7 を取り出す
+	; Rレジスタは下位7bitのみがインクリメントされる
+	tst.b	cpu_fast_enabled
+	bne	2f
+	move.l	emu_counter,d0
+	sub.l	emu_counter_latch_r,d0
+	bra	3f
+*	高速版では emu_counter が進まないので、Ｔステートの累算から作る
+2:	move.l	a5,d0
+	sub.l	cpu_cycle_latch_r,d0
+	lsr.l	#2,d0			* Ｔステートから M1 回数へ均す
+3:	add.b	r(a3),d0
+	andi.b	#%01111111,d0		* 下位7bitのみ
+	or.b	d0,d4
+	bne	1f
+	ori.w	#%01000000,d6		* Zフラグをセット
+1:	btst.l	#7,d4
+	beq	1f
+	ori.w	#%10000000,d6		* Sフラグをセット
+1:
+	cmpi.b	#0,interrupt_enable	* IFF の状態を反映
+	beq	1f			* DI 状態の時 P/V <= 0
+	ori.w	#%00000100,d6		* EI 状態の時 P/V <= 1
+1:	jmp	(a6)
+
+LD_R_A_h:
+	lea.l	9(a5),a5
+LD_R_A:	move.b	d4,r(a3)
+	move.l	emu_counter,emu_counter_latch_r	* Rレジスタがセットされたときのカウンタを覚えておく
+	move.l	a5,cpu_cycle_latch_r
+	jmp	(a6)
+
+*	------ ＬＤ Ｉ ------
+LD_A_I_h:
+	lea.l	9(a5),a5
+LD_A_I:
+@@:
+	andi.b	#%00101001,d6		* S,Z,H,P/V,Ｎ を落とす
+	move.b	i(a3),d4
+	bne	1f
+	ori.w	#%01000000,d6		* Zフラグをセット
+1:	btst.l	#7,d4
+	beq	1f
+	ori.w	#%10000000,d6		* Sフラグをセット
+1:
+	cmpi.b	#0,interrupt_enable	* IFF の状態を反映
+	beq	1f			* DI 状態の時 P/V <= 0
+	ori.w	#%00000100,d6		* EI 状態の時 P/V <= 1
+1:	jmp	(a6)
+
+LD_I_A_h:
+	lea.l	9(a5),a5
+LD_I_A:	move.b	d4,i(a3)
+	jmp	(a6)
+
+*	ちゃんとやってない
+*	------ ＲＥＴＮ ------
+RETN_h:
+	lea.l	14(a5),a5
+RETN:	move.w	sp_(a3),d0
+	read_mem_16	rd16f11,rd16s11,rd16e11
+	addq.w	#2,sp_(a3)
+	move.w	d0,d7
+	PC_page_set
+	jmp	(a6)
+
+*	------ ＲＥＴＩ ------
+RETI_h:
+	lea.l	14(a5),a5
+RETI:	move.w	sp_(a3),d0
+	read_mem_16	rd16f12,rd16s12,rd16e12
+	addq.w	#2,sp_(a3)
+	; RETI 命令が来たら無条件で割り込みが終わったと判断する (framecon=autoの対応)
+	bsr	int_ret_notify
+	move.w	d0,d7
+	PC_page_set
+	jmp	(a6)
+
+*************************************************************************
+*
+*	＄ＤＤ,＄ＦＤライン命令
+*		（Ｉｎｄｅｘ関係）
+*
+*************************************************************************
+;	DDライン命令のサイクル数は不定なので0にしておき、各命令ごとに加算する
+;	DDラインの命令語長は2-4バイトなので、ここは2にしておき、各命令ごとに加算する
+*
+*	前置き DD / FD。DD のほうが多いので、共通部分の直前に置いて分岐を一つ省く。
+*	境界判定は「またがない」を不成立側にして、常用経路を 2 サイクル安くする。
+*
+DD_edge:
+	lea.l	DD(pc),a0		* コールドパス。本体の先頭を渡す
+	jmp	cpu_edge_2
+FD_edge:
+	lea.l	FD(pc),a0		* コールドパス。本体の先頭を渡す
+	jmp	cpu_edge_2
+
+;	FDライン命令のサイクル数は不定なので0にしておき、各命令ごとに加算する
+;	FDラインの命令語長は2-4バイトなので、ここは2にしておき、各命令ごとに加算する
+FD_h:
+	cmpi.w	#-4,d7	* オペランドがページ境界をまたぐか？
+	.ifdef	EDGEALWAYS
+	bra	FD_edge			* 検証用: 常にエッジ処理を通す
+	.else
+	bgt	FD_edge
+	addq.w	#1,d7			* 残りの PC 前進。a4 は (a4)+ で進む
+	.endif
+FD:	moveq.l	#2,d2
+	bra	DDFD_2nd
+
+DD_h:
+	cmpi.w	#-4,d7	* オペランドがページ境界をまたぐか？
+	.ifdef	EDGEALWAYS
+	bra	DD_edge			* 検証用: 常にエッジ処理を通す
+	.else
+	bgt	DD_edge
+	addq.w	#1,d7			* 残りの PC 前進。a4 は (a4)+ で進む
+	.endif
+DD:	moveq.l	#0,d2
+
+	* オペランド列から第二オペコードを取り出す
+DDFD_2nd:
+	clr.w	d0
+	move.b	(a4)+,d0
+	add.w	d0,d0
+	add.w	d0,d0
+	movea.l	DDFD_JPT(pc,d0.w),a0	* 表は前置きの先頭を指している
+	jmp	(a0)
+DDFD_JPT:
+	.dc.l	none_DDFD_h		* $00
+	.dc.l	none_DDFD_h
+	.dc.l	none_DDFD_h
+	.dc.l	none_DDFD_h
+	.dc.l	none_DDFD_h
+	.dc.l	none_DDFD_h
+	.dc.l	LD_B_n_2_h
+	.dc.l	none_DDFD_h
+	.dc.l	none_DDFD_h		* $08
+	.dc.l	ADD_Idx_BC_h
+	.dc.l	none_DDFD_h
+	.dc.l	none_DDFD_h
+	.dc.l	none_DDFD_h
+	.dc.l	none_DDFD_h
+	.dc.l	LD_C_n_2_h
+	.dc.l	none_DDFD_h		* $0f
+
+	.dc.l	none_DDFD_h		* $10
+	.dc.l	none_DDFD_h
+	.dc.l	none_DDFD_h
+	.dc.l	none_DDFD_h
+	.dc.l	none_DDFD_h
+	.dc.l	none_DDFD_h
+	.dc.l	LD_D_n_2_h
+	.dc.l	none_DDFD_h
+	.dc.l	none_DDFD_h		* $18
+	.dc.l	ADD_Idx_DE_h
+	.dc.l	none_DDFD_h
+	.dc.l	none_DDFD_h
+	.dc.l	none_DDFD_h
+	.dc.l	none_DDFD_h
+	.dc.l	LD_E_n_2_h
+	.dc.l	none_DDFD_h		* $1f
+
+	.dc.l	none_DDFD_h		* $20
+	.dc.l	LD_Idx_nn_h
+	.dc.l	LD_lnnl_Idx_h
+	.dc.l	INC_Idx_h
+	.dc.l	INC_IdxH_h
+	.dc.l	DEC_IdxH_h
+	.dc.l	LD_IdxH_n_h
+	.dc.l	none_DDFD_h
+	.dc.l	none_DDFD_h		* $28
+	.dc.l	ADD_Idx_Idx_h
+	.dc.l	LD_Idx_lnnl_h
+	.dc.l	DEC_Idx_h
+	.dc.l	INC_IdxL_h
+	.dc.l	DEC_IdxL_h
+	.dc.l	LD_IdxL_n_h
+	.dc.l	none_DDFD_h		* $2f
+
+	.dc.l	none_DDFD_h		* $30
+	.dc.l	none_DDFD_h
+	.dc.l	none_DDFD_h
+	.dc.l	none_DDFD_h
+	.dc.l	INC_lIdx_dl_h
+	.dc.l	DEC_lIdx_dl_h
+	.dc.l	LD_lIdx_dl_n_h
+	.dc.l	none_DDFD_h
+	.dc.l	none_DDFD_h		* $38
+	.dc.l	ADD_Idx_SP_h
+	.dc.l	none_DDFD_h
+	.dc.l	none_DDFD_h
+	.dc.l	none_DDFD_h
+	.dc.l	none_DDFD_h
+	.dc.l	LD_A_n_2_h
+	.dc.l	none_DDFD_h		* $3f
+
+	.dc.l	LD_B_B_2_h		* $40
+	.dc.l	LD_B_C_2_h
+	.dc.l	LD_B_D_2_h
+	.dc.l	LD_B_E_2_h
+	.dc.l	LD_B_IdxH_h
+	.dc.l	LD_B_IdxL_h
+	.dc.l	LD_B_lIdx_dl_h
+	.dc.l	LD_B_A_2_h
+	.dc.l	LD_C_B_2_h		* $48
+	.dc.l	LD_C_C_2_h
+	.dc.l	LD_C_D_2_h
+	.dc.l	LD_C_E_2_h
+	.dc.l	LD_C_IdxH_h
+	.dc.l	LD_C_IdxL_h
+	.dc.l	LD_C_lIdx_dl_h
+	.dc.l	LD_C_A_2_h		* $4f
+
+	.dc.l	LD_D_B_2_h		* $50
+	.dc.l	LD_D_C_2_h
+	.dc.l	LD_D_D_2_h
+	.dc.l	LD_D_E_2_h
+	.dc.l	LD_D_IdxH_h
+	.dc.l	LD_D_IdxL_h
+	.dc.l	LD_D_lIdx_dl_h
+	.dc.l	LD_D_A_2_h
+	.dc.l	LD_E_B_2_h		* $58
+	.dc.l	LD_E_C_2_h
+	.dc.l	LD_E_D_2_h
+	.dc.l	LD_E_E_2_h
+	.dc.l	LD_E_IdxH_h
+	.dc.l	LD_E_IdxL_h
+	.dc.l	LD_E_lIdx_dl_h
+	.dc.l	LD_E_A_2_h		* $5f
+
+	.dc.l	LD_IdxH_B_h		* $60
+	.dc.l	LD_IdxH_C_h
+	.dc.l	LD_IdxH_D_h
+	.dc.l	LD_IdxH_E_h
+	.dc.l	LD_IdxH_IdxH_h
+	.dc.l	LD_IdxH_IdxL_h
+	.dc.l	LD_H_lIdx_dl_h
+	.dc.l	LD_IdxH_A_h
+	.dc.l	LD_IdxL_B_h		* $68
+	.dc.l	LD_IdxL_C_h
+	.dc.l	LD_IdxL_D_h
+	.dc.l	LD_IdxL_E_h
+	.dc.l	LD_IdxL_IdxH_h
+	.dc.l	LD_IdxL_IdxL_h
+	.dc.l	LD_L_lIdx_dl_h
+	.dc.l	LD_IdxL_A_h		* $6f
+
+	.dc.l	LD_lIdx_dl_B_h	* $70
+	.dc.l	LD_lIdx_dl_C_h
+	.dc.l	LD_lIdx_dl_D_h
+	.dc.l	LD_lIdx_dl_E_h
+	.dc.l	LD_lIdx_dl_H_h
+	.dc.l	LD_lIdx_dl_L_h
+	.dc.l	none_DDFD_h
+	.dc.l	LD_lIdx_dl_A_h
+	.dc.l	LD_A_B_2_h		* $78
+	.dc.l	LD_A_C_2_h
+	.dc.l	LD_A_D_2_h
+	.dc.l	LD_A_E_2_h
+	.dc.l	LD_A_IdxH_h
+	.dc.l	LD_A_IdxL_h
+	.dc.l	LD_A_lIdx_dl_h
+	.dc.l	LD_A_A_2_h		* $7f
+
+	.dc.l	none_DDFD_h		* $80
+	.dc.l	none_DDFD_h
+	.dc.l	none_DDFD_h
+	.dc.l	none_DDFD_h
+	.dc.l	ADD_A_IdxH_h
+	.dc.l	ADD_A_IdxL_h
+	.dc.l	ADD_A_lIdx_dl_h
+	.dc.l	none_DDFD_h
+	.dc.l	none_DDFD_h		* $88
+	.dc.l	none_DDFD_h
+	.dc.l	none_DDFD_h
+	.dc.l	none_DDFD_h
+	.dc.l	ADC_A_IdxH_h
+	.dc.l	ADC_A_IdxL_h
+	.dc.l	ADC_A_lIdx_dl_h
+	.dc.l	none_DDFD_h		* $8f
+
+	.dc.l	none_DDFD_h		* $90
+	.dc.l	none_DDFD_h
+	.dc.l	none_DDFD_h
+	.dc.l	none_DDFD_h
+	.dc.l	SUB_IdxH_h
+	.dc.l	SUB_IdxL_h
+	.dc.l	SUB_lIdx_dl_h
+	.dc.l	none_DDFD_h
+	.dc.l	none_DDFD_h		* $98
+	.dc.l	none_DDFD_h
+	.dc.l	none_DDFD_h
+	.dc.l	none_DDFD_h
+	.dc.l	SBC_A_IdxH_h
+	.dc.l	SBC_A_IdxL_h
+	.dc.l	SBC_A_lIdx_dl_h
+	.dc.l	none_DDFD_h		* $9f
+
+	.dc.l	none_DDFD_h		* $a0
+	.dc.l	none_DDFD_h
+	.dc.l	none_DDFD_h
+	.dc.l	none_DDFD_h
+	.dc.l	AND_IdxH_h
+	.dc.l	AND_IdxL_h
+	.dc.l	AND_lIdx_dl_h
+	.dc.l	none_DDFD_h
+	.dc.l	none_DDFD_h		* $a8
+	.dc.l	none_DDFD_h
+	.dc.l	none_DDFD_h
+	.dc.l	none_DDFD_h
+	.dc.l	XOR_IdxH_h
+	.dc.l	XOR_IdxL_h
+	.dc.l	XOR_lIdx_dl_h
+	.dc.l	none_DDFD_h		* $af
+
+	.dc.l	none_DDFD_h		* $b0
+	.dc.l	none_DDFD_h
+	.dc.l	none_DDFD_h
+	.dc.l	none_DDFD_h
+	.dc.l	OR_IdxH_h
+	.dc.l	OR_IdxL_h
+	.dc.l	OR_lIdx_dl_h
+	.dc.l	none_DDFD_h
+	.dc.l	none_DDFD_h		* $b8
+	.dc.l	none_DDFD_h
+	.dc.l	none_DDFD_h
+	.dc.l	none_DDFD_h
+	.dc.l	CP_IdxH_h
+	.dc.l	CP_IdxL_h
+	.dc.l	CP_lIdx_dl_h
+	.dc.l	none_DDFD_h		* $bf
+
+	.dc.l	none_DDFD_h		* $c0
+	.dc.l	none_DDFD_h
+	.dc.l	none_DDFD_h
+	.dc.l	none_DDFD_h
+	.dc.l	none_DDFD_h
+	.dc.l	none_DDFD_h
+	.dc.l	none_DDFD_h
+	.dc.l	none_DDFD_h
+	.dc.l	none_DDFD_h		* $c8
+	.dc.l	none_DDFD_h
+	.dc.l	none_DDFD_h
+	.dc.l	DDFD_CB_h
+	.dc.l	none_DDFD_h
+	.dc.l	none_DDFD_h
+	.dc.l	none_DDFD_h
+	.dc.l	none_DDFD_h		* $cf
+
+	.dc.l	none_DDFD_h		* $d0
+	.dc.l	none_DDFD_h
+	.dc.l	none_DDFD_h
+	.dc.l	none_DDFD_h
+	.dc.l	none_DDFD_h
+	.dc.l	none_DDFD_h
+	.dc.l	none_DDFD_h
+	.dc.l	none_DDFD_h
+	.dc.l	none_DDFD_h		* $d8
+	.dc.l	none_DDFD_h
+	.dc.l	none_DDFD_h
+	.dc.l	none_DDFD_h
+	.dc.l	none_DDFD_h
+	.dc.l	none_DDFD_h
+	.dc.l	none_DDFD_h
+	.dc.l	none_DDFD_h		* $df
+
+	.dc.l	none_DDFD_h		* $e0
+	.dc.l	POP_Idx_h
+	.dc.l	none_DDFD_h
+	.dc.l	EX_lSPl_Idx_h
+	.dc.l	none_DDFD_h
+	.dc.l	PUSH_Idx_h
+	.dc.l	none_DDFD_h
+	.dc.l	none_DDFD_h
+	.dc.l	none_DDFD_h		* $e8
+	.dc.l	JP_lIdxl_h
+	.dc.l	none_DDFD_h
+	.dc.l	none_DDFD_h
+	.dc.l	none_DDFD_h
+	.dc.l	none_DDFD_h
+	.dc.l	none_DDFD_h
+	.dc.l	none_DDFD_h		* $ef
+
+	.dc.l	none_DDFD_h		* $f0
+	.dc.l	none_DDFD_h
+	.dc.l	none_DDFD_h
+	.dc.l	none_DDFD_h
+	.dc.l	none_DDFD_h
+	.dc.l	none_DDFD_h
+	.dc.l	none_DDFD_h
+	.dc.l	none_DDFD_h
+	.dc.l	none_DDFD_h		* $f8
+	.dc.l	LD_SP_Idx_h
+	.dc.l	none_DDFD_h
+	.dc.l	none_DDFD_h
+	.dc.l	none_DDFD_h
+	.dc.l	none_DDFD_h
+	.dc.l	none_DDFD_h
+	.dc.l	none_DDFD_h		* $ff
+
+none_DDFD_h:
+	lea.l	4(a5),a5
+none_DDFD:				* その他の DD/FD系の命令は、DD/FDを除いた命令を実行する(例: 0xdd 0x00 なら 0x00 のNOPになる)
+	subq.w	#1,d7			* DD/FDなしの命令を呼び出すが、すでにPCを+2しているので、-1し、再解釈する
+	subq.w	#1,a4
+	btst.l	#PAGEADDRBIT,d7		* 位置が負のままなら境界を越えていない
+	bne	@f			* PC -1 でページ境界をまたいだか？
+	PC_page_dec			* またいだ時
+@@:	bra	cpu_exec_core		* ハンドラが jmp (a6) で直接帰るので戻り番地は積まない
+
+LD_A_A_2_h:
+	lea.l	8(a5),a5
+LD_A_A_2:
+	jmp	(a6)
+
+LD_A_B_2_h:
+	lea.l	8(a5),a5
+LD_A_B_2:
+	move.b	b(a3),d4
+	jmp	(a6)
+
+LD_A_C_2_h:
+	lea.l	8(a5),a5
+LD_A_C_2:
+	move.b	c(a3),d4
+	jmp	(a6)
+
+LD_A_D_2_h:
+	lea.l	8(a5),a5
+LD_A_D_2:
+	move.b	d(a3),d4
+	jmp	(a6)
+
+LD_A_E_2_h:
+	lea.l	8(a5),a5
+LD_A_E_2:
+	move.b	e(a3),d4
+	jmp	(a6)
+
+LD_A_IdxH_h:
+	lea.l	8(a5),a5
+LD_A_IdxH:
+	move.b	ix_h(a3,d2.w),d4
+	jmp	(a6)
+
+LD_A_IdxL_h:
+	lea.l	8(a5),a5
+LD_A_IdxL:
+	move.b	ix_l(a3,d2.w),d4
+	jmp	(a6)
+
+LD_A_n_2_h:
+	lea.l	11(a5),a5
+	addq.w	#1,d7			* オペランドのぶん PC を進める
+	addq.w	#1,a4
+	btst.l	#PAGEADDRBIT,d7		* 位置が負のままなら境界を越えていない
+	bne	LD_A_n_2_h9
+	PC_page_inc
+LD_A_n_2_h9:
+LD_A_n_2:
+	* オペランド列からnを取り出す
+	move.b	-1(a4),d4
+	jmp	(a6)
+
+LD_B_A_2_h:
+	lea.l	8(a5),a5
+LD_B_A_2:
+	move.b	d4,b(a3)
+	jmp	(a6)
+
+LD_B_B_2_h:
+	lea.l	8(a5),a5
+LD_B_B_2:
+	jmp	(a6)
+
+LD_B_C_2_h:
+	lea.l	8(a5),a5
+LD_B_C_2:
+	move.b	c(a3),b(a3)
+	jmp	(a6)
+
+LD_B_D_2_h:
+	lea.l	8(a5),a5
+LD_B_D_2:
+	move.b	d(a3),b(a3)
+	jmp	(a6)
+
+LD_B_E_2_h:
+	lea.l	8(a5),a5
+LD_B_E_2:
+	move.b	e(a3),b(a3)
+	jmp	(a6)
+
+LD_B_IdxH_h:
+	lea.l	8(a5),a5
+LD_B_IdxH:
+	move.b	ix_h(a3,d2.w),b(a3)
+	jmp	(a6)
+
+LD_B_IdxL_h:
+	lea.l	8(a5),a5
+LD_B_IdxL:
+	move.b	ix_l(a3,d2.w),b(a3)
+	jmp	(a6)
+
+LD_B_n_2_h:
+	lea.l	11(a5),a5
+	addq.w	#1,d7			* オペランドのぶん PC を進める
+	addq.w	#1,a4
+	btst.l	#PAGEADDRBIT,d7		* 位置が負のままなら境界を越えていない
+	bne	LD_B_n_2_h9
+	PC_page_inc
+LD_B_n_2_h9:
+LD_B_n_2:
+	* オペランド列からnを取り出す
+	move.b	-1(a4),b(a3)
+	jmp	(a6)
+
+
+LD_C_A_2_h:
+	lea.l	8(a5),a5
+LD_C_A_2:
+	move.b	d4,c(a3)
+	jmp	(a6)
+
+LD_C_B_2_h:
+	lea.l	8(a5),a5
+LD_C_B_2:
+	move.b	b(a3),c(a3)
+	jmp	(a6)
+
+LD_C_C_2_h:
+	lea.l	8(a5),a5
+LD_C_C_2:
+	jmp	(a6)
+
+LD_C_D_2_h:
+	lea.l	8(a5),a5
+LD_C_D_2:
+	move.b	d(a3),c(a3)
+	jmp	(a6)
+
+LD_C_E_2_h:
+	lea.l	8(a5),a5
+LD_C_E_2:
+	move.b	e(a3),c(a3)
+	jmp	(a6)
+
+LD_C_IdxH_h:
+	lea.l	8(a5),a5
+LD_C_IdxH:
+	move.b	ix_h(a3,d2.w),c(a3)
+	jmp	(a6)
+
+LD_C_IdxL_h:
+	lea.l	8(a5),a5
+LD_C_IdxL:
+	move.b	ix_l(a3,d2.w),c(a3)
+	jmp	(a6)
+
+LD_C_n_2_h:
+	lea.l	11(a5),a5
+	addq.w	#1,d7			* オペランドのぶん PC を進める
+	addq.w	#1,a4
+	btst.l	#PAGEADDRBIT,d7		* 位置が負のままなら境界を越えていない
+	bne	LD_C_n_2_h9
+	PC_page_inc
+LD_C_n_2_h9:
+LD_C_n_2:
+	* オペランド列からnを取り出す
+	move.b	-1(a4),c(a3)
+	jmp	(a6)
+
+
+LD_D_A_2_h:
+	lea.l	8(a5),a5
+LD_D_A_2:
+	move.b	d4,d(a3)
+	jmp	(a6)
+
+LD_D_B_2_h:
+	lea.l	8(a5),a5
+LD_D_B_2:
+	move.b	b(a3),d(a3)
+	jmp	(a6)
+
+LD_D_C_2_h:
+	lea.l	8(a5),a5
+LD_D_C_2:
+	move.b	c(a3),d(a3)
+	jmp	(a6)
+
+LD_D_D_2_h:
+	lea.l	8(a5),a5
+LD_D_D_2:
+	jmp	(a6)
+
+LD_D_E_2_h:
+	lea.l	8(a5),a5
+LD_D_E_2:
+	move.b	e(a3),d(a3)
+	jmp	(a6)
+
+LD_D_IdxH_h:
+	lea.l	8(a5),a5
+LD_D_IdxH:
+	move.b	ix_h(a3,d2.w),d(a3)
+	jmp	(a6)
+
+LD_D_IdxL_h:
+	lea.l	8(a5),a5
+LD_D_IdxL:
+	move.b	ix_l(a3,d2.w),d(a3)
+	jmp	(a6)
+
+LD_D_n_2_h:
+	lea.l	11(a5),a5
+	addq.w	#1,d7			* オペランドのぶん PC を進める
+	addq.w	#1,a4
+	btst.l	#PAGEADDRBIT,d7		* 位置が負のままなら境界を越えていない
+	bne	LD_D_n_2_h9
+	PC_page_inc
+LD_D_n_2_h9:
+LD_D_n_2:
+	* オペランド列からnを取り出す
+	move.b	-1(a4),d(a3)
+	jmp	(a6)
+
+LD_E_A_2_h:
+	lea.l	8(a5),a5
+LD_E_A_2:
+	move.b	d4,e(a3)
+	jmp	(a6)
+
+LD_E_B_2_h:
+	lea.l	8(a5),a5
+LD_E_B_2:
+	move.b	b(a3),e(a3)
+	jmp	(a6)
+
+LD_E_C_2_h:
+	lea.l	8(a5),a5
+LD_E_C_2:
+	move.b	c(a3),e(a3)
+	jmp	(a6)
+
+LD_E_D_2_h:
+	lea.l	8(a5),a5
+LD_E_D_2:
+	move.b	d(a3),e(a3)
+	jmp	(a6)
+
+LD_E_E_2_h:
+	lea.l	8(a5),a5
+LD_E_E_2:
+	jmp	(a6)
+
+LD_E_IdxH_h:
+	lea.l	8(a5),a5
+LD_E_IdxH:
+	move.b	ix_h(a3,d2.w),e(a3)
+	jmp	(a6)
+
+LD_E_IdxL_h:
+	lea.l	8(a5),a5
+LD_E_IdxL:
+	move.b	ix_l(a3,d2.w),e(a3)
+	jmp	(a6)
+
+LD_E_n_2_h:
+	lea.l	11(a5),a5
+	addq.w	#1,d7			* オペランドのぶん PC を進める
+	addq.w	#1,a4
+	btst.l	#PAGEADDRBIT,d7		* 位置が負のままなら境界を越えていない
+	bne	LD_E_n_2_h9
+	PC_page_inc
+LD_E_n_2_h9:
+LD_E_n_2:
+	* オペランド列からnを取り出す
+	move.b	-1(a4),e(a3)
+	jmp	(a6)
+
+LD_IdxH_A_h:
+	lea.l	8(a5),a5
+LD_IdxH_A:
+	move.b	d4,ix_h(a3,d2.w)
+	jmp	(a6)
+
+LD_IdxL_A_h:
+	lea.l	8(a5),a5
+LD_IdxL_A:
+	move.b	d4,ix_l(a3,d2.w)
+	jmp	(a6)
+
+LD_IdxH_B_h:
+	lea.l	8(a5),a5
+LD_IdxH_B:
+	move.b	b(a3),ix_h(a3,d2.w)
+	jmp	(a6)
+
+LD_IdxL_B_h:
+	lea.l	8(a5),a5
+LD_IdxL_B:
+	move.b	b(a3),ix_l(a3,d2.w)
+	jmp	(a6)
+
+LD_IdxH_C_h:
+	lea.l	8(a5),a5
+LD_IdxH_C:
+	move.b	c(a3),ix_h(a3,d2.w)
+	jmp	(a6)
+
+LD_IdxL_C_h:
+	lea.l	8(a5),a5
+LD_IdxL_C:
+	move.b	c(a3),ix_l(a3,d2.w)
+	jmp	(a6)
+
+LD_IdxH_D_h:
+	lea.l	8(a5),a5
+LD_IdxH_D:
+	move.b	d(a3),ix_h(a3,d2.w)
+	jmp	(a6)
+
+LD_IdxL_D_h:
+	lea.l	8(a5),a5
+LD_IdxL_D:
+	move.b	d(a3),ix_l(a3,d2.w)
+	jmp	(a6)
+
+LD_IdxH_E_h:
+	lea.l	8(a5),a5
+LD_IdxH_E:
+	move.b	e(a3),ix_h(a3,d2.w)
+	jmp	(a6)
+
+LD_IdxL_E_h:
+	lea.l	8(a5),a5
+LD_IdxL_E:
+	move.b	e(a3),ix_l(a3,d2.w)
+	jmp	(a6)
+
+LD_IdxH_IdxH_h:
+	lea.l	8(a5),a5
+LD_IdxH_IdxH:
+	jmp	(a6)
+
+LD_IdxL_IdxH_h:
+	lea.l	8(a5),a5
+LD_IdxL_IdxH:
+	move.b	ix_h(a3,d2.w),ix_l(a3,d2.w)
+	jmp	(a6)
+
+LD_IdxH_IdxL_h:
+	lea.l	8(a5),a5
+LD_IdxH_IdxL:
+	move.b	ix_l(a3,d2.w),ix_h(a3,d2.w)
+	jmp	(a6)
+
+LD_IdxL_IdxL_h:
+	lea.l	8(a5),a5
+LD_IdxL_IdxL:
+	jmp	(a6)
+
+LD_IdxH_n_h:
+	lea.l	11(a5),a5
+	addq.w	#1,d7			* オペランドのぶん PC を進める
+	addq.w	#1,a4
+	btst.l	#PAGEADDRBIT,d7		* 位置が負のままなら境界を越えていない
+	bne	LD_IdxH_n_h9
+	PC_page_inc
+LD_IdxH_n_h9:
+LD_IdxH_n:
+	* オペランド列からnを取り出す
+	move.b	-1(a4),ix_h(a3,d2.w)
+	jmp	(a6)
+
+LD_IdxL_n_h:
+	lea.l	11(a5),a5
+	addq.w	#1,d7			* オペランドのぶん PC を進める
+	addq.w	#1,a4
+	btst.l	#PAGEADDRBIT,d7		* 位置が負のままなら境界を越えていない
+	bne	LD_IdxL_n_h9
+	PC_page_inc
+LD_IdxL_n_h9:
+LD_IdxL_n:
+	* オペランド列からnを取り出す
+	move.b	-1(a4),ix_l(a3,d2.w)
+	jmp	(a6)
+
+;---------------------------------------------------------------------------------------
+DECPC__	macro
+	subq.w	#1,d7
+	subq.w	#1,a4
+	btst.l	#PAGEADDRBIT,d7	* 位置が負のままなら境界を越えていない
+	bne	@f			* PC -1 でページ境界をまたいだか？
+	PC_page_dec			* またいだ時
+@@:
+	endm
+;---------------------------------------------------------------------------------------
+
+ADD_A_IdxH_h:
+	lea.l	8(a5),a5
+ADD_A_IdxH:
+	move.b	ix_h(a3,d2.w),d0
+	ADD_A_X
+	jmp	(a6)
+
+ADD_A_IdxL_h:
+	lea.l	8(a5),a5
+ADD_A_IdxL:
+	move.b	ix_l(a3,d2.w),d0
+	ADD_A_X
+	jmp	(a6)
+
+ADC_A_IdxH_h:
+	lea.l	8(a5),a5
+ADC_A_IdxH:
+	move.b	ix_h(a3,d2.w),target_8(a3)
+	ADC_A_X
+	jmp	(a6)
+
+ADC_A_IdxL_h:
+	lea.l	8(a5),a5
+ADC_A_IdxL:
+	move.b	ix_l(a3,d2.w),target_8(a3)
+	ADC_A_X
+	jmp	(a6)
+
+SUB_IdxH_h:
+	lea.l	8(a5),a5
+SUB_IdxH:
+	move.b	ix_h(a3,d2.w),d0
+	SUB_A_X
+	jmp	(a6)
+
+SUB_IdxL_h:
+	lea.l	8(a5),a5
+SUB_IdxL:
+	move.b	ix_l(a3,d2.w),d0
+	SUB_A_X
+	jmp	(a6)
+
+SBC_A_IdxH_h:
+	lea.l	8(a5),a5
+SBC_A_IdxH:
+	move.b	ix_h(a3,d2.w),target_8(a3)
+	SBC_A_X
+	jmp	(a6)
+
+SBC_A_IdxL_h:
+	lea.l	8(a5),a5
+SBC_A_IdxL:
+	move.b	ix_l(a3,d2.w),target_8(a3)
+	SBC_A_X
+	jmp	(a6)
+
+AND_IdxH_h:
+	lea.l	8(a5),a5
+AND_IdxH:
+	move.b	ix_h(a3,d2.w),d0
+	AND_X
+	jmp	(a6)
+
+AND_IdxL_h:
+	lea.l	8(a5),a5
+AND_IdxL:
+	move.b	ix_l(a3,d2.w),d0
+	AND_X
+	jmp	(a6)
+
+XOR_IdxH_h:
+	lea.l	8(a5),a5
+XOR_IdxH:
+	move.b	ix_h(a3,d2.w),d0
+	_OR_X	eor
+	jmp	(a6)
+
+XOR_IdxL_h:
+	lea.l	8(a5),a5
+XOR_IdxL:
+	move.b	ix_l(a3,d2.w),d0
+	_OR_X	eor
+	jmp	(a6)
+
+OR_IdxH_h:
+	lea.l	8(a5),a5
+OR_IdxH:
+	move.b	ix_h(a3,d2.w),d0
+	_OR_X	or
+	jmp	(a6)
+
+OR_IdxL_h:
+	lea.l	8(a5),a5
+OR_IdxL:
+	move.b	ix_l(a3,d2.w),d0
+	_OR_X	or
+	jmp	(a6)
+
+CP_IdxH_h:
+	lea.l	8(a5),a5
+CP_IdxH:
+	move.b	ix_h(a3,d2.w),d0
+	CP_A_X
+	jmp	(a6)
+
+CP_IdxL_h:
+	lea.l	8(a5),a5
+CP_IdxL:
+	move.b	ix_l(a3,d2.w),d0
+	CP_A_X
+	jmp	(a6)
+
+INC_IdxH_h:
+	lea.l	8(a5),a5
+INC_IdxH:
+	move.w	d1,-(sp)
+	move.b	ix_h(a3,d2.w),target_8(a3)
+	INC_X
+	move.w	(sp)+,d1
+	move.b	d0,ix_h(a3,d2.w)
+	jmp	(a6)
+
+INC_IdxL_h:
+	lea.l	8(a5),a5
+INC_IdxL:
+	move.w	d1,-(sp)
+	move.b	ix_l(a3,d2.w),target_8(a3)
+	INC_X
+	move.w	(sp)+,d1
+	move.b	d0,ix_l(a3,d2.w)
+	jmp	(a6)
+
+DEC_IdxH_h:
+	lea.l	8(a5),a5
+DEC_IdxH:
+	move.w	d2,-(sp)
+	move.b	ix_h(a3,d2.w),target_8(a3)
+	DEC_X
+	move.w	(sp)+,d2
+	move.b	d0,ix_h(a3,d2.w)
+	jmp	(a6)
+
+DEC_IdxL_h:
+	lea.l	8(a5),a5
+DEC_IdxL:
+	move.w	d2,-(sp)
+	move.b	ix_l(a3,d2.w),target_8(a3)
+	DEC_X
+	move.w	(sp)+,d2
+	move.b	d0,ix_l(a3,d2.w)
+	jmp	(a6)
+
+
+ADD_A_lIdx_dl_h:
+	lea.l	19(a5),a5
+	addq.w	#1,d7			* オペランドのぶん PC を進める
+	addq.w	#1,a4
+	btst.l	#PAGEADDRBIT,d7		* 位置が負のままなら境界を越えていない
+	bne	ADD_A_lIdx_dl_h9
+	PC_page_inc
+ADD_A_lIdx_dl_h9:
+ADD_A_lIdx_dl:
+	move.w	ix(a3,d2.w),d0		* IX or IYを読む
+	* オペランド列から dを取り出す
+	move.b	-1(a4),d1		* オペランドを取得
+	ext.w	d1
+	add.w	d1,d0
+	read_mem_8	rd8f42,rd8s42,rd8e42
+	ADD_A_X
+	jmp	(a6)
+
+ADC_A_lIdx_dl_h:
+	lea.l	19(a5),a5
+	addq.w	#1,d7			* オペランドのぶん PC を進める
+	addq.w	#1,a4
+	btst.l	#PAGEADDRBIT,d7		* 位置が負のままなら境界を越えていない
+	bne	ADC_A_lIdx_dl_h9
+	PC_page_inc
+ADC_A_lIdx_dl_h9:
+ADC_A_lIdx_dl:
+	move.w	ix(a3,d2.w),d0		* IX or IYを読む
+	* オペランド列から dを取り出す
+	move.b	-1(a4),d1		* オペランドを取得
+	ext.w	d1
+	add.w	d1,d0
+	read_mem_8	rd8f43,rd8s43,rd8e43
+	move.b	d0,target_8(a3)
+	ADC_A_X	ADC_A_lIdx_dl_fallback
+	jmp	(a6)
+
+ADC_A_lIdx_dl_fallback:
+	move.b	target_8(a3),d0	* ADC/SBC は target_8 のまま渡してくる
+	ADD_A_X
+	jmp	(a6)
+
+SUB_lIdx_dl_h:
+	lea.l	19(a5),a5
+	addq.w	#1,d7			* オペランドのぶん PC を進める
+	addq.w	#1,a4
+	btst.l	#PAGEADDRBIT,d7		* 位置が負のままなら境界を越えていない
+	bne	SUB_lIdx_dl_h9
+	PC_page_inc
+SUB_lIdx_dl_h9:
+SUB_lIdx_dl:
+	move.w	ix(a3,d2.w),d0		* IX or IYを読む
+	* オペランド列から dを取り出す
+	move.b	-1(a4),d1		* オペランドを取得
+	ext.w	d1
+	add.w	d1,d0
+	read_mem_8	rd8f44,rd8s44,rd8e44
+	SUB_A_X
+	jmp	(a6)
+
+
+SBC_A_lIdx_dl_h:
+	lea.l	19(a5),a5
+	addq.w	#1,d7			* オペランドのぶん PC を進める
+	addq.w	#1,a4
+	btst.l	#PAGEADDRBIT,d7		* 位置が負のままなら境界を越えていない
+	bne	SBC_A_lIdx_dl_h9
+	PC_page_inc
+SBC_A_lIdx_dl_h9:
+SBC_A_lIdx_dl:
+	move.w	ix(a3,d2.w),d0		* IX or IYを読む
+	* オペランド列から dを取り出す
+	move.b	-1(a4),d1		* オペランドを取得
+	ext.w	d1
+	add.w	d1,d0
+	read_mem_8	rd8f45,rd8s45,rd8e45
+	move.b	d0,target_8(a3)
+	SBC_A_X	SBC_A_lIdx_dl_fallback
+	jmp	(a6)
+
+SBC_A_lIdx_dl_fallback:
+	move.b	target_8(a3),d0	* ADC/SBC は target_8 のまま渡してくる
+	SUB_A_X
+	jmp	(a6)
+
+
+AND_lIdx_dl_h:
+	lea.l	19(a5),a5
+	addq.w	#1,d7			* オペランドのぶん PC を進める
+	addq.w	#1,a4
+	btst.l	#PAGEADDRBIT,d7		* 位置が負のままなら境界を越えていない
+	bne	AND_lIdx_dl_h9
+	PC_page_inc
+AND_lIdx_dl_h9:
+AND_lIdx_dl:
+	move.w	ix(a3,d2.w),d0		* IX or IYを読む
+	* オペランド列から dを取り出す
+	move.b	-1(a4),d1		* オペランドを取得
+	ext.w	d1
+	add.w	d1,d0
+	read_mem_8	rd8f46,rd8s46,rd8e46
+	AND_X
+	jmp	(a6)	
+
+XOR_lIdx_dl_h:
+	lea.l	19(a5),a5
+	addq.w	#1,d7			* オペランドのぶん PC を進める
+	addq.w	#1,a4
+	btst.l	#PAGEADDRBIT,d7		* 位置が負のままなら境界を越えていない
+	bne	XOR_lIdx_dl_h9
+	PC_page_inc
+XOR_lIdx_dl_h9:
+XOR_lIdx_dl:
+	move.w	ix(a3,d2.w),d0		* IX or IYを読む
+	* オペランド列から dを取り出す
+	move.b	-1(a4),d1		* オペランドを取得
+	ext.w	d1
+	add.w	d1,d0
+	read_mem_8	rd8f47,rd8s47,rd8e47
+	_OR_X	eor
+	jmp	(a6)		
+
+OR_lIdx_dl_h:
+	lea.l	19(a5),a5
+	addq.w	#1,d7			* オペランドのぶん PC を進める
+	addq.w	#1,a4
+	btst.l	#PAGEADDRBIT,d7		* 位置が負のままなら境界を越えていない
+	bne	OR_lIdx_dl_h9
+	PC_page_inc
+OR_lIdx_dl_h9:
+OR_lIdx_dl:
+	move.w	ix(a3,d2.w),d0		* IX or IYを読む
+	* オペランド列から dを取り出す
+	move.b	-1(a4),d1		* オペランドを取得
+	ext.w	d1
+	add.w	d1,d0
+	read_mem_8	rd8f48,rd8s48,rd8e48
+	_OR_X	or
+	jmp	(a6)
+
+CP_lIdx_dl_h:
+	lea.l	19(a5),a5
+	addq.w	#1,d7			* オペランドのぶん PC を進める
+	addq.w	#1,a4
+	btst.l	#PAGEADDRBIT,d7		* 位置が負のままなら境界を越えていない
+	bne	CP_lIdx_dl_h9
+	PC_page_inc
+CP_lIdx_dl_h9:
+CP_lIdx_dl:
+	move.w	ix(a3,d2.w),d0		* IX or IYを読む
+	* オペランド列から dを取り出す
+	move.b	-1(a4),d1		* オペランドを取得
+	ext.w	d1
+	add.w	d1,d0
+	read_mem_8	rd8f49,rd8s49,rd8e49
+	CP_A_X
+	jmp	(a6)
+
+INC_lIdx_dl_h:
+	lea.l	23(a5),a5
+	addq.w	#1,d7			* オペランドのぶん PC を進める
+	addq.w	#1,a4
+	btst.l	#PAGEADDRBIT,d7		* 位置が負のままなら境界を越えていない
+	bne	INC_lIdx_dl_h9
+	PC_page_inc
+INC_lIdx_dl_h9:
+INC_lIdx_dl:
+	move.w	ix(a3,d2.w),d0		* IX or IYを読む
+	* オペランド列から dを取り出す
+	move.b	-1(a4),d1		* オペランドを取得
+	ext.w	d1
+	add.w	d1,d0
+	move.w	d0,-(sp)
+	read_mem_8	rd8f50,rd8s50,rd8e50
+	move.b	d0,target_8(a3)
+	INC_X
+	move.b	d0,d1
+	move.w	(sp)+,d0
+	write_mem_8	wr8f26,wr8s26,wr8e26
+	jmp	(a6)
+
+DEC_lIdx_dl_h:
+	lea.l	23(a5),a5
+	addq.w	#1,d7			* オペランドのぶん PC を進める
+	addq.w	#1,a4
+	btst.l	#PAGEADDRBIT,d7		* 位置が負のままなら境界を越えていない
+	bne	DEC_lIdx_dl_h9
+	PC_page_inc
+DEC_lIdx_dl_h9:
+DEC_lIdx_dl:
+	move.w	ix(a3,d2.w),d0		* IX or IYを読む
+	* オペランド列から dを取り出す
+	move.b	-1(a4),d1		* オペランドを取得
+	ext.w	d1
+	add.w	d1,d0
+	move.w	d0,-(sp)
+	read_mem_8	rd8f51,rd8s51,rd8e51
+	move.b	d0,target_8(a3)
+	DEC_X
+	move.b	d0,d1
+	move.w	(sp)+,d0
+	write_mem_8	wr8f27,wr8s27,wr8e27
+	jmp	(a6)
+
+
+;---------------------------------------------------------------------------------------
+; ADD Idx,XX の挙動は以下の通り
+; * S : 変化しない
+; * Z : 変化しない
+; * F5: 上位8bitの加算の結果のbit5
+; * H : 上位8bitの加算の実行によるハーフキャリー
+; * F3: 上位8bitの加算の結果のbit5
+; * PV: 変化しない
+; * N : 0
+; * C : 上位8bitの加算の実行によるキャリー
+ADD_Idx_XX macro	ixiy
+* ADD_HL_XX と同じ手順。S・Z・P/V は変わらない。
+	move.b	(ixiy+1)(a3),d0
+	add.b	target_16+1(a3),d0	* 下位バイトを加算。X に桁上げが残る
+	move.b	d0,(ixiy+1)(a3)
+	move.b	(ixiy+0)(a3),d1		* 上位バイト
+	move.b	target_16(a3),d2
+	move.b	d1,d3
+	eor.b	d2,d3			* 第1項 ^ 第2項（上位バイト）
+	addx.b	d2,d1			* 上位バイトを加算。C が確定する
+	scs	d2			* C を取り出す（Scc は CCR を変えない）
+	move.b	d1,(ixiy+0)(a3)
+	eor.b	d1,d3			* ^ 結果 → bit4 が H
+	andi.b	#%00010000,d3
+	andi.b	#%00000001,d2
+	or.b	d2,d3
+	move.b	d1,d2			* 結果の上位バイト
+	andi.b	#%00101000,d2		* F5,F3
+	or.b	d2,d3
+	andi.b	#%11000100,d6		* S,Z,P/V だけ残す
+	or.b	d3,d6
+	endm
+;---------------------------------------------------------------------------------------
+
+ADD_Idx_BC_h:
+	lea.l	15(a5),a5
+ADD_Idx_BC:
+	move.w	bc(a3),target_16(a3)
+	cmpi.w	#0,d2
+	bne	ADD_IY_XX
+	ADD_Idx_XX	ix
+	jmp	(a6)
+ADD_IY_XX:
+	ADD_Idx_XX	iy
+	jmp	(a6)
+
+ADD_Idx_DE_h:
+	lea.l	15(a5),a5
+ADD_Idx_DE:
+	move.w	de(a3),target_16(a3)
+	cmpi.w	#0,d2
+	bne	ADD_IY_XX
+	ADD_Idx_XX	ix
+	jmp	(a6)
+
+ADD_Idx_SP_h:
+	lea.l	15(a5),a5
+ADD_Idx_SP:
+	move.w	sp_(a3),target_16(a3)
+	cmpi.w	#0,d2
+	bne	ADD_IY_XX
+	ADD_Idx_XX	ix
+	jmp	(a6)
+
+ADD_Idx_Idx_h:
+	lea.l	15(a5),a5
+ADD_Idx_Idx:
+	cmpi.w	#0,d2
+	bne	ADD_IY_IY
+	move.w	ix(a3),target_16(a3)
+	ADD_Idx_XX	ix
+	jmp	(a6)
+
+	.dc.w	15			* サイクル数
+	.dc.w	2-1			* 命令語長-1
+ADD_IY_IY:
+	move.w	iy(a3),target_16(a3)
+	ADD_Idx_XX	iy
+	jmp	(a6)
+
+
+*	------ ＬＤ Ｉｄｘ ------
+LD_Idx_nn_h:
+	lea.l	14(a5),a5
+	addq.w	#2,d7			* オペランドのぶん PC を進める
+	addq.w	#2,a4
+	btst.l	#PAGEADDRBIT,d7		* 位置が負のままなら境界を越えていない
+	bne	LD_Idx_nn_h9
+	PC_page_inc
+LD_Idx_nn_h9:
+LD_Idx_nn:
+	* オペランド列からnnを取り出す
+	move.b	-1(a4),d1		* オペランドの上位バイト
+	ror.w	#8,d1
+	move.b	-2(a4),d1		* オペランドの下位バイト
+	move.w	d1,ix(a3,d2.w)
+	jmp	(a6)
+
+LD_Idx_lnnl_h:
+	lea.l	20(a5),a5
+	addq.w	#2,d7			* オペランドのぶん PC を進める
+	addq.w	#2,a4
+	btst.l	#PAGEADDRBIT,d7		* 位置が負のままなら境界を越えていない
+	bne	LD_Idx_lnnl_h9
+	PC_page_inc
+LD_Idx_lnnl_h9:
+LD_Idx_lnnl:
+	move.w	d2,-(sp)
+	* オペランド列からnnを取り出す
+	move.b	-1(a4),d1		* オペランドの上位バイト
+	ror.w	#8,d1
+	move.b	-2(a4),d1		* オペランドの下位バイト
+	move.w	d1,d0
+	read_mem_16	rd16f13,rd16s13,rd16e13
+	move.w	(sp)+,d2
+	move.w	d0,ix(a3,d2.w)
+	jmp	(a6)
+
+LD_lnnl_Idx_h:
+	lea.l	20(a5),a5
+	addq.w	#2,d7			* オペランドのぶん PC を進める
+	addq.w	#2,a4
+	btst.l	#PAGEADDRBIT,d7		* 位置が負のままなら境界を越えていない
+	bne	LD_lnnl_Idx_h9
+	PC_page_inc
+LD_lnnl_Idx_h9:
+LD_lnnl_Idx:
+	* オペランド列からnnを取り出す
+	move.b	-1(a4),d1		* オペランドの上位バイト
+	ror.w	#8,d1
+	move.b	-2(a4),d1		* オペランドの下位バイト
+	move.w	d1,d0
+	move.w	ix(a3,d2.w),d1
+	write_mem_16	wr16f11,wr16s11,wr16e11
+	jmp	(a6)
+
+LD_SP_Idx_h:
+	lea.l	10(a5),a5
+LD_SP_Idx:
+	move.w	ix(a3,d2.w),sp_(a3)
+	jmp	(a6)
+
+
+*	------ ＩＮＣ ------
+INC_Idx_h:
+	lea.l	10(a5),a5
+INC_Idx:				* フラグは不変
+	addq.w	#1,ix(a3,d2.w)
+	jmp	(a6)
+
+DEC_Idx_h:
+	lea.l	10(a5),a5
+DEC_Idx:
+	subq.w	#1,ix(a3,d2.w)
+	jmp	(a6)
+
+*	------ ＬＤ ？,（Ｉｄｘ＋ｄ） ------
+LD_A_lIdx_dl_h:
+	lea.l	19(a5),a5
+	addq.w	#1,d7			* オペランドのぶん PC を進める
+	addq.w	#1,a4
+	btst.l	#PAGEADDRBIT,d7		* 位置が負のままなら境界を越えていない
+	bne	LD_A_lIdx_dl_h9
+	PC_page_inc
+LD_A_lIdx_dl_h9:
+LD_A_lIdx_dl:
+	move.w	ix(a3,d2.w),d0
+	* オペランド列から dを取り出す
+	move.b	-1(a4),d1		* オペランドを取得
+	ext.w	d1
+	add.w	d1,d0
+	read_mem_8	rd8f52,rd8s52,rd8e52
+	move.b	d0,d4
+	jmp	(a6)
+
+LD_B_lIdx_dl_h:
+	lea.l	19(a5),a5
+	addq.w	#1,d7			* オペランドのぶん PC を進める
+	addq.w	#1,a4
+	btst.l	#PAGEADDRBIT,d7		* 位置が負のままなら境界を越えていない
+	bne	LD_B_lIdx_dl_h9
+	PC_page_inc
+LD_B_lIdx_dl_h9:
+LD_B_lIdx_dl:
+	move.w	ix(a3,d2.w),d0
+	* オペランド列から dを取り出す
+	move.b	-1(a4),d1		* オペランドを取得
+	ext.w	d1
+	add.w	d1,d0
+	read_mem_8	rd8f53,rd8s53,rd8e53
+	move.b	d0,b(a3)
+	jmp	(a6)
+
+LD_C_lIdx_dl_h:
+	lea.l	19(a5),a5
+	addq.w	#1,d7			* オペランドのぶん PC を進める
+	addq.w	#1,a4
+	btst.l	#PAGEADDRBIT,d7		* 位置が負のままなら境界を越えていない
+	bne	LD_C_lIdx_dl_h9
+	PC_page_inc
+LD_C_lIdx_dl_h9:
+LD_C_lIdx_dl:
+	move.w	ix(a3,d2.w),d0
+	* オペランド列から dを取り出す
+	move.b	-1(a4),d1		* オペランドを取得
+	ext.w	d1
+	add.w	d1,d0
+	read_mem_8	rd8f54,rd8s54,rd8e54
+	move.b	d0,c(a3)
+	jmp	(a6)
+
+LD_D_lIdx_dl_h:
+	lea.l	19(a5),a5
+	addq.w	#1,d7			* オペランドのぶん PC を進める
+	addq.w	#1,a4
+	btst.l	#PAGEADDRBIT,d7		* 位置が負のままなら境界を越えていない
+	bne	LD_D_lIdx_dl_h9
+	PC_page_inc
+LD_D_lIdx_dl_h9:
+LD_D_lIdx_dl:
+	move.w	ix(a3,d2.w),d0
+	* オペランド列から dを取り出す
+	move.b	-1(a4),d1		* オペランドを取得
+	ext.w	d1
+	add.w	d1,d0
+	read_mem_8	rd8f55,rd8s55,rd8e55
+	move.b	d0,d(a3)
+	jmp	(a6)
+
+LD_E_lIdx_dl_h:
+	lea.l	19(a5),a5
+	addq.w	#1,d7			* オペランドのぶん PC を進める
+	addq.w	#1,a4
+	btst.l	#PAGEADDRBIT,d7		* 位置が負のままなら境界を越えていない
+	bne	LD_E_lIdx_dl_h9
+	PC_page_inc
+LD_E_lIdx_dl_h9:
+LD_E_lIdx_dl:
+	move.w	ix(a3,d2.w),d0
+	* オペランド列から dを取り出す
+	move.b	-1(a4),d1		* オペランドを取得
+	ext.w	d1
+	add.w	d1,d0
+	read_mem_8	rd8f56,rd8s56,rd8e56
+	move.b	d0,e(a3)
+	jmp	(a6)
+
+LD_H_lIdx_dl_h:
+	lea.l	19(a5),a5
+	addq.w	#1,d7			* オペランドのぶん PC を進める
+	addq.w	#1,a4
+	btst.l	#PAGEADDRBIT,d7		* 位置が負のままなら境界を越えていない
+	bne	LD_H_lIdx_dl_h9
+	PC_page_inc
+LD_H_lIdx_dl_h9:
+LD_H_lIdx_dl:
+	move.w	ix(a3,d2.w),d0
+	* オペランド列から dを取り出す
+	move.b	-1(a4),d1		* オペランドを取得
+	ext.w	d1
+	add.w	d1,d0
+	read_mem_8	rd8f57,rd8s57,rd8e57
+	move.b	d0,h(a3)
+	jmp	(a6)
+
+LD_L_lIdx_dl_h:
+	lea.l	19(a5),a5
+	addq.w	#1,d7			* オペランドのぶん PC を進める
+	addq.w	#1,a4
+	btst.l	#PAGEADDRBIT,d7		* 位置が負のままなら境界を越えていない
+	bne	LD_L_lIdx_dl_h9
+	PC_page_inc
+LD_L_lIdx_dl_h9:
+LD_L_lIdx_dl:
+	move.w	ix(a3,d2.w),d0
+	* オペランド列から dを取り出す
+	move.b	-1(a4),d1		* オペランドを取得
+	ext.w	d1
+	add.w	d1,d0
+	read_mem_8	rd8f58,rd8s58,rd8e58
+	move.b	d0,l(a3)
+	jmp	(a6)
+
+
+*	------ ＬＤ （Ｉｄｘ＋ｄ）,？ ------
+LD_lIdx_dl_A_h:
+	lea.l	19(a5),a5
+	addq.w	#1,d7			* オペランドのぶん PC を進める
+	addq.w	#1,a4
+	btst.l	#PAGEADDRBIT,d7		* 位置が負のままなら境界を越えていない
+	bne	LD_lIdx_dl_A_h9
+	PC_page_inc
+LD_lIdx_dl_A_h9:
+LD_lIdx_dl_A:
+	move.w	ix(a3,d2.w),d0
+	* オペランド列から dを取り出す
+	move.b	-1(a4),d1		* オペランドを取得
+	ext.w	d1
+	add.w	d1,d0
+	move.b	d4,d1
+	write_mem_8	wr8f28,wr8s28,wr8e28
+	jmp	(a6)
+
+LD_lIdx_dl_B_h:
+	lea.l	19(a5),a5
+	addq.w	#1,d7			* オペランドのぶん PC を進める
+	addq.w	#1,a4
+	btst.l	#PAGEADDRBIT,d7		* 位置が負のままなら境界を越えていない
+	bne	LD_lIdx_dl_B_h9
+	PC_page_inc
+LD_lIdx_dl_B_h9:
+LD_lIdx_dl_B:
+	move.w	ix(a3,d2.w),d0
+	* オペランド列から dを取り出す
+	move.b	-1(a4),d1		* オペランドを取得
+	ext.w	d1
+	add.w	d1,d0
+	move.b	b(a3),d1
+	write_mem_8	wr8f29,wr8s29,wr8e29
+	jmp	(a6)
+
+LD_lIdx_dl_C_h:
+	lea.l	19(a5),a5
+	addq.w	#1,d7			* オペランドのぶん PC を進める
+	addq.w	#1,a4
+	btst.l	#PAGEADDRBIT,d7		* 位置が負のままなら境界を越えていない
+	bne	LD_lIdx_dl_C_h9
+	PC_page_inc
+LD_lIdx_dl_C_h9:
+LD_lIdx_dl_C:
+	move.w	ix(a3,d2.w),d0
+	* オペランド列から dを取り出す
+	move.b	-1(a4),d1		* オペランドを取得
+	ext.w	d1
+	add.w	d1,d0
+	move.b	c(a3),d1
+	write_mem_8	wr8f30,wr8s30,wr8e30
+	jmp	(a6)
+
+LD_lIdx_dl_D_h:
+	lea.l	19(a5),a5
+	addq.w	#1,d7			* オペランドのぶん PC を進める
+	addq.w	#1,a4
+	btst.l	#PAGEADDRBIT,d7		* 位置が負のままなら境界を越えていない
+	bne	LD_lIdx_dl_D_h9
+	PC_page_inc
+LD_lIdx_dl_D_h9:
+LD_lIdx_dl_D:
+	move.w	ix(a3,d2.w),d0
+	* オペランド列から dを取り出す
+	move.b	-1(a4),d1		* オペランドを取得
+	ext.w	d1
+	add.w	d1,d0
+	move.b	d(a3),d1
+	write_mem_8	wr8f31,wr8s31,wr8e31
+	jmp	(a6)
+
+LD_lIdx_dl_E_h:
+	lea.l	19(a5),a5
+	addq.w	#1,d7			* オペランドのぶん PC を進める
+	addq.w	#1,a4
+	btst.l	#PAGEADDRBIT,d7		* 位置が負のままなら境界を越えていない
+	bne	LD_lIdx_dl_E_h9
+	PC_page_inc
+LD_lIdx_dl_E_h9:
+LD_lIdx_dl_E:
+	move.w	ix(a3,d2.w),d0
+	* オペランド列から dを取り出す
+	move.b	-1(a4),d1		* オペランドを取得
+	ext.w	d1
+	add.w	d1,d0
+	move.b	e(a3),d1
+	write_mem_8	wr8f32,wr8s32,wr8e32
+	jmp	(a6)
+
+LD_lIdx_dl_H_h:
+	lea.l	19(a5),a5
+	addq.w	#1,d7			* オペランドのぶん PC を進める
+	addq.w	#1,a4
+	btst.l	#PAGEADDRBIT,d7		* 位置が負のままなら境界を越えていない
+	bne	LD_lIdx_dl_H_h9
+	PC_page_inc
+LD_lIdx_dl_H_h9:
+LD_lIdx_dl_H:
+	move.w	ix(a3,d2.w),d0
+	* オペランド列から dを取り出す
+	move.b	-1(a4),d1		* オペランドを取得
+	ext.w	d1
+	add.w	d1,d0
+	move.b	h(a3),d1
+	write_mem_8	wr8f33,wr8s33,wr8e33
+	jmp	(a6)
+
+LD_lIdx_dl_L_h:
+	lea.l	19(a5),a5
+	addq.w	#1,d7			* オペランドのぶん PC を進める
+	addq.w	#1,a4
+	btst.l	#PAGEADDRBIT,d7		* 位置が負のままなら境界を越えていない
+	bne	LD_lIdx_dl_L_h9
+	PC_page_inc
+LD_lIdx_dl_L_h9:
+LD_lIdx_dl_L:
+	move.w	ix(a3,d2.w),d0
+	* オペランド列から dを取り出す
+	move.b	-1(a4),d1		* オペランドを取得
+	ext.w	d1
+	add.w	d1,d0
+	move.b	l(a3),d1
+	write_mem_8	wr8f34,wr8s34,wr8e34
+	jmp	(a6)
+
+LD_lIdx_dl_n_h:
+	lea.l	19(a5),a5
+	addq.w	#2,d7			* オペランドのぶん PC を進める
+	addq.w	#2,a4
+	btst.l	#PAGEADDRBIT,d7		* 位置が負のままなら境界を越えていない
+	bne	LD_lIdx_dl_n_h9
+	PC_page_inc
+LD_lIdx_dl_n_h9:
+LD_lIdx_dl_n:
+	move.w	ix(a3,d2.w),d0
+	* オペランド列から dを取り出す
+	move.b	-2(a4),d1		* オペランドを取得
+	ext.w	d1
+	add.w	d1,d0
+	* オペランド列から nを取り出す
+	move.b	-1(a4),d1		* オペランドを取得
+	write_mem_8	wr8f35,wr8s35,wr8e35
+	jmp	(a6)
+
+
+*	------ ＰＵＳＨ Ｉｄｘ
+PUSH_Idx_h:
+	lea.l	15(a5),a5
+PUSH_Idx:
+	subq.w	#2,sp_(a3)
+	move.w	sp_(a3),d0
+	move.w	ix(a3,d2.w),d1
+	write_mem_16	wr16f12,wr16s12,wr16e12
+	jmp	(a6)
+
+POP_Idx_h:
+	lea.l	14(a5),a5
+POP_Idx:
+	move.w	d2,-(sp)
+	move.w	sp_(a3),d0
+	read_mem_16	rd16f14,rd16s14,rd16e14
+	addq.w	#2,sp_(a3)
+	move.w	(sp)+,d2
+	move.w	d0,ix(a3,d2.w)
+	jmp	(a6)
+
+
+*	------ ＪＰ (Ｉｄｘ) ------
+JP_lIdxl_h:
+	lea.l	8(a5),a5
+JP_lIdxl:
+	move.w	ix(a3,d2.w),d7
+	PC_page_set
+	jmp	(a6)
+
+
+*	------ ＥＸ ------
+EX_lSPl_Idx_h:
+	lea.l	23(a5),a5
+EX_lSPl_Idx:
+	move.w	d2,-(sp)
+	move.w	sp_(a3),d0
+	read_mem_16	rd16f15,rd16s15,rd16e15
+	move.w	(sp)+,d2
+	move.w	ix(a3,d2.w),d1
+	move.w	d0,ix(a3,d2.w)
+	move.w	sp_(a3),d0
+	write_mem_16	wr16f13,wr16s13,wr16e13
+	jmp	(a6)
+
+*	------ Ｓｙｓｔｅｍ Ｅｎｄ ------
+system_end:
+	bra	emu_end
+
+*	------ デバッガに制御を渡す ------
+stop:
+	jmp	(a6)
+
+
+
+**********************************************************************
+*
+*	ＤＤ/ＦＤ ＣＢライン命令
+*
+**********************************************************************
+;	DD/FD CBライン命令の命令語長は 4 バイト
+;	サイクル数は BIT が 20、それ以外は 23。ここで 23 を加算し、BIT だけ 3 を減算する
+DDFD_CB_h:
+	lea.l	23(a5),a5		* BIT 以外のサイクル数
+	addq.w	#2,d7			* オペランドのぶん PC を進める
+	addq.w	#2,a4
+	btst.l	#PAGEADDRBIT,d7		* 位置が負のままなら境界を越えていない
+	bne	DDFD_CB_h9
+	PC_page_inc
+DDFD_CB_h9:
+DDFD_CB:
+	move.w	ix(a3,d2.w),d0		* IX or IYを読む
+	* オペランド列から dを取り出す
+	move.b	-2(a4),d1		* オペランドを取得
+	ext.w	d1
+	add.w	d1,d0			* d0 = Idx + d
+	* オペランド列から OP CODEを取り出す
+	moveq.l	#0,d1
+	move.b	-1(a4),d1		* オペランドを取得
+	add.w	d1,d1
+	add.w	d1,d1
+	movea.l	DDFD_CB_JPT(pc,d1.w),a0	* ジャンプ先を取得
+	; この時点のレジスタは以下の通り
+	; d0.l : IX or IY + d
+	; d1.l : OP CODE * 4
+	; d2.l : DDの場合は0、FDの場合は2
+	; d7.l : 命令語長だけ進めたPCの値
+	jmp	(a0)
+
+DDFD_CB_JPT:
+	.dc.l	none_DDFD_CB	* $00
+	.dc.l	none_DDFD_CB
+	.dc.l	none_DDFD_CB
+	.dc.l	none_DDFD_CB
+	.dc.l	none_DDFD_CB
+	.dc.l	none_DDFD_CB
+	.dc.l	RLC_lIdx_dl	* $06
+	.dc.l	none_DDFD_CB
+	.dc.l	none_DDFD_CB	* $08
+	.dc.l	none_DDFD_CB
+	.dc.l	none_DDFD_CB
+	.dc.l	none_DDFD_CB
+	.dc.l	none_DDFD_CB
+	.dc.l	none_DDFD_CB
+	.dc.l	RRC_lIdx_dl	* $0e
+	.dc.l	none_DDFD_CB	* $0f
+
+	.dc.l	none_DDFD_CB	* $10
+	.dc.l	none_DDFD_CB
+	.dc.l	none_DDFD_CB
+	.dc.l	none_DDFD_CB
+	.dc.l	none_DDFD_CB
+	.dc.l	none_DDFD_CB
+	.dc.l	RL_lIdx_dl		* $16
+	.dc.l	none_DDFD_CB
+	.dc.l	none_DDFD_CB	* $18
+	.dc.l	none_DDFD_CB
+	.dc.l	none_DDFD_CB
+	.dc.l	none_DDFD_CB
+	.dc.l	none_DDFD_CB
+	.dc.l	none_DDFD_CB
+	.dc.l	RR_lIdx_dl		* $1e
+	.dc.l	none_DDFD_CB	* $1f
+
+	.dc.l	none_DDFD_CB	* $20
+	.dc.l	none_DDFD_CB
+	.dc.l	none_DDFD_CB
+	.dc.l	none_DDFD_CB
+	.dc.l	none_DDFD_CB
+	.dc.l	none_DDFD_CB
+	.dc.l	SLA_lIdx_dl	* $26
+	.dc.l	none_DDFD_CB
+	.dc.l	none_DDFD_CB	* $28
+	.dc.l	none_DDFD_CB
+	.dc.l	none_DDFD_CB
+	.dc.l	none_DDFD_CB
+	.dc.l	none_DDFD_CB
+	.dc.l	none_DDFD_CB
+	.dc.l	SRA_lIdx_dl	* $2e
+	.dc.l	none_DDFD_CB	* $2f
+
+	.dc.l	none_DDFD_CB	* $30
+	.dc.l	none_DDFD_CB
+	.dc.l	none_DDFD_CB
+	.dc.l	none_DDFD_CB
+	.dc.l	none_DDFD_CB
+	.dc.l	none_DDFD_CB
+	.dc.l	SLI_lIdx_dl	* $36
+	.dc.l	none_DDFD_CB
+	.dc.l	none_DDFD_CB	* $38
+	.dc.l	none_DDFD_CB
+	.dc.l	none_DDFD_CB
+	.dc.l	none_DDFD_CB
+	.dc.l	none_DDFD_CB
+	.dc.l	none_DDFD_CB
+	.dc.l	SRL_lIdx_dl	* $3e
+	.dc.l	none_DDFD_CB	* $3f
+
+	.dc.l	BIT_lIdx_dl	* $40
+	.dc.l	BIT_lIdx_dl
+	.dc.l	BIT_lIdx_dl
+	.dc.l	BIT_lIdx_dl
+	.dc.l	BIT_lIdx_dl
+	.dc.l	BIT_lIdx_dl
+	.dc.l	BIT_lIdx_dl	* $46
+	.dc.l	BIT_lIdx_dl
+	.dc.l	BIT_lIdx_dl	* $48
+	.dc.l	BIT_lIdx_dl
+	.dc.l	BIT_lIdx_dl
+	.dc.l	BIT_lIdx_dl
+	.dc.l	BIT_lIdx_dl
+	.dc.l	BIT_lIdx_dl
+	.dc.l	BIT_lIdx_dl	* $4e
+	.dc.l	BIT_lIdx_dl	* $4f
+
+	.dc.l	BIT_lIdx_dl	* $50
+	.dc.l	BIT_lIdx_dl
+	.dc.l	BIT_lIdx_dl
+	.dc.l	BIT_lIdx_dl
+	.dc.l	BIT_lIdx_dl
+	.dc.l	BIT_lIdx_dl
+	.dc.l	BIT_lIdx_dl	* $56
+	.dc.l	BIT_lIdx_dl
+	.dc.l	BIT_lIdx_dl	* $58
+	.dc.l	BIT_lIdx_dl
+	.dc.l	BIT_lIdx_dl
+	.dc.l	BIT_lIdx_dl
+	.dc.l	BIT_lIdx_dl
+	.dc.l	BIT_lIdx_dl
+	.dc.l	BIT_lIdx_dl	* $5e
+	.dc.l	BIT_lIdx_dl	* $5f
+
+	.dc.l	BIT_lIdx_dl	* $60
+	.dc.l	BIT_lIdx_dl
+	.dc.l	BIT_lIdx_dl
+	.dc.l	BIT_lIdx_dl
+	.dc.l	BIT_lIdx_dl
+	.dc.l	BIT_lIdx_dl
+	.dc.l	BIT_lIdx_dl	* $66
+	.dc.l	BIT_lIdx_dl
+	.dc.l	BIT_lIdx_dl	* $68
+	.dc.l	BIT_lIdx_dl
+	.dc.l	BIT_lIdx_dl
+	.dc.l	BIT_lIdx_dl
+	.dc.l	BIT_lIdx_dl
+	.dc.l	BIT_lIdx_dl
+	.dc.l	BIT_lIdx_dl	* $6e
+	.dc.l	BIT_lIdx_dl	* $6f
+
+	.dc.l	BIT_lIdx_dl	* $70
+	.dc.l	BIT_lIdx_dl
+	.dc.l	BIT_lIdx_dl
+	.dc.l	BIT_lIdx_dl
+	.dc.l	BIT_lIdx_dl
+	.dc.l	BIT_lIdx_dl
+	.dc.l	BIT_lIdx_dl	* $76
+	.dc.l	BIT_lIdx_dl
+	.dc.l	BIT_lIdx_dl	* $78
+	.dc.l	BIT_lIdx_dl
+	.dc.l	BIT_lIdx_dl
+	.dc.l	BIT_lIdx_dl
+	.dc.l	BIT_lIdx_dl
+	.dc.l	BIT_lIdx_dl
+	.dc.l	BIT_lIdx_dl	* $7e
+	.dc.l	BIT_lIdx_dl	* $7f
+
+	.dc.l	RES_lIdx_dl_B	* $80
+	.dc.l	RES_lIdx_dl_C
+	.dc.l	RES_lIdx_dl_D
+	.dc.l	RES_lIdx_dl_E
+	.dc.l	RES_lIdx_dl_H
+	.dc.l	RES_lIdx_dl_L
+	.dc.l	RES_lIdx_dl_dispatch	* $86
+	.dc.l	RES_lIdx_dl_A
+	.dc.l	RES_lIdx_dl_B	* $88
+	.dc.l	RES_lIdx_dl_C
+	.dc.l	RES_lIdx_dl_D
+	.dc.l	RES_lIdx_dl_E
+	.dc.l	RES_lIdx_dl_H
+	.dc.l	RES_lIdx_dl_L
+	.dc.l	RES_lIdx_dl_dispatch
+	.dc.l	RES_lIdx_dl_A	* $8f
+
+	.dc.l	RES_lIdx_dl_B	* $90
+	.dc.l	RES_lIdx_dl_C
+	.dc.l	RES_lIdx_dl_D
+	.dc.l	RES_lIdx_dl_E
+	.dc.l	RES_lIdx_dl_H
+	.dc.l	RES_lIdx_dl_L
+	.dc.l	RES_lIdx_dl_dispatch
+	.dc.l	RES_lIdx_dl_A
+	.dc.l	RES_lIdx_dl_B	* $98
+	.dc.l	RES_lIdx_dl_C
+	.dc.l	RES_lIdx_dl_D
+	.dc.l	RES_lIdx_dl_E
+	.dc.l	RES_lIdx_dl_H
+	.dc.l	RES_lIdx_dl_L
+	.dc.l	RES_lIdx_dl_dispatch
+	.dc.l	RES_lIdx_dl_A	* $9f
+
+	.dc.l	RES_lIdx_dl_B	* $a0
+	.dc.l	RES_lIdx_dl_C
+	.dc.l	RES_lIdx_dl_D
+	.dc.l	RES_lIdx_dl_E
+	.dc.l	RES_lIdx_dl_H
+	.dc.l	RES_lIdx_dl_L
+	.dc.l	RES_lIdx_dl_dispatch
+	.dc.l	RES_lIdx_dl_A
+	.dc.l	RES_lIdx_dl_B	* $a8
+	.dc.l	RES_lIdx_dl_C
+	.dc.l	RES_lIdx_dl_D
+	.dc.l	RES_lIdx_dl_E
+	.dc.l	RES_lIdx_dl_H
+	.dc.l	RES_lIdx_dl_L
+	.dc.l	RES_lIdx_dl_dispatch
+	.dc.l	RES_lIdx_dl_A	* $af
+
+	.dc.l	RES_lIdx_dl_B	* $b0
+	.dc.l	RES_lIdx_dl_C
+	.dc.l	RES_lIdx_dl_D
+	.dc.l	RES_lIdx_dl_E
+	.dc.l	RES_lIdx_dl_H
+	.dc.l	RES_lIdx_dl_L
+	.dc.l	RES_lIdx_dl_dispatch
+	.dc.l	RES_lIdx_dl_A
+	.dc.l	RES_lIdx_dl_B	* $b8
+	.dc.l	RES_lIdx_dl_C
+	.dc.l	RES_lIdx_dl_D
+	.dc.l	RES_lIdx_dl_E
+	.dc.l	RES_lIdx_dl_H
+	.dc.l	RES_lIdx_dl_L
+	.dc.l	RES_lIdx_dl_dispatch	* $be
+	.dc.l	RES_lIdx_dl_A	* $bf
+
+	.dc.l	SET_lIdx_dl_B	* $c0
+	.dc.l	SET_lIdx_dl_C
+	.dc.l	SET_lIdx_dl_D
+	.dc.l	SET_lIdx_dl_E
+	.dc.l	SET_lIdx_dl_H
+	.dc.l	SET_lIdx_dl_L
+	.dc.l	SET_lIdx_dl_dispatch	* $c6
+	.dc.l	SET_lIdx_dl_A
+	.dc.l	SET_lIdx_dl_B	* $c8
+	.dc.l	SET_lIdx_dl_C
+	.dc.l	SET_lIdx_dl_D
+	.dc.l	SET_lIdx_dl_E
+	.dc.l	SET_lIdx_dl_H
+	.dc.l	SET_lIdx_dl_L
+	.dc.l	SET_lIdx_dl_dispatch
+	.dc.l	SET_lIdx_dl_A	* $cf
+
+	.dc.l	SET_lIdx_dl_B	* $d0
+	.dc.l	SET_lIdx_dl_C
+	.dc.l	SET_lIdx_dl_D
+	.dc.l	SET_lIdx_dl_E
+	.dc.l	SET_lIdx_dl_H
+	.dc.l	SET_lIdx_dl_L
+	.dc.l	SET_lIdx_dl_dispatch
+	.dc.l	SET_lIdx_dl_A
+	.dc.l	SET_lIdx_dl_B	* $d8
+	.dc.l	SET_lIdx_dl_C
+	.dc.l	SET_lIdx_dl_D
+	.dc.l	SET_lIdx_dl_E
+	.dc.l	SET_lIdx_dl_H
+	.dc.l	SET_lIdx_dl_L
+	.dc.l	SET_lIdx_dl_dispatch
+	.dc.l	SET_lIdx_dl_A	* $df
+
+	.dc.l	SET_lIdx_dl_B	* $e0
+	.dc.l	SET_lIdx_dl_C
+	.dc.l	SET_lIdx_dl_D
+	.dc.l	SET_lIdx_dl_E
+	.dc.l	SET_lIdx_dl_H
+	.dc.l	SET_lIdx_dl_L
+	.dc.l	SET_lIdx_dl_dispatch
+	.dc.l	SET_lIdx_dl_A
+	.dc.l	SET_lIdx_dl_B	* $e8
+	.dc.l	SET_lIdx_dl_C
+	.dc.l	SET_lIdx_dl_D
+	.dc.l	SET_lIdx_dl_E
+	.dc.l	SET_lIdx_dl_H
+	.dc.l	SET_lIdx_dl_L
+	.dc.l	SET_lIdx_dl_dispatch
+	.dc.l	SET_lIdx_dl_A	* $ef
+
+	.dc.l	SET_lIdx_dl_B	* $f0
+	.dc.l	SET_lIdx_dl_C
+	.dc.l	SET_lIdx_dl_D
+	.dc.l	SET_lIdx_dl_E
+	.dc.l	SET_lIdx_dl_H
+	.dc.l	SET_lIdx_dl_L
+	.dc.l	SET_lIdx_dl_dispatch
+	.dc.l	SET_lIdx_dl_A
+	.dc.l	SET_lIdx_dl_B	* $f8
+	.dc.l	SET_lIdx_dl_C
+	.dc.l	SET_lIdx_dl_D
+	.dc.l	SET_lIdx_dl_E
+	.dc.l	SET_lIdx_dl_H
+	.dc.l	SET_lIdx_dl_L
+	.dc.l	SET_lIdx_dl_dispatch	* $fe
+	.dc.l	SET_lIdx_dl_A	* $ff
+
+; d0 には Idx + d がセットされて呼ばれる
+
+none_DDFD_CB:				* おかしな命令を実行しました
+	lsr.w	#2,d1			* d1 を OP CODE に復元
+	move.w	d1,d0			* d1はOP CODE
+	lsr.w	#4,d0
+	lea.l	HEX,a0
+	move.b	(a0,d0.w),number_ddfdcb+0
+	andi.w	#$0f,d1
+	move.b	(a0,d1.w),number_ddfdcb+1
+
+	pea.l	errms_ddfdcb
+	DOS	__PRINT
+	lea.l	4(sp),sp
+	move.b	#$ff,d0
+	jmp	(a6)
+
+errms_ddfdcb:
+	.dc.b	'おかしな命令を実行しました。0xdd or 0xfd,0xcb,nn,0x'
+number_ddfdcb:
+	.dc.b	'00'
+	.dc.b	0x0d,0x0a,0x00
+
+	.even
+
+
+; d0 には Idx + d がセットされて呼ばれる
+RLC_lIdx_dl:
+	move.w	d0,-(sp)		* Idx + d を退避
+	read_mem_8	rd8f59,rd8s59,rd8e59
+	move.b	d0,target_8(a3)
+	RXX_	1, 1
+	move.b	d0,d1
+	move.w	(sp)+,d0
+	write_mem_8	wr8f36,wr8s36,wr8e36
+	jmp	(a6)
+
+RRC_lIdx_dl:
+	move.w	d0,-(sp)		* Idx + d を退避
+	read_mem_8	rd8f60,rd8s60,rd8e60
+	move.b	d0,target_8(a3)
+	RXX_	0, 1
+	move.b	d0,d1
+	move.w	(sp)+,d0
+	write_mem_8	wr8f37,wr8s37,wr8e37
+	jmp	(a6)
+
+RL_lIdx_dl:
+	move.w	d0,-(sp)		* Idx + d を退避
+	read_mem_8	rd8f61,rd8s61,rd8e61
+	move.b	d0,target_8(a3)
+	RXX_	1, 0
+	move.b	d0,d1
+	move.w	(sp)+,d0
+	write_mem_8	wr8f38,wr8s38,wr8e38
+	jmp	(a6)
+
+RR_lIdx_dl:
+	move.w	d0,-(sp)		* Idx + d を退避
+	read_mem_8	rd8f62,rd8s62,rd8e62
+	move.b	d0,target_8(a3)
+	RXX_	0, 0
+	move.b	d0,d1
+	move.w	(sp)+,d0
+	write_mem_8	wr8f39,wr8s39,wr8e39
+	jmp	(a6)
+
+SLA_lIdx_dl:
+	move.w	d0,-(sp)		* Idx + d を退避
+	read_mem_8	rd8f63,rd8s63,rd8e63
+	move.b	d0,target_8(a3)
+	SXX	1, 0
+	move.b	d0,d1
+	move.w	(sp)+,d0
+	write_mem_8	wr8f40,wr8s40,wr8e40
+	jmp	(a6)
+
+SRA_lIdx_dl:
+	move.w	d0,-(sp)		* Idx + d を退避
+	read_mem_8	rd8f64,rd8s64,rd8e64
+	move.b	d0,target_8(a3)
+	SXX	0, 2
+	move.b	d0,d1
+	move.w	(sp)+,d0
+	write_mem_8	wr8f41,wr8s41,wr8e41
+	jmp	(a6)
+
+SRL_lIdx_dl:
+	move.w	d0,-(sp)		* Idx + d を退避
+	read_mem_8	rd8f65,rd8s65,rd8e65
+	move.b	d0,target_8(a3)
+	SXX	0, 0
+	move.b	d0,d1
+	move.w	(sp)+,d0
+	write_mem_8	wr8f42,wr8s42,wr8e42
+	jmp	(a6)
+
+SLI_lIdx_dl:
+	move.w	d0,-(sp)		* Idx + d を退避
+	read_mem_8	rd8f66,rd8s66,rd8e66
+	move.b	d0,target_8(a3)
+	SXX	1, 1
+	move.b	d0,d1
+	move.w	(sp)+,d0
+	write_mem_8	wr8f43,wr8s43,wr8e43
+	jmp	(a6)
+
+*	------ ＢＩＴ n,(Idx+d) ------
+; ＢＩＴ命令の挙動は以下の通り
+; * S : BIT 7,?の時だけ、対象のbit7が1なら1。それ以外の時は0
+; * Z : 対象のbitが0なら1。それ以外の時は0
+; * F5: Idx+d の上位8bitの値(bit13)が入る
+; * H : 1
+; * F3: Idx+d の上位8bitの値(bit11)が入る
+; * PV: Zフラグと同じ
+; * N : 0
+; * C : 変化しない
+; ただし、対象が(HL)の場合だけ、F5,F3は内部のWZレジスタの上位8bitの値(bit13,11)が入るらしい
+
+; d0 には Idx + d がセットされて呼ばれる
+; d1 には DD CB dd XX の XX (OP CODE) を 4 倍した値が入っている
+BIT_lIdx_dl:
+	lea.l	-3(a5),a5		* BIT のサイクル数は 20
+	andi.w	#%00000000_11100000,d1	* BIT_n_? の n を d1にロード
+	lsr.w	#5,d1
+	moveq.l	#1,d2
+	lsl	d1,d2			* 対象位置のビットをセット
+	move.w	d0,-(sp)		* Idx + d を退避
+	move.w	d2,-(sp)
+	move.w	d0,-(sp)		* Idx + d を退避
+@@:
+	andi.b	#%00000001,d6		* Ｃ だけ残す
+	ori.b	#%00010000,d6		* H をセット
+	move.w	(sp)+,d0		* Idx + d を復帰
+	read_mem_8	rd8f67,rd8s67,rd8e67
+	move.w	(sp)+,d2
+	move.w	(sp)+,d1		* Idx + d を復帰
+	lsr.w	#8,d1			* (Idx)の時、F5,F3には読み出したアドレス(=Idx+d)の上位8bitを使う
+	andi.b	#%00101000,d1		* F5,F3を取得
+	or.b	d1,d6			* F5,F3をFレジスタに反映
+	and.b	d2,d0			* レジスタの nビット目をテストするためにマスク
+	bne	1f
+	ori.b	#%01000100,d6		* Z,P/V をセット
+1:	andi.b	#%10000000,d0		* bit7のみ残す
+	or.b	d0,d6			* bit7を Sフラグに反映
+	jmp	(a6)
+
+
+*	------ ＳＥＴ n,(Idx+d) ------
+; d0 には Idx + d がセットされて呼ばれる
+; d1 には DD CB dd XX の XX (OP CODE) を 4 倍した値が入っている
+SET_lIdx_dl_dispatch:
+	bsr	SET_lIdx_dl			* SET n,(Idx+d) が部品として使うため SET_lIdx_dl は rts のまま
+	jmp	(a6)
+
+SET_lIdx_dl:
+	andi.w	#%00000000_11100000,d1	* BIT_n_? の n を d1にロード
+	lsr.w	#5,d1
+	move.w	d0,-(sp)			* Idx + d を退避
+	move.w	d1,-(sp)
+	read_mem_8	rd8f68,rd8s68,rd8e68
+	move.w	(sp)+,d1
+	bset.l	d1,d0				* (Idx + d)の nビット目をセット
+	move.b	d0,d1
+	move.w	(sp)+,d0
+	move.b	d1,-(sp)			* 結果を残しておく
+	write_mem_8	wr8f44,wr8s44,wr8e44
+	move.b	(sp)+,d0			* 結果を d0に入れて戻る(SET n,(Idx+d),Xのため)
+	rts
+
+*	------ ＳＥＴ n,(Idx+d),X ------
+;---------------------------------------------------------------------------------------
+; 未定義命令。SET n,(Idx+d)の実行後、結果をXレジスタにストアする命令。
+; XはOP Codeの下位3ビットで指定され、以下のように対応している。
+; 0: Bレジスタ
+; 1: Cレジスタ
+; 2: Dレジスタ
+; 3: Eレジスタ
+; 4: Hレジスタ
+; 5: Lレジスタ
+; 6: RES n,(Idx+d)
+; 7: Aレジスタ
+SET_lIdx_dl_X	macro	target
+	bsr	SET_lIdx_dl			* SET n,(Idx+d) を実行
+	; 実行結果が d0 に入っているので、それをXレジスタにストア
+	move.b	d0,target
+	endm
+;---------------------------------------------------------------------------------------
+SET_lIdx_dl_B:
+	SET_lIdx_dl_X	b(a3)
+	jmp	(a6)
+
+SET_lIdx_dl_C:
+	SET_lIdx_dl_X	c(a3)
+	jmp	(a6)
+
+SET_lIdx_dl_D:
+	SET_lIdx_dl_X	d(a3)
+	jmp	(a6)
+
+SET_lIdx_dl_E:
+	SET_lIdx_dl_X	e(a3)
+	jmp	(a6)
+
+SET_lIdx_dl_H:
+	SET_lIdx_dl_X	h(a3)
+	jmp	(a6)
+
+SET_lIdx_dl_L:
+	SET_lIdx_dl_X	l(a3)
+	jmp	(a6)
+
+SET_lIdx_dl_A:
+	SET_lIdx_dl_X	d4
+	jmp	(a6)
+
+
+
+*	------ ＲＥＳ n,(Idx+d) ------
+RES_lIdx_dl_dispatch:
+	bsr	RES_lIdx_dl			* RES n,(Idx+d) が部品として使うため RES_lIdx_dl は rts のまま
+	jmp	(a6)
+
+RES_lIdx_dl:
+	andi.w	#%00000000_11100000,d1	* BIT_n_? の n を d1にロード
+	lsr.w	#5,d1
+	move.w	d0,-(sp)			* Idx + d をプッシュ
+	move.w	d1,-(sp)
+	read_mem_8	rd8f69,rd8s69,rd8e69
+	move.w	(sp)+,d1
+	bclr.l	d1,d0				* (Idx + d)の nビット目をクリア
+	move.b	d0,d1
+	move.w	(sp)+,d0
+	move.b	d1,-(sp)			* 結果を残しておく
+	write_mem_8	wr8f45,wr8s45,wr8e45
+	move.b	(sp)+,d0			* 結果を d0に入れて戻る(RES n,(Idx+d),Xのため)
+	rts
+
+*	------ ＲＥＳ n,(Idx+d),X ------
+;---------------------------------------------------------------------------------------
+; 未定義命令。RES n,(Idx+d)の実行後、結果をXレジスタにストアする命令。
+; XはOP Codeの下位3ビットで指定され、以下のように対応している。
+; 0: Bレジスタ
+; 1: Cレジスタ
+; 2: Dレジスタ
+; 3: Eレジスタ
+; 4: Hレジスタ
+; 5: Lレジスタ
+; 6: RES n,(Idx+d)
+; 7: Aレジスタ
+RES_lIdx_dl_X	macro	target
+	bsr	RES_lIdx_dl			* RES n,(Idx+d) を実行
+	; 実行結果が d0 に入っているので、それをXレジスタにストア
+	move.b	d0,target
+	endm
+;---------------------------------------------------------------------------------------
+	
+RES_lIdx_dl_B:
+	RES_lIdx_dl_X	b(a3)
+	jmp	(a6)
+
+RES_lIdx_dl_C:
+	RES_lIdx_dl_X	c(a3)
+	jmp	(a6)
+
+RES_lIdx_dl_D:
+	RES_lIdx_dl_X	d(a3)
+	jmp	(a6)
+
+RES_lIdx_dl_E:
+	RES_lIdx_dl_X	e(a3)
+	jmp	(a6)
+
+RES_lIdx_dl_H:
+	RES_lIdx_dl_X	h(a3)
+	jmp	(a6)
+
+RES_lIdx_dl_L:
+	RES_lIdx_dl_X	l(a3)
+	jmp	(a6)
+
+RES_lIdx_dl_A:
+	RES_lIdx_dl_X	d4
+	jmp	(a6)
+
+
+
+*****************************************************
+*
+*		Ｉ/Ｏ関係のルーチン
+*
+*****************************************************
+
+*	------ ＩＮ ------
+IN_A_n_h:
+	lea.l	11(a5),a5
+	cmpi.w	#-4,d7	* オペランドがページ境界をまたぐか？
+	.ifdef	EDGEALWAYS
+	lea.l	IN_A_n(pc),a0		* 検証用: 常にエッジ処理を通す
+	jmp	cpu_edge_2
+	.else
+	ble.s	IN_A_n_o
+	lea.l	IN_A_n(pc),a0		* コールドパス。本体の先頭を渡す
+	jmp	cpu_edge_2
+IN_A_n_o:	addq.w	#1,d7			* 残りの PC 前進。a4 は (a4)+ で進む
+	.endif
+IN_A_n:	* オペランド列からnを取り出す
+	move.b	(a4)+,d0
+	bsr	input
+	move.b	d0,d4
+	jmp	(a6)
+
+;---------------------------------------------------------------------------------------
+; IN r,(C) の挙動
+; * S : 読み込んだ値のbit7
+; * Z : 読み込んだ値が0なら1。それ以外の時は0
+; * F5: 変化しない
+; * H : 0
+; * F3: 変化しない
+; * PV: 読み込んだ値のパリティ
+; * N : 0
+; * C : 変化しない
+IN_X_C	macro
+* S,Z,F5,F3,P/V は読んだ値だけから決まり、H=0、N=0、C は変化しない。
+* 表を 1 回引けば揃う。
+	move.b	c(a3),d0
+	bsr	input
+	moveq.l	#0,d3
+	move.b	d0,d3			* 読んだ値
+	move.b	szp53p(a3,d3.w),d3		* S,Z,F5,F3,P/V を一度に引く
+	andi.b	#%00000001,d6		* Ｃ だけ残す
+	or.b	d3,d6
+	endm
+;---------------------------------------------------------------------------------------
+
+IN_A_c_h:
+	lea.l	12(a5),a5
+IN_A_c:	IN_X_C
+	move.b	d0,d4
+	jmp	(a6)
+
+IN_B_c_h:
+	lea.l	12(a5),a5
+IN_B_c:	IN_X_C
+	move.b	d0,b(a3)
+	jmp	(a6)
+
+IN_C_c_h:
+	lea.l	12(a5),a5
+IN_C_c:	IN_X_C
+	move.b	d0,c(a3)
+	jmp	(a6)
+
+IN_D_c_h:
+	lea.l	12(a5),a5
+IN_D_c:	IN_X_C
+	move.b	d0,d(a3)
+	jmp	(a6)
+
+IN_E_c_h:
+	lea.l	12(a5),a5
+IN_E_c:	IN_X_C
+	move.b	d0,e(a3)
+	jmp	(a6)
+
+IN_H_c_h:
+	lea.l	12(a5),a5
+IN_H_c:	IN_X_C
+	move.b	d0,h(a3)
+	jmp	(a6)
+
+IN_L_c_h:
+	lea.l	12(a5),a5
+IN_L_c:	IN_X_C
+	move.b	d0,l(a3)
+	jmp	(a6)
+
+IN_F_c_h:
+	lea.l	12(a5),a5
+IN_F_c:	IN_X_C
+	; IN F,(C) は、読み込んだ値に対してフラグが変化するだけでどこにも結果は保存されない
+	jmp	(a6)
+
+*	------ ＩＮＩ ------
+; INI の挙動
+; * S : 不変(?)
+; * Z : Bレジスタをデクリメントした結果が0なら1。それ以外の時は0
+; * F5: 変化しない
+; * H : 変化しない
+; * F3: 変化しない
+; * PV: 変化しない
+; * N : 1
+; * C : 変化しない
+INI_dispatch_h:
+	lea.l	16(a5),a5
+INI_dispatch:
+	bsr	INI			* INIR が部品として使うため INI は rts のまま
+	jmp	(a6)
+
+	.dc.w	16			* サイクル数
+	.dc.w	2-1			* 命令語長-1
+INI:* この命令が変えるのは Z と N だけ。
+	andi.b	#%10111111,d6		* Ｚ を落とす
+	ori.b	#%00000010,d6		* N=1 にセット
+	move.b	c(a3),d0
+	bsr	input
+	move.b	d0,d1
+	move.w	hl(a3),d0
+	write_mem_8	wr8f46,wr8s46,wr8e46
+	addq.w	#1,hl(a3)
+	subq.b	#1,b(a3)
+	bne	@f
+	ori.w	#%01000000,d6		* Z をセット
+@@:	rts
+
+*	------ ＩＮＤ ------
+IND_dispatch_h:
+	lea.l	16(a5),a5
+IND_dispatch:
+	bsr	IND			* INDR が部品として使うため IND は rts のまま
+	jmp	(a6)
+
+	.dc.w	16			* サイクル数
+	.dc.w	2-1			* 命令語長-1
+IND:* この命令が変えるのは Z と N だけ。
+	andi.b	#%10111111,d6		* Ｚ を落とす
+	ori.b	#%00000010,d6		* N=1 にセット
+	move.b	c(a3),d0
+	bsr	input
+	move.b	d0,d1
+	move.w	hl(a3),d0
+	write_mem_8	wr8f47,wr8s47,wr8e47
+	subq.w	#1,hl(a3)
+	subq.b	#1,b(a3)
+	bne	@f
+	ori.w	#%01000000,d6		* Z をセット
+@@:	rts
+
+*	------ ＩＮＩＲ ------
+INIR_h:
+	lea.l	21(a5),a5
+INIR:	bsr	INI
+	cmpi.b	#0,b(a3)
+	bne	@f
+	; 最終読み込みの場合はサイクル数が16なので5サイクル引く
+	subq.l	#5,a5
+	jmp	(a6)
+@@:	subq.w	#2,d7
+	subq.w	#2,a4
+	btst.l	#PAGEADDRBIT,d7		* 位置が負のままなら境界を越えていない
+	bne	@f			* PC -2 でページ境界をまたいだか？
+	PC_page_dec			* またいだ時
+@@:	jmp	(a6)
+
+*	------ ＩＮＤＲ ------
+INDR_h:
+	lea.l	21(a5),a5
+INDR:	bsr	IND
+	cmpi.b	#0,b(a3)
+	bne	@f
+	; 最終読み込みの場合はサイクル数が16なので5サイクル引く
+	subq.l	#5,a5
+	jmp	(a6)
+@@:	subq.w	#2,d7
+	subq.w	#2,a4
+	btst.l	#PAGEADDRBIT,d7		* 位置が負のままなら境界を越えていない
+	bne	@f			* PC -2 でページ境界をまたいだか？
+	PC_page_dec			* またいだ時
+@@:	jmp	(a6)
+
+	
+*	------ ＯＵＴ ------
+OUT_n_A_h:
+	lea.l	11(a5),a5
+	cmpi.w	#-4,d7	* オペランドがページ境界をまたぐか？
+	.ifdef	EDGEALWAYS
+	lea.l	OUT_n_A(pc),a0		* 検証用: 常にエッジ処理を通す
+	jmp	cpu_edge_2
+	.else
+	ble.s	OUT_n_A_o
+	lea.l	OUT_n_A(pc),a0		* コールドパス。本体の先頭を渡す
+	jmp	cpu_edge_2
+OUT_n_A_o:	addq.w	#1,d7			* 残りの PC 前進。a4 は (a4)+ で進む
+	.endif
+OUT_n_A:
+	* オペランド列からnを取り出す
+	move.b	(a4)+,d0
+	move.b	d4,d1
+	bsr	output
+	jmp	(a6)
+
+;---------------------------------------------------------------------------------------
+; OUT (C),r の挙動
+; フラグ変化はしない
+OUT_C_X	macro
+	move.b	c(a3),d0
+	bsr	output
+	endm
+;---------------------------------------------------------------------------------------
+
+OUT_c_A_h:
+	lea.l	12(a5),a5
+OUT_c_A:
+	move.b	d4,d1
+	OUT_C_X
+	jmp	(a6)
+
+OUT_c_B_h:
+	lea.l	12(a5),a5
+OUT_c_B:
+	move.b	b(a3),d1
+	OUT_C_X
+	jmp	(a6)
+
+OUT_c_C_h:
+	lea.l	12(a5),a5
+OUT_c_C:
+	move.b	c(a3),d1
+	OUT_C_X
+	jmp	(a6)
+
+OUT_c_D_h:
+	lea.l	12(a5),a5
+OUT_c_D:
+	move.b	d(a3),d1
+	OUT_C_X
+	jmp	(a6)
+
+OUT_c_E_h:
+	lea.l	12(a5),a5
+OUT_c_E:
+	move.b	e(a3),d1
+	OUT_C_X
+	jmp	(a6)
+
+OUT_c_H_h:
+	lea.l	12(a5),a5
+OUT_c_H:
+	move.b	h(a3),d1
+	OUT_C_X
+	jmp	(a6)
+
+OUT_c_L_h:
+	lea.l	12(a5),a5
+OUT_c_L:
+	move.b	l(a3),d1
+	OUT_C_X
+	jmp	(a6)
+
+*	------ ＯＵＴＩ ------
+; OUTI の挙動
+; * S : 不変(?)
+; * Z : Bレジスタをデクリメントした結果が0なら1。それ以外の時は0
+; * F5: 変化しない
+; * H : 変化しない
+; * F3: 変化しない
+; * PV: 変化しない
+; * N : 1
+; * C : 変化しない
+OUTI_dispatch_h:
+	lea.l	16(a5),a5
+OUTI_dispatch:
+	bsr	OUTI			* OTIR が部品として使うため OUTI は rts のまま
+	jmp	(a6)
+
+	.dc.w	16			* サイクル数
+	.dc.w	2-1			* 命令語長-1
+OUTI:* この命令が変えるのは Z と N だけ。
+	andi.b	#%10111111,d6		* Ｚ を落とす
+	ori.b	#%00000010,d6		* N=1 にセット
+	move.w	hl(a3),d0
+	read_mem_8	rd8f70,rd8s70,rd8e70
+	move.b	d0,d1		* 書き込む値
+	OUT_C_X
+	addq.w	#1,hl(a3)
+	subq.b	#1,b(a3)
+	bne	@f
+	ori.w	#%01000000,d6		* Z をセット
+@@:	rts
+
+*	------ ＯＵＴＤ ------
+OUTD_dispatch_h:
+	lea.l	16(a5),a5
+OUTD_dispatch:
+	bsr	OUTD			* OTDR が部品として使うため OUTD は rts のまま
+	jmp	(a6)
+
+	.dc.w	16			* サイクル数
+	.dc.w	2-1			* 命令語長-1
+OUTD:* この命令が変えるのは Z と N だけ。
+	andi.b	#%10111111,d6		* Ｚ を落とす
+	ori.b	#%00000010,d6		* N=1 にセット
+	move.w	hl(a3),d0
+	read_mem_8	rd8f71,rd8s71,rd8e71
+	move.b	d0,d1		* 書き込む値
+	OUT_C_X
+	subq.w	#1,hl(a3)
+	subq.b	#1,b(a3)
+	bne	@f
+	ori.w	#%01000000,d6		* Z をセット
+@@:	rts
+
+*	------ ＯＴＩＲ ------
+OTIR_h:
+	lea.l	21(a5),a5
+OTIR:	bsr	OUTI
+	cmpi.b	#0,b(a3)
+	bne	@f
+	; 最終書き込みの場合はサイクル数が16なので5サイクル引く
+	subq.l	#5,a5
+	jmp	(a6)
+@@:	subq.w	#2,d7
+	subq.w	#2,a4
+	btst.l	#PAGEADDRBIT,d7		* 位置が負のままなら境界を越えていない
+	bne	@f			* PC -2 でページ境界をまたいだか？
+	PC_page_dec			* またいだ時
+@@:	jmp	(a6)
+
+*	------ ＯＴＤＲ ------
+OTDR_h:
+	lea.l	21(a5),a5
+OTDR:	bsr	OUTD
+	cmpi.b	#0,b(a3)
+	bne	@f
+	; 最終書き込みの場合はサイクル数が16なので5サイクル引く
+	subq.l	#5,a5
+	jmp	(a6)
+@@:	subq.w	#2,d7
+	subq.w	#2,a4
+	btst.l	#PAGEADDRBIT,d7		* 位置が負のままなら境界を越えていない
+	bne	@f			* PC -2 でページ境界をまたいだか？
+	PC_page_dec			* またいだ時
+@@:	jmp	(a6)
+
+
+*****************************************************************
+*
+*	ポートからの読み込み
+*
+*  (引数)
+*	.d0.b	ポート番号
+*  (帰り値)
+*	.d0.b	読み込んだ値
+*
+*	d1,d2,d3 破壊可能性あり
+*
+*****************************************************************	
+*
+*	I/O ハンドラの呼び出し規約
+*
+*	引数はレジスタで渡す。d0.b がポート番号、d1.b が書き込む値である。
+*	スタックには積まない。C で書かれたハンドラは ms_iomap.has の
+*	io_default_in / io_default_out が引数を積み替える。
+*
+*	ms_io_input_table / ms_io_output_table の先が壊してよいのは
+*	d0-d3 / a0-a2 と a5 である。d4-d7 / a3 / a4 は壊してはならない。
+*
+*	a5 だけは入口で退避する。ms_vdp.has の write_vdp_* が
+*	ms_vdp_t へのポインタとして使うため。
+*
+*	C で書かれたハンドラは m68k の ABI により d2-d7 / a2-a5 を保存する。
+*	アセンブラで書かれたハンドラを足すときは、この契約を守ること。
+*
+input:
+	move.l	a5,-(sp)		* I/O ハンドラが壊すのは a5 だけ（下記の契約）
+	andi.l	#$ff,d0				* 上位バイトを０でクリア
+	lea.l	ms_io_input_table,a0
+	move.w	d0,d2			* d2 は呼び出し規約上スクラッチ
+	add.w	d2,d2
+	add.w	d2,d2
+	movea.l	(a0,d2.w),a0			* d0 は破壊しない。この後 C関数の引数として渡す
+.ifdef	DEBUG
+	bsr	print_debug_in
+.endif
+	jsr	(a0)				* 引数はレジスタ渡し（d0＝ポート番号）
+	movea.l	(sp)+,a5
+	rts
+
+*****************************************************************
+*
+*	ポートへの書き込み
+*
+*  (引数)
+*	.d0.b	ポート番号
+*	.d1.b	書き込む値
+*
+*	d1 破壊
+*
+*****************************************************************	
+output:
+	move.l	a5,-(sp)		* I/O ハンドラが壊すのは a5 だけ（下記の契約）
+
+	andi.l	#$ff,d0				* 上位バイトを０でクリア
+	andi.l	#$ff,d1				* 上位バイトを０でクリア
+	lea	ms_io_output_table,a0
+	move.w	d0,d2			* d2 は呼び出し規約上スクラッチ
+	add.w	d2,d2
+	add.w	d2,d2
+	movea.l	(a0,d2.w),a0			* d0 は破壊しない。この後 C関数の引数として渡す
+.ifdef	DEBUG
+	bsr	print_debug_out
+.endif
+	jsr	(a0)				* 引数はレジスタ渡し（d0＝ポート番号、d1＝値）
+	movea.l	(sp)+,a5
+	tst.w	ms_cpu_needs_refresh_PC		* ページ切り替えが起きた時だけ張り直す
+	bne	1f
+	rts
+1:	jmp	refresh_PC_if_needed
+
+print_debug_in:
+	cmp.w	#MS_LOG_TRACE,debug_log_level
+	;bge	@f
+	rts
+@@:	movem.l	d0-d3/a0-a3,-(sp)
+	move.b	d0,d2
+	lsr.w	#4,d0
+	lea.l	HEX,a0
+	move.b	(a0,d0.w),debug_in_number+0	* ポート番号の上位4bit
+	andi.w	#$0f,d2
+	move.b	(a0,d2.w),debug_in_number+1	* ポート番号の下位4bit
+
+	pea.l	debug_in_msg
+	DOS	__PRINT
+	lea.l	4(sp),sp
+	movem.l	(sp)+,d0-d3/a0-a3
+	rts
+
+print_debug_out:
+	cmp.w	#MS_LOG_TRACE,debug_log_level		* TRACE以上の時
+	;bge	@f
+	rts
+@@:	movem.l	d0-d3/a0-a3,-(sp)
+	move.b	d0,d2
+	lsr.w	#4,d0
+	lea.l	HEX,a0
+	move.b	(a0,d0.w),debug_out_number+0	* ポート番号の上位4bit
+	andi.w	#$0f,d2
+	move.b	(a0,d2.w),debug_out_number+1	* ポート番号の下位4bit
+	move.w	d1,d2
+	lsr.w	#4,d1
+	lea.l	HEX,a0
+	move.b	(a0,d1.w),debug_out_value+0	* 書き込む値の上位4bit
+	andi.w	#$0f,d2
+	move.b	(a0,d2.w),debug_out_value+1	* 書き込む値の下位4bit
+
+	pea.l	debug_out_msg
+	DOS	__PRINT
+	lea.l	4(sp),sp
+	movem.l	(sp)+,d0-d3/a0-a3
+	rts
+
+	.data
+
+
+debug_in_msg:
+	.dc.b	'I/O read P:0x'
+debug_in_number:
+	.dc.b	'00'
+	.dc.b	0x0d,0x0a,0x00
+
+debug_out_msg:
+	.dc.b	'I/O write P:0x'
+debug_out_number:
+	.dc.b	'00'
+	.dc.b	' V:0x'
+debug_out_value:
+	.dc.b	'00'
+	.dc.b	0x0d,0x0a,0x00
+
+
+
+*************** ワークエリア ******************
+
+	.data
+	.even
+
+PC_page:
+	.dc.w	0	* 現在ＰＣが存在するページ
+
+emu_loop_func:
+	.dc.l	0	* エミュレータのループ関数のアドレス
+
+	.even				* ロングワードなので偶数境界に置く
+step_ctx:			* ms_cpu_step が cpu context を控える場所
+	.dc.l	0
+
+ms_cpu_registers_ptr:
+	.dc.l	registers
+
+* ページポインタ配列。a3 の負オフセット（±127）で引けるよう base の直前に置く
+	.quad
+ms_cpu_mem_ptr_array:
+	.dc.l	0
+	.dc.l	0
+	.dc.l	0
+	.dc.l	0
+	.dc.l	0
+	.dc.l	0
+	.dc.l	0
+	.dc.l	0
+
+; データ読み出し／書き込みの高速パス用ポインタ配列（8Kバイト単位）
+; NULL は「そのページは C のドライバを経由する」ことを意味する。
+; 初期値 0（全ページ C 経由）が安全側であり、C 側が更新するまで直接アクセスは行われない。
+ms_cpu_mem_rptr_array:
+	.dc.l	0
+	.dc.l	0
+	.dc.l	0
+	.dc.l	0
+	.dc.l	0
+	.dc.l	0
+	.dc.l	0
+	.dc.l	0
+ms_cpu_mem_wptr_array:
+	.dc.l	0
+	.dc.l	0
+	.dc.l	0
+	.dc.l	0
+	.dc.l	0
+	.dc.l	0
+	.dc.l	0
+	.dc.l	0
+
+* CPU のメインループが毎命令触る 2 つ。a3 の負オフセットで引く。
+* .quad により cpu_sub_emu_yield は 4 の倍数に置かれ、base も 4 の倍数になる。
+	.quad
+cpu_sub_emu_yield:		* cpu_yield, sub_yield, emu_yield を同時にロングワードアクセスするときはこちらのラベルを使用する
+cpu_yield:
+	.dc.b	0
+sub_yield:
+	.dc.b	0
+emu_yield:
+	.dc.w	0
+emu_counter:
+	.dc.b	0,0,0
+* a3 は emu_counter の最下位バイトを指す。毎命令の加算を addq.b #1,(a3) の
+* 一語で済ませるため。レジスタはすべて base からの差で定義してあるので、
+* base の位置が変わっても参照先は変わらない
+base:			* a3 の指すアドレス
+	.dc.b	0		* emu_counter の最下位バイト
+registers:
+	.dc.b	0	* a
+	.dc.b	0	* f
+	.dc.b	0	* b
+	.dc.b	0	* c
+	.dc.b	0	* d
+	.dc.b	0	* e
+	.dc.b	0	* h
+	.dc.b	0	* l
+
+	.dc.b	0	* ix_h
+	.dc.b	0	* ix_l
+	.dc.b	0	* iy_h
+	.dc.b	0	* iy_l
+
+	.dc.b	0	* s
+	.dc.b	0	* p
+
+pair_registers:		* 裏レジスタの保存場所
+	.dc.b	0	* a'
+	.dc.b	0	* f'
+	.dc.b	0	* b'
+	.dc.b	0	* c'
+	.dc.b	0	* d'
+	.dc.b	0	* e'
+	.dc.b	0	* h'
+	.dc.b	0	* l'
+
+
+r_:	.dc.b	0	* Ｒレジスタ
+i_:	.dc.b	0	* Ｉレジスタ
+
+wz_:
+w_:	.dc.b	0	* Ｗレジスタ
+z_:	.dc.b	0	* Ｚレジスタ
+
+target_16_:		* 各命令の演算で使用する値を保持する領域
+	.dc.b	0
+target_8_:
+	.dc.b	0
+
+* 演算結果 1 バイトから S,Z,F5,F3,P/V(パリティ) を一度に引く表。
+* 値は F レジスタのビット位置そのままで、bit4(H) / bit1(N) / bit0(C) は常に 0。
+* a3 の正オフセット（±127）で引けるよう base の近くに置く
+szp53p_tbl:
+	.dc.b	$44,$00,$00,$04,$00,$04,$04,$00,$08,$0C,$0C,$08,$0C,$08,$08,$0C
+	.dc.b	$00,$04,$04,$00,$04,$00,$00,$04,$0C,$08,$08,$0C,$08,$0C,$0C,$08
+	.dc.b	$20,$24,$24,$20,$24,$20,$20,$24,$2C,$28,$28,$2C,$28,$2C,$2C,$28
+	.dc.b	$24,$20,$20,$24,$20,$24,$24,$20,$28,$2C,$2C,$28,$2C,$28,$28,$2C
+	.dc.b	$00,$04,$04,$00,$04,$00,$00,$04,$0C,$08,$08,$0C,$08,$0C,$0C,$08
+	.dc.b	$04,$00,$00,$04,$00,$04,$04,$00,$08,$0C,$0C,$08,$0C,$08,$08,$0C
+	.dc.b	$24,$20,$20,$24,$20,$24,$24,$20,$28,$2C,$2C,$28,$2C,$28,$28,$2C
+	.dc.b	$20,$24,$24,$20,$24,$20,$20,$24,$2C,$28,$28,$2C,$28,$2C,$2C,$28
+	.dc.b	$80,$84,$84,$80,$84,$80,$80,$84,$8C,$88,$88,$8C,$88,$8C,$8C,$88
+	.dc.b	$84,$80,$80,$84,$80,$84,$84,$80,$88,$8C,$8C,$88,$8C,$88,$88,$8C
+	.dc.b	$A4,$A0,$A0,$A4,$A0,$A4,$A4,$A0,$A8,$AC,$AC,$A8,$AC,$A8,$A8,$AC
+	.dc.b	$A0,$A4,$A4,$A0,$A4,$A0,$A0,$A4,$AC,$A8,$A8,$AC,$A8,$AC,$AC,$A8
+	.dc.b	$84,$80,$80,$84,$80,$84,$84,$80,$88,$8C,$8C,$88,$8C,$88,$88,$8C
+	.dc.b	$80,$84,$84,$80,$84,$80,$80,$84,$8C,$88,$88,$8C,$88,$8C,$8C,$88
+	.dc.b	$A0,$A4,$A4,$A0,$A4,$A0,$A0,$A4,$AC,$A8,$A8,$AC,$A8,$AC,$AC,$A8
+	.dc.b	$A4,$A0,$A0,$A4,$A0,$A4,$A4,$A0,$A8,$AC,$AC,$A8,$AC,$A8,$A8,$AC
+
+; CPUのメインループを極力高速化するため、Z80の割り込みや、エミュレータの割り込み(キーボード処理など)を
+; yieldフラグを見て分岐するようにしています。
+; yieldフラグには cpu_yield、sub_yield、emu_yieldがあり、すべてが0の場合は、CPUのメインループが
+; 割り込まれずに実行されます。
+; このフラグは、以下のような動作をします。
+;
+; ● cpu_yield, sub_yield
+; cpu_yield、sub_yieldに1以上をセットすると、1命令処理するごとにカウントダウンし、0になるタイミングで、
+; 以下の動作をします:
+;   * EI状態で、VDPからの割り込み要求があるなら、割り込みを発生させる
+;   * DI状態なら無視する(割り込みは取りこぼされる)
+;
+; 通常はX68000側のVSYNC割り込みでcpu_yieldに1をセットし、即座にZ80側の割り込みがかかるようにします。
+; タイミング調整が必要になった場合は、このフラグを使って調整可能です。
+; 走査線割り込みをサポートする場合は、sub_yieldをセットしますこのフラグに1以上の値をセットして
+; 走査線割り込みのタイミングを 調整することが可能です。
+;
+; ● emu_yield
+; emu_yieldに1以上をセットすると、1命令処理するごとにカウントダウンし、0になるタイミングで、
+; 以下の動作をします:
+;    * X68000側のキーボード入力の処理を行う
+;
+; 通常はX68000側のVSYNC割り込みで cpu_yieldより100くらい大きめの値をセットします。これにより、
+; cpu_yieldの方が先に処理され、Z80の割り込み処理ルーチンが優先的に動くようになります。
+; emu_yieldの頻度を調整したい場合は、VSYNC割り込み以外のタイマー割り込みを使ってセットするように
+; しても良いです。
+debug_log_level:
+	.dc.w	0		* ms.c の main() の最初で上書きしている
+
+;	割り込み許可状態を示すフラグ
+;	0 ・・・ DI
+;	1 ・・・ EI
+interrupt_enable:
+	.dc.b	0
+
+;	最後に実行した命令のオペコード (最初の1バイトのみ)
+;	正確には命令フェッチした直後にセットされるので、メインループの中やエミュレータの
+;	割り込み処理の中では「最後に実行した命令」ですが、各命令の処理中は
+;	「今実行中の命令」となります。
+	.even				* ロングワードなので偶数境界に置く
+ei_at:				* EI を実行した時点の emu_counter
+	.dc.l	0
+
+last_opcode:
+	.dc.b	0
+
+interrupt_mode:
+	.dc.b	0		* インタラプトモード 0, 1, 2
+
+	.even
+
+cpu_in_interrupt:		* CPUが割り込み処理中の時 0以外の値が入っている（実際は割り込み処理の戻り先アドレス）
+interrupt_return:
+	.dc.w	0		* 割り込み処理の戻り先アドレス。割り込みが終わったら0クリアされます。
+vdp_draw_pending:
+	.dc.w	0
+
+cpu_in_interrupt_d:		* 直前の cpu_in_interrupt。上のワードと合わせて 1 ロングワードで読む
+	.dc.w	0
+
+	.end
